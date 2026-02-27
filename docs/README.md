@@ -11,3 +11,4 @@ Conventions (v1):
 - Epic brief: [`designing-specflow/epic-brief.md`](designing-specflow/epic-brief.md)
 - Core flows: [`designing-specflow/core-flows.md`](designing-specflow/core-flows.md)
 - Tech plan: [`designing-specflow/tech-plan.md`](designing-specflow/tech-plan.md)
+- Ticket T1 - Repo Scaffold + CLI Init: [`designing-specflow/t1-repo-scaffold-cli-init.md`](designing-specflow/t1-repo-scaffold-cli-init.md)
