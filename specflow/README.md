@@ -9,4 +9,5 @@ Conventions (v1):
 ## Epics
 
 - [`epics/001-designing-specflow.md`](epics/001-designing-specflow.md)
-
+- [`epics/002-core-flows.md`](epics/002-core-flows.md)
+- [`epics/003-tech-plan.md`](epics/003-tech-plan.md)
