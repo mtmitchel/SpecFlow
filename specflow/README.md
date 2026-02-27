@@ -3,11 +3,13 @@
 This directory holds SpecFlow's design artifacts in a local-first, git-friendly format.
 
 Conventions (v1):
-- Markdown for narratives/specs/epics.
+- Markdown for narratives, briefs, flows, and technical plans.
 - YAML/JSON for structured artifacts as needed.
 
-## Epics
+## Docs
 
-- [`epics/001-designing-specflow.md`](epics/001-designing-specflow.md)
-- [`epics/002-core-flows.md`](epics/002-core-flows.md)
-- [`epics/003-tech-plan.md`](epics/003-tech-plan.md)
+### Designing SpecFlow
+
+- Epic brief: [`docs/designing-specflow/epic-brief.md`](docs/designing-specflow/epic-brief.md)
+- Core flows: [`docs/designing-specflow/core-flows.md`](docs/designing-specflow/core-flows.md)
+- Tech plan: [`docs/designing-specflow/tech-plan.md`](docs/designing-specflow/tech-plan.md)
