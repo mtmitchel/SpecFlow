@@ -8,4 +8,4 @@ TODO: Document prerequisites and local setup steps.
 
 ## Project docs
 
-- See [`specflow/`](specflow/) for specs, tickets, plans, and other design artifacts.
+- See [`docs/`](docs/) for specs, plans, and related design artifacts.
