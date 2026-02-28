@@ -147,12 +147,11 @@ export const InitiativeDetailPage = ({
 
               return (
                 <div key={phase.id} className="phase-block">
-                  <input
-                    className="phase-name-input"
-                    value={phase.name}
-                    onChange={(event) => {
+                  <PhaseNameEditor
+                    name={phase.name}
+                    onCommit={(nextName) => {
                       const nextPhases = initiative.phases.map((item) =>
-                        item.id === phase.id ? { ...item, name: event.target.value } : item
+                        item.id === phase.id ? { ...item, name: nextName } : item
                       );
                       void updateInitiativePhases(initiative.id, nextPhases).then(onRefresh);
                     }}
@@ -175,5 +174,32 @@ export const InitiativeDetailPage = ({
         </div>
       )}
     </section>
+  );
+};
+
+const PhaseNameEditor = ({
+  name,
+  onCommit
+}: {
+  name: string;
+  onCommit: (nextName: string) => void;
+}): JSX.Element => {
+  const [localName, setLocalName] = useState(name);
+
+  useEffect(() => {
+    setLocalName(name);
+  }, [name]);
+
+  return (
+    <input
+      className="phase-name-input"
+      value={localName}
+      onChange={(event) => setLocalName(event.target.value)}
+      onBlur={() => {
+        if (localName !== name) {
+          onCommit(localName);
+        }
+      }}
+    />
   );
 };

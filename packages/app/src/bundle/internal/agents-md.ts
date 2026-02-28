@@ -1,15 +1,3 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { loadAgentsMd } from "../../io/agents-md.js";
 
-export const readAgentsMd = async (rootDir: string, repoInstructionFile?: string): Promise<string> => {
-  const configuredPath = repoInstructionFile || "specflow/AGENTS.md";
-  const absolutePath = path.isAbsolute(configuredPath)
-    ? configuredPath
-    : path.join(rootDir, configuredPath);
-
-  try {
-    return await readFile(absolutePath, "utf8");
-  } catch {
-    return "";
-  }
-};
+export const readAgentsMd = loadAgentsMd;

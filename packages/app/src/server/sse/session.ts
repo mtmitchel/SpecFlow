@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { sanitizeSseEventName } from "../validation.js";
 
 export interface SseSession {
   send: (event: string, payload: unknown) => void;
@@ -16,7 +17,8 @@ export const startSseSession = (request: FastifyRequest, reply: FastifyReply, ev
       return;
     }
 
-    reply.raw.write(`event: ${event}\n`);
+    const safeEvent = sanitizeSseEventName(event);
+    reply.raw.write(`event: ${safeEvent}\n`);
     reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
   };
 

@@ -161,6 +161,9 @@ export const registerInitiativeRoutes = (
   });
 
   app.get("/api/planner/stream", (request, reply) => {
-    startSseSession(request, reply, "planner-ready");
+    const session = startSseSession(request, reply, "planner-ready");
+    request.raw.on("close", () => {
+      session.close();
+    });
   });
 };

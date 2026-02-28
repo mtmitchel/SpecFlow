@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { resolveProviderApiKey } from "../../config/env.js";
 import type { ArtifactStore } from "../../store/artifact-store.js";
+import type { Config } from "../../types/entities.js";
+
+const redactConfig = (config: Config): Omit<Config, "apiKey"> & { hasApiKey: boolean } => {
+  const { apiKey, ...rest } = config;
+  return { ...rest, hasApiKey: Boolean(apiKey) };
+};
 
 export interface RegisterProviderRoutesOptions {
   store: ArtifactStore;
@@ -35,7 +41,7 @@ export const registerProviderRoutes = (app: FastifyInstance, options: RegisterPr
     };
 
     await store.upsertConfig(nextConfig);
-    await reply.send({ config: nextConfig });
+    await reply.send({ config: redactConfig(nextConfig) });
   });
 
   app.get("/api/providers/:provider/models", async (request, reply) => {

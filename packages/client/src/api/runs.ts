@@ -1,7 +1,5 @@
-import type { RunDetail, RunListItem } from "../types";
+import type { AgentTarget, RunDetail, RunListItem } from "../types";
 import { parse } from "./http";
-
-type AgentTarget = "claude-code" | "codex-cli" | "opencode" | "generic";
 
 export const fetchRunState = async (
   runId: string

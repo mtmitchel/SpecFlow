@@ -139,11 +139,5 @@ export const readAgentsConventions = async (rootDir: string): Promise<string> =>
   }
 };
 
-export const normalizeScopePaths = (raw: string[]): string[] =>
-  Array.from(
-    new Set(
-      raw
-        .map((entry) => path.posix.normalize(entry.replaceAll("\\", "/")).trim())
-        .filter((entry) => entry.length > 0 && !entry.startsWith("../") && !path.isAbsolute(entry))
-    )
-  );
+// Re-export from canonical source for backwards compatibility
+export { normalizeScopePaths } from "../../verify/diff/path-utils.js";

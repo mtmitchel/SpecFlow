@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
 
 export const openBrowser = async (url: string): Promise<void> => {
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return;
+  }
+
   const platform = process.platform;
 
   if (platform === "darwin") {

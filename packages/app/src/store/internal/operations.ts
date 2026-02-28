@@ -3,20 +3,9 @@ import path from "node:path";
 import { attemptDir, operationAttemptDir, operationManifestPath, runsDir } from "../../io/paths.js";
 import { readYamlFile, writeYamlFile } from "../../io/yaml.js";
 import { NotFoundError, RetryableConflictError } from "../errors.js";
+import type { PreparedOperationArtifacts } from "../types.js";
 import { listDirectoryNames } from "./fs-utils.js";
 import type { OperationManifest, OperationState, Run, RunAttempt } from "../../types/entities.js";
-
-export interface PreparedOperationArtifacts {
-  bundleFlat?: string;
-  bundleManifest?: unknown;
-  verification?: RunAttempt;
-  primaryDiff?: string;
-  driftDiff?: string;
-  additionalFiles?: Array<{
-    relativePath: string;
-    content: string;
-  }>;
-}
 
 export interface PrepareRunOperationInput {
   runId: string;

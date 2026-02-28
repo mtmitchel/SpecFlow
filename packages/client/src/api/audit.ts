@@ -1,7 +1,5 @@
-import type { AuditReport, Ticket } from "../types";
+import type { AgentTarget, AuditReport, Ticket } from "../types";
 import { parse } from "./http";
-
-type AgentTarget = "claude-code" | "codex-cli" | "opencode" | "generic";
 
 export const runAudit = async (
   runId: string,
