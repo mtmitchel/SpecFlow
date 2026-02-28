@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createTicketFromAuditFinding,
@@ -41,7 +41,7 @@ export const AuditPanel = ({
     ? findDiffRowsForFinding(report.primaryDiff, selectedFinding.file, selectedFinding.line)
     : new Set<number>();
 
-  const executeAudit = async (): Promise<void> => {
+  const executeAudit = useCallback(async (): Promise<void> => {
     setBusy(true);
     try {
       const diffSource =
@@ -71,10 +71,13 @@ export const AuditPanel = ({
     } finally {
       setBusy(false);
     }
-  };
+  }, [runId, mode, branch, fromCommit, toCommit, scopeInput, scopeTouched, widenedInput]);
+
+  const executeAuditRef = useRef(executeAudit);
+  executeAuditRef.current = executeAudit;
 
   useEffect(() => {
-    void executeAudit();
+    void executeAuditRef.current();
   }, [runId]);
 
   return (

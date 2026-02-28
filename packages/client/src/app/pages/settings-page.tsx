@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchProviderModels } from "../../api";
-import type { Config, ProviderModel } from "../../types";
+import type { Config, ConfigSavePayload, ProviderModel } from "../../types";
 
 export const SettingsPage = ({
   config,
   onSave
 }: {
   config: Config | null;
-  onSave: (next: Config) => Promise<void>;
+  onSave: (next: ConfigSavePayload) => Promise<void>;
 }): JSX.Element => {
   const [form, setForm] = useState<Config | null>(config);
+  const [apiKeyInput, setApiKeyInput] = useState("");
   const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
   const [modelSearch, setModelSearch] = useState("");
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -17,6 +18,7 @@ export const SettingsPage = ({
 
   useEffect(() => {
     setForm(config);
+    setApiKeyInput("");
   }, [config]);
 
   useEffect(() => {
@@ -94,7 +96,12 @@ export const SettingsPage = ({
         className="settings-form"
         onSubmit={(event) => {
           event.preventDefault();
-          void onSave(form);
+          const { hasApiKey, ...rest } = form;
+          const payload: ConfigSavePayload = {
+            ...rest,
+            ...(apiKeyInput ? { apiKey: apiKeyInput } : {})
+          };
+          void onSave(payload);
         }}
       >
         <label>
@@ -141,9 +148,9 @@ export const SettingsPage = ({
           API key
           <input
             type="password"
-            placeholder="Set in .env when possible"
-            value={form.apiKey ?? ""}
-            onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
+            placeholder={form.hasApiKey ? "(key set -- leave blank to keep)" : "Set in .env when possible"}
+            value={apiKeyInput}
+            onChange={(event) => setApiKeyInput(event.target.value)}
           />
         </label>
         <label>

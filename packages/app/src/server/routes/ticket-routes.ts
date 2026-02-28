@@ -282,10 +282,24 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
     }
   });
 
+  const MAX_SSE_SUBSCRIBERS = 10;
+
   app.get("/api/tickets/:id/verify/stream", (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
+
+    if (!store.tickets.has(ticketId)) {
+      void reply.code(404).send({ error: "Not Found", message: `Ticket ${ticketId} not found` });
+      return;
+    }
+
+    const existing = verificationSubscribers.get(ticketId);
+    if (existing && existing.size >= MAX_SSE_SUBSCRIBERS) {
+      void reply.code(429).send({ error: "Too Many Requests", message: "Too many SSE subscribers for this ticket" });
+      return;
+    }
+
     const session = startSseSession(request, reply, "verify-ready");
-    const subscribers = verificationSubscribers.get(ticketId) ?? new Set<SseSession>();
+    const subscribers = existing ?? new Set<SseSession>();
     subscribers.add(session);
     verificationSubscribers.set(ticketId, subscribers);
 

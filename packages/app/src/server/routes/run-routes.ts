@@ -10,6 +10,7 @@ import { DiffEngine } from "../../verify/diff-engine.js";
 import { buildAuditFindings, extractDiffChanges, normalizeScopePaths, readAgentsConventions } from "../audit/findings.js";
 import { readAuditReport, writeAuditReport } from "../audit/report-store.js";
 import type { AuditReport } from "../audit/types.js";
+import { isContainedPath, isValidEntityId } from "../validation.js";
 import { zipDirectory } from "../zip/zip-directory.js";
 
 export interface RegisterRunRoutesOptions {
@@ -167,13 +168,24 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
 
   app.get("/api/runs/:runId/attempts/:attemptId/bundle.zip", async (request, reply) => {
     const params = request.params as { runId: string; attemptId: string };
+
+    if (!isValidEntityId(params.runId) || !isValidEntityId(params.attemptId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid runId or attemptId format" });
+      return;
+    }
+
     const bundleDir = path.join(rootDir, "specflow", "runs", params.runId, "attempts", params.attemptId, "bundle");
+
+    if (!isContainedPath(path.join(rootDir, "specflow", "runs"), bundleDir)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Path traversal detected" });
+      return;
+    }
 
     try {
       const zipStream = await zipDirectory(bundleDir);
       await reply
         .header("Content-Type", "application/zip")
-        .header("Content-Disposition", `attachment; filename=\"${params.runId}-${params.attemptId}-bundle.zip\"`)
+        .header("Content-Disposition", `attachment; filename="${params.runId}-${params.attemptId}-bundle.zip"`)
         .send(zipStream);
     } catch (error) {
       await reply.code(404).send({

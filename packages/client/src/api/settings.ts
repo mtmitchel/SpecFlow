@@ -1,7 +1,7 @@
-import type { Config, ProviderModel } from "../types";
+import type { Config, ConfigSavePayload, ProviderModel } from "../types";
 import { parse } from "./http";
 
-export const saveConfig = async (config: Config): Promise<Config> => {
+export const saveConfig = async (config: ConfigSavePayload): Promise<Config> => {
   const response = await fetch("/api/config", {
     method: "PUT",
     headers: {

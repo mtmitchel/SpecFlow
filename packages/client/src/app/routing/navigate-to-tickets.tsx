@@ -1,17 +1,3 @@
-import { useEffect } from "react";
+import { Navigate } from "react-router-dom";
 
-export const NavigateToTickets = ({
-  locationPath,
-  navigate
-}: {
-  locationPath: string;
-  navigate: (path: string) => void;
-}): null => {
-  useEffect(() => {
-    if (locationPath === "/") {
-      navigate("/tickets");
-    }
-  }, [locationPath, navigate]);
-
-  return null;
-};
+export const NavigateToTickets = (): JSX.Element => <Navigate to="/tickets" replace />;

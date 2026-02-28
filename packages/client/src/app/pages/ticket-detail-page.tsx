@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   capturePreview,
@@ -9,7 +9,6 @@ import {
   overrideDone
 } from "../../api";
 import type { Initiative, Run, RunAttempt, Ticket } from "../../types";
-import { useSseReconnect } from "../hooks/use-sse-reconnect";
 import { findPhaseWarning } from "../utils/phase-warning";
 import { AuditPanel } from "./audit-panel";
 
@@ -90,48 +89,78 @@ export const TicketDetailPage = ({
     });
   };
 
-  useSseReconnect(`/api/tickets/${params.id ?? "none"}/verify/stream`, async () => {
-    setVerifyState("reconnecting");
-    if (run?.id) {
-      const snapshot = await fetchRunState(run.id).catch(() => undefined);
-      if (snapshot) {
-        syncVerificationFromRunState(snapshot.attempts);
-      }
-    }
-
-    await onRefresh();
-    setVerifyState("idle");
-  });
-
   useEffect(() => {
     const ticketId = params.id;
     if (!ticketId) {
       return;
     }
 
-    const source = new EventSource(`/api/tickets/${ticketId}/verify/stream`);
-    source.addEventListener("verify-token", (event) => {
-      try {
-        const payload = JSON.parse((event as MessageEvent).data) as { chunk?: string };
-        if (payload.chunk) {
-          setVerifyStreamEvents((current) => [...current, payload.chunk].slice(-200));
-        }
-      } catch {
-        // ignore invalid event payloads
-      }
-    });
-    source.addEventListener("verify-complete", () => {
-      if (!run?.id) {
+    let isMounted = true;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempt = 0;
+    let source: EventSource | null = null;
+
+    const connect = (): void => {
+      if (!isMounted) {
         return;
       }
 
-      void fetchRunState(run.id).then((snapshot) => {
-        syncVerificationFromRunState(snapshot.attempts);
+      source = new EventSource(`/api/tickets/${ticketId}/verify/stream`);
+
+      source.onopen = () => {
+        reconnectAttempt = 0;
+      };
+
+      source.addEventListener("verify-token", (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data) as { chunk?: string };
+          const chunk = payload.chunk;
+          if (chunk) {
+            setVerifyStreamEvents((current) => [...current, chunk].slice(-200));
+          }
+        } catch {
+          // ignore invalid event payloads
+        }
       });
-    });
+
+      source.addEventListener("verify-complete", () => {
+        if (!run?.id) {
+          return;
+        }
+
+        void fetchRunState(run.id).then((snapshot) => {
+          syncVerificationFromRunState(snapshot.attempts);
+        });
+      });
+
+      source.onerror = () => {
+        source?.close();
+        const backoff = Math.min(1000 * 2 ** reconnectAttempt, 10_000);
+        reconnectAttempt += 1;
+
+        reconnectTimer = setTimeout(() => {
+          setVerifyState("reconnecting");
+          if (run?.id) {
+            void fetchRunState(run.id)
+              .then((snapshot) => syncVerificationFromRunState(snapshot.attempts))
+              .catch(() => {});
+          }
+          void onRefresh().finally(() => {
+            setVerifyState("idle");
+            connect();
+          });
+        }, backoff);
+      };
+    };
+
+    connect();
 
     return () => {
-      source.close();
+      isMounted = false;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      source?.close();
     };
   }, [params.id, run?.id]);
 
@@ -143,7 +172,7 @@ export const TicketDetailPage = ({
     setCaptureScopeInput(ticket.fileTargets.join(", "));
   }, [ticket?.id]);
 
-  const refreshCapturePreview = async (): Promise<void> => {
+  const refreshCapturePreview = useCallback(async (): Promise<void> => {
     if (!ticket) {
       return;
     }
@@ -159,7 +188,7 @@ export const TicketDetailPage = ({
     if (!captureScopeInput.trim() && preview.defaultScope.length > 0) {
       setCaptureScopeInput(preview.defaultScope.join(", "));
     }
-  };
+  }, [ticket?.id, captureScopeInput, widenedInput]);
 
   useEffect(() => {
     if (!run?.activeOperationId) {
@@ -178,7 +207,7 @@ export const TicketDetailPage = ({
     }
 
     void refreshCapturePreview();
-  }, [ticket?.id, run?.id]);
+  }, [ticket?.id, run?.id, refreshCapturePreview]);
 
   useEffect(() => {
     if (!ticket?.id || !run?.id) {
@@ -192,7 +221,7 @@ export const TicketDetailPage = ({
     return () => {
       clearTimeout(timer);
     };
-  }, [captureScopeInput, widenedInput, ticket?.id, run?.id]);
+  }, [captureScopeInput, widenedInput, ticket?.id, run?.id, refreshCapturePreview]);
 
   if (!ticket) {
     return (

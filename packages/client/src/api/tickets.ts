@@ -1,7 +1,5 @@
-import type { Ticket, TicketStatus } from "../types";
+import type { AgentTarget, Ticket, TicketStatus } from "../types";
 import { parse } from "./http";
-
-type AgentTarget = "claude-code" | "codex-cli" | "opencode" | "generic";
 
 export const updateTicketStatus = async (ticketId: string, status: TicketStatus): Promise<Ticket> => {
   const response = await fetch(`/api/tickets/${ticketId}`, {

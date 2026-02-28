@@ -81,7 +81,8 @@ export const createSpecFlowServer = async (
   await mkdir(staticDir, { recursive: true });
 
   const app = Fastify({
-    logger: false
+    logger: false,
+    bodyLimit: 1_048_576
   });
   const verificationSubscribers = new Map<string, Set<SseSession>>();
 

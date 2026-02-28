@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Route, Routes } from "react-router-dom";
 import { fetchArtifacts, saveConfig, updateTicketStatus } from "./api";
 import type { ArtifactsSnapshot } from "./types";
 import { useSseReconnect } from "./app/hooks/use-sse-reconnect";
@@ -24,13 +24,11 @@ export const App = (): JSX.Element => {
     specs: []
   });
   const [loading, setLoading] = useState(true);
-  const location = useLocation();
-  const navigate = useNavigate();
 
-  const refreshArtifacts = async (): Promise<void> => {
+  const refreshArtifacts = useCallback(async (): Promise<void> => {
     const data = await fetchArtifacts();
     setSnapshot(data);
-  };
+  }, []);
 
   useEffect(() => {
     void refreshArtifacts().finally(() => setLoading(false));
@@ -93,7 +91,7 @@ export const App = (): JSX.Element => {
             />
           }
         />
-        <Route path="*" element={<NavigateToTickets locationPath={location.pathname} navigate={navigate} />} />
+        <Route path="*" element={<NavigateToTickets />} />
       </Routes>
     </AppShell>
   );

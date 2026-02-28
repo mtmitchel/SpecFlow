@@ -7,6 +7,7 @@ import {
   decisionsDir,
   initiativeDir,
   initiativeYamlPath,
+  operationManifestPath,
   runYamlPath,
   ticketPath,
   verificationPath
@@ -26,6 +27,7 @@ import {
 } from "./internal/recovery.js";
 import { createSpecflowWatcher } from "./internal/watcher.js";
 import { NotFoundError, RetryableConflictError } from "./errors.js";
+import type { PreparedOperationArtifacts } from "./types.js";
 import type {
   Config,
   Initiative,
@@ -37,21 +39,11 @@ import type {
   Ticket
 } from "../types/entities.js";
 
+export type { PreparedOperationArtifacts } from "./types.js";
+
 export interface StoreStartupOptions {
   watch?: boolean;
   cleanup?: boolean;
-}
-
-export interface PreparedOperationArtifacts {
-  bundleFlat?: string;
-  bundleManifest?: unknown;
-  verification?: RunAttempt;
-  primaryDiff?: string;
-  driftDiff?: string;
-  additionalFiles?: Array<{
-    relativePath: string;
-    content: string;
-  }>;
 }
 
 export interface PrepareOperationInput {
@@ -91,6 +83,7 @@ export class ArtifactStore {
   private readonly cleanupIntervalMs: number;
   private readonly now: () => Date;
   private readonly writeLocks = new Map<string, string>();
+  private readonly operationIndex = new Map<string, string>();
 
   private watcher: FSWatcher | null = null;
   private cleanupTimer: NodeJS.Timeout | null = null;
@@ -165,6 +158,8 @@ export class ArtifactStore {
         specs: this.specs
       })
     ]);
+
+    this.rebuildOperationIndex();
   }
 
   public async upsertConfig(config: Config): Promise<void> {
@@ -230,7 +225,7 @@ export class ArtifactStore {
   }
 
   public async prepareRunOperation(input: PrepareOperationInput): Promise<OperationManifest> {
-    return prepareRunOperationInternal(
+    const manifest = await prepareRunOperationInternal(
       {
         rootDir: this.rootDir,
         now: this.now,
@@ -247,10 +242,12 @@ export class ArtifactStore {
       },
       input
     );
+    this.operationIndex.set(input.operationId, input.runId);
+    return manifest;
   }
 
   public async commitRunOperation(input: CommitOperationInput): Promise<Run> {
-    return commitRunOperationInternal(
+    const run = await commitRunOperationInternal(
       {
         rootDir: this.rootDir,
         now: this.now,
@@ -267,6 +264,8 @@ export class ArtifactStore {
       },
       input
     );
+    this.operationIndex.delete(input.operationId);
+    return run;
   }
 
   public async markOperationState(
@@ -325,6 +324,23 @@ export class ArtifactStore {
       }
     | null
   > {
+    const indexedRunId = this.operationIndex.get(operationId);
+    if (indexedRunId) {
+      const manifest = await readYamlFile<OperationManifest>(
+        operationManifestPath(this.rootDir, indexedRunId, operationId)
+      );
+      if (manifest) {
+        return {
+          operationId: manifest.operationId,
+          runId: manifest.runId,
+          targetAttemptId: manifest.targetAttemptId,
+          state: manifest.state,
+          leaseExpiresAt: manifest.leaseExpiresAt,
+          updatedAt: manifest.updatedAt
+        };
+      }
+    }
+
     return getOperationStatusInternal(this.rootDir, operationId);
   }
 
@@ -456,5 +472,14 @@ export class ArtifactStore {
 
   private uniquePush(items: string[], value: string): string[] {
     return items.includes(value) ? items : [...items, value];
+  }
+
+  private rebuildOperationIndex(): void {
+    this.operationIndex.clear();
+    for (const [runId, run] of this.runs) {
+      if (run.activeOperationId) {
+        this.operationIndex.set(run.activeOperationId, runId);
+      }
+    }
   }
 }

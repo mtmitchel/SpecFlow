@@ -1,4 +1,9 @@
 export const parseSseResult = async <T>(response: Response): Promise<T> => {
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `SSE request failed with status ${response.status}`);
+  }
+
   if (!response.body) {
     throw new Error("Streaming response body missing");
   }

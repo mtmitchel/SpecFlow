@@ -1,5 +1,7 @@
 export type TicketStatus = "backlog" | "ready" | "in-progress" | "verify" | "done";
 
+export type AgentTarget = "claude-code" | "codex-cli" | "opencode" | "generic";
+
 export interface InitiativePhase {
   id: string;
   name: string;
@@ -138,6 +140,15 @@ export interface SpecDocument {
 }
 
 export interface Config {
+  provider: "anthropic" | "openai" | "openrouter";
+  model: string;
+  hasApiKey?: boolean;
+  port: number;
+  host: string;
+  repoInstructionFile: string;
+}
+
+export interface ConfigSavePayload {
   provider: "anthropic" | "openai" | "openrouter";
   model: string;
   apiKey?: string;
