@@ -1,16 +1,14 @@
-import { randomUUID, createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { readYamlFile } from "../io/yaml.js";
 import { ArtifactStore } from "../store/artifact-store.js";
-import type { Run, Ticket } from "../types/entities.js";
+import type { Ticket } from "../types/entities.js";
+import { readAgentsMd } from "./internal/agents-md.js";
+import { collectContextFiles } from "./internal/context-files.js";
+import { buildBundleManifest } from "./internal/manifest.js";
+import { ensureRunForTicket, resolveExistingOperation } from "./internal/operations.js";
+import { captureSnapshotFiles } from "./internal/snapshot.js";
 import { renderBundleForAgent } from "./renderers.js";
-import type {
-  BundleContextFile,
-  BundleManifest,
-  ExportBundleRequest,
-  ExportBundleResult
-} from "./types.js";
+import type { ExportBundleRequest, ExportBundleResult } from "./types.js";
 
 const rendererVersion = "0.1.0";
 
@@ -36,7 +34,11 @@ export class BundleGenerator {
 
   public async exportBundle(input: ExportBundleRequest): Promise<ExportBundleResult> {
     if (input.operationId) {
-      const existing = await this.resolveExistingOperation(input.operationId);
+      const existing = await resolveExistingOperation({
+        rootDir: this.rootDir,
+        store: this.store,
+        operationId: input.operationId
+      });
       if (existing) {
         return existing;
       }
@@ -47,12 +49,22 @@ export class BundleGenerator {
       throw new Error(`Ticket ${input.ticketId} not found`);
     }
 
-    const run = await this.ensureRunForTicket(ticket, input.agentTarget);
+    const run = await ensureRunForTicket({
+      store: this.store,
+      ticket,
+      agentTarget: input.agentTarget,
+      idGenerator: this.idGenerator,
+      now: this.now
+    });
+
     const attemptId = `attempt-${this.idGenerator()}`;
     const operationId = input.operationId ?? `op-${this.idGenerator()}`;
 
-    const agentsMd = await this.readAgentsMd();
-    const contextFiles = await this.collectContextFiles(ticket);
+    const agentsMd = await readAgentsMd(this.rootDir, this.store.config?.repoInstructionFile);
+    const contextFiles = collectContextFiles({
+      initiativeId: ticket.initiativeId,
+      specs: this.store.specs.values()
+    });
 
     const rendered = renderBundleForAgent({
       agentTarget: input.agentTarget,
@@ -64,9 +76,7 @@ export class BundleGenerator {
       contextFiles
     });
 
-    const digest = createHash("sha256").update(rendered.flatString, "utf8").digest("hex");
-    const manifest: BundleManifest = {
-      bundleSchemaVersion: "1.0.0",
+    const manifest = buildBundleManifest({
       rendererVersion,
       agentTarget: input.agentTarget,
       exportMode: input.exportMode,
@@ -75,17 +85,13 @@ export class BundleGenerator {
       attemptId,
       sourceRunId: input.sourceRunId ?? null,
       sourceFindingId: input.sourceFindingId ?? null,
-      contextFiles: contextFiles.map((file) => `bundle/${file.relativePath}`),
-      requiredFiles: [
-        "bundle/PROMPT.md",
-        "bundle/AGENTS.md",
-        ...rendered.rendererFiles.map((file) => file.relativePath)
-      ],
-      contentDigest: digest,
+      contextFiles,
+      rendererFiles: rendered.rendererFiles,
+      flatString: rendered.flatString,
       generatedAt: this.now().toISOString()
-    };
+    });
 
-    const snapshotFiles = await this.captureSnapshotFiles(ticket.fileTargets);
+    const snapshotFiles = await captureSnapshotFiles(this.rootDir, ticket.fileTargets);
 
     const stagedFiles: Array<{ relativePath: string; content: string }> = [
       {
@@ -139,142 +145,5 @@ export class BundleGenerator {
       flatString: rendered.flatString,
       manifest
     };
-  }
-
-  private async resolveExistingOperation(operationId: string): Promise<ExportBundleResult | null> {
-    const existing = await this.store.getOperationStatus(operationId);
-    if (!existing) {
-      return null;
-    }
-
-    if (existing.state !== "committed") {
-      throw new Error(`Operation ${operationId} is currently ${existing.state}`);
-    }
-
-    const attemptDir = path.join(
-      this.rootDir,
-      "specflow",
-      "runs",
-      existing.runId,
-      "attempts",
-      existing.targetAttemptId
-    );
-
-    const flatPath = path.join(attemptDir, "bundle-flat.md");
-    const manifestPath = path.join(attemptDir, "bundle-manifest.yaml");
-    const flatString = await readFile(flatPath, "utf8");
-    const manifest = await readYamlFile<BundleManifest>(manifestPath);
-
-    if (!manifest) {
-      throw new Error(`Committed operation ${operationId} is missing bundle-manifest.yaml`);
-    }
-
-    return {
-      runId: existing.runId,
-      attemptId: existing.targetAttemptId,
-      operationId,
-      bundlePath: path.join(attemptDir, "bundle"),
-      flatString,
-      manifest
-    };
-  }
-
-  private async ensureRunForTicket(ticket: Ticket, agentTarget: Run["agentType"]): Promise<Run> {
-    if (ticket.runId && this.store.runs.has(ticket.runId)) {
-      const existing = this.store.runs.get(ticket.runId);
-      if (existing) {
-        return existing;
-      }
-    }
-
-    const runId = `run-${this.idGenerator()}`;
-    const run: Run = {
-      id: runId,
-      ticketId: ticket.id,
-      type: "execution",
-      agentType: agentTarget,
-      status: "pending",
-      attempts: [],
-      committedAttemptId: null,
-      activeOperationId: null,
-      operationLeaseExpiresAt: null,
-      lastCommittedAt: null,
-      createdAt: this.now().toISOString()
-    };
-
-    await this.store.upsertRun(run);
-    return run;
-  }
-
-  private async readAgentsMd(): Promise<string> {
-    const configuredPath = this.store.config?.repoInstructionFile || "specflow/AGENTS.md";
-    const absolutePath = path.isAbsolute(configuredPath)
-      ? configuredPath
-      : path.join(this.rootDir, configuredPath);
-
-    try {
-      return await readFile(absolutePath, "utf8");
-    } catch {
-      return "";
-    }
-  }
-
-  private async collectContextFiles(ticket: Ticket): Promise<BundleContextFile[]> {
-    const files: BundleContextFile[] = [];
-
-    if (!ticket.initiativeId) {
-      return files;
-    }
-
-    const specs = Array.from(this.store.specs.values()).filter(
-      (spec) => spec.initiativeId === ticket.initiativeId && spec.type !== "decision"
-    );
-
-    for (const spec of specs) {
-      const fileName = path.basename(spec.sourcePath);
-      files.push({
-        relativePath: `specs/${fileName}`,
-        content: spec.content
-      });
-    }
-
-    return files;
-  }
-
-  private async captureSnapshotFiles(
-    fileTargets: string[]
-  ): Promise<Array<{ relativePath: string; content: string }>> {
-    const files: Array<{ relativePath: string; content: string }> = [];
-
-    for (const target of fileTargets) {
-      const normalized = path.posix.normalize(target.replaceAll("\\", "/"));
-      if (normalized.startsWith("../") || path.isAbsolute(normalized)) {
-        continue;
-      }
-
-      const absolutePath = path.join(this.rootDir, normalized);
-
-      try {
-        const content = await readFile(absolutePath, "utf8");
-        files.push({
-          relativePath: `snapshot-before/${normalized}`,
-          content
-        });
-      } catch {
-        files.push({
-          relativePath: `snapshot-before/${normalized}.missing`,
-          content: "File did not exist at export time."
-        });
-      }
-    }
-
-    if (files.length === 0) {
-      files.push({
-        relativePath: "snapshot-before/.snapshot",
-        content: "No file targets were available for baseline capture."
-      });
-    }
-
-    return files;
   }
 }

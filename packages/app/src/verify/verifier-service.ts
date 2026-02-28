@@ -1,14 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { loadEnvironment, resolveProviderApiKey } from "../config/env.js";
-import { verificationPath } from "../io/paths.js";
+import { loadEnvironment } from "../config/env.js";
 import { HttpLlmClient, type LlmClient, type LlmTokenHandler } from "../llm/client.js";
 import { LlmProviderError } from "../llm/errors.js";
-import { parseJsonEnvelope } from "../planner/json-parser.js";
 import { ArtifactStore } from "../store/artifact-store.js";
-import type { DriftFlag, RunAttempt, RunCriterionResult, Ticket } from "../types/entities.js";
-import { DiffEngine, type DiffComputationResult } from "./diff-engine.js";
+import type { DriftFlag, RunAttempt, Ticket } from "../types/entities.js";
+import { DiffEngine } from "./diff-engine.js";
+import { readVerifierAgentsMd } from "./internal/agents-md.js";
+import { mergeCriteria } from "./internal/criteria.js";
+import { getResolvedVerifierConfig } from "./internal/config.js";
+import { readAttemptArtifact, resolveExistingVerificationOperation } from "./internal/operations.js";
+import { runVerifierPrompt } from "./internal/prompt.js";
 
 export interface VerifierServiceOptions {
   rootDir: string;
@@ -25,12 +26,6 @@ export interface CaptureResultsInput {
   scopePaths?: string[];
   widenedScopePaths?: string[];
   operationId?: string;
-}
-
-interface ParsedVerifierResult {
-  criteriaResults: Array<{ criterionId: string; pass: boolean; evidence: string }>;
-  driftFlags: DriftFlag[];
-  overallPass: boolean;
 }
 
 export class VerifierService {
@@ -56,7 +51,11 @@ export class VerifierService {
     onToken?: LlmTokenHandler
   ): Promise<{ runId: string; attempt: RunAttempt; overallPass: boolean }> {
     if (input.operationId) {
-      const existing = await this.resolveExistingVerificationOperation(input.operationId);
+      const existing = await resolveExistingVerificationOperation({
+        rootDir: this.rootDir,
+        store: this.store,
+        operationId: input.operationId
+      });
       if (existing) {
         return {
           runId: existing.runId,
@@ -88,8 +87,17 @@ export class VerifierService {
       widenedScopePaths: input.widenedScopePaths ?? []
     });
 
-    const parsed = await this.runVerifierPrompt(ticket, diffResult, onToken);
-    const criteriaResults = this.mergeCriteria(ticket, parsed.criteriaResults);
+    const config = getResolvedVerifierConfig(this.store);
+    const agentsMd = await readVerifierAgentsMd(this.rootDir, config.repoInstructionFile);
+    const parsed = await runVerifierPrompt({
+      llmClient: this.llmClient,
+      config,
+      ticket,
+      diffResult,
+      agentsMd,
+      onToken
+    });
+    const criteriaResults = mergeCriteria(ticket, parsed.criteriaResults);
 
     const missingFlags: DriftFlag[] = criteriaResults
       .filter((criterion) => !criterion.pass)
@@ -155,7 +163,11 @@ export class VerifierService {
     operationId?: string;
   }): Promise<{ runId: string; attempt: RunAttempt }> {
     if (input.operationId) {
-      const existing = await this.resolveExistingVerificationOperation(input.operationId);
+      const existing = await resolveExistingVerificationOperation({
+        rootDir: this.rootDir,
+        store: this.store,
+        operationId: input.operationId
+      });
       if (existing) {
         return {
           runId: existing.runId,
@@ -187,8 +199,8 @@ export class VerifierService {
       throw new Error(`Attempt ${run.committedAttemptId} not found for run ${run.id}`);
     }
 
-    const primaryDiff = await this.readAttemptArtifact(run.id, run.committedAttemptId, "diff-primary.patch");
-    const driftDiff = await this.readAttemptArtifact(run.id, run.committedAttemptId, "diff-drift.patch");
+    const primaryDiff = await readAttemptArtifact(this.rootDir, run.id, run.committedAttemptId, "diff-primary.patch");
+    const driftDiff = await readAttemptArtifact(this.rootDir, run.id, run.committedAttemptId, "diff-drift.patch");
 
     const updatedAttempt: RunAttempt = {
       ...previousAttempt,
@@ -250,145 +262,5 @@ export class VerifierService {
       message: (error as Error).message,
       statusCode: 400
     };
-  }
-
-  private async runVerifierPrompt(
-    ticket: Ticket,
-    diffResult: DiffComputationResult,
-    onToken?: LlmTokenHandler
-  ): Promise<ParsedVerifierResult> {
-    const config = this.getResolvedConfig();
-    const agentsMd = await this.readAgentsMd(config.repoInstructionFile);
-
-    const systemPrompt = [
-      "You are SpecFlow verifier.",
-      "Return ONLY JSON with fields: criteriaResults, driftFlags, overallPass.",
-      "criteriaResults must include criterionId, pass, evidence.",
-      "driftFlags entries must include type, file, description.",
-      "AGENTS.md:",
-      agentsMd
-    ].join("\n\n");
-
-    const userPrompt = [
-      `Ticket ID: ${ticket.id}`,
-      `Criteria: ${JSON.stringify(ticket.acceptanceCriteria, null, 2)}`,
-      `Diff Source: ${diffResult.diffSource}`,
-      `Primary Diff:\n${diffResult.primaryDiff || "(empty)"}`,
-      `Drift Diff:\n${diffResult.driftDiff || "(empty)"}`
-    ].join("\n\n");
-
-    const response = await this.llmClient.complete(
-      {
-        provider: config.provider,
-        model: config.model,
-        apiKey: config.apiKey,
-        systemPrompt,
-        userPrompt
-      },
-      onToken
-    );
-
-    const parsed = parseJsonEnvelope<ParsedVerifierResult>(response);
-
-    return {
-      criteriaResults: Array.isArray(parsed.criteriaResults) ? parsed.criteriaResults : [],
-      driftFlags: Array.isArray(parsed.driftFlags) ? parsed.driftFlags : [],
-      overallPass: Boolean(parsed.overallPass)
-    };
-  }
-
-  private getResolvedConfig(): {
-    provider: "anthropic" | "openai" | "openrouter";
-    model: string;
-    apiKey: string;
-    repoInstructionFile: string;
-  } {
-    const existing = this.store.config;
-
-    if (!existing) {
-      const provider = "anthropic" as const;
-      return {
-        provider,
-        model: "claude-opus-4-5",
-        apiKey: resolveProviderApiKey(provider),
-        repoInstructionFile: "specflow/AGENTS.md"
-      };
-    }
-
-    return {
-      provider: existing.provider,
-      model: existing.model,
-      apiKey: resolveProviderApiKey(existing.provider, existing.apiKey),
-      repoInstructionFile: existing.repoInstructionFile || "specflow/AGENTS.md"
-    };
-  }
-
-  private async readAgentsMd(repoInstructionFile: string): Promise<string> {
-    const configuredPath = path.isAbsolute(repoInstructionFile)
-      ? repoInstructionFile
-      : path.join(this.rootDir, repoInstructionFile);
-
-    try {
-      return await readFile(configuredPath, "utf8");
-    } catch {
-      return "";
-    }
-  }
-
-  private mergeCriteria(ticket: Ticket, raw: RunCriterionResult[]): RunCriterionResult[] {
-    const byId = new Map(raw.map((criterion) => [criterion.criterionId, criterion]));
-
-    return ticket.acceptanceCriteria.map((criterion) => {
-      const existing = byId.get(criterion.id);
-      if (existing) {
-        return existing;
-      }
-
-      return {
-        criterionId: criterion.id,
-        pass: false,
-        evidence: "No verifier output for this criterion"
-      };
-    });
-  }
-
-  private async readAttemptArtifact(
-    runId: string,
-    attemptId: string,
-    artifactFile: "diff-primary.patch" | "diff-drift.patch"
-  ): Promise<string | null> {
-    const artifactPath = path.join(this.rootDir, "specflow", "runs", runId, "attempts", attemptId, artifactFile);
-
-    try {
-      return await readFile(artifactPath, "utf8");
-    } catch {
-      return null;
-    }
-  }
-
-  private async resolveExistingVerificationOperation(
-    operationId: string
-  ): Promise<{ runId: string; attempt: RunAttempt } | null> {
-    const existing = await this.store.getOperationStatus(operationId);
-    if (!existing) {
-      return null;
-    }
-
-    if (existing.state !== "committed") {
-      throw new Error(`Operation ${operationId} is currently ${existing.state}`);
-    }
-
-    const mapKey = `${existing.runId}:${existing.targetAttemptId}`;
-    const inMemory = this.store.runAttempts.get(mapKey);
-    if (inMemory) {
-      return { runId: existing.runId, attempt: inMemory };
-    }
-
-    const file = await readFile(
-      verificationPath(this.rootDir, existing.runId, existing.targetAttemptId),
-      "utf8"
-    );
-    const parsed = JSON.parse(file) as RunAttempt;
-    return { runId: existing.runId, attempt: parsed };
   }
 }

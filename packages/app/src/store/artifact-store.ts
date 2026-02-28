@@ -1,27 +1,30 @@
-import { access, cp, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import chokidar, { type FSWatcher } from "chokidar";
+import type { FSWatcher } from "chokidar";
 import { writeFileAtomic } from "../io/atomic-write.js";
 import {
-  attemptDir,
   configPath,
   decisionsDir,
   initiativeDir,
   initiativeYamlPath,
-  initiativesDir,
-  operationAttemptDir,
-  operationDir,
-  operationManifestPath,
-  runDir,
-  runTmpDir,
   runYamlPath,
-  runsDir,
-  specflowDir,
   ticketPath,
-  ticketsDir,
   verificationPath
 } from "../io/paths.js";
 import { readYamlFile, writeYamlFile } from "../io/yaml.js";
+import { pruneExpiredTempOperations as pruneExpiredTempOperationsInternal } from "./internal/cleanup.js";
+import { loadDecisions, loadInitiatives, loadRuns, loadTickets } from "./internal/loaders.js";
+import {
+  commitRunOperation as commitRunOperationInternal,
+  getOperationStatus as getOperationStatusInternal,
+  markOperationState as markOperationStateInternal,
+  prepareRunOperation as prepareRunOperationInternal
+} from "./internal/operations.js";
+import {
+  clearRunOperationPointer as clearRunOperationPointerInternal,
+  recoverOrphanOperations as recoverOrphanOperationsInternal
+} from "./internal/recovery.js";
+import { createSpecflowWatcher } from "./internal/watcher.js";
 import { NotFoundError, RetryableConflictError } from "./errors.js";
 import type {
   Config,
@@ -141,7 +144,27 @@ export class ArtifactStore {
     this.runAttempts.clear();
     this.specs.clear();
 
-    await Promise.all([this.loadInitiatives(), this.loadTickets(), this.loadRuns(), this.loadDecisions()]);
+    await Promise.all([
+      loadInitiatives({
+        rootDir: this.rootDir,
+        initiatives: this.initiatives,
+        specs: this.specs
+      }),
+      loadTickets({
+        rootDir: this.rootDir,
+        tickets: this.tickets
+      }),
+      loadRuns({
+        rootDir: this.rootDir,
+        runs: this.runs,
+        runAttempts: this.runAttempts,
+        runAttemptKey: (runId, attemptId) => this.runAttemptKey(runId, attemptId)
+      }),
+      loadDecisions({
+        rootDir: this.rootDir,
+        specs: this.specs
+      })
+    ]);
   }
 
   public async upsertConfig(config: Config): Promise<void> {
@@ -207,136 +230,43 @@ export class ArtifactStore {
   }
 
   public async prepareRunOperation(input: PrepareOperationInput): Promise<OperationManifest> {
-    await this.ensureRunWritable(input.runId, input.operationId);
-
-    const run = this.runs.get(input.runId);
-    if (!run) {
-      throw new NotFoundError(`Run ${input.runId} not found`);
-    }
-
-    this.writeLocks.set(input.runId, input.operationId);
-
-    try {
-      const operationRoot = operationDir(this.rootDir, input.runId, input.operationId);
-      const stagedAttemptDir = operationAttemptDir(
-        this.rootDir,
-        input.runId,
-        input.operationId,
-        input.attemptId
-      );
-
-      await mkdir(stagedAttemptDir, { recursive: true });
-      await this.writePreparedArtifacts(stagedAttemptDir, input.artifacts);
-
-      const nowIso = this.now().toISOString();
-      const manifest: OperationManifest = {
-        operationId: input.operationId,
-        runId: input.runId,
-        targetAttemptId: input.attemptId,
-        state: "prepared",
-        leaseExpiresAt: new Date(this.now().getTime() + input.leaseMs).toISOString(),
-        validation: {
-          passed: input.validation?.passed ?? true,
-          details: input.validation?.details
-        },
-        preparedAt: nowIso,
-        updatedAt: nowIso
-      };
-
-      await mkdir(operationRoot, { recursive: true });
-      await writeYamlFile(operationManifestPath(this.rootDir, input.runId, input.operationId), manifest);
-
-      const updatedRun: Run = {
-        ...run,
-        activeOperationId: input.operationId,
-        operationLeaseExpiresAt: manifest.leaseExpiresAt
-      };
-
-      await this.upsertRun(updatedRun);
-      await this.reloadFromDisk();
-
-      return manifest;
-    } finally {
-      this.writeLocks.delete(input.runId);
-    }
+    return prepareRunOperationInternal(
+      {
+        rootDir: this.rootDir,
+        now: this.now,
+        runs: this.runs,
+        writeLocks: this.writeLocks,
+        ensureRunWritable: (runId, requestedOperationId) => this.ensureRunWritable(runId, requestedOperationId),
+        writePreparedArtifacts: (stagedAttemptDir, artifacts) => this.writePreparedArtifacts(stagedAttemptDir, artifacts),
+        upsertRun: (run) => this.upsertRun(run),
+        reloadFromDisk: () => this.reloadFromDisk(),
+        markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
+        clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
+        isLeaseExpired: (leaseExpiresAt) => this.isLeaseExpired(leaseExpiresAt),
+        uniquePush: (items, value) => this.uniquePush(items, value)
+      },
+      input
+    );
   }
 
   public async commitRunOperation(input: CommitOperationInput): Promise<Run> {
-    await this.ensureRunWritable(input.runId, input.operationId);
-
-    const run = this.runs.get(input.runId);
-    if (!run) {
-      throw new NotFoundError(`Run ${input.runId} not found`);
-    }
-
-    if (run.activeOperationId !== input.operationId) {
-      throw new RetryableConflictError(
-        `Run ${input.runId} is locked by operation ${run.activeOperationId ?? "none"}`
-      );
-    }
-
-    this.writeLocks.set(input.runId, input.operationId);
-
-    try {
-      const manifestPath = operationManifestPath(this.rootDir, input.runId, input.operationId);
-      const manifest = await readYamlFile<OperationManifest>(manifestPath);
-
-      if (!manifest) {
-        throw new NotFoundError(`Operation manifest missing for ${input.operationId}`);
-      }
-
-      if (manifest.state === "committed") {
-        return run;
-      }
-
-      if (this.isLeaseExpired(manifest.leaseExpiresAt)) {
-        await this.markOperationState(input.runId, input.operationId, "abandoned");
-        await this.clearRunOperationPointer(input.runId);
-        throw new RetryableConflictError(`Operation ${input.operationId} lease expired before commit`);
-      }
-
-      const stagedAttempt = operationAttemptDir(
-        this.rootDir,
-        input.runId,
-        input.operationId,
-        manifest.targetAttemptId
-      );
-      const committedAttempt = attemptDir(this.rootDir, input.runId, manifest.targetAttemptId);
-
-      await rm(committedAttempt, { recursive: true, force: true });
-      await mkdir(path.dirname(committedAttempt), { recursive: true });
-      await cp(stagedAttempt, committedAttempt, { recursive: true });
-
-      const nowIso = this.now().toISOString();
-      const updatedManifest: OperationManifest = {
-        ...manifest,
-        state: "committed",
-        updatedAt: nowIso,
-        committedAt: nowIso
-      };
-      await writeYamlFile(manifestPath, updatedManifest);
-
-      const updatedRun: Run = {
-        ...run,
-        attempts: this.uniquePush(run.attempts, manifest.targetAttemptId),
-        committedAttemptId: manifest.targetAttemptId,
-        activeOperationId: null,
-        operationLeaseExpiresAt: null,
-        lastCommittedAt: nowIso,
-        status: "complete"
-      };
-      await this.upsertRun(updatedRun);
-      await this.reloadFromDisk();
-
-      const committedRun = this.runs.get(input.runId);
-      if (!committedRun) {
-        throw new NotFoundError(`Run ${input.runId} disappeared after commit`);
-      }
-
-      return committedRun;
-    } finally {
-      this.writeLocks.delete(input.runId);
-    }
+    return commitRunOperationInternal(
+      {
+        rootDir: this.rootDir,
+        now: this.now,
+        runs: this.runs,
+        writeLocks: this.writeLocks,
+        ensureRunWritable: (runId, requestedOperationId) => this.ensureRunWritable(runId, requestedOperationId),
+        writePreparedArtifacts: (stagedAttemptDir, artifacts) => this.writePreparedArtifacts(stagedAttemptDir, artifacts),
+        upsertRun: (run) => this.upsertRun(run),
+        reloadFromDisk: () => this.reloadFromDisk(),
+        markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
+        clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
+        isLeaseExpired: (leaseExpiresAt) => this.isLeaseExpired(leaseExpiresAt),
+        uniquePush: (items, value) => this.uniquePush(items, value)
+      },
+      input
+    );
   }
 
   public async markOperationState(
@@ -344,26 +274,7 @@ export class ArtifactStore {
     operationId: string,
     state: OperationState
   ): Promise<OperationManifest> {
-    const manifestPath = operationManifestPath(this.rootDir, runId, operationId);
-    const existing = await readYamlFile<OperationManifest>(manifestPath);
-    const nowIso = this.now().toISOString();
-
-    const manifest: OperationManifest = existing ?? {
-      operationId,
-      runId,
-      targetAttemptId: "unknown",
-      state,
-      leaseExpiresAt: nowIso,
-      validation: { passed: false, details: "recovered without prior manifest" },
-      preparedAt: nowIso,
-      updatedAt: nowIso
-    };
-
-    manifest.state = state;
-    manifest.updatedAt = nowIso;
-
-    await writeYamlFile(manifestPath, manifest);
-    return manifest;
+    return markOperationStateInternal(this.rootDir, this.now, runId, operationId, state);
   }
 
   public startCleanupTask(): void {
@@ -377,36 +288,11 @@ export class ArtifactStore {
   }
 
   public async pruneExpiredTempOperations(): Promise<void> {
-    const allRunDirs = await this.listDirectoryNames(runsDir(this.rootDir));
-
-    for (const runId of allRunDirs) {
-      const tmpRoot = runTmpDir(this.rootDir, runId);
-      const operationIds = await this.listDirectoryNames(tmpRoot);
-
-      for (const operationId of operationIds) {
-        const opPath = operationDir(this.rootDir, runId, operationId);
-        const manifest = await readYamlFile<OperationManifest>(
-          operationManifestPath(this.rootDir, runId, operationId)
-        );
-
-        if (!manifest) {
-          continue;
-        }
-
-        if (manifest.state !== "abandoned" && manifest.state !== "superseded") {
-          continue;
-        }
-
-        const updatedAt = Date.parse(manifest.updatedAt);
-        if (Number.isNaN(updatedAt)) {
-          continue;
-        }
-
-        if (this.now().getTime() - updatedAt > this.cleanupTtlMs) {
-          await rm(opPath, { recursive: true, force: true });
-        }
-      }
-    }
+    await pruneExpiredTempOperationsInternal({
+      rootDir: this.rootDir,
+      now: this.now,
+      cleanupTtlMs: this.cleanupTtlMs
+    });
   }
 
   public async startWatcher(): Promise<void> {
@@ -414,59 +300,18 @@ export class ArtifactStore {
       return;
     }
 
-    const root = specflowDir(this.rootDir);
-    await mkdir(root, { recursive: true });
-
-    this.watcher = chokidar.watch(root, {
-      ignoreInitial: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 120,
-        pollInterval: 50
-      }
-    });
-
-    this.watcher.on("all", (_eventName, changedPath) => {
-      if (!this.isReloadablePath(changedPath)) {
-        return;
-      }
-
+    this.watcher = await createSpecflowWatcher(this.rootDir, () => {
       this.scheduleReload();
-    });
-
-    await new Promise<void>((resolve) => {
-      this.watcher?.once("ready", () => resolve());
     });
   }
 
   public async recoverOrphanOperations(): Promise<void> {
-    for (const run of this.runs.values()) {
-      if (!run.activeOperationId) {
-        continue;
-      }
-
-      const opId = run.activeOperationId;
-      const opDir = operationDir(this.rootDir, run.id, opId);
-      const hasTmp = await this.pathExists(opDir);
-
-      if (!hasTmp) {
-        await this.markOperationState(run.id, opId, "failed");
-        await this.clearRunOperationPointer(run.id);
-        continue;
-      }
-
-      const committedAttemptExists =
-        run.committedAttemptId !== null &&
-        (await this.pathExists(attemptDir(this.rootDir, run.id, run.committedAttemptId)));
-
-      if (committedAttemptExists) {
-        await this.markOperationState(run.id, opId, "superseded");
-        await this.clearRunOperationPointer(run.id);
-        continue;
-      }
-
-      await this.markOperationState(run.id, opId, "abandoned");
-      await this.clearRunOperationPointer(run.id);
-    }
+    await recoverOrphanOperationsInternal({
+      rootDir: this.rootDir,
+      runs: this.runs,
+      markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
+      clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId)
+    });
   }
 
   public async getOperationStatus(operationId: string): Promise<
@@ -480,44 +325,11 @@ export class ArtifactStore {
       }
     | null
   > {
-    const runIds = await this.listDirectoryNames(runsDir(this.rootDir));
-
-    for (const runId of runIds) {
-      const manifest = await readYamlFile<OperationManifest>(
-        operationManifestPath(this.rootDir, runId, operationId)
-      );
-
-      if (!manifest) {
-        continue;
-      }
-
-      return {
-        operationId: manifest.operationId,
-        runId: manifest.runId,
-        targetAttemptId: manifest.targetAttemptId,
-        state: manifest.state,
-        leaseExpiresAt: manifest.leaseExpiresAt,
-        updatedAt: manifest.updatedAt
-      };
-    }
-
-    return null;
+    return getOperationStatusInternal(this.rootDir, operationId);
   }
 
   private async clearRunOperationPointer(runId: string): Promise<void> {
-    const run = this.runs.get(runId);
-    if (!run) {
-      return;
-    }
-
-    const updatedRun: Run = {
-      ...run,
-      activeOperationId: null,
-      operationLeaseExpiresAt: null
-    };
-
-    await writeYamlFile(runYamlPath(this.rootDir, runId), updatedRun);
-    this.runs.set(runId, updatedRun);
+    await clearRunOperationPointerInternal(this.rootDir, this.runs, runId);
   }
 
   private async ensureRunWritable(runId: string, requestedOperationId: string): Promise<void> {
@@ -621,113 +433,6 @@ export class ArtifactStore {
     await this.reloadInFlight;
   }
 
-  private async loadInitiatives(): Promise<void> {
-    const ids = await this.listDirectoryNames(initiativesDir(this.rootDir));
-
-    for (const id of ids) {
-      const initiative = await readYamlFile<Initiative>(initiativeYamlPath(this.rootDir, id));
-      if (!initiative) {
-        continue;
-      }
-
-      this.initiatives.set(initiative.id, initiative);
-
-      const docTuples: Array<{ fileName: string; type: SpecDocument["type"]; title: string }> = [
-        { fileName: "brief.md", type: "brief", title: "Brief" },
-        { fileName: "prd.md", type: "prd", title: "PRD" },
-        { fileName: "tech-spec.md", type: "tech-spec", title: "Tech Spec" }
-      ];
-
-      for (const doc of docTuples) {
-        const filePath = path.join(initiativeDir(this.rootDir, id), doc.fileName);
-        if (!(await this.pathExists(filePath))) {
-          continue;
-        }
-
-        const content = await readFile(filePath, "utf8");
-        const fileStat = await stat(filePath);
-        const specId = `${initiative.id}:${doc.type}`;
-
-        this.specs.set(specId, {
-          id: specId,
-          initiativeId: initiative.id,
-          type: doc.type,
-          title: doc.title,
-          content,
-          sourcePath: filePath,
-          createdAt: fileStat.birthtime.toISOString(),
-          updatedAt: fileStat.mtime.toISOString()
-        });
-      }
-    }
-  }
-
-  private async loadTickets(): Promise<void> {
-    const fileNames = await this.listFileNames(ticketsDir(this.rootDir));
-
-    for (const fileName of fileNames) {
-      if (!fileName.endsWith(".yaml") && !fileName.endsWith(".yml")) {
-        continue;
-      }
-
-      const ticket = await readYamlFile<Ticket>(path.join(ticketsDir(this.rootDir), fileName));
-      if (ticket) {
-        this.tickets.set(ticket.id, ticket);
-      }
-    }
-  }
-
-  private async loadRuns(): Promise<void> {
-    const runIds = await this.listDirectoryNames(runsDir(this.rootDir));
-
-    for (const runId of runIds) {
-      const run = await readYamlFile<Run>(runYamlPath(this.rootDir, runId));
-      if (!run) {
-        continue;
-      }
-
-      this.runs.set(run.id, run);
-
-      const attemptIds = await this.listDirectoryNames(path.join(runDir(this.rootDir, runId), "attempts"));
-      for (const attemptId of attemptIds) {
-        const verificationFile = verificationPath(this.rootDir, runId, attemptId);
-        if (!(await this.pathExists(verificationFile))) {
-          continue;
-        }
-
-        const raw = await readFile(verificationFile, "utf8");
-        const attempt = JSON.parse(raw) as RunAttempt;
-        this.runAttempts.set(this.runAttemptKey(run.id, attemptId), attempt);
-      }
-    }
-  }
-
-  private async loadDecisions(): Promise<void> {
-    const fileNames = await this.listFileNames(decisionsDir(this.rootDir));
-
-    for (const fileName of fileNames) {
-      if (!fileName.endsWith(".md")) {
-        continue;
-      }
-
-      const filePath = path.join(decisionsDir(this.rootDir), fileName);
-      const content = await readFile(filePath, "utf8");
-      const fileStat = await stat(filePath);
-      const decisionId = path.basename(fileName, ".md");
-
-      this.specs.set(`decision:${decisionId}`, {
-        id: decisionId,
-        initiativeId: null,
-        type: "decision",
-        title: decisionId,
-        content,
-        sourcePath: filePath,
-        createdAt: fileStat.birthtime.toISOString(),
-        updatedAt: fileStat.mtime.toISOString()
-      });
-    }
-  }
-
   private specTypeToFileName(type: SpecDocument["type"]): string {
     switch (type) {
       case "brief":
@@ -743,49 +448,6 @@ export class ArtifactStore {
         throw new Error(`Unhandled spec type: ${String(exhaustive)}`);
       }
     }
-  }
-
-  private async listDirectoryNames(targetPath: string): Promise<string[]> {
-    try {
-      const entries = await readdir(targetPath, { withFileTypes: true });
-      return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === "ENOENT") {
-        return [];
-      }
-      throw error;
-    }
-  }
-
-  private async listFileNames(targetPath: string): Promise<string[]> {
-    try {
-      const entries = await readdir(targetPath, { withFileTypes: true });
-      return entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === "ENOENT") {
-        return [];
-      }
-      throw error;
-    }
-  }
-
-  private async pathExists(targetPath: string): Promise<boolean> {
-    try {
-      await access(targetPath);
-      return true;
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === "ENOENT") {
-        return false;
-      }
-      throw error;
-    }
-  }
-
-  private isReloadablePath(filePath: string): boolean {
-    return [".yaml", ".yml", ".md", ".json"].includes(path.extname(filePath));
   }
 
   private runAttemptKey(runId: string, attemptId: string): string {
