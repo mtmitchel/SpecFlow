@@ -14,3 +14,13 @@ obj/
 # Logs
 *.log
 
+# Node
+node_modules/
+coverage/
+dist/
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*
+!.env.example

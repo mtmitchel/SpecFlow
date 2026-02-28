@@ -58,7 +58,7 @@ This avoids concurrent-writer corruption between server in-memory state and stan
 
 ### LLM Calls Through Server Only
 
-The browser never calls the LLM API directly. All AI operations (Planner, Verifier) go through Fastify API routes. The server reads the API key from `specflow/config.yaml`. Responses stream back to the client via Server-Sent Events (SSE).
+The browser never calls the LLM API directly. All AI operations (Planner, Verifier) go through Fastify API routes. The server reads provider API keys from `.env` (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) and keeps those keys out of client payloads. Responses stream back to the client via Server-Sent Events (SSE).
 
 SSE reconnection is **non-resumable with snapshot refresh**:
 - On disconnect, client reconnects and immediately fetches latest planner/run state via REST.
@@ -101,7 +101,7 @@ Fastify binds to `127.0.0.1` by default. `specflow ui --host 0.0.0.0` enables LA
 
 ```text
 specflow/
-  config.yaml                        # provider, model, port, host
+  config.yaml                        # provider, model, host, port, repoInstructionFile (non-secret)
   AGENTS.md                          # repo instruction file (conventions)
   initiatives/
     <id>/
@@ -224,9 +224,9 @@ findings:
 
 **Config**
 ```yaml
-provider: anthropic | openai
-model: string                # e.g. claude-opus-4-5, gpt-4o
-apiKey: string               # stored in config.yaml, never in client
+provider: anthropic | openai | openrouter
+model: string                # e.g. claude-opus-4-5, gpt-4o, openrouter/auto
+apiKey?: string              # optional legacy fallback; prefer environment variables
 port: number                 # default 3141
 host: string                 # default 127.0.0.1
 repoInstructionFile: string  # default specflow/AGENTS.md
@@ -288,7 +288,6 @@ graph TD
     CLI[CLI Entry - Commander.js] --> ServerCmd[specflow ui]
     CLI --> VerifyCmd[specflow verify]
     CLI --> ExportCmd[specflow export-bundle]
-    CLI --> InitCmd[specflow init]
 
     ServerCmd --> HTTPServer[Fastify HTTP Server]
     HTTPServer --> APIRoutes[API Routes]
@@ -330,7 +329,7 @@ graph TD
 | **Verifier Service** | Assembles primary diff + drift diff + criteria + AGENTS.md; parses pass/fail + drift warnings |
 | **Diff Engine** | Git diff via `simple-git`; file snapshot diff via `diff` library; snapshot capture at export time |
 | **Bundle Generator** | Assembles context; renders per-agent formats; emits versioned bundle manifest; supports quick-fix export linkage metadata; validated by golden tests |
-| **LLM Client** | Single provider adapter (Anthropic/OpenAI); handles streaming; reads API key from config |
+| **LLM Client** | Single provider adapter (Anthropic/OpenAI/OpenRouter); handles streaming; resolves API keys from `.env` (with optional legacy config fallback) |
 
 **Key API surface (representative):**
 
@@ -345,9 +344,15 @@ graph TD
 | `POST` | `/api/tickets/:id/export-bundle` | Generate bundle; returns flat string + writes directory |
 | `POST` | `/api/tickets/:id/capture-results` | Submit diff/summary; triggers verification |
 | `GET` | `/api/tickets/:id/verify/stream` | SSE stream for verification progress |
+| `GET` | `/api/runs` | List runs with ticket/status/agent/date filters |
+| `GET` | `/api/runs/:id` | Get run detail with committed artifacts and diffs |
 | `GET` | `/api/runs/:id/state` | Snapshot endpoint for SSE reconnect recovery |
 | `POST` | `/api/runs/:id/audit` | Run Drift Audit on a diff source |
 | `POST` | `/api/runs/:id/findings/:findingId/export-fix-bundle` | Generate quick-fix bundle with source linkage metadata |
+| `POST` | `/api/runs/:id/findings/:findingId/create-ticket` | Create a follow-up ticket from an audit finding |
+| `POST` | `/api/runs/:id/findings/:findingId/dismiss` | Dismiss finding with required note |
+| `POST` | `/api/tickets/:id/capture-preview` | Preview verification diff/scope before capture |
+| `GET` | `/api/runs/:runId/attempts/:attemptId/bundle.zip` | Download run attempt bundle as zip |
 | `GET` | `/api/planner/stream` | SSE stream for Planner LLM output |
 | `GET` | `/api/artifacts` | Full in-memory state dump for initial board load |
 

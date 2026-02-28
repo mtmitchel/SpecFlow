@@ -1,0 +1,308 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderBundleForAgent golden renderers > matches golden output for claude-code 1`] = `
+{
+  "flatString": "<specflow_bundle>
+  <agent>claude-code</agent>
+  <instructions>Follow CLAUDE.md conventions and satisfy all acceptance criteria exactly.</instructions>
+  <content>
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`
+  </content>
+</specflow_bundle>",
+  "prompt": "<specflow_bundle>
+  <agent>claude-code</agent>
+  <instructions>Follow CLAUDE.md conventions and satisfy all acceptance criteria exactly.</instructions>
+  <content>
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`
+  </content>
+</specflow_bundle>",
+  "rendererFiles": [
+    {
+      "content": "# CLAUDE.md
+
+Use the XML prompt payload in PROMPT.md as the authoritative task definition.
+Do not deviate from AGENTS.md project conventions.",
+      "relativePath": "bundle/CLAUDE.md",
+    },
+  ],
+}
+`;
+
+exports[`renderBundleForAgent golden renderers > matches golden output for codex-cli 1`] = `
+{
+  "flatString": "# Codex Task Bundle
+
+You are running in Codex CLI. Execute only the scoped task below.
+Follow AGENTS.md conventions strictly.
+
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`",
+  "prompt": "# Codex Task Bundle
+
+You are running in Codex CLI. Execute only the scoped task below.
+Follow AGENTS.md conventions strictly.
+
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`",
+  "rendererFiles": [
+    {
+      "content": "# CODEX.md
+
+PROMPT.md contains the ticket scope, acceptance criteria, and context payload.
+Respect AGENTS.md constraints when implementing changes.",
+      "relativePath": "bundle/CODEX.md",
+    },
+  ],
+}
+`;
+
+exports[`renderBundleForAgent golden renderers > matches golden output for generic 1`] = `
+{
+  "flatString": "SpecFlow Task Bundle
+
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`",
+  "prompt": "SpecFlow Task Bundle
+
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`",
+  "rendererFiles": [],
+}
+`;
+
+exports[`renderBundleForAgent golden renderers > matches golden output for opencode 1`] = `
+{
+  "flatString": "# OpenCode Context Pack
+
+Load AGENTS.md first, then process PROMPT.md as the run objective.
+
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`",
+  "prompt": "# OpenCode Context Pack
+
+Load AGENTS.md first, then process PROMPT.md as the run objective.
+
+# Ticket ticket-1: Implement login
+
+## Description
+Add login endpoint
+
+## Acceptance Criteria
+- Endpoint exists
+
+## Implementation Plan
+1. Add route
+
+## File Targets
+- src/auth.ts
+
+## Export Mode: standard
+- sourceRunId: null
+- sourceFindingId: null
+
+## AGENTS.md
+\`\`\`md
+Always write tests.
+\`\`\`
+
+## Context Files
+### specs/brief.md
+\`\`\`
+# Brief
+\`\`\`",
+  "rendererFiles": [
+    {
+      "content": "# OPENCODE.md
+
+1. Load AGENTS.md.
+2. Apply PROMPT.md instructions.
+3. Keep output focused to file targets unless required for drift-safe changes.",
+      "relativePath": "bundle/OPENCODE.md",
+    },
+  ],
+}
+`;

@@ -2,22 +2,27 @@
 
 ---
 
-# T1 - Repo Scaffold + CLI Init
+# T1 - Repo Scaffold + CLI Runtime Foundation
 
 ## Purpose
 
-Establish the canonical `specflow/` directory layout, the `specflow init` command, and the `specflow ui` server-start entry point. This ticket has no dependencies and unblocks the entire dependency chain.
+Establish the monorepo/workspace foundation for SpecFlow runtime delivery: Node/TypeScript backend, React client build pipeline, and CLI entry points for UI startup, bundle export, and verification.
 
 ## Scope
 
-- `specflow init` command: creates `specflow/` directory tree, writes starter `config.yaml` with defaults, writes starter `AGENTS.md` template, warns (does not block) if not a git repo
-- `specflow ui` flags: `--port`, `--host` (default `127.0.0.1`), `--no-open`
-- `packages/app` package setup: TypeScript config, Commander.js CLI entry, build scripts
-- `packages/client` package setup: React + Vite scaffold, TypeScript config, build output wired into `packages/app/src/static/`
-- Shared type stubs in `packages/app/src/types/` (entity interfaces only - no logic)
-- `specflow/` directory layout as defined in the Tech Plan
+- Workspace scaffold with root `package.json` + npm workspaces for `packages/app` and `packages/client`
+- `packages/app` TypeScript backend package with:
+  - Fastify server entry
+  - Commander CLI entry
+  - core services (artifact store, planner, bundle generator, verifier)
+- `packages/client` React + Vite app served by backend static hosting
+- CLI commands:
+  - `specflow ui`
+  - `specflow export-bundle`
+  - `specflow verify`
+- Runtime artifact layout under `specflow/` (`initiatives/`, `tickets/`, `runs/`, `decisions/`, `config.yaml`)
 
-### Directory layout produced by `specflow init`
+### Runtime layout
 
 ```text
 specflow/
@@ -29,23 +34,23 @@ specflow/
   decisions/
 ```
 
-### `config.yaml` defaults
+### `config.yaml` fields (non-secret)
 
 ```yaml
-provider: anthropic
-model: claude-opus-4-5
-apiKey: ""
+provider: openrouter
+model: openrouter/auto
 port: 3141
 host: 127.0.0.1
 repoInstructionFile: specflow/AGENTS.md
 ```
 
+Provider API keys are expected from `.env` (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
+
 ## Out of Scope
 
-- No actual server logic (T3)
-- No artifact store (T2)
-- No LLM calls (T4)
-- No board UI beyond scaffold (T8)
+- No dedicated `specflow init` command in the current implementation
+- No automatic subprocess execution of external coding agents
+- No cloud sync or multi-user orchestration
 
 ## Spec References
 
@@ -58,10 +63,8 @@ None - this is the root ticket.
 
 ## Done Means
 
-- `specflow init` runs in an empty directory and produces the correct `specflow/` layout with no errors
-- `specflow init` in a non-git directory prints a warning but does not exit with error
-- `specflow init` in an already-initialized directory is idempotent (does not overwrite existing files)
-- `specflow ui --port 4000 --no-open` starts without crashing (server stub acceptable at this stage)
-- TypeScript compiles cleanly for both packages with no errors
-- `packages/client` Vite build produces output that `packages/app` can reference
-
+- `npm run build` compiles `packages/client` and `packages/app`
+- `npm test` passes app service/unit/integration coverage
+- `npm run ui` starts the local board/API on configured host/port
+- CLI `export-bundle` and `verify` run end-to-end (server-delegated when available)
+- Runtime artifacts are persisted under `specflow/` with staged commit semantics for run operations

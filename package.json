@@ -1,0 +1,13 @@
+{
+  "name": "specflow",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run -w @specflow/client build && npm run -w @specflow/app build",
+    "test": "npm run -w @specflow/app test",
+    "ui": "npm run build && node packages/app/dist/cli.js ui"
+  }
+}
