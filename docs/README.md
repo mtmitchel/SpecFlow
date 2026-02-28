@@ -1,58 +1,35 @@
 # docs/
 
-This directory holds SpecFlow planning and technical design artifacts.
+Documentation for SpecFlow.
 
-## Current Docs Map
+## Contents
 
-- Epic brief: [`designing-specflow/epic-brief.md`](designing-specflow/epic-brief.md)
-- Core flows: [`designing-specflow/core-flows.md`](designing-specflow/core-flows.md)
-- Tech plan: [`designing-specflow/tech-plan.md`](designing-specflow/tech-plan.md)
-- Ticket artifact T1 (complete): [`designing-specflow/t1-repo-scaffold-cli-init.md`](designing-specflow/t1-repo-scaffold-cli-init.md)
+| File | What it covers |
+|---|---|
+| [`product-brief.md`](product-brief.md) | Problem statement, goals, success criteria, non-goals |
+| [`workflows.md`](workflows.md) | Four user workflows (Groundwork, Milestone Run, Quick Build, Drift Audit) with step-by-step flows and state diagrams |
+| [`architecture.md`](architecture.md) | Technical architecture: package structure, data model, component responsibilities, API surface, sequence diagrams |
+
+For setup and quick-start instructions, see the root [`README.md`](../README.md).
+For coding conventions, testing guidelines, and commit rules, see [`AGENTS.md`](../AGENTS.md).
+For the version history, see [`CHANGELOG.md`](../CHANGELOG.md).
 
 ## Implementation Status
 
 SpecFlow is fully implemented. The repository includes a working app/client workspace:
 
-- `packages/app`: Fastify backend, CLI commands (`ui`, `export-bundle`, `verify`), and all backend services (Planner, Verifier, Bundle Generator, Artifact Store, Drift Audit)
+- `packages/app`: Fastify backend, CLI commands (`ui`, `export-bundle`, `verify`), and all backend services
 - `packages/client`: React UI for initiatives, tickets, runs, audits, specs, and settings
 
-All four v1 workflows are functional: Groundwork, Milestone Run, Quick Build, and Drift Audit.
+All four workflows are functional: Groundwork, Milestone Run, Quick Build, and Drift Audit.
 
-### Recent Improvements
+Key capabilities in the current version (0.2.0):
 
-**Verification quality**
-- Verification criteria now include `severity` (Critical/Major/Minor/Outdated) and `remediationHint` fields.
-- The verifier prompt instructs the LLM on evidence quality standards, partial-fulfillment reasoning, and how to generate actionable fix guidance.
-
-**Audit quality**
-- Drift audit uses LLM-powered analysis when an API key is configured, replacing the previous keyword-matching approach.
-- Finding categories expanded to Bug/Performance/Security/Clarity with confidence scores.
-
-**Planning quality**
-- The planner scans the repo (`git ls-files` + key config files) before generating plans, grounding file targets in actual codebase structure.
-- Plans include a Mermaid phase-dependency diagram rendered on the initiative detail page.
-
-**Fix-forward loop**
-- Failed verification enriches the re-export bundle with failure context and remediation hints.
-- The ticket detail page shows a "Re-verify Now" button after a quick-fix bundle is exported.
-
-**LLM streaming**
-- The LLM client now streams real tokens via provider SSE APIs instead of simulating streaming after a full response.
-- `max_tokens` is configurable per job type (8192 for plans, 4096 for verification).
-
-**GitHub Issue import**
-- `POST /api/import/github-issue` accepts a GitHub issue URL and feeds it through the triage pipeline.
-- Requires `GITHUB_PERSONAL_ACCESS_TOKEN` or `GITHUB_TOKEN` in the environment.
-
-**Ticket dependencies**
-- `Ticket` now carries `blockedBy: string[]` and `blocks: string[]`.
-- The planner wires inter-phase ticket dependencies automatically.
-- Status transitions to `in-progress` are rejected (409) when unfinished blockers exist.
-
-**Client reliability**
-- Root error boundary catches rendering crashes and displays a recovery UI.
-- Toast notifications surface API errors that were previously silent.
-- Targeted state updates after mutations avoid full data reloads.
-
-For run/setup instructions, use the root [`README.md`](../README.md).
-For coding conventions and repo guidelines, see [`AGENTS.md`](../AGENTS.md).
+- Spec-driven planning with repo context scanning (grounded file targets)
+- Mermaid phase-dependency diagrams on initiative detail pages
+- Verification with per-criterion severity (Critical/Major/Minor/Outdated) and remediation hints
+- Fix-forward loop: quick-fix export mode chains failed verification to enriched re-export to re-verify
+- LLM-powered drift audit with Bug/Performance/Security/Clarity finding categories
+- Real SSE token streaming for all LLM operations
+- GitHub Issue import via `POST /api/import/github-issue`
+- Ticket dependencies with automatic inter-phase wiring and enforced status transitions

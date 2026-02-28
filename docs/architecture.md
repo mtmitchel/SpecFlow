@@ -1,27 +1,21 @@
-# Epic: Designing SpecFlow - A Spec-Driven Development Orchestrator
+# Architecture - SpecFlow
 
----
+## Package Structure
 
-# Tech Plan - SpecFlow
-
-## Architectural Approach
-
-### Package Structure
-
-Two packages sharing a single `package.json` workspace root:
+Two packages sharing a single npm workspace root:
 
 | Package | Contents | Runtime |
 |---|---|---|
 | `packages/app` | Fastify server, CLI entry points, all core services | Node.js |
 | `packages/client` | React + Vite SPA | Browser |
 
-The server builds the client SPA and serves it as static files. There is no separate deployment step - `specflow ui` starts one process that serves everything. Shared TypeScript types (artifact schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
+The server builds the client SPA and serves it as static files. There is no separate deployment step -- `specflow ui` starts one process that serves everything. Shared TypeScript types (entity schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
 
-**Rationale:** Two packages keeps the browser/Node.js boundary explicit without the overhead of a full four-package monorepo. The CLI and server share all core logic directly - no inter-process communication needed.
+---
 
-### In-Memory Artifact Store
+## Artifact Store
 
-On server startup, the store scans `specflow/` and loads all artifacts into typed in-memory maps (initiatives, tickets, runs, specs, config). All board API reads are served from memory - no filesystem I/O per request. Mutations follow a **staged commit model**:
+On server startup, the store scans `specflow/` and loads all artifacts into typed in-memory maps (initiatives, tickets, runs, specs, config). All board API reads are served from memory -- no filesystem I/O per request. Mutations follow a **staged commit model**:
 
 1. Build full operation output in a temp attempt directory (bundle files, snapshot, diff, verification output).
 2. Validate integrity and write a temp manifest.
@@ -30,56 +24,49 @@ On server startup, the store scans `specflow/` and loads all artifacts into type
 
 A file watcher (chokidar) detects external edits and reloads affected artifacts into memory.
 
-**Failure mode handling:** single-file writes use `.tmp` + atomic rename. Multi-file operations are never considered committed until the final pointer/manifest update succeeds. On startup, orphan temp attempt directories are detected and marked as recoverable leftovers, preventing partial state from appearing as committed history.
+**Failure mode handling:** single-file writes use `.tmp` + atomic rename. Multi-file operations are never considered committed until the final pointer/manifest update succeeds. On startup, orphan temp attempt directories are detected and marked as recoverable leftovers.
 
 Staged-commit edge-case rules:
-- Writes are serialized with a per-run lock; concurrent operations against the same run are rejected with retryable conflict.
+- Writes are serialized with a per-run lock; concurrent operations against the same run are rejected with a retryable conflict error.
 - Each staged operation has `operationLeaseExpiresAt`; expired operations are treated as abandoned.
 - Recovery on startup:
-  - `activeOperationId` present + committed pointer missing + tmp exists -> mark operation `abandoned`, keep artifacts for inspection.
-  - `activeOperationId` present + committed pointer already advanced -> mark operation `superseded`, clear active pointer.
-  - tmp missing but active pointer present -> mark operation `failed` and clear active pointer.
-- Cleanup policy: abandoned/superseded temp directories are retained for a bounded TTL, then pruned by background cleanup.
+  - `activeOperationId` present + committed pointer missing + tmp exists -> mark `abandoned`
+  - `activeOperationId` present + committed pointer already advanced -> mark `superseded`
+  - tmp missing but active pointer present -> mark `failed` and clear active pointer
+- Cleanup: abandoned/superseded temp directories are retained for a bounded TTL, then pruned by a background task.
 
-### CLI as Thin Wrapper
+---
+
+## CLI as Thin Wrapper
 
 `specflow ui` starts the Fastify server and opens the browser. `specflow verify` and `specflow export-bundle` use a **prefer-server** execution strategy:
 
-- If server is running, CLI delegates mutating operations to server APIs (server-authoritative write path).
-- If server is not running, CLI executes locally in-process using the same service layer.
+- If the server is running, the CLI delegates mutating operations to server APIs.
+- If the server is not running, the CLI executes locally in-process using the same service layer.
 
-Edge-case rules for delegation:
-- CLI probes `/api/runtime/status` and checks capability + protocol version before delegating.
-- If server is reachable but capability/protocol check fails, mutating commands **fail closed** (no local fallback) to avoid split-brain writes.
-- Delegated mutating requests include `operationId` (idempotency key). If CLI times out, it queries operation state before retrying.
-- Retry behavior is idempotent: repeated requests with same `operationId` must return the same terminal outcome.
+The CLI probes `/api/runtime/status` and checks capability + protocol version before delegating. If the server is reachable but the check fails, mutating commands **fail closed** (no local fallback) to avoid split-brain writes. Delegated requests include an `operationId` idempotency key; if the CLI times out, it queries operation state before retrying.
 
-This avoids concurrent-writer corruption between server in-memory state and standalone CLI mutations while preserving offline CLI usability.
+---
 
-### LLM Calls Through Server Only
+## LLM Calls Through Server Only
 
-The browser never calls the LLM API directly. All AI operations (Planner, Verifier) go through Fastify API routes. The server reads provider API keys from `.env` (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) and keeps those keys out of client payloads. Responses stream back to the client via Server-Sent Events (SSE).
+The browser never calls the LLM API directly. All AI operations (Planner, Verifier, Audit) go through Fastify API routes. The server reads provider API keys from `.env` and keeps those keys out of client payloads. Responses stream back to the client via Server-Sent Events (SSE) using real provider streaming APIs (not simulated).
 
-SSE reconnection is **non-resumable with snapshot refresh**:
-- On disconnect, client reconnects and immediately fetches latest planner/run state via REST.
-- UI resumes from current persisted state (no event replay buffer contract in v1).
+SSE reconnection is non-resumable with snapshot refresh: on disconnect, the client reconnects and immediately fetches latest state via REST. UI resumes from current persisted state (no event replay buffer).
 
-This keeps the API key off the network and out of the browser while keeping reconnection semantics simple and explicit.
+---
 
-### Bundle Duality
+## Bundle Duality
 
 `specflow export-bundle` writes a **directory bundle** to `specflow/runs/<run-id>/attempts/<attempt-id>/bundle/`. The board's Export Bundle panel calls an API endpoint that returns the same content as a **flattened clipboard string**. Both are generated by the same Bundle Generator service.
 
-Bundle contracts are versioned:
-- Every bundle includes a manifest with `bundleSchemaVersion`, `agentTarget`, and `exportMode` (standard vs quick-fix).
-- Quick-fix exports include source linkage metadata (`sourceRunId`, `sourceFindingId`) for audit traceability.
-- Agent renderers (Claude Code / Codex CLI / OpenCode / Generic) are validated by golden tests against fixed fixtures.
+Bundle contracts are versioned: every bundle includes a manifest with `bundleSchemaVersion`, `agentTarget`, and `exportMode` (standard vs quick-fix). Quick-fix exports include source linkage metadata (`sourceRunId`, `sourceFindingId`) for audit traceability. Agent renderers are validated by golden tests against fixed fixtures.
 
-This prevents silent format drift across agent targets.
+---
 
-### Verification Strategy
+## Verification Strategy
 
-The Diff Engine checks for a git repo first (`git rev-parse --is-inside-work-tree`). If found, uses `git diff` for the current working tree. If not, uses the file snapshot captured at Export Bundle time (stored in the run attempt record, scoped to ticket file targets + user-selected folders).
+The Diff Engine checks for a git repo first. If found, uses `git diff`. If not, uses the file snapshot captured at Export Bundle time.
 
 No-git verification uses a **two-stage scope + dual-diff model**:
 - **Initial scope** is selected and baselined at export.
@@ -87,11 +74,7 @@ No-git verification uses a **two-stage scope + dual-diff model**:
 - **Primary diff:** baseline-at-export vs capture-time state for the initial scope (used for verification).
 - **Drift diff:** pre-capture local changes and widened-scope deltas surfaced as warnings.
 
-The Verifier LLM receives the primary diff, acceptance criteria, and `specflow/AGENTS.md` and returns structured pass/fail results. Drift diff warnings are shown alongside verification output for operator awareness.
-
-### Local-Only Binding
-
-Fastify binds to `127.0.0.1` by default. `specflow ui --host 0.0.0.0` enables LAN exposure. No external network calls except to the configured LLM provider.
+The Verifier LLM receives the primary diff, acceptance criteria, and `specflow/AGENTS.md` and returns structured results per criterion including `pass`, `evidence`, `severity`, and `remediationHint`. Drift diff warnings are shown alongside verification output.
 
 ---
 
@@ -105,12 +88,12 @@ specflow/
   AGENTS.md                          # repo instruction file (conventions)
   initiatives/
     <id>/
-      initiative.yaml                # metadata, status, phase list
+      initiative.yaml                # metadata, status, phase list, mermaidDiagram
       brief.md
       prd.md
       tech-spec.md
   tickets/
-    <id>.yaml                        # all ticket fields
+    <id>.yaml                        # all ticket fields including blockedBy/blocks
   runs/
     <id>/
       run.yaml                       # run metadata, committed attempt pointer
@@ -149,6 +132,7 @@ phases:
     status: active | complete
 specIds: string[]
 ticketIds: string[]
+mermaidDiagram: string | null  # Mermaid graph LR diagram of phase dependencies
 createdAt: ISO8601
 updatedAt: ISO8601
 ```
@@ -166,6 +150,8 @@ acceptanceCriteria:
     text: string
 implementationPlan: string   # Markdown
 fileTargets: string[]        # relative paths
+blockedBy: string[]          # ticket IDs that must be done before this one starts
+blocks: string[]             # ticket IDs that this one blocks
 runId: string | null         # current active run
 createdAt: ISO8601
 updatedAt: ISO8601
@@ -200,6 +186,8 @@ criteriaResults:
   - criterionId: string
     pass: boolean
     evidence: string
+    severity: Critical | Major | Minor | Outdated
+    remediationHint: string | null
 driftFlags:
   - type: unexpected-file | missing-requirement | pre-capture-drift | widened-scope-drift
     file: string
@@ -208,24 +196,24 @@ overallPass: boolean
 createdAt: ISO8601
 ```
 
-**AuditFinding** (within `verification.json` for audit-type runs)
+**AuditFinding** (within the audit report for audit-type runs)
 ```yaml
 findings:
   - id: string
-    category: missing-requirement | convention-violation | unexpected-change | suggestion
+    category: drift | acceptance | convention | bug | performance | security | clarity
     severity: error | warning | info
+    confidence: number | null       # 0-1, present when LLM-generated
     description: string
     file: string
     line: number | null
     dismissed: boolean
     dismissNote: string | null
-    ticketCreated: string | null   # ticket ID if converted
 ```
 
 **Config**
 ```yaml
 provider: anthropic | openai | openrouter
-model: string                # e.g. claude-opus-4-5, gpt-4o, openrouter/auto
+model: string                # e.g. claude-opus-4-6, gpt-4o, openrouter/auto
 apiKey?: string              # optional legacy fallback; prefer environment variables
 port: number                 # default 3141
 host: string                 # default 127.0.0.1
@@ -234,8 +222,8 @@ repoInstructionFile: string  # default specflow/AGENTS.md
 
 **BundleManifest**
 ```yaml
-bundleSchemaVersion: string      # e.g. 1.0.0
-rendererVersion: string          # agent renderer implementation version
+bundleSchemaVersion: string
+rendererVersion: string
 agentTarget: claude-code | codex-cli | opencode | generic
 exportMode: standard | quick-fix
 ticketId: string | null
@@ -245,7 +233,7 @@ sourceRunId: string | null       # present for quick-fix from audit findings
 sourceFindingId: string | null   # present for quick-fix from audit findings
 contextFiles: string[]
 requiredFiles: string[]
-contentDigest: string            # checksum of rendered bundle payload
+contentDigest: string
 generatedAt: ISO8601
 ```
 
@@ -253,12 +241,13 @@ generatedAt: ISO8601
 ```yaml
 operationId: string
 runId: string
-attemptId: string
+targetAttemptId: string
 state: prepared | committed | abandoned | superseded | failed
 leaseExpiresAt: ISO8601
-validationPassed: boolean
-error: string | null
-createdAt: ISO8601
+validation:
+  passed: boolean
+  details: string | null
+preparedAt: ISO8601
 updatedAt: ISO8601
 ```
 
@@ -270,6 +259,7 @@ graph TD
     Initiative --> Spec
     Initiative --> Ticket
     Phase --> Ticket
+    Ticket --> Ticket2[Ticket blockedBy/blocks]
     Ticket --> Run
     Run --> RunAttempt
     RunAttempt --> VerificationResult
@@ -308,6 +298,7 @@ graph TD
     ArtifactStore[Artifact Store - In-Memory] --> ArtifactIO
     ArtifactStore --> FileWatcher[File Watcher - chokidar]
 
+    PlannerService --> RepoScanner[Repo Scanner]
     PlannerService --> LLMClient
     VerifierService --> LLMClient
     VerifierService --> DiffEngine
@@ -325,36 +316,43 @@ graph TD
 | **API Routes** | REST endpoints for all CRUD + action operations; streams SSE for LLM jobs |
 | **Artifact Store** | Typed in-memory maps; staged commit orchestrator; chokidar reload on external edits |
 | **Artifact IO** | Reads/writes YAML + Markdown; enforces `specflow/` directory layout; atomic writes via temp-rename |
-| **Planner Service** | Assembles prompts per job type (clarify, spec-gen, plan, triage); parses structured LLM responses |
-| **Verifier Service** | Assembles primary diff + drift diff + criteria + AGENTS.md; parses pass/fail + drift warnings |
+| **Planner Service** | Assembles prompts per job type (clarify, spec-gen, plan, triage); injects repo context from Repo Scanner; parses structured LLM responses |
+| **Repo Scanner** | Runs `git ls-files` + reads key config files; produces a condensed file tree for plan prompt grounding |
+| **Verifier Service** | Assembles primary diff + drift diff + criteria + AGENTS.md; parses per-criterion results including severity and remediation hints |
 | **Diff Engine** | Git diff via `simple-git`; file snapshot diff via `diff` library; snapshot capture at export time |
 | **Bundle Generator** | Assembles context; renders per-agent formats; emits versioned bundle manifest; supports quick-fix export linkage metadata; validated by golden tests |
-| **LLM Client** | Single provider adapter (Anthropic/OpenAI/OpenRouter); handles streaming; resolves API keys from `.env` (with optional legacy config fallback) |
+| **LLM Client** | Single provider adapter (Anthropic/OpenAI/OpenRouter); real SSE token streaming; configurable `max_tokens` per job type; resolves API keys from `.env` |
 
-**Key API surface (representative):**
+**API surface:**
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/runtime/status` | Server health + capability probe (used by CLI for prefer-server delegation) |
 | `GET` | `/api/operations/:id` | Operation state probe for idempotent retry after timeout |
-| `POST` | `/api/initiatives` | Create initiative, trigger Planner clarify |
+| `GET` | `/api/artifacts` | Full in-memory state dump for initial board load |
+| `GET` | `/api/providers` | List available LLM providers and models |
+| `POST` | `/api/initiatives` | Create initiative |
+| `PATCH` | `/api/initiatives/:id` | Update initiative metadata |
 | `POST` | `/api/initiatives/:id/generate-specs` | Generate Brief/PRD/Tech Spec |
-| `POST` | `/api/initiatives/:id/generate-plan` | Generate phase + ticket breakdown |
-| `POST` | `/api/tickets` | Create ticket (Quick Build or Groundwork) |
-| `POST` | `/api/tickets/:id/export-bundle` | Generate bundle; returns flat string + writes directory |
+| `POST` | `/api/initiatives/:id/generate-plan` | Generate phase + ticket breakdown with repo context |
+| `GET` | `/api/planner/stream` | SSE stream for Planner LLM output |
+| `GET` | `/api/tickets` | List all tickets |
+| `POST` | `/api/tickets` | Create ticket via triage (Quick Build or Groundwork) |
+| `PATCH` | `/api/tickets/:id` | Update ticket status, title, or description |
+| `POST` | `/api/tickets/:id/export-bundle` | Generate bundle; `exportMode` standard or quick-fix |
 | `POST` | `/api/tickets/:id/capture-results` | Submit diff/summary; triggers verification |
+| `POST` | `/api/tickets/:id/capture-preview` | Preview verification diff/scope before capture |
+| `POST` | `/api/tickets/:id/override-done` | Override ticket to Done with required reason |
 | `GET` | `/api/tickets/:id/verify/stream` | SSE stream for verification progress |
 | `GET` | `/api/runs` | List runs with ticket/status/agent/date filters |
 | `GET` | `/api/runs/:id` | Get run detail with committed artifacts and diffs |
 | `GET` | `/api/runs/:id/state` | Snapshot endpoint for SSE reconnect recovery |
 | `POST` | `/api/runs/:id/audit` | Run Drift Audit on a diff source |
-| `POST` | `/api/runs/:id/findings/:findingId/export-fix-bundle` | Generate quick-fix bundle with source linkage metadata |
 | `POST` | `/api/runs/:id/findings/:findingId/create-ticket` | Create a follow-up ticket from an audit finding |
+| `POST` | `/api/runs/:id/findings/:findingId/export-fix-bundle` | Generate quick-fix bundle with source linkage metadata |
 | `POST` | `/api/runs/:id/findings/:findingId/dismiss` | Dismiss finding with required note |
-| `POST` | `/api/tickets/:id/capture-preview` | Preview verification diff/scope before capture |
 | `GET` | `/api/runs/:runId/attempts/:attemptId/bundle.zip` | Download run attempt bundle as zip |
-| `GET` | `/api/planner/stream` | SSE stream for Planner LLM output |
-| `GET` | `/api/artifacts` | Full in-memory state dump for initial board load |
+| `POST` | `/api/import/github-issue` | Fetch a GitHub Issue and feed it through the triage pipeline |
 
 ### packages/client - React SPA
 
@@ -365,15 +363,17 @@ graph TD
     AppShell --> SpecsView
     AppShell --> RunsView
     AppShell --> SettingsView
-    AppShell --> QuickTaskPanel[Quick Task Slide-in Panel]
+    AppShell --> ErrorBoundary[Root Error Boundary]
+    AppShell --> ToastContext[Toast Context]
     AppShell --> SSEClient[SSE Client]
 
-    InitiativesView --> InitiativeDetail[Initiative Detail - Tabs: Brief / PRD / Tech Spec]
-    InitiativeDetail --> PlannerChat[Planner Q&A Panel]
+    InitiativesView --> InitiativeDetail[Initiative Detail - Tabs: Brief / PRD / Tech Spec / Diagram]
     InitiativeDetail --> PhaseTicketList[Phase + Ticket List]
 
     TicketsView --> KanbanBoard[Kanban Board - 5 columns]
+    TicketsView --> ImportPanel[GitHub Issue Import Panel]
     KanbanBoard --> TicketDetail[Ticket Detail Page]
+    TicketDetail --> BlockersBanner[Blockers Banner]
     TicketDetail --> ExportPanel[Export Bundle Panel]
     TicketDetail --> CapturePanel[Capture Results Panel]
     TicketDetail --> VerificationPanel[Verification Panel]
@@ -384,7 +384,7 @@ graph TD
     RunDetail --> AuditPanel
 
     SSEClient --> VerificationPanel
-    SSEClient --> PlannerChat
+    SSEClient --> InitiativeDetail
 ```
 
 **Component responsibilities:**
@@ -392,18 +392,22 @@ graph TD
 | Component | Responsibility |
 |---|---|
 | **App Shell** | Layout, left nav, routing, Quick Task panel trigger |
+| **Root Error Boundary** | Catches rendering crashes; presents a recovery UI instead of a blank screen |
+| **Toast Context** | Surfaces API errors (rate limits, conflicts, auth failures) that would otherwise be silent |
 | **SSE Client** | Maintains SSE connections; on disconnect performs snapshot refresh via REST and resumes from latest persisted state |
-| **Planner Q&A Panel** | Renders structured follow-up questions; submits answers; streams spec generation output |
-| **Kanban Board** | Five-column drag-and-drop ticket view; phase warning badges; initiative badge on tickets |
-| **Export Bundle Panel** | Agent selector; displays flattened clipboard string; copy button; download link for directory bundle |
+| **Kanban Board** | Five-column ticket view; phase warning badges; initiative badge on tickets |
+| **Export Bundle Panel** | Agent selector; displays flattened clipboard string; copy button; download link; `exportMode` standard or quick-fix |
 | **Capture Results Panel** | Git diff preview (if git detected) or folder/file picker (no-git); optional summary text area |
-| **Verification Panel** | Per-criterion pass/fail; drift flags; Re-export button; two-step Override to Done flow |
+| **Verification Panel** | Per-criterion pass/fail with severity and remediation hint; drift flags; Re-export button; two-step Override to Done flow |
 | **Audit Panel** | Diff source selector; two-panel findings list + diff viewer with gutter markers; per-finding actions |
-| **Run List** | Grouped by ticket with expandable attempts; shows operation status badges (`abandoned`/`superseded`/`failed`) with guided retry actions |
-| **Ticket Detail Status Banner** | Mirrors operation status badges and exposes retry/recover actions relevant to the active run |
-| **Diff Viewer** | Plain unified diff renderer; gutter markers linked to findings |
+| **Blockers Banner** | Shows unfinished and finished blocker tickets on ticket detail; warns when ticket cannot be started |
+| **GitHub Issue Import Panel** | URL input; calls `POST /api/import/github-issue`; navigates to new ticket or initiative on success |
+| **MermaidView** | Renders Mermaid syntax to sanitized SVG (DOMPurify); used on initiative Diagram tab |
+| **Run List** | Grouped by ticket with expandable attempts; shows operation status badges with guided retry actions |
 
-### End-to-End Request Trace: Verification
+---
+
+## End-to-End Request Trace: Verification
 
 ```mermaid
 sequenceDiagram
@@ -421,17 +425,19 @@ sequenceDiagram
     DiffEngine-->>Server: primary diff + drift diff
     Server->>VerifierService: verify(ticket, primaryDiff, agentsmd)
     VerifierService->>LLMClient: stream(verifyPrompt)
-    LLMClient-->>Server: token stream
+    LLMClient-->>Server: real SSE token stream from provider
     Server-->>Board: SSE: verification progress tokens
-    LLMClient-->>VerifierService: complete structured result
+    LLMClient-->>VerifierService: complete structured result {criteriaResults, driftFlags}
     VerifierService->>ArtifactStore: writeAttemptResult(result)
     ArtifactStore->>ArtifactStore: write-through to verification.json
-    Server-->>Board: SSE: verification complete {criteriaResults, driftFlags}
-    Board->>Board: render Verification Panel
+    Server-->>Board: SSE: verification complete
+    Board->>Board: render Verification Panel with severity + remediation hints
     Note over Board,Server: On SSE disconnect, Board refetches /api/runs/:id/state and resumes from snapshot
 ```
 
-### End-to-End Request Trace: Export Bundle
+---
+
+## End-to-End Request Trace: Export Bundle
 
 ```mermaid
 sequenceDiagram
@@ -441,8 +447,8 @@ sequenceDiagram
     participant ArtifactStore
     participant Disk
 
-    Board->>Server: POST /api/tickets/:id/export-bundle {agent, operationId}
-    Server->>BundleGenerator: generate(ticketId, agent, operationId)
+    Board->>Server: POST /api/tickets/:id/export-bundle {agent, exportMode, operationId}
+    Server->>BundleGenerator: generate(ticketId, agent, exportMode, operationId)
     BundleGenerator->>ArtifactStore: getTicket + getLinkedSpecs + getAgentsMd
     ArtifactStore-->>BundleGenerator: ticket, specs, conventions
     BundleGenerator->>BundleGenerator: render agent-specific format
@@ -452,6 +458,6 @@ sequenceDiagram
     BundleGenerator->>Disk: commit by atomically updating run pointer
     BundleGenerator-->>Server: flatString + bundlePath
     Server->>ArtifactStore: update ticket status -> in-progress (committed attempt)
-    Server-->>Board: {flatString, bundlePath}
+    Server-->>Board: {flatString, bundlePath, manifest}
     Board->>Board: show clipboard panel + download link
 ```
