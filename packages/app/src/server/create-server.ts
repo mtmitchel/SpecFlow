@@ -5,7 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import fastifyStatic from "@fastify/static";
 import { BundleGenerator } from "../bundle/bundle-generator.js";
 import type { BundleManifest } from "../bundle/types.js";
-import { loadEnvironment } from "../config/env.js";
+import { loadEnvironment, resolveProviderApiKey } from "../config/env.js";
 import { writeFileAtomic } from "../io/atomic-write.js";
 import { readYamlFile } from "../io/yaml.js";
 import { PlannerService } from "../planner/planner-service.js";
@@ -21,6 +21,7 @@ export interface CreateSpecFlowServerOptions {
   host?: string;
   port?: number;
   staticDir?: string;
+  fetchImpl?: typeof fetch;
   store?: ArtifactStore;
   plannerService?: PlannerService;
   bundleGenerator?: BundleGenerator;
@@ -117,6 +118,7 @@ export const createSpecFlowServer = async (
       store
     });
   const diffEngine = new DiffEngine({ rootDir: options.rootDir });
+  const fetchImpl = options.fetchImpl ?? fetch;
 
   await mkdir(staticDir, { recursive: true });
 
@@ -381,6 +383,76 @@ export const createSpecFlowServer = async (
 
     await store.upsertConfig(nextConfig);
     await reply.send({ config: nextConfig });
+  });
+
+  app.get("/api/providers/:provider/models", async (request, reply) => {
+    const { provider } = request.params as { provider: string };
+    if (provider !== "openrouter") {
+      await reply.code(400).send({
+        error: "Bad Request",
+        message: `Provider '${provider}' is not supported for model discovery`
+      });
+      return;
+    }
+
+    const query = (request.query ?? {}) as Partial<{ q: string }>;
+    const searchTerm = (query.q ?? "").trim().toLowerCase();
+    const apiKey = resolveProviderApiKey("openrouter", store.config?.apiKey);
+    try {
+      const response = await fetchImpl("https://openrouter.ai/api/v1/models", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+        }
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        await reply.code(502).send({
+          error: "Provider Error",
+          message: `OpenRouter model discovery failed (${response.status})`,
+          details: body.slice(0, 200)
+        });
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        data?: Array<{
+          id?: string;
+          name?: string;
+          context_length?: number;
+        }>;
+      };
+
+      const models = (payload.data ?? [])
+        .filter((model): model is { id: string; name?: string; context_length?: number } => typeof model.id === "string")
+        .map((model) => ({
+          id: model.id,
+          name: model.name ?? model.id,
+          contextLength: typeof model.context_length === "number" ? model.context_length : null
+        }))
+        .filter((model) => {
+          if (!searchTerm) {
+            return true;
+          }
+
+          return model.id.toLowerCase().includes(searchTerm) || model.name.toLowerCase().includes(searchTerm);
+        })
+        .sort((left, right) => left.id.localeCompare(right.id));
+
+      await reply.send({
+        provider: "openrouter",
+        count: models.length,
+        models
+      });
+    } catch (error) {
+      await reply.code(502).send({
+        error: "Provider Error",
+        message: "Failed to reach OpenRouter model registry",
+        details: (error as Error).message
+      });
+    }
   });
 
   app.post("/api/initiatives", async (request, reply) => {

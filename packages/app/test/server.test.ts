@@ -82,7 +82,29 @@ describe("createSpecFlowServer", () => {
     const server = await createSpecFlowServer({
       rootDir,
       store,
-      staticDir
+      staticDir,
+      fetchImpl: async (input, init) => {
+        if (typeof input === "string" && input === "https://openrouter.ai/api/v1/models") {
+          void init;
+
+          return new Response(
+            JSON.stringify({
+              data: [
+                { id: "openrouter/auto", name: "Auto Router", context_length: 200000 },
+                { id: "openai/gpt-4o-mini", name: "GPT-4o mini", context_length: 128000 }
+              ]
+            }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json"
+              }
+            }
+          );
+        }
+
+        throw new Error(`Unexpected fetch request: ${String(input)}`);
+      }
     });
 
     const statusResponse = await server.app.inject({ method: "GET", url: "/api/runtime/status" });
@@ -139,6 +161,14 @@ describe("createSpecFlowServer", () => {
     });
     expect(configResponse.statusCode).toBe(200);
     expect(configResponse.json().config.provider).toBe("openrouter");
+
+    const modelsResponse = await server.app.inject({
+      method: "GET",
+      url: "/api/providers/openrouter/models?q=auto"
+    });
+    expect(modelsResponse.statusCode).toBe(200);
+    expect(modelsResponse.json().models).toHaveLength(1);
+    expect(modelsResponse.json().models[0].id).toBe("openrouter/auto");
 
     const initiativePatch = await server.app.inject({
       method: "PATCH",

@@ -1,4 +1,13 @@
-import type { ArtifactsSnapshot, AuditReport, Config, RunDetail, RunListItem, Ticket, TicketStatus } from "./types";
+import type {
+  ArtifactsSnapshot,
+  AuditReport,
+  Config,
+  ProviderModel,
+  RunDetail,
+  RunListItem,
+  Ticket,
+  TicketStatus
+} from "./types";
 
 const parse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
@@ -338,6 +347,27 @@ export const fetchRuns = async (filters: {
 export const fetchRunDetail = async (runId: string): Promise<RunDetail> => {
   const response = await fetch(`/api/runs/${runId}`);
   return parse<RunDetail>(response);
+};
+
+export const fetchProviderModels = async (
+  provider: "anthropic" | "openai" | "openrouter",
+  query?: string
+): Promise<ProviderModel[]> => {
+  const params = new URLSearchParams();
+  if (query?.trim()) {
+    params.set("q", query.trim());
+  }
+
+  const response = await fetch(
+    params.toString()
+      ? `/api/providers/${provider}/models?${params.toString()}`
+      : `/api/providers/${provider}/models`
+  );
+  const payload = await parse<{
+    models: ProviderModel[];
+  }>(response);
+
+  return payload.models;
 };
 
 export const runAudit = async (

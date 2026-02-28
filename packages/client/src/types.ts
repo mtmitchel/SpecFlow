@@ -146,6 +146,12 @@ export interface Config {
   repoInstructionFile: string;
 }
 
+export interface ProviderModel {
+  id: string;
+  name: string;
+  contextLength: number | null;
+}
+
 export interface ArtifactsSnapshot {
   config: Config | null;
   initiatives: Initiative[];

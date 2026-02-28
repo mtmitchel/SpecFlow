@@ -415,6 +415,15 @@ nav {
   cursor: pointer;
 }
 
+.settings-model-picker {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.settings-error {
+  color: #ffada8;
+}
+
 @media (max-width: 1080px) {
   .app-shell {
     grid-template-columns: 1fr;

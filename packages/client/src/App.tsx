@@ -10,6 +10,7 @@ import {
   exportFixBundle,
   fetchArtifacts,
   fetchOperationStatus,
+  fetchProviderModels,
   fetchRunDetail,
   fetchRuns,
   fetchRunState,
@@ -35,7 +36,8 @@ import type {
   RunAttempt,
   SpecDocument,
   Ticket,
-  TicketStatus
+  TicketStatus,
+  ProviderModel
 } from "./types";
 
 const statusColumns: Array<{ key: TicketStatus; label: string }> = [
@@ -1872,10 +1874,79 @@ const SettingsPage = ({
   onSave: (next: Config) => Promise<void>;
 }): JSX.Element => {
   const [form, setForm] = useState<Config | null>(config);
+  const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
+  const [modelSearch, setModelSearch] = useState("");
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
 
   useEffect(() => {
     setForm(config);
   }, [config]);
+
+  useEffect(() => {
+    if (!form || form.provider !== "openrouter") {
+      setAvailableModels([]);
+      setModelsError(null);
+      setModelSearch("");
+      return;
+    }
+
+    let cancelled = false;
+    setModelSearch(form.model);
+    setModelsLoading(true);
+    setModelsError(null);
+
+    void fetchProviderModels("openrouter")
+      .then((models) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAvailableModels(models);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+
+        setModelsError((error as Error).message ?? "Failed to load OpenRouter models");
+        setAvailableModels([]);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setModelsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form?.provider]);
+
+  const filteredModels = useMemo(() => {
+    if (!form || form.provider !== "openrouter") {
+      return [];
+    }
+
+    const search = modelSearch.trim().toLowerCase();
+    const filtered = search
+      ? availableModels.filter(
+          (model) =>
+            model.id.toLowerCase().includes(search) ||
+            model.name.toLowerCase().includes(search)
+        )
+      : [...availableModels];
+
+    if (form.model && !filtered.some((model) => model.id === form.model)) {
+      filtered.unshift({
+        id: form.model,
+        name: `${form.model} (custom)`,
+        contextLength: null
+      });
+    }
+
+    return filtered;
+  }, [availableModels, form, modelSearch]);
 
   if (!form) {
     return <p>Configuration not loaded.</p>;
@@ -1904,7 +1975,35 @@ const SettingsPage = ({
         </label>
         <label>
           Model
-          <input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} />
+          {form.provider === "openrouter" ? (
+            <div className="settings-model-picker">
+              <input
+                placeholder="Search OpenRouter models"
+                value={modelSearch}
+                onChange={(event) => setModelSearch(event.target.value)}
+              />
+              <select
+                value={form.model}
+                onChange={(event) => setForm({ ...form, model: event.target.value })}
+              >
+                {filteredModels.length === 0 ? (
+                  <option value={form.model || ""}>
+                    {modelsLoading ? "Loading models..." : "No models found"}
+                  </option>
+                ) : (
+                  filteredModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                      {model.contextLength ? ` (${model.contextLength.toLocaleString()} ctx)` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+              {modelsError ? <small className="settings-error">{modelsError}</small> : null}
+            </div>
+          ) : (
+            <input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} />
+          )}
         </label>
         <label>
           API key
