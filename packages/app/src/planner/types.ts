@@ -32,6 +32,7 @@ export interface PlanPhase {
 
 export interface PlanResult {
   phases: PlanPhase[];
+  mermaidDiagram?: string;
 }
 
 export interface TriageTicketDraft {
@@ -63,6 +64,11 @@ export interface PlanInput {
   briefMarkdown: string;
   prdMarkdown: string;
   techSpecMarkdown: string;
+  repoContext?: {
+    fileTree: string;
+    totalFiles: number;
+    configSummary: string;
+  };
 }
 
 export interface TriageInput {

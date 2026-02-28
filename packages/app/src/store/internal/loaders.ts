@@ -73,6 +73,9 @@ export const loadTickets = async (input: {
 
     const ticket = await readYamlFile<Ticket>(path.join(ticketsDir(input.rootDir), fileName));
     if (ticket) {
+      // Normalize fields that were added after initial schema — absent in older YAML files.
+      ticket.blockedBy = Array.isArray(ticket.blockedBy) ? ticket.blockedBy : [];
+      ticket.blocks = Array.isArray(ticket.blocks) ? ticket.blocks : [];
       input.tickets.set(ticket.id, ticket);
     }
   }

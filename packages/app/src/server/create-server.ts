@@ -8,6 +8,7 @@ import { PlannerService } from "../planner/planner-service.js";
 import { ArtifactStore } from "../store/artifact-store.js";
 import { DiffEngine } from "../verify/diff-engine.js";
 import { VerifierService } from "../verify/verifier-service.js";
+import { registerImportRoutes } from "./routes/import-routes.js";
 import { registerInitiativeRoutes } from "./routes/initiative-routes.js";
 import { registerOperationRoutes } from "./routes/operation-routes.js";
 import { registerProviderRoutes } from "./routes/provider-routes.js";
@@ -124,6 +125,7 @@ export const createSpecFlowServer = async (
     diffEngine
   });
   registerOperationRoutes(app, { store });
+  registerImportRoutes(app, { plannerService, fetchImpl });
 
   registerStubbedApiRoutes(app);
 

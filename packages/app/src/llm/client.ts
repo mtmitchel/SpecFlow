@@ -6,6 +6,7 @@ export interface LlmRequest {
   apiKey: string;
   systemPrompt: string;
   userPrompt: string;
+  maxTokens?: number;
   timeoutMs?: number;
 }
 
@@ -15,15 +16,8 @@ export interface LlmClient {
   complete(request: LlmRequest, onToken?: LlmTokenHandler): Promise<string>;
 }
 
-const defaultTimeoutMs = 30_000;
-
-const chunkText = (text: string, chunkSize = 24): string[] => {
-  const chunks: string[] = [];
-  for (let index = 0; index < text.length; index += chunkSize) {
-    chunks.push(text.slice(index, index + chunkSize));
-  }
-  return chunks;
-};
+const DEFAULT_MAX_TOKENS = 4096;
+const DEFAULT_TIMEOUT_MS = 120_000;
 
 const classifyProviderError = (statusCode: number, message: string): LlmProviderError => {
   const normalized = message.toLowerCase();
@@ -39,30 +33,135 @@ const classifyProviderError = (statusCode: number, message: string): LlmProvider
   return new LlmProviderError("Provider request failed", "provider_error", statusCode);
 };
 
-const parseOpenAiResponseText = (payload: unknown): string => {
-  const maybe = payload as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  const content = maybe.choices?.[0]?.message?.content;
-  if (!content || typeof content !== "string") {
-    throw new LlmProviderError("OpenAI response missing text content", "provider_error");
+/** Parse Anthropic streaming SSE and return accumulated text, calling onToken for each delta. */
+const streamAnthropic = async (
+  response: Response,
+  onToken?: LlmTokenHandler
+): Promise<string> => {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new LlmProviderError("Anthropic response body is not readable", "provider_error");
   }
 
-  return content;
+  const decoder = new TextDecoder();
+  let accumulated = "";
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data:")) {
+        continue;
+      }
+
+      const data = line.slice(5).trim();
+      if (!data) {
+        continue;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(data);
+      } catch {
+        continue;
+      }
+
+      const event = parsed as {
+        type?: string;
+        delta?: { type?: string; text?: string };
+        error?: { message?: string };
+      };
+
+      if (event.type === "error" && event.error?.message) {
+        throw new LlmProviderError(event.error.message, "provider_error");
+      }
+
+      if (event.type === "content_block_delta" && event.delta?.type === "text_delta" && event.delta.text) {
+        const text = event.delta.text;
+        accumulated += text;
+        if (onToken) {
+          await onToken(text);
+        }
+      }
+    }
+  }
+
+  return accumulated;
 };
 
-const parseAnthropicResponseText = (payload: unknown): string => {
-  const maybe = payload as {
-    content?: Array<{ type?: string; text?: string }>;
-  };
-
-  const textPart = maybe.content?.find((part) => part.type === "text" && typeof part.text === "string");
-  if (!textPart?.text) {
-    throw new LlmProviderError("Anthropic response missing text content", "provider_error");
+/** Parse OpenAI-compatible streaming SSE (also used for OpenRouter) and return accumulated text. */
+const streamOpenAi = async (
+  response: Response,
+  onToken?: LlmTokenHandler
+): Promise<string> => {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new LlmProviderError("OpenAI response body is not readable", "provider_error");
   }
 
-  return textPart.text;
+  const decoder = new TextDecoder();
+  let accumulated = "";
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data:")) {
+        continue;
+      }
+
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") {
+        break;
+      }
+
+      if (!data) {
+        continue;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(data);
+      } catch {
+        continue;
+      }
+
+      const event = parsed as {
+        choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>;
+        error?: { message?: string };
+      };
+
+      if (event.error?.message) {
+        throw new LlmProviderError(event.error.message, "provider_error");
+      }
+
+      const content = event.choices?.[0]?.delta?.content;
+      if (content) {
+        accumulated += content;
+        if (onToken) {
+          await onToken(content);
+        }
+      }
+    }
+  }
+
+  return accumulated;
 };
 
 export class HttpLlmClient implements LlmClient {
@@ -80,79 +179,45 @@ export class HttpLlmClient implements LlmClient {
       );
     }
 
-    const timeoutMs = request.timeoutMs ?? defaultTimeoutMs;
+    const timeoutMs = request.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       controller.abort();
     }, timeoutMs);
 
     try {
-      const text = await this.executeRequest(request, controller.signal);
-      if (onToken) {
-        for (const chunk of chunkText(text)) {
-          await onToken(chunk);
-        }
-      }
-
-      return text;
+      return await this.executeRequest(request, controller.signal, onToken);
     } catch (error) {
       if ((error as Error).name === "AbortError") {
         throw new LlmProviderError("Provider request timed out", "timeout");
       }
-
       throw error;
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  private async executeRequest(request: LlmRequest, signal: AbortSignal): Promise<string> {
+  private async executeRequest(
+    request: LlmRequest,
+    signal: AbortSignal,
+    onToken?: LlmTokenHandler
+  ): Promise<string> {
     if (request.provider === "openrouter") {
-      return this.requestOpenRouter(request, signal);
+      return this.requestOpenRouter(request, signal, onToken);
     }
 
     if (request.provider === "openai") {
-      return this.requestOpenAi(request, signal);
+      return this.requestOpenAi(request, signal, onToken);
     }
 
-    return this.requestAnthropic(request, signal);
+    return this.requestAnthropic(request, signal, onToken);
   }
 
-  private async requestOpenAi(request: LlmRequest, signal: AbortSignal): Promise<string> {
-    const response = await this.fetchImpl("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${request.apiKey}`
-      },
-      body: JSON.stringify({
-        model: request.model,
-        temperature: 0.2,
-        messages: [
-          {
-            role: "system",
-            content: request.systemPrompt
-          },
-          {
-            role: "user",
-            content: request.userPrompt
-          }
-        ]
-      })
-    });
-
-    const raw = await response.text();
-
-    if (!response.ok) {
-      throw classifyProviderError(response.status, raw);
-    }
-
-    const payload = JSON.parse(raw) as unknown;
-    return parseOpenAiResponseText(payload);
-  }
-
-  private async requestAnthropic(request: LlmRequest, signal: AbortSignal): Promise<string> {
+  private async requestAnthropic(
+    request: LlmRequest,
+    signal: AbortSignal,
+    onToken?: LlmTokenHandler
+  ): Promise<string> {
     const response = await this.fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
       signal,
@@ -164,27 +229,57 @@ export class HttpLlmClient implements LlmClient {
       body: JSON.stringify({
         model: request.model,
         system: request.systemPrompt,
-        max_tokens: 2048,
+        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+        stream: true,
+        messages: [{ role: "user", content: request.userPrompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const raw = await response.text();
+      throw classifyProviderError(response.status, raw);
+    }
+
+    return streamAnthropic(response, onToken);
+  }
+
+  private async requestOpenAi(
+    request: LlmRequest,
+    signal: AbortSignal,
+    onToken?: LlmTokenHandler
+  ): Promise<string> {
+    const response = await this.fetchImpl("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${request.apiKey}`
+      },
+      body: JSON.stringify({
+        model: request.model,
+        temperature: 0.2,
+        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+        stream: true,
         messages: [
-          {
-            role: "user",
-            content: request.userPrompt
-          }
+          { role: "system", content: request.systemPrompt },
+          { role: "user", content: request.userPrompt }
         ]
       })
     });
 
-    const raw = await response.text();
-
     if (!response.ok) {
+      const raw = await response.text();
       throw classifyProviderError(response.status, raw);
     }
 
-    const payload = JSON.parse(raw) as unknown;
-    return parseAnthropicResponseText(payload);
+    return streamOpenAi(response, onToken);
   }
 
-  private async requestOpenRouter(request: LlmRequest, signal: AbortSignal): Promise<string> {
+  private async requestOpenRouter(
+    request: LlmRequest,
+    signal: AbortSignal,
+    onToken?: LlmTokenHandler
+  ): Promise<string> {
     const response = await this.fetchImpl("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       signal,
@@ -197,26 +292,20 @@ export class HttpLlmClient implements LlmClient {
       body: JSON.stringify({
         model: request.model,
         temperature: 0.2,
+        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+        stream: true,
         messages: [
-          {
-            role: "system",
-            content: request.systemPrompt
-          },
-          {
-            role: "user",
-            content: request.userPrompt
-          }
+          { role: "system", content: request.systemPrompt },
+          { role: "user", content: request.userPrompt }
         ]
       })
     });
 
-    const raw = await response.text();
-
     if (!response.ok) {
+      const raw = await response.text();
       throw classifyProviderError(response.status, raw);
     }
 
-    const payload = JSON.parse(raw) as unknown;
-    return parseOpenAiResponseText(payload);
+    return streamOpenAi(response, onToken);
   }
 }

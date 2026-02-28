@@ -27,9 +27,9 @@ describe("server runtime routes", () => {
       expect(artifactsResponse.statusCode).toBe(200);
       expect(artifactsResponse.json().runs).toHaveLength(1);
 
-      const runStateResponse = await fixture.server.app.inject({ method: "GET", url: "/api/runs/run-1/state" });
+      const runStateResponse = await fixture.server.app.inject({ method: "GET", url: "/api/runs/run-aabb1122/state" });
       expect(runStateResponse.statusCode).toBe(200);
-      expect(runStateResponse.json().run.id).toBe("run-1");
+      expect(runStateResponse.json().run.id).toBe("run-aabb1122");
     } finally {
       await fixture.cleanup();
     }

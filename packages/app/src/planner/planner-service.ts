@@ -7,6 +7,7 @@ import type { Initiative, Ticket } from "../types/entities.js";
 import { loadPlannerAgentsMd } from "./internal/agents-md.js";
 import { getResolvedPlannerConfig } from "./internal/config.js";
 import { executePlannerJob as executePlannerJobInternal } from "./internal/job-executor.js";
+import { scanRepo } from "./internal/repo-scanner.js";
 import { createTicketFromDraft, deriveInitiativeTitle } from "./internal/ticket-factory.js";
 import {
   validateClarifyResult,
@@ -135,13 +136,16 @@ export class PlannerService {
     const prd = this.store.specs.get(`${initiative.id}:prd`)?.content ?? "";
     const techSpec = this.store.specs.get(`${initiative.id}:tech-spec`)?.content ?? "";
 
+    const repoContext = await scanRepo(this.rootDir).catch(() => undefined);
+
     const result = await this.executePlannerJob<PlanResult>(
       "plan",
       {
         initiativeDescription: initiative.description,
         briefMarkdown: brief,
         prdMarkdown: prd,
-        techSpecMarkdown: techSpec
+        techSpecMarkdown: techSpec,
+        repoContext
       },
       onToken
     );
@@ -151,6 +155,7 @@ export class PlannerService {
     const nowIso = this.now().toISOString();
     const phaseIds: Initiative["phases"] = [];
     const createdTicketIds: string[] = [];
+    const phaseTicketIds: string[][] = [];
 
     for (const [phaseIndex, phase] of result.phases.entries()) {
       const phaseId = `phase-${phaseIndex + 1}-${this.idGenerator()}`;
@@ -161,6 +166,7 @@ export class PlannerService {
         status: "active"
       });
 
+      const idsInPhase: string[] = [];
       for (const draft of phase.tickets) {
         const ticket = createTicketFromDraft({
           initiativeId: initiative.id,
@@ -173,6 +179,29 @@ export class PlannerService {
 
         await this.store.upsertTicket(ticket);
         createdTicketIds.push(ticket.id);
+        idsInPhase.push(ticket.id);
+      }
+
+      phaseTicketIds.push(idsInPhase);
+    }
+
+    // Wire inter-phase dependencies: tickets in phase N are blocked by all tickets in phase N-1.
+    for (let i = 1; i < phaseTicketIds.length; i++) {
+      const prevIds = phaseTicketIds[i - 1];
+      const currIds = phaseTicketIds[i];
+
+      for (const id of currIds) {
+        const t = this.store.tickets.get(id);
+        if (t) {
+          await this.store.upsertTicket({ ...t, blockedBy: prevIds });
+        }
+      }
+
+      for (const id of prevIds) {
+        const t = this.store.tickets.get(id);
+        if (t) {
+          await this.store.upsertTicket({ ...t, blocks: [...(t.blocks ?? []), ...currIds] });
+        }
       }
     }
 
@@ -181,6 +210,7 @@ export class PlannerService {
       status: "active",
       phases: phaseIds,
       ticketIds: Array.from(new Set([...initiative.ticketIds, ...createdTicketIds])),
+      mermaidDiagram: result.mermaidDiagram ?? undefined,
       updatedAt: nowIso
     };
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createInitiative, generateInitiativeSpecs } from "../../api";
 import type { Initiative } from "../../types";
+import { useToast } from "../context/toast";
 
 export const InitiativesPage = ({
   initiatives,
@@ -9,8 +10,9 @@ export const InitiativesPage = ({
 }: {
   initiatives: Initiative[];
   onRefresh: () => Promise<void>;
-}): JSX.Element => {
+}) => {
   const navigate = useNavigate();
+  const { showError } = useToast();
   const [showComposer, setShowComposer] = useState(false);
   const [description, setDescription] = useState("");
   const [initiativeId, setInitiativeId] = useState<string | null>(null);
@@ -49,6 +51,8 @@ export const InitiativesPage = ({
                   setQuestions(result.questions);
                   setAnswers({});
                   await onRefresh();
+                } catch (err) {
+                  showError((err as Error).message ?? "Failed to analyze initiative");
                 } finally {
                   setBusy(false);
                 }
@@ -66,6 +70,8 @@ export const InitiativesPage = ({
                     await generateInitiativeSpecs(initiativeId, answers);
                     await onRefresh();
                     navigate(`/initiatives/${initiativeId}`);
+                  } catch (err) {
+                    showError((err as Error).message ?? "Failed to generate specs");
                   } finally {
                     setBusy(false);
                   }

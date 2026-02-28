@@ -22,3 +22,5 @@ export { fetchOperationStatus, fetchRunDetail, fetchRuns, fetchRunState } from "
 export { fetchProviderModels, saveConfig } from "./api/settings";
 
 export { createTicketFromAuditFinding, dismissAuditFinding, exportFixBundle, runAudit } from "./api/audit";
+
+export { importGithubIssue } from "./api/import";

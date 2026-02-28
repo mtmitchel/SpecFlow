@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchRuns } from "../../api";
 import type { RunListItem, Ticket } from "../../types";
 
-export const RunsPage = ({ tickets }: { tickets: Ticket[] }): JSX.Element => {
+export const RunsPage = ({ tickets }: { tickets: Ticket[] }) => {
   const [rows, setRows] = useState<RunListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});

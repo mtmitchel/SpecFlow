@@ -2,8 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 import { HttpLlmClient } from "../src/llm/client.js";
 import { LlmProviderError } from "../src/llm/errors.js";
 
+const makeOpenAiSseStream = (content: string): ReadableStream<Uint8Array> => {
+  const encoder = new TextEncoder();
+  const sseText = [
+    `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}`,
+    "",
+    "data: [DONE]",
+    ""
+  ].join("\n");
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(sseText));
+      controller.close();
+    }
+  });
+};
+
 describe("HttpLlmClient OpenRouter support", () => {
   it("sends completion requests to OpenRouter and parses assistant text", async () => {
+    const expectedContent =
+      '{"decision":"ok","reason":"looks good","ticketDraft":{"title":"T","description":"D","acceptanceCriteria":["A"],"implementationPlan":"P","fileTargets":["src/a.ts"]}}';
+
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       expect(String(url)).toBe("https://openrouter.ai/api/v1/chat/completions");
       expect(init?.method).toBe("POST");
@@ -13,24 +32,12 @@ describe("HttpLlmClient OpenRouter support", () => {
       expect(payload.model).toBe("openrouter/model");
       expect(payload.messages[0].role).toBe("system");
       expect(payload.messages[1].role).toBe("user");
+      expect(payload.stream).toBe(true);
 
-      return new Response(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                content: '{"decision":"ok","reason":"looks good","ticketDraft":{"title":"T","description":"D","acceptanceCriteria":["A"],"implementationPlan":"P","fileTargets":["src/a.ts"]}}'
-              }
-            }
-          ]
-        }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
+      return new Response(makeOpenAiSseStream(expectedContent), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" }
+      });
     });
 
     const client = new HttpLlmClient(fetchMock as unknown as typeof fetch);

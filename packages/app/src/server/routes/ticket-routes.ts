@@ -5,6 +5,7 @@ import type { ArtifactStore } from "../../store/artifact-store.js";
 import { DiffEngine } from "../../verify/diff-engine.js";
 import { VerifierService } from "../../verify/verifier-service.js";
 import { startSseSession, type SseSession } from "../sse/session.js";
+import { isValidEntityId } from "../validation.js";
 
 export interface RegisterTicketRoutesOptions {
   bundleGenerator: BundleGenerator;
@@ -33,6 +34,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
   app.patch("/api/tickets/:id", async (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
+    if (!isValidEntityId(ticketId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
+      return;
+    }
     const ticket = store.tickets.get(ticketId);
     if (!ticket) {
       await reply.code(404).send({ error: "Not Found", message: `Ticket ${ticketId} not found` });
@@ -45,9 +50,28 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
       description?: string;
     };
 
+    const nextStatus = body.status ?? ticket.status;
+
+    if (nextStatus === "in-progress" && nextStatus !== ticket.status) {
+      const blockedBy = ticket.blockedBy ?? [];
+      const unfinished = blockedBy.filter((blockerId) => {
+        const blocker = store.tickets.get(blockerId);
+        return blocker && blocker.status !== "done";
+      });
+
+      if (unfinished.length > 0) {
+        await reply.code(409).send({
+          error: "Blocked",
+          message: `Cannot start: ${unfinished.length} blocking ticket(s) must be completed first`,
+          blockers: unfinished
+        });
+        return;
+      }
+    }
+
     const updated = {
       ...ticket,
-      status: body.status ?? ticket.status,
+      status: nextStatus,
       title: body.title ?? ticket.title,
       description: body.description ?? ticket.description,
       updatedAt: new Date().toISOString()
@@ -94,17 +118,23 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
   app.post("/api/tickets/:id/export-bundle", async (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
+    if (!isValidEntityId(ticketId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
+      return;
+    }
     const body = (request.body ?? {}) as {
       agent?: "claude-code" | "codex-cli" | "opencode" | "generic";
+      exportMode?: "standard" | "quick-fix";
       operationId?: string;
     };
     const agentTarget = body.agent ?? "codex-cli";
+    const exportMode = body.exportMode === "quick-fix" ? "quick-fix" : "standard";
 
     try {
       const result = await bundleGenerator.exportBundle({
         ticketId,
         agentTarget,
-        exportMode: "standard",
+        exportMode,
         operationId: body.operationId
       });
 
@@ -125,6 +155,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
   app.post("/api/runs/:id/findings/:findingId/export-fix-bundle", async (request, reply) => {
     const params = request.params as { id: string; findingId: string };
+    if (!isValidEntityId(params.id)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
+      return;
+    }
     const run = store.runs.get(params.id);
 
     if (!run) {
@@ -170,6 +204,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
   app.post("/api/tickets/:id/capture-results", async (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
+    if (!isValidEntityId(ticketId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
+      return;
+    }
     const body = (request.body ?? {}) as {
       agentSummary?: string;
       scopePaths?: string[];
@@ -216,6 +254,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
   app.post("/api/tickets/:id/capture-preview", async (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
+    if (!isValidEntityId(ticketId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
+      return;
+    }
     const body = (request.body ?? {}) as {
       scopePaths?: string[];
       widenedScopePaths?: string[];
@@ -256,6 +298,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
   app.post("/api/tickets/:id/override-done", async (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
+    if (!isValidEntityId(ticketId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
+      return;
+    }
     const body = (request.body ?? {}) as {
       reason?: string;
       overrideAccepted?: boolean;
@@ -286,6 +332,11 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
   app.get("/api/tickets/:id/verify/stream", (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
+
+    if (!isValidEntityId(ticketId)) {
+      void reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
+      return;
+    }
 
     if (!store.tickets.has(ticketId)) {
       void reply.code(404).send({ error: "Not Found", message: `Ticket ${ticketId} not found` });

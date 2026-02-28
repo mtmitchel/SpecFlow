@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchProviderModels } from "../../api";
 import type { Config, ConfigSavePayload, ProviderModel } from "../../types";
 
@@ -8,13 +8,17 @@ export const SettingsPage = ({
 }: {
   config: Config | null;
   onSave: (next: ConfigSavePayload) => Promise<void>;
-}): JSX.Element => {
+}) => {
   const [form, setForm] = useState<Config | null>(config);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
   const [modelSearch, setModelSearch] = useState("");
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const comboRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     setForm(config);
@@ -30,7 +34,7 @@ export const SettingsPage = ({
     }
 
     let cancelled = false;
-    setModelSearch(form.model);
+    setModelSearch("");
     setModelsLoading(true);
     setModelsError(null);
 
@@ -60,6 +64,23 @@ export const SettingsPage = ({
       cancelled = true;
     };
   }, [form?.provider]);
+
+  useEffect(() => {
+    if (highlightIndex >= 0 && listRef.current) {
+      const item = listRef.current.children[highlightIndex] as HTMLElement | undefined;
+      item?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightIndex]);
+
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent): void => {
+      if (comboRef.current && !comboRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   const filteredModels = useMemo(() => {
     if (!form || form.provider !== "openrouter") {
@@ -115,29 +136,75 @@ export const SettingsPage = ({
         <label>
           Model
           {form.provider === "openrouter" ? (
-            <div className="settings-model-picker">
+            <div className="settings-model-picker" ref={comboRef}>
               <input
-                placeholder="Search OpenRouter models"
-                value={modelSearch}
-                onChange={(event) => setModelSearch(event.target.value)}
+                placeholder={modelsLoading ? "Loading models..." : "Search OpenRouter models"}
+                value={dropdownOpen ? modelSearch : form.model}
+                onChange={(event) => {
+                  setModelSearch(event.target.value);
+                  setDropdownOpen(true);
+                  setHighlightIndex(-1);
+                }}
+                onFocus={() => {
+                  setModelSearch("");
+                  setDropdownOpen(true);
+                  setHighlightIndex(-1);
+                }}
+                onKeyDown={(event) => {
+                  if (!dropdownOpen) {
+                    if (event.key === "ArrowDown" || event.key === "Enter") {
+                      setDropdownOpen(true);
+                    }
+                    return;
+                  }
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault();
+                    setHighlightIndex((prev) => Math.min(prev + 1, filteredModels.length - 1));
+                  } else if (event.key === "ArrowUp") {
+                    event.preventDefault();
+                    setHighlightIndex((prev) => Math.max(prev - 1, 0));
+                  } else if (event.key === "Enter" && highlightIndex >= 0 && filteredModels[highlightIndex]) {
+                    event.preventDefault();
+                    const selected = filteredModels[highlightIndex];
+                    setForm({ ...form, model: selected.id });
+                    setModelSearch("");
+                    setDropdownOpen(false);
+                  } else if (event.key === "Escape") {
+                    setDropdownOpen(false);
+                  }
+                }}
               />
-              <select
-                value={form.model}
-                onChange={(event) => setForm({ ...form, model: event.target.value })}
-              >
-                {filteredModels.length === 0 ? (
-                  <option value={form.model || ""}>
-                    {modelsLoading ? "Loading models..." : "No models found"}
-                  </option>
-                ) : (
-                  filteredModels.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                      {model.contextLength ? ` (${model.contextLength.toLocaleString()} ctx)` : ""}
-                    </option>
-                  ))
-                )}
-              </select>
+              {dropdownOpen ? (
+                <ul className="settings-model-list" ref={listRef}>
+                  {filteredModels.length === 0 ? (
+                    <li className="settings-model-item disabled">
+                      {modelsLoading ? "Loading models..." : "No models found"}
+                    </li>
+                  ) : (
+                    filteredModels.map((model, index) => (
+                      <li
+                        key={model.id}
+                        className={
+                          "settings-model-item"
+                          + (form.model === model.id ? " selected" : "")
+                          + (index === highlightIndex ? " highlighted" : "")
+                        }
+                        onMouseEnter={() => setHighlightIndex(index)}
+                        onClick={() => {
+                          setForm({ ...form, model: model.id });
+                          setModelSearch("");
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        <span className="settings-model-name">{model.name}</span>
+                        {model.contextLength ? (
+                          <span className="settings-model-ctx">{model.contextLength.toLocaleString()} ctx</span>
+                        ) : null}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              ) : null}
               {modelsError ? <small className="settings-error">{modelsError}</small> : null}
             </div>
           ) : (

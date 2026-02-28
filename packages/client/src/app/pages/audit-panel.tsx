@@ -6,8 +6,19 @@ import {
   exportFixBundle,
   runAudit
 } from "../../api";
-import type { AuditReport } from "../../types";
+import type { AuditCategory, AuditReport } from "../../types";
+import { useToast } from "../context/toast";
 import { DiffViewer, findDiffRowsForFinding } from "../components/diff-viewer";
+
+const CATEGORY_BADGE: Record<AuditCategory, string> = {
+  bug: "badge danger",
+  security: "badge danger",
+  performance: "badge warn",
+  acceptance: "badge warn",
+  drift: "badge",
+  convention: "badge",
+  clarity: "badge"
+};
 
 export const AuditPanel = ({
   runId,
@@ -15,8 +26,9 @@ export const AuditPanel = ({
 }: {
   runId: string;
   defaultScopePaths: string[];
-}): JSX.Element => {
+}) => {
   const navigate = useNavigate();
+  const { showError } = useToast();
   const [mode, setMode] = useState<"branch" | "commit-range" | "snapshot">("branch");
   const [branch, setBranch] = useState("main");
   const [fromCommit, setFromCommit] = useState("");
@@ -68,10 +80,12 @@ export const AuditPanel = ({
         setScopeInput(payload.defaultScope.join(", "));
       }
       setSelectedFindingId(payload.findings[0]?.id ?? null);
+    } catch (err) {
+      showError((err as Error).message ?? "Audit failed");
     } finally {
       setBusy(false);
     }
-  }, [runId, mode, branch, fromCommit, toCommit, scopeInput, scopeTouched, widenedInput]);
+  }, [runId, mode, branch, fromCommit, toCommit, scopeInput, scopeTouched, widenedInput, showError]);
 
   const executeAuditRef = useRef(executeAudit);
   executeAuditRef.current = executeAudit;
@@ -138,7 +152,12 @@ export const AuditPanel = ({
                     <span className={finding.severity === "error" ? "badge danger" : finding.severity === "warning" ? "badge warn" : "badge"}>
                       {finding.severity}
                     </span>
-                    <span className="badge">{finding.category}</span>
+                    <span className={CATEGORY_BADGE[finding.category] ?? "badge"}>{finding.category}</span>
+                    {finding.confidence !== undefined ? (
+                      <span className="badge" title="LLM confidence score">
+                        {Math.round(finding.confidence * 100)}%
+                      </span>
+                    ) : null}
                   </div>
                   <button
                     type="button"
@@ -167,8 +186,12 @@ export const AuditPanel = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      const ticket = await createTicketFromAuditFinding(runId, selectedFinding.id);
-                      navigate(`/tickets/${ticket.id}`);
+                      try {
+                        const ticket = await createTicketFromAuditFinding(runId, selectedFinding.id);
+                        navigate(`/tickets/${ticket.id}`);
+                      } catch (err) {
+                        showError((err as Error).message ?? "Failed to create ticket");
+                      }
                     }}
                   >
                     Create Ticket
@@ -182,9 +205,13 @@ export const AuditPanel = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      const exported = await exportFixBundle(runId, selectedFinding.id, exportAgent);
-                      setExportFlat(exported.flatString);
-                      void navigator.clipboard.writeText(exported.flatString);
+                      try {
+                        const exported = await exportFixBundle(runId, selectedFinding.id, exportAgent);
+                        setExportFlat(exported.flatString);
+                        void navigator.clipboard.writeText(exported.flatString);
+                      } catch (err) {
+                        showError((err as Error).message ?? "Export failed");
+                      }
                     }}
                   >
                     Export Fix Bundle
@@ -203,9 +230,13 @@ export const AuditPanel = ({
                     if (!dismissNote.trim()) {
                       return;
                     }
-                    await dismissAuditFinding(runId, selectedFinding.id, dismissNote);
-                    setDismissNote("");
-                    await executeAudit();
+                    try {
+                      await dismissAuditFinding(runId, selectedFinding.id, dismissNote);
+                      setDismissNote("");
+                      await executeAudit();
+                    } catch (err) {
+                      showError((err as Error).message ?? "Dismiss failed");
+                    }
                   }}
                 >
                   Dismiss

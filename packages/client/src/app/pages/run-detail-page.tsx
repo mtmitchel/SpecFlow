@@ -6,7 +6,7 @@ import { DiffViewer } from "../components/diff-viewer";
 import { MarkdownView } from "../components/markdown-view";
 import { AuditPanel } from "./audit-panel";
 
-export const RunDetailPage = (): JSX.Element => {
+export const RunDetailPage = () => {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [loading, setLoading] = useState(true);

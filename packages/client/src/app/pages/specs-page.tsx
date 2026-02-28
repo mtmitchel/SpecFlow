@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot } from "../../types";
 import { MarkdownView } from "../components/markdown-view";
 
-export const SpecsPage = ({ snapshot }: { snapshot: ArtifactsSnapshot }): JSX.Element => {
+export const SpecsPage = ({ snapshot }: { snapshot: ArtifactsSnapshot }) => {
   const [selectedSpecId, setSelectedSpecId] = useState<string | null>(snapshot.specs[0]?.id ?? null);
   useEffect(() => {
     if (!selectedSpecId && snapshot.specs[0]?.id) {

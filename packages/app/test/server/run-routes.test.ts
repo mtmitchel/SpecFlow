@@ -8,8 +8,8 @@ describe("run routes", () => {
     try {
       const exportResponse = await fixture.server.app.inject({
         method: "POST",
-        url: "/api/tickets/ticket-1/export-bundle",
-        payload: { agent: "generic", operationId: "op-run-routes" }
+        url: "/api/tickets/ticket-aabbccdd/export-bundle",
+        payload: { agent: "generic", operationId: "op-deadbeef" }
       });
       expect(exportResponse.statusCode).toBe(201);
 

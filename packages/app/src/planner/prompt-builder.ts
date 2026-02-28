@@ -33,7 +33,8 @@ const outputContract = (job: PlannerJob): string => {
         "{",
         '  "phases": [',
         '    { "name": "string", "order": 1, "tickets": [{ "title": "string", "description": "string", "acceptanceCriteria": ["string"], "fileTargets": ["string"] }] }',
-        "  ]",
+        "  ],",
+        '  "mermaidDiagram": "string (Mermaid graph LR diagram showing phase dependencies and ticket groupings)"',
         "}"
       ].join("\n");
     case "triage":
@@ -92,16 +93,28 @@ export const buildPlannerPrompt = (
 
   if (job === "plan") {
     const planInput = input as PlanInput;
-    return {
-      systemPrompt,
-      userPrompt: [
-        "Generate an ordered phase plan and ticket breakdown.",
-        `Initiative description:\n${planInput.initiativeDescription}`,
-        `Brief:\n${planInput.briefMarkdown}`,
-        `PRD:\n${planInput.prdMarkdown}`,
-        `Tech Spec:\n${planInput.techSpecMarkdown}`
-      ].join("\n\n")
-    };
+    const repoSection = planInput.repoContext
+      ? [
+          "Repository context (use this to generate accurate file paths — only reference files that exist):",
+          `Total tracked files: ${planInput.repoContext.totalFiles}`,
+          `File tree:\n${planInput.repoContext.fileTree}`,
+          `Key config files:\n${planInput.repoContext.configSummary}`
+        ].join("\n")
+      : null;
+
+    const parts = [
+      "Generate an ordered phase plan and ticket breakdown. Use the repository file tree to generate accurate fileTargets — only reference paths that exist in the repo.",
+      `Initiative description:\n${planInput.initiativeDescription}`,
+      `Brief:\n${planInput.briefMarkdown}`,
+      `PRD:\n${planInput.prdMarkdown}`,
+      `Tech Spec:\n${planInput.techSpecMarkdown}`
+    ];
+
+    if (repoSection) {
+      parts.push(repoSection);
+    }
+
+    return { systemPrompt, userPrompt: parts.join("\n\n") };
   }
 
   const triageInput = input as TriageInput;

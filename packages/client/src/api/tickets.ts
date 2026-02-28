@@ -41,14 +41,15 @@ export const triageQuickTask = async (
 
 export const exportBundle = async (
   ticketId: string,
-  agent: AgentTarget
+  agent: AgentTarget,
+  exportMode?: "standard" | "quick-fix"
 ): Promise<{ runId: string; attemptId: string; bundlePath: string; flatString: string }> => {
   const response = await fetch(`/api/tickets/${ticketId}/export-bundle`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ agent })
+    body: JSON.stringify({ agent, exportMode })
   });
 
   return parse(response);

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { PlannerService } from "../../planner/planner-service.js";
 import type { ArtifactStore } from "../../store/artifact-store.js";
 import { startSseSession } from "../sse/session.js";
+import { isValidEntityId } from "../validation.js";
 
 export interface RegisterInitiativeRoutesOptions {
   plannerService: PlannerService;
@@ -20,6 +21,10 @@ export const registerInitiativeRoutes = (
 
   app.patch("/api/initiatives/:id", async (request, reply) => {
     const initiativeId = (request.params as { id: string }).id;
+    if (!isValidEntityId(initiativeId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid initiative ID format" });
+      return;
+    }
     const initiative = store.initiatives.get(initiativeId);
     if (!initiative) {
       await reply.code(404).send({ error: "Not Found", message: `Initiative ${initiativeId} not found` });
@@ -46,6 +51,10 @@ export const registerInitiativeRoutes = (
 
   app.put("/api/initiatives/:id/specs", async (request, reply) => {
     const initiativeId = (request.params as { id: string }).id;
+    if (!isValidEntityId(initiativeId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid initiative ID format" });
+      return;
+    }
     const initiative = store.initiatives.get(initiativeId);
     if (!initiative) {
       await reply.code(404).send({ error: "Not Found", message: `Initiative ${initiativeId} not found` });
@@ -114,6 +123,10 @@ export const registerInitiativeRoutes = (
 
   app.post("/api/initiatives/:id/generate-specs", async (request, reply) => {
     const initiativeId = (request.params as { id: string }).id;
+    if (!isValidEntityId(initiativeId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid initiative ID format" });
+      return;
+    }
     const body = (request.body ?? {}) as { answers?: Record<string, string | string[] | boolean> };
     const answers = body.answers ?? {};
 
@@ -140,6 +153,10 @@ export const registerInitiativeRoutes = (
 
   app.post("/api/initiatives/:id/generate-plan", async (request, reply) => {
     const initiativeId = (request.params as { id: string }).id;
+    if (!isValidEntityId(initiativeId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid initiative ID format" });
+      return;
+    }
     const sse = startSseSession(request, reply, "planner-plan-ready");
 
     try {

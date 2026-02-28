@@ -44,7 +44,7 @@ export const DiffViewer = ({
   title: string;
   diff: string;
   highlightedRows?: Set<number>;
-}): JSX.Element => (
+}) => (
   <div className="panel">
     <h4>{title}</h4>
     <div className="diff-viewer">

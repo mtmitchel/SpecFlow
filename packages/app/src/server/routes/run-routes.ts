@@ -4,13 +4,16 @@ import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { BundleManifest } from "../../bundle/types.js";
 import { readYamlFile } from "../../io/yaml.js";
+import { HttpLlmClient } from "../../llm/client.js";
 import type { ArtifactStore } from "../../store/artifact-store.js";
 import type { Run, Ticket } from "../../types/entities.js";
+import { getResolvedVerifierConfig } from "../../verify/internal/config.js";
 import { DiffEngine } from "../../verify/diff-engine.js";
 import { buildAuditFindings, extractDiffChanges, normalizeScopePaths, readAgentsConventions } from "../audit/findings.js";
+import { buildAuditFindingsWithLlm } from "../audit/llm-audit.js";
 import { readAuditReport, writeAuditReport } from "../audit/report-store.js";
 import type { AuditReport } from "../audit/types.js";
-import { isContainedPath, isValidEntityId } from "../validation.js";
+import { isContainedPath, isValidEntityId, isValidGitRef } from "../validation.js";
 import { zipDirectory } from "../zip/zip-directory.js";
 
 export interface RegisterRunRoutesOptions {
@@ -116,6 +119,10 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
 
   app.get("/api/runs/:id", async (request, reply) => {
     const runId = (request.params as { id: string }).id;
+    if (!isValidEntityId(runId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
+      return;
+    }
     const run = store.runs.get(runId);
 
     if (!run) {
@@ -197,6 +204,10 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
 
   app.post("/api/runs/:id/audit", async (request, reply) => {
     const runId = (request.params as { id: string }).id;
+    if (!isValidEntityId(runId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
+      return;
+    }
     const run = store.runs.get(runId);
 
     if (!run) {
@@ -219,6 +230,17 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
         | { mode: "commit-range"; from: string; to: string }
         | { mode: "snapshot" };
     }>;
+
+    if (body.diffSource?.mode === "branch" && !isValidGitRef(body.diffSource.branch)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid branch name" });
+      return;
+    }
+    if (body.diffSource?.mode === "commit-range") {
+      if (!isValidGitRef(body.diffSource.from) || !isValidGitRef(body.diffSource.to)) {
+        await reply.code(400).send({ error: "Bad Request", message: "Invalid commit ref" });
+        return;
+      }
+    }
 
     const widenedScopePaths = normalizeScopePaths(body.widenedScopePaths ?? []);
     const requestedScope = normalizeScopePaths(body.scopePaths ?? []);
@@ -245,9 +267,23 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
       diffSource: requestedDiffSource
     });
 
-    const changes = extractDiffChanges(diffResult.primaryDiff);
     const agentsConventions = await readAgentsConventions(rootDir);
-    const findings = buildAuditFindings(ticket, diffResult.driftFlags, changes, agentsConventions);
+
+    const llmConfig = getResolvedVerifierConfig(store);
+    const useLlm = llmConfig.apiKey.trim().length > 0;
+
+    const findings = useLlm
+      ? await buildAuditFindingsWithLlm({
+          ticket,
+          primaryDiff: diffResult.primaryDiff,
+          driftDiff: diffResult.driftDiff,
+          agentsConventions,
+          llmClient: new HttpLlmClient(),
+          provider: llmConfig.provider,
+          model: llmConfig.model,
+          apiKey: llmConfig.apiKey
+        })
+      : buildAuditFindings(ticket, diffResult.driftFlags, extractDiffChanges(diffResult.primaryDiff), agentsConventions);
 
     const report: AuditReport = {
       runId,
@@ -270,6 +306,10 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
 
   app.post("/api/runs/:id/findings/:findingId/create-ticket", async (request, reply) => {
     const params = request.params as { id: string; findingId: string };
+    if (!isValidEntityId(params.id)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
+      return;
+    }
     const report = await readAuditReport(rootDir, params.id);
 
     if (!report) {
@@ -298,6 +338,8 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
       ],
       implementationPlan: "Use the linked finding and diff context to create a focused fix.",
       fileTargets: finding.file ? [finding.file] : [],
+      blockedBy: [],
+      blocks: [],
       runId: null,
       createdAt: nowIso,
       updatedAt: nowIso
@@ -309,6 +351,10 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
 
   app.post("/api/runs/:id/findings/:findingId/dismiss", async (request, reply) => {
     const params = request.params as { id: string; findingId: string };
+    if (!isValidEntityId(params.id)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
+      return;
+    }
     const body = (request.body ?? {}) as { note?: string };
     const note = body.note?.trim() ?? "";
 
@@ -349,6 +395,10 @@ export const registerRunRoutes = (app: FastifyInstance, options: RegisterRunRout
 
   app.get("/api/runs/:id/state", async (request, reply) => {
     const runId = (request.params as { id: string }).id;
+    if (!isValidEntityId(runId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
+      return;
+    }
     const run = store.runs.get(runId);
 
     if (!run) {

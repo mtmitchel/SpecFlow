@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Route, Routes } from "react-router-dom";
 import { fetchArtifacts, saveConfig, updateTicketStatus } from "./api";
 import type { ArtifactsSnapshot } from "./types";
+import { ErrorBoundary } from "./app/components/error-boundary";
 import { useSseReconnect } from "./app/hooks/use-sse-reconnect";
 import { AppShell } from "./app/layout/app-shell";
+import { ToastProvider, useToast } from "./app/context/toast";
 import { InitiativeDetailPage } from "./app/pages/initiative-detail-page";
 import { InitiativesPage } from "./app/pages/initiatives-page";
 import { RunDetailPage } from "./app/pages/run-detail-page";
@@ -14,7 +16,8 @@ import { TicketDetailPage } from "./app/pages/ticket-detail-page";
 import { TicketsPage } from "./app/pages/tickets-page";
 import { NavigateToTickets } from "./app/routing/navigate-to-tickets";
 
-export const App = (): JSX.Element => {
+const AppInner = () => {
+  const { showError } = useToast();
   const [snapshot, setSnapshot] = useState<ArtifactsSnapshot>({
     config: null,
     initiatives: [],
@@ -26,9 +29,13 @@ export const App = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
 
   const refreshArtifacts = useCallback(async (): Promise<void> => {
-    const data = await fetchArtifacts();
-    setSnapshot(data);
-  }, []);
+    try {
+      const data = await fetchArtifacts();
+      setSnapshot(data);
+    } catch (err) {
+      showError((err as Error).message ?? "Failed to load data");
+    }
+  }, [showError]);
 
   useEffect(() => {
     void refreshArtifacts().finally(() => setLoading(false));
@@ -57,9 +64,17 @@ export const App = (): JSX.Element => {
             <TicketsPage
               tickets={snapshot.tickets}
               initiatives={snapshot.initiatives}
+              onRefresh={refreshArtifacts}
               onMoveTicket={async (ticketId, status) => {
-                await updateTicketStatus(ticketId, status);
-                await refreshArtifacts();
+                try {
+                  const updatedTicket = await updateTicketStatus(ticketId, status);
+                  setSnapshot((prev) => ({
+                    ...prev,
+                    tickets: prev.tickets.map((t) => (t.id === ticketId ? updatedTicket : t))
+                  }));
+                } catch (err) {
+                  showError((err as Error).message ?? "Failed to update ticket status");
+                }
               }}
             />
           }
@@ -85,8 +100,12 @@ export const App = (): JSX.Element => {
             <SettingsPage
               config={snapshot.config}
               onSave={async (next) => {
-                await saveConfig(next);
-                await refreshArtifacts();
+                try {
+                  const updatedConfig = await saveConfig(next);
+                  setSnapshot((prev) => ({ ...prev, config: updatedConfig }));
+                } catch (err) {
+                  showError((err as Error).message ?? "Failed to save settings");
+                }
               }}
             />
           }
@@ -96,3 +115,11 @@ export const App = (): JSX.Element => {
     </AppShell>
   );
 };
+
+export const App = () => (
+  <ErrorBoundary>
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
+  </ErrorBoundary>
+);

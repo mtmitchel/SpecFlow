@@ -42,7 +42,7 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
   await writeFile(path.join(rootDir, "src", "auth.ts"), "export const auth = true;\n", "utf8");
 
   const run: Run = {
-    id: "run-1",
+    id: "run-aabb1122",
     ticketId: null,
     type: "execution",
     agentType: "codex-cli",
@@ -57,13 +57,13 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
   await store.upsertRun(run);
 
   const initiative: Initiative = {
-    id: "initiative-1",
+    id: "initiative-11223344",
     title: "Groundwork",
     description: "Build workflow",
     status: "active",
     phases: [{ id: "phase-1", name: "Phase 1", order: 1, status: "active" }],
     specIds: [],
-    ticketIds: ["ticket-1"],
+    ticketIds: ["ticket-aabbccdd"],
     createdAt: now,
     updatedAt: now
   };
@@ -74,8 +74,8 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
   });
 
   const ticket: Ticket = {
-    id: "ticket-1",
-    initiativeId: "initiative-1",
+    id: "ticket-aabbccdd",
+    initiativeId: "initiative-11223344",
     phaseId: "phase-1",
     title: "Export Ticket",
     description: "Export this ticket",

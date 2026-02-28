@@ -120,6 +120,8 @@ describe("ArtifactStore", () => {
       acceptanceCriteria: [{ id: "c1", text: "Route exists" }],
       implementationPlan: "1. Add route\n2. Add tests",
       fileTargets: ["src/routes/auth.ts"],
+      blockedBy: [],
+      blocks: [],
       runId: "run-1",
       createdAt: now,
       updatedAt: now

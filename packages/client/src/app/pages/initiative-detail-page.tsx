@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { generateInitiativePlan, saveInitiativeSpecs, updateInitiativePhases } from "../../api";
 import type { ArtifactsSnapshot } from "../../types";
 import { MarkdownView } from "../components/markdown-view";
+import { MermaidView } from "../components/mermaid-view";
 import { getSpecMarkdown } from "../utils/specs";
 
 export const InitiativeDetailPage = ({
@@ -11,10 +12,10 @@ export const InitiativeDetailPage = ({
 }: {
   snapshot: ArtifactsSnapshot;
   onRefresh: () => Promise<void>;
-}): JSX.Element => {
+}) => {
   const params = useParams<{ id: string }>();
   const initiative = snapshot.initiatives.find((item) => item.id === params.id);
-  const [activeTab, setActiveTab] = useState<"brief" | "prd" | "tech" | "tickets">("brief");
+  const [activeTab, setActiveTab] = useState<"brief" | "prd" | "tech" | "tickets" | "diagram">("brief");
   const [editMode, setEditMode] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -63,9 +64,18 @@ export const InitiativeDetailPage = ({
         <button type="button" className={activeTab === "tickets" ? "tab active" : "tab"} onClick={() => setActiveTab("tickets")}>
           Tickets
         </button>
+        {initiative.mermaidDiagram ? (
+          <button type="button" className={activeTab === "diagram" ? "tab active" : "tab"} onClick={() => setActiveTab("diagram")}>
+            Diagram
+          </button>
+        ) : null}
       </div>
 
-      {activeTab === "brief" || activeTab === "prd" || activeTab === "tech" ? (
+      {activeTab === "diagram" && initiative.mermaidDiagram ? (
+        <div className="panel">
+          <MermaidView chart={initiative.mermaidDiagram} />
+        </div>
+      ) : activeTab === "brief" || activeTab === "prd" || activeTab === "tech" ? (
         <div className="panel">
           <div className="button-row">
             <button type="button" onClick={() => setEditMode((current) => !current)}>
@@ -183,7 +193,7 @@ const PhaseNameEditor = ({
 }: {
   name: string;
   onCommit: (nextName: string) => void;
-}): JSX.Element => {
+}) => {
   const [localName, setLocalName] = useState(name);
 
   useEffect(() => {

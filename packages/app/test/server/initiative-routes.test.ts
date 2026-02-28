@@ -8,7 +8,7 @@ describe("initiative routes", () => {
     try {
       const initiativePatch = await fixture.server.app.inject({
         method: "PATCH",
-        url: "/api/initiatives/initiative-1",
+        url: "/api/initiatives/initiative-11223344",
         payload: { phases: [{ id: "phase-1", name: "Foundation", order: 1, status: "active" }] }
       });
       expect(initiativePatch.statusCode).toBe(200);
@@ -16,7 +16,7 @@ describe("initiative routes", () => {
 
       const specsPut = await fixture.server.app.inject({
         method: "PUT",
-        url: "/api/initiatives/initiative-1/specs",
+        url: "/api/initiatives/initiative-11223344/specs",
         payload: { briefMarkdown: "# Updated Brief", prdMarkdown: "# Updated PRD", techSpecMarkdown: "# Updated Tech" }
       });
       expect(specsPut.statusCode).toBe(200);

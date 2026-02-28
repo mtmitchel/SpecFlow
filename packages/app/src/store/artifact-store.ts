@@ -175,6 +175,8 @@ export class ArtifactStore {
     await mkdir(dir, { recursive: true });
     await writeYamlFile(initiativeYamlPath(this.rootDir, initiative.id), initiative);
 
+    const hasDocChanges = docs.brief !== undefined || docs.prd !== undefined || docs.techSpec !== undefined;
+
     if (docs.brief !== undefined) {
       await writeFileAtomic(path.join(dir, "brief.md"), docs.brief);
     }
@@ -187,7 +189,11 @@ export class ArtifactStore {
       await writeFileAtomic(path.join(dir, "tech-spec.md"), docs.techSpec);
     }
 
-    await this.reloadFromDisk();
+    if (hasDocChanges) {
+      await this.reloadFromDisk();
+    } else {
+      this.initiatives.set(initiative.id, initiative);
+    }
   }
 
   public async upsertTicket(ticket: Ticket): Promise<void> {

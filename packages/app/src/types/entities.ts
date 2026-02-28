@@ -16,6 +16,7 @@ export interface Initiative {
   phases: InitiativePhase[];
   specIds: string[];
   ticketIds: string[];
+  mermaidDiagram?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +38,8 @@ export interface Ticket {
   acceptanceCriteria: TicketCriterion[];
   implementationPlan: string;
   fileTargets: string[];
+  blockedBy: string[];
+  blocks: string[];
   runId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -60,16 +63,21 @@ export interface Run {
   createdAt: string;
 }
 
+export type VerificationSeverity = "critical" | "major" | "minor" | "outdated";
+
 export interface DriftFlag {
   type: "unexpected-file" | "missing-requirement" | "pre-capture-drift" | "widened-scope-drift";
   file: string;
   description: string;
+  severity?: VerificationSeverity;
 }
 
 export interface RunCriterionResult {
   criterionId: string;
   pass: boolean;
   evidence: string;
+  severity?: VerificationSeverity;
+  remediationHint?: string;
 }
 
 export interface RunAttempt {

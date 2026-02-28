@@ -47,6 +47,8 @@ export const createTicketFromDraft = (input: {
     acceptanceCriteria,
     implementationPlan,
     fileTargets: input.draft?.fileTargets ?? [],
+    blockedBy: [],
+    blocks: [],
     runId: null,
     createdAt: input.nowIso,
     updatedAt: input.nowIso

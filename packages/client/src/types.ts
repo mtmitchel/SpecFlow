@@ -17,6 +17,7 @@ export interface Initiative {
   phases: InitiativePhase[];
   specIds: string[];
   ticketIds: string[];
+  mermaidDiagram?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +32,8 @@ export interface Ticket {
   acceptanceCriteria: Array<{ id: string; text: string }>;
   implementationPlan: string;
   fileTargets: string[];
+  blockedBy: string[];
+  blocks: string[];
   runId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -72,6 +75,8 @@ export interface RunListItem {
   operationState: "prepared" | "committed" | "abandoned" | "superseded" | "failed" | null;
 }
 
+export type VerificationSeverity = "critical" | "major" | "minor" | "outdated";
+
 export interface RunDetailAttempt {
   id: string;
   attemptId: string;
@@ -83,8 +88,19 @@ export interface RunDetailAttempt {
   driftDiffPath: string | null;
   overrideReason: string | null;
   overrideAccepted: boolean;
-  criteriaResults: Array<{ criterionId: string; pass: boolean; evidence: string }>;
-  driftFlags: Array<{ type: string; file: string; description: string }>;
+  criteriaResults: Array<{
+    criterionId: string;
+    pass: boolean;
+    evidence: string;
+    severity?: VerificationSeverity;
+    remediationHint?: string;
+  }>;
+  driftFlags: Array<{
+    type: string;
+    file: string;
+    description: string;
+    severity?: VerificationSeverity;
+  }>;
   overallPass: boolean;
   createdAt: string;
 }
@@ -107,13 +123,16 @@ export interface RunDetail {
   } | null;
 }
 
+export type AuditCategory = "drift" | "acceptance" | "convention" | "bug" | "performance" | "security" | "clarity";
+
 export interface AuditFinding {
   id: string;
   severity: "error" | "warning" | "info";
-  category: "drift" | "acceptance" | "convention";
+  category: AuditCategory;
   file: string;
   line: number | null;
   description: string;
+  confidence?: number;
   dismissed: boolean;
   dismissNote: string | null;
 }

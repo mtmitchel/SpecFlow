@@ -9,6 +9,7 @@ import {
   overrideDone
 } from "../../api";
 import type { Initiative, Run, RunAttempt, Ticket } from "../../types";
+import { useToast } from "../context/toast";
 import { findPhaseWarning } from "../utils/phase-warning";
 import { AuditPanel } from "./audit-panel";
 
@@ -24,8 +25,9 @@ export const TicketDetailPage = ({
   runAttempts: RunAttempt[];
   initiatives: Initiative[];
   onRefresh: () => Promise<void>;
-}): JSX.Element => {
+}) => {
   const params = useParams<{ id: string }>();
+  const { showError } = useToast();
   const [activeTab, setActiveTab] = useState<"plan" | "runs">("plan");
   const [operationState, setOperationState] = useState<string | null>(null);
   const [agentTarget, setAgentTarget] = useState<"claude-code" | "codex-cli" | "opencode" | "generic">("codex-cli");
@@ -49,14 +51,26 @@ export const TicketDetailPage = ({
   const [verifyStreamEvents, setVerifyStreamEvents] = useState<string[]>([]);
   const [verificationResult, setVerificationResult] = useState<{
     overallPass: boolean;
-    criteriaResults: Array<{ criterionId: string; pass: boolean; evidence: string }>;
-    driftFlags: Array<{ type: string; file: string; description: string }>;
+    criteriaResults: Array<{
+      criterionId: string;
+      pass: boolean;
+      evidence: string;
+      severity?: "critical" | "major" | "minor" | "outdated";
+      remediationHint?: string;
+    }>;
+    driftFlags: Array<{
+      type: string;
+      file: string;
+      description: string;
+      severity?: "critical" | "major" | "minor" | "outdated";
+    }>;
   } | null>(null);
   const [verifyState, setVerifyState] = useState<"idle" | "running" | "reconnecting">("idle");
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideStepTwo, setOverrideStepTwo] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [showAuditPanel, setShowAuditPanel] = useState(false);
+  const [fixForwardReady, setFixForwardReady] = useState(false);
 
   const ticket = tickets.find((item) => item.id === params.id);
   const run = runs.find((item) => item.id === ticket?.runId);
@@ -70,8 +84,19 @@ export const TicketDetailPage = ({
   const syncVerificationFromRunState = (attemptData: Array<{
     attemptId: string;
     overallPass: boolean;
-    criteriaResults: Array<{ criterionId: string; pass: boolean; evidence: string }>;
-    driftFlags: Array<{ type: string; file: string; description: string }>;
+    criteriaResults: Array<{
+      criterionId: string;
+      pass: boolean;
+      evidence: string;
+      severity?: "critical" | "major" | "minor" | "outdated";
+      remediationHint?: string;
+    }>;
+    driftFlags: Array<{
+      type: string;
+      file: string;
+      description: string;
+      severity?: "critical" | "major" | "minor" | "outdated";
+    }>;
   }>): void => {
     const latest = attemptData
       .slice()
@@ -177,18 +202,22 @@ export const TicketDetailPage = ({
       return;
     }
 
-    const preview = await capturePreview(ticket.id, {
-      scopePaths: parseScopeCsv(captureScopeInput),
-      widenedScopePaths: parseScopeCsv(widenedInput),
-      diffSource: { mode: "auto" }
-    });
+    try {
+      const preview = await capturePreview(ticket.id, {
+        scopePaths: parseScopeCsv(captureScopeInput),
+        widenedScopePaths: parseScopeCsv(widenedInput),
+        diffSource: { mode: "auto" }
+      });
 
-    setCapturePreviewData(preview);
+      setCapturePreviewData(preview);
 
-    if (!captureScopeInput.trim() && preview.defaultScope.length > 0) {
-      setCaptureScopeInput(preview.defaultScope.join(", "));
+      if (!captureScopeInput.trim() && preview.defaultScope.length > 0) {
+        setCaptureScopeInput(preview.defaultScope.join(", "));
+      }
+    } catch (err) {
+      showError((err as Error).message ?? "Failed to load diff preview");
     }
-  }, [ticket?.id, captureScopeInput, widenedInput]);
+  }, [ticket?.id, captureScopeInput, widenedInput, showError]);
 
   useEffect(() => {
     if (!run?.activeOperationId) {
@@ -234,6 +263,8 @@ export const TicketDetailPage = ({
   const phaseWarning = findPhaseWarning(ticket, initiatives, tickets);
   const primaryDrift = verificationResult?.driftFlags.filter((flag) => flag.type !== "widened-scope-drift") ?? [];
   const widenedDrift = verificationResult?.driftFlags.filter((flag) => flag.type === "widened-scope-drift") ?? [];
+  const blockerTickets = (ticket.blockedBy ?? []).map((id) => tickets.find((t) => t.id === id)).filter(Boolean) as typeof tickets;
+  const hasUnfinishedBlockers = blockerTickets.some((t) => t.status !== "done");
 
   return (
     <section>
@@ -263,6 +294,18 @@ export const TicketDetailPage = ({
       ) : null}
 
       {phaseWarning.hasWarning ? <div className="status-banner warn">{phaseWarning.message}</div> : null}
+      {blockerTickets.length > 0 ? (
+        <div className={hasUnfinishedBlockers ? "status-banner warn" : "status-banner"}>
+          {hasUnfinishedBlockers ? "Blocked by: " : "Dependencies (all done): "}
+          {blockerTickets.map((blocker, index) => (
+            <span key={blocker.id}>
+              {index > 0 ? ", " : ""}
+              <Link to={`/tickets/${blocker.id}`}>{blocker.title}</Link>
+              {" "}({blocker.status})
+            </span>
+          ))}
+        </div>
+      ) : null}
       {verifyState === "reconnecting" ? (
         <div className="status-banner warn">Reconnecting to verification stream and refreshing run snapshot...</div>
       ) : null}
@@ -304,21 +347,25 @@ export const TicketDetailPage = ({
             <button
               type="button"
               onClick={async () => {
-                const exported = await exportBundle(ticket.id, agentTarget);
-                if (downloadUrl) {
-                  URL.revokeObjectURL(downloadUrl);
-                }
+                try {
+                  const exported = await exportBundle(ticket.id, agentTarget);
+                  if (downloadUrl) {
+                    URL.revokeObjectURL(downloadUrl);
+                  }
 
-                const blob = new Blob([exported.flatString], { type: "text/plain" });
-                const nextUrl = URL.createObjectURL(blob);
-                setDownloadUrl(nextUrl);
-                setExportResult({
-                  runId: exported.runId,
-                  attemptId: exported.attemptId,
-                  flatString: exported.flatString,
-                  bundlePath: exported.bundlePath
-                });
-                await onRefresh();
+                  const blob = new Blob([exported.flatString], { type: "text/plain" });
+                  const nextUrl = URL.createObjectURL(blob);
+                  setDownloadUrl(nextUrl);
+                  setExportResult({
+                    runId: exported.runId,
+                    attemptId: exported.attemptId,
+                    flatString: exported.flatString,
+                    bundlePath: exported.bundlePath
+                  });
+                  await onRefresh();
+                } catch (err) {
+                  showError((err as Error).message ?? "Export failed");
+                }
               }}
             >
               Export
@@ -428,6 +475,8 @@ export const TicketDetailPage = ({
                   const result = await captureResults(ticket.id, captureSummary, scopePaths, widenedScopePaths);
                   setVerificationResult(result);
                   await onRefresh();
+                } catch (err) {
+                  showError((err as Error).message ?? "Verification failed");
                 } finally {
                   setVerifyState("idle");
                 }
@@ -442,18 +491,36 @@ export const TicketDetailPage = ({
           <h3>Verification</h3>
           {verificationResult ? (
             <>
-              <p>Overall: {verificationResult.overallPass ? "pass" : "fail"}</p>
+              <p>
+                Overall: {verificationResult.overallPass ? "pass" : "fail"}
+                {attempts.length > 0 ? ` · Attempt ${attempts.length}` : ""}
+              </p>
               <ul>
                 {verificationResult.criteriaResults.map((criterion) => (
                   <li key={criterion.criterionId}>
-                    {criterion.criterionId} · {criterion.pass ? "pass" : "fail"} · {criterion.evidence}
+                    <span className={`severity-badge severity-${criterion.severity ?? "minor"}`}>
+                      {criterion.severity ?? ""}
+                    </span>
+                    {" "}{criterion.criterionId} · {criterion.pass ? "pass" : "fail"} · {criterion.evidence}
+                    {!criterion.pass && criterion.remediationHint ? (
+                      <div className="remediation-hint">{criterion.remediationHint}</div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
 
               <h4>Primary drift flags</h4>
               <ul>
-                {primaryDrift.length === 0 ? <li>None</li> : primaryDrift.map((flag) => <li key={`${flag.type}-${flag.file}`}>{flag.type} · {flag.file} · {flag.description}</li>)}
+                {primaryDrift.length === 0
+                  ? <li>None</li>
+                  : primaryDrift.map((flag) => (
+                    <li key={`${flag.type}-${flag.file}`}>
+                      {flag.severity ? (
+                        <span className={`severity-badge severity-${flag.severity}`}>{flag.severity}</span>
+                      ) : null}
+                      {" "}{flag.type} · {flag.file} · {flag.description}
+                    </li>
+                  ))}
               </ul>
 
               <h4>Widened-scope drift warnings</h4>
@@ -462,37 +529,69 @@ export const TicketDetailPage = ({
               </ul>
 
               {!verificationResult.overallPass ? (
-                <div className="button-row">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const exported = await exportBundle(ticket.id, agentTarget);
-                      const failureContext = verificationResult.criteriaResults
-                        .filter((criterion) => !criterion.pass)
-                        .map((criterion) => `- ${criterion.criterionId}: ${criterion.evidence}`)
-                        .join("\n");
+                <div>
+                  <div className="button-row">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setFixForwardReady(false);
+                        try {
+                          const exported = await exportBundle(ticket.id, agentTarget, "quick-fix");
+                          const failureLines = verificationResult.criteriaResults
+                            .filter((criterion) => !criterion.pass)
+                            .map((criterion) => {
+                              const hint = criterion.remediationHint ? ` Fix: ${criterion.remediationHint}` : "";
+                              return `- [${criterion.severity ?? ""}] ${criterion.criterionId}: ${criterion.evidence}${hint}`;
+                            });
 
-                      const enrichedFlat =
-                        failureContext.length > 0
-                          ? `# Verification Failure Context\n${failureContext}\n\n${exported.flatString}`
-                          : exported.flatString;
-                      if (downloadUrl) {
-                        URL.revokeObjectURL(downloadUrl);
-                      }
-                      const nextUrl = URL.createObjectURL(new Blob([enrichedFlat], { type: "text/plain" }));
-                      setDownloadUrl(nextUrl);
-
-                      setExportResult({
-                        runId: exported.runId,
-                        attemptId: exported.attemptId,
-                        flatString: enrichedFlat,
-                        bundlePath: exported.bundlePath
-                      });
-                      await onRefresh();
-                    }}
-                  >
-                    Re-export with findings
-                  </button>
+                          const enrichedFlat =
+                            failureLines.length > 0
+                              ? `# Verification Failure Context\n${failureLines.join("\n")}\n\n${exported.flatString}`
+                              : exported.flatString;
+                          if (downloadUrl) {
+                            URL.revokeObjectURL(downloadUrl);
+                          }
+                          const nextUrl = URL.createObjectURL(new Blob([enrichedFlat], { type: "text/plain" }));
+                          setDownloadUrl(nextUrl);
+                          setExportResult({
+                            runId: exported.runId,
+                            attemptId: exported.attemptId,
+                            flatString: enrichedFlat,
+                            bundlePath: exported.bundlePath
+                          });
+                          setFixForwardReady(true);
+                          await onRefresh();
+                        } catch (err) {
+                          showError((err as Error).message ?? "Re-export failed");
+                        }
+                      }}
+                    >
+                      Re-export with findings
+                    </button>
+                    {fixForwardReady ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setVerifyState("running");
+                          setVerifyStreamEvents([]);
+                          setFixForwardReady(false);
+                          try {
+                            const scopePaths = parseScopeCsv(captureScopeInput);
+                            const widenedScopePaths = parseScopeCsv(widenedInput);
+                            const result = await captureResults(ticket.id, captureSummary, scopePaths, widenedScopePaths);
+                            setVerificationResult(result);
+                            await onRefresh();
+                          } catch (err) {
+                            showError((err as Error).message ?? "Re-verification failed");
+                          } finally {
+                            setVerifyState("idle");
+                          }
+                        }}
+                      >
+                        Re-verify Now
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -519,10 +618,14 @@ export const TicketDetailPage = ({
                 <button
                   type="button"
                   onClick={async () => {
-                    await overrideDone(ticket.id, overrideReason, true);
-                    setOverrideStepTwo(false);
-                    setOverrideReason("");
-                    await onRefresh();
+                    try {
+                      await overrideDone(ticket.id, overrideReason, true);
+                      setOverrideStepTwo(false);
+                      setOverrideReason("");
+                      await onRefresh();
+                    } catch (err) {
+                      showError((err as Error).message ?? "Override failed");
+                    }
                   }}
                 >
                   I accept risk

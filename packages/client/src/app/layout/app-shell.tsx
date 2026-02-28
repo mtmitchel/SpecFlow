@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { triageQuickTask } from "../../api";
 
-export const AppShell = ({ children }: { children: ReactNode }): JSX.Element => {
+export const AppShell = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const navItems = [

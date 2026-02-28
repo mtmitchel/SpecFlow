@@ -1,21 +1,30 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { importGithubIssue } from "../../api";
 import { statusColumns, canTransition } from "../constants/status-columns";
+import { useToast } from "../context/toast";
 import { findPhaseWarning } from "../utils/phase-warning";
 import type { Initiative, InitiativePhase, Ticket, TicketStatus } from "../../types";
 
 export const TicketsPage = ({
   tickets,
   initiatives,
-  onMoveTicket
+  onMoveTicket,
+  onRefresh
 }: {
   tickets: Ticket[];
   initiatives: Initiative[];
   onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
-}): JSX.Element => {
+  onRefresh: () => Promise<void>;
+}) => {
+  const navigate = useNavigate();
+  const { showError } = useToast();
   const [initiativeFilter, setInitiativeFilter] = useState<string>("all");
   const [phaseFilter, setPhaseFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showImport, setShowImport] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const filteredTickets = tickets.filter((ticket) => {
     if (initiativeFilter !== "all" && ticket.initiativeId !== initiativeFilter) {
@@ -45,7 +54,52 @@ export const TicketsPage = ({
       <header className="section-header">
         <h2>Ticket Board</h2>
         <p>Drag cards through the lifecycle with state-guarded transitions.</p>
+        <div className="button-row">
+          <button type="button" onClick={() => setShowImport((current) => !current)}>
+            {showImport ? "Cancel Import" : "Import GitHub Issue"}
+          </button>
+        </div>
       </header>
+
+      {showImport ? (
+        <div className="panel">
+          <h3>Import GitHub Issue</h3>
+          <p>Paste a GitHub issue URL to create a SpecFlow ticket via triage.</p>
+          <div className="button-row">
+            <input
+              className="phase-name-input"
+              value={importUrl}
+              onChange={(event) => setImportUrl(event.target.value)}
+              placeholder="https://github.com/owner/repo/issues/123"
+            />
+            <button
+              type="button"
+              disabled={importing || !importUrl.trim()}
+              onClick={async () => {
+                setImporting(true);
+                try {
+                  const result = await importGithubIssue(importUrl.trim());
+                  await onRefresh();
+                  setShowImport(false);
+                  setImportUrl("");
+                  if (result.decision === "ok") {
+                    navigate(`/tickets/${result.ticketId}`);
+                  } else {
+                    navigate(`/initiatives/${result.initiativeId}`);
+                  }
+                } catch (err) {
+                  showError((err as Error).message ?? "Import failed");
+                } finally {
+                  setImporting(false);
+                }
+              }}
+            >
+              {importing ? "Importing..." : "Import"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="filters">
         <select value={initiativeFilter} onChange={(event) => setInitiativeFilter(event.target.value)}>
           <option value="all">All initiatives</option>
