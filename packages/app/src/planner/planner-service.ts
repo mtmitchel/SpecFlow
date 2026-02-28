@@ -1,14 +1,20 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { loadEnvironment, resolveProviderApiKey } from "../config/env.js";
-import { specflowDir } from "../io/paths.js";
+import { loadEnvironment } from "../config/env.js";
 import { HttpLlmClient, type LlmClient, type LlmTokenHandler } from "../llm/client.js";
 import { LlmProviderError } from "../llm/errors.js";
 import { ArtifactStore } from "../store/artifact-store.js";
 import type { Initiative, Ticket } from "../types/entities.js";
-import { parseJsonEnvelope } from "./json-parser.js";
-import { buildPlannerPrompt, type PlannerJob } from "./prompt-builder.js";
+import { loadPlannerAgentsMd } from "./internal/agents-md.js";
+import { getResolvedPlannerConfig } from "./internal/config.js";
+import { executePlannerJob as executePlannerJobInternal } from "./internal/job-executor.js";
+import { createTicketFromDraft, deriveInitiativeTitle } from "./internal/ticket-factory.js";
+import {
+  validateClarifyResult,
+  validatePlanResult,
+  validateSpecGenResult,
+  validateTriageResult
+} from "./internal/validators.js";
+import { type PlannerJob } from "./prompt-builder.js";
 import type {
   ClarifyInput,
   ClarifyResult,
@@ -18,8 +24,7 @@ import type {
   SpecGenInput,
   SpecGenResult,
   TriageInput,
-  TriageResult,
-  TriageTicketDraft
+  TriageResult
 } from "./types.js";
 
 export interface PlannerServiceOptions {
@@ -51,13 +56,13 @@ export class PlannerService {
     onToken?: LlmTokenHandler
   ): Promise<{ initiative: Initiative; questions: PlannerQuestion[] }> {
     const result = await this.executePlannerJob<ClarifyResult>("clarify", input, onToken);
-    this.validateClarifyResult(result);
+    validateClarifyResult(result);
 
     const nowIso = this.now().toISOString();
     const initiativeId = `initiative-${this.idGenerator()}`;
     const initiative: Initiative = {
       id: initiativeId,
-      title: this.deriveInitiativeTitle(input.description),
+      title: deriveInitiativeTitle(input.description),
       description: input.description,
       status: "draft",
       phases: [],
@@ -92,7 +97,7 @@ export class PlannerService {
       onToken
     );
 
-    this.validateSpecGenResult(result);
+    validateSpecGenResult(result);
 
     const nowIso = this.now().toISOString();
     const updatedInitiative: Initiative = {
@@ -141,7 +146,7 @@ export class PlannerService {
       onToken
     );
 
-    this.validatePlanResult(result);
+    validatePlanResult(result);
 
     const nowIso = this.now().toISOString();
     const phaseIds: Initiative["phases"] = [];
@@ -157,12 +162,13 @@ export class PlannerService {
       });
 
       for (const draft of phase.tickets) {
-        const ticket = this.createTicketFromDraft({
+        const ticket = createTicketFromDraft({
           initiativeId: initiative.id,
           phaseId,
           status: "backlog",
           draft,
-          nowIso
+          nowIso,
+          idGenerator: this.idGenerator
         });
 
         await this.store.upsertTicket(ticket);
@@ -190,7 +196,7 @@ export class PlannerService {
     | { decision: "ok"; reason: string; ticket: Ticket }
   > {
     const result = await this.executePlannerJob<TriageResult>("triage", input, onToken);
-    this.validateTriageResult(result);
+    validateTriageResult(result);
 
     const normalizedDecision = result.decision.toLowerCase();
     const nowIso = this.now().toISOString();
@@ -198,7 +204,7 @@ export class PlannerService {
     if (normalizedDecision === "too-large") {
       const initiative: Initiative = {
         id: `initiative-${this.idGenerator()}`,
-        title: result.initiativeTitle?.trim() || this.deriveInitiativeTitle(input.description),
+        title: result.initiativeTitle?.trim() || deriveInitiativeTitle(input.description),
         description: input.description,
         status: "draft",
         phases: [],
@@ -216,12 +222,13 @@ export class PlannerService {
       };
     }
 
-    const ticket = this.createTicketFromDraft({
+    const ticket = createTicketFromDraft({
       initiativeId: null,
       phaseId: null,
       status: "ready",
       draft: result.ticketDraft,
-      nowIso
+      nowIso,
+      idGenerator: this.idGenerator
     });
 
     await this.store.upsertTicket(ticket);
@@ -267,143 +274,16 @@ export class PlannerService {
     input: ClarifyInput | SpecGenInput | PlanInput | TriageInput,
     onToken?: LlmTokenHandler
   ): Promise<T> {
-    const agentsMd = await this.loadAgentsMd();
-    const prompts = buildPlannerPrompt(job, input, agentsMd);
-    const config = this.getResolvedConfig();
+    const config = getResolvedPlannerConfig(this.store);
+    const agentsMd = await loadPlannerAgentsMd(this.rootDir, config.repoInstructionFile);
 
-    const responseText = await this.llmClient.complete(
-      {
-        provider: config.provider,
-        model: config.model,
-        apiKey: config.apiKey,
-        systemPrompt: prompts.systemPrompt,
-        userPrompt: prompts.userPrompt
-      },
+    return executePlannerJobInternal<T>({
+      llmClient: this.llmClient,
+      config,
+      job,
+      payload: input,
+      agentsMd,
       onToken
-    );
-
-    return parseJsonEnvelope<T>(responseText);
-  }
-
-  private getResolvedConfig(): {
-    provider: "anthropic" | "openai" | "openrouter";
-    model: string;
-    apiKey: string;
-    repoInstructionFile: string;
-  } {
-    const existing = this.store.config;
-    if (!existing) {
-      const provider = "anthropic" as const;
-      return {
-        provider,
-        model: "claude-opus-4-5",
-        apiKey: resolveProviderApiKey(provider),
-        repoInstructionFile: "specflow/AGENTS.md"
-      };
-    }
-
-    return {
-      provider: existing.provider,
-      model: existing.model,
-      apiKey: resolveProviderApiKey(existing.provider, existing.apiKey),
-      repoInstructionFile: existing.repoInstructionFile || "specflow/AGENTS.md"
-    };
-  }
-
-  private async loadAgentsMd(): Promise<string> {
-    const config = this.getResolvedConfig();
-    const configuredPath = config.repoInstructionFile || "specflow/AGENTS.md";
-    const absolutePath = path.isAbsolute(configuredPath)
-      ? configuredPath
-      : path.join(this.rootDir, configuredPath);
-
-    try {
-      return await readFile(absolutePath, "utf8");
-    } catch {
-      const fallbackPath = path.join(specflowDir(this.rootDir), "AGENTS.md");
-      try {
-        return await readFile(fallbackPath, "utf8");
-      } catch {
-        return "";
-      }
-    }
-  }
-
-  private deriveInitiativeTitle(description: string): string {
-    const compact = description.trim().replace(/\s+/g, " ");
-    if (!compact) {
-      return "Untitled Initiative";
-    }
-
-    return compact.length > 64 ? `${compact.slice(0, 61)}...` : compact;
-  }
-
-  private createTicketFromDraft(input: {
-    initiativeId: string | null;
-    phaseId: string | null;
-    status: Ticket["status"];
-    draft?: TriageTicketDraft | { title: string; description: string; acceptanceCriteria: string[]; fileTargets: string[] };
-    nowIso: string;
-  }): Ticket {
-    const title = input.draft?.title?.trim() || "Quick Task";
-    const description = input.draft?.description?.trim() || title;
-    const acceptanceCriteria =
-      input.draft?.acceptanceCriteria?.map((text, index) => ({
-        id: `criterion-${index + 1}`,
-        text
-      })) ?? [];
-
-    const implementationPlan =
-      input.draft && this.hasImplementationPlan(input.draft) ? input.draft.implementationPlan : "";
-
-    return {
-      id: `ticket-${this.idGenerator()}`,
-      initiativeId: input.initiativeId,
-      phaseId: input.phaseId,
-      title,
-      description,
-      status: input.status,
-      acceptanceCriteria,
-      implementationPlan,
-      fileTargets: input.draft?.fileTargets ?? [],
-      runId: null,
-      createdAt: input.nowIso,
-      updatedAt: input.nowIso
-    };
-  }
-
-  private validateClarifyResult(result: ClarifyResult): void {
-    if (!Array.isArray(result.questions)) {
-      throw new Error("Clarify result missing questions array");
-    }
-  }
-
-  private validateSpecGenResult(result: SpecGenResult): void {
-    if (!result.briefMarkdown || !result.prdMarkdown || !result.techSpecMarkdown) {
-      throw new Error("Spec-gen result must include brief, PRD, and tech spec markdown");
-    }
-  }
-
-  private validatePlanResult(result: PlanResult): void {
-    if (!Array.isArray(result.phases)) {
-      throw new Error("Plan result missing phases array");
-    }
-  }
-
-  private validateTriageResult(result: TriageResult): void {
-    const decision = result.decision?.toLowerCase();
-    if (decision !== "ok" && decision !== "too-large") {
-      throw new Error(`Triage result decision must be 'ok' or 'too-large', received '${result.decision}'`);
-    }
-
-    if (decision === "ok" && !result.ticketDraft) {
-      throw new Error("Triage result for decision 'ok' must include ticketDraft");
-    }
-  }
-
-  private hasImplementationPlan(
-    draft: TriageTicketDraft | { title: string; description: string; acceptanceCriteria: string[]; fileTargets: string[] }
-  ): draft is TriageTicketDraft {
-    return "implementationPlan" in draft && typeof draft.implementationPlan === "string";
+    });
   }
 }
