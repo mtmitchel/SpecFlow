@@ -1,12 +1,39 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { generateInitiativePlan, saveInitiativeSpecs, updateInitiativePhases } from "../../api";
-import type { ArtifactsSnapshot } from "../../types";
-import { MarkdownView } from "../components/markdown-view";
-import { MermaidView } from "../components/mermaid-view";
-import { getSpecMarkdown } from "../utils/specs";
+import { generateInitiativePlan, saveInitiativeSpecs, updateInitiativePhases } from "../../api.js";
+import type { ArtifactsSnapshot } from "../../types.js";
+import { MarkdownView } from "../components/markdown-view.js";
+import { MermaidView } from "../components/mermaid-view.js";
+import { getSpecMarkdown } from "../utils/specs.js";
 
-export const InitiativeDetailPage = ({
+const PhaseNameEditor = ({
+  name,
+  onCommit
+}: {
+  name: string;
+  onCommit: (nextName: string) => void;
+}) => {
+  const [localName, setLocalName] = useState(name);
+
+  useEffect(() => {
+    setLocalName(name);
+  }, [name]);
+
+  return (
+    <input
+      className="phase-name-input"
+      value={localName}
+      onChange={(event) => setLocalName(event.target.value)}
+      onBlur={() => {
+        if (localName !== name) {
+          onCommit(localName);
+        }
+      }}
+    />
+  );
+};
+
+export const InitiativeView = ({
   snapshot,
   onRefresh
 }: {
@@ -169,7 +196,7 @@ export const InitiativeDetailPage = ({
                   <ul>
                     {phaseTickets.map((ticket) => (
                       <li key={ticket.id}>
-                        <Link to={`/tickets/${ticket.id}`}>{ticket.title}</Link> · {ticket.status}
+                        <Link to={`/ticket/${ticket.id}`}>{ticket.title}</Link> · {ticket.status}
                       </li>
                     ))}
                   </ul>
@@ -184,32 +211,5 @@ export const InitiativeDetailPage = ({
         </div>
       )}
     </section>
-  );
-};
-
-const PhaseNameEditor = ({
-  name,
-  onCommit
-}: {
-  name: string;
-  onCommit: (nextName: string) => void;
-}) => {
-  const [localName, setLocalName] = useState(name);
-
-  useEffect(() => {
-    setLocalName(name);
-  }, [name]);
-
-  return (
-    <input
-      className="phase-name-input"
-      value={localName}
-      onChange={(event) => setLocalName(event.target.value)}
-      onBlur={() => {
-        if (localName !== name) {
-          onCommit(localName);
-        }
-      }}
-    />
   );
 };

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { fetchRunDetail } from "../../api";
-import type { RunDetail } from "../../types";
-import { DiffViewer } from "../components/diff-viewer";
-import { MarkdownView } from "../components/markdown-view";
-import { AuditPanel } from "./audit-panel";
+import { fetchRunDetail } from "../../api.js";
+import type { RunDetail } from "../../types.js";
+import { DiffViewer } from "../components/diff-viewer.js";
+import { MarkdownView } from "../components/markdown-view.js";
+import { AuditPanel } from "../components/audit-panel.js";
 
-export const RunDetailPage = () => {
+export const RunView = () => {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +78,7 @@ export const RunDetailPage = () => {
       <header className="section-header">
         <h2>{detail.run.id}</h2>
         <p>
-          {detail.ticket ? <Link to={`/tickets/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"} ·{" "}
+          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"} ·{" "}
           {detail.run.agentType} · {detail.run.type}
         </p>
       </header>
@@ -88,11 +88,11 @@ export const RunDetailPage = () => {
       detail.operationState === "failed" ? (
         <div className="status-banner warn">
           Operation {detail.operationState}. Retry from{" "}
-          {detail.ticket ? <Link to={`/tickets/${detail.ticket.id}`}>ticket actions</Link> : "the linked ticket"}.
+          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>ticket actions</Link> : "the linked ticket"}.
           {detail.ticket ? (
             <span>
               {" "}
-              <Link to={`/tickets/${detail.ticket.id}`}>Retry Now</Link>
+              <Link to={`/ticket/${detail.ticket.id}`}>Retry Now</Link>
             </span>
           ) : null}
         </div>
@@ -102,7 +102,7 @@ export const RunDetailPage = () => {
         <div className="button-row">
           <strong>Verification:</strong>{" "}
           {verificationPass === null ? "not captured" : verificationPass ? "pass" : "fail"}
-          {detail.ticket ? <Link to={`/tickets/${detail.ticket.id}`}>Open Ticket Verification Panel</Link> : null}
+          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open Ticket Verification Panel</Link> : null}
           <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
             {showAuditPanel ? "Hide Audit" : "Run Audit"}
           </button>

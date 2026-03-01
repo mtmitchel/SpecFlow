@@ -7,24 +7,27 @@ import {
   fetchOperationStatus,
   fetchRunState,
   overrideDone
-} from "../../api";
-import type { Initiative, Run, RunAttempt, Ticket } from "../../types";
-import { useToast } from "../context/toast";
-import { findPhaseWarning } from "../utils/phase-warning";
-import { AuditPanel } from "./audit-panel";
+} from "../../api.js";
+import type { Initiative, Run, RunAttempt, Ticket, TicketStatus } from "../../types.js";
+import { useToast } from "../context/toast.js";
+import { canTransition, statusColumns } from "../constants/status-columns.js";
+import { findPhaseWarning } from "../utils/phase-warning.js";
+import { AuditPanel } from "../components/audit-panel.js";
 
-export const TicketDetailPage = ({
+export const TicketView = ({
   tickets,
   runs,
   runAttempts,
   initiatives,
-  onRefresh
+  onRefresh,
+  onMoveTicket
 }: {
   tickets: Ticket[];
   runs: Run[];
   runAttempts: RunAttempt[];
   initiatives: Initiative[];
   onRefresh: () => Promise<void>;
+  onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
 }) => {
   const params = useParams<{ id: string }>();
   const { showError } = useToast();
@@ -71,6 +74,7 @@ export const TicketDetailPage = ({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const [fixForwardReady, setFixForwardReady] = useState(false);
+  const [moveToStatus, setMoveToStatus] = useState<TicketStatus | "">("");
 
   const ticket = tickets.find((item) => item.id === params.id);
   const run = runs.find((item) => item.id === ticket?.runId);
@@ -80,6 +84,15 @@ export const TicketDetailPage = ({
       .split(",")
       .map((entry) => entry.trim())
       .filter(Boolean);
+
+  // Reset per-ticket state when navigating to a different ticket
+  const prevTicketId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (params.id !== prevTicketId.current) {
+      prevTicketId.current = params.id;
+      setMoveToStatus("");
+    }
+  }, [params.id]);
 
   const syncVerificationFromRunState = (attemptData: Array<{
     attemptId: string;
@@ -265,6 +278,7 @@ export const TicketDetailPage = ({
   const widenedDrift = verificationResult?.driftFlags.filter((flag) => flag.type === "widened-scope-drift") ?? [];
   const blockerTickets = (ticket.blockedBy ?? []).map((id) => tickets.find((t) => t.id === id)).filter(Boolean) as typeof tickets;
   const hasUnfinishedBlockers = blockerTickets.some((t) => t.status !== "done");
+  const validTransitions = statusColumns.filter((col) => canTransition(ticket.status, col.key));
 
   return (
     <section>
@@ -273,9 +287,37 @@ export const TicketDetailPage = ({
         <p>{ticket.description}</p>
         {run ? (
           <div className="button-row">
-            <Link to={`/runs/${run.id}`}>Open Run</Link>
+            <Link to={`/run/${run.id}`}>Open Run</Link>
             <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
               {showAuditPanel ? "Hide Audit" : "Run Audit"}
+            </button>
+          </div>
+        ) : null}
+        {validTransitions.length > 0 ? (
+          <div className="button-row">
+            <select
+              value={moveToStatus}
+              onChange={(e) => setMoveToStatus(e.target.value as TicketStatus)}
+            >
+              <option value="" disabled>Move to...</option>
+              {validTransitions.map((col) => (
+                <option key={col.key} value={col.key}>{col.label}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!moveToStatus}
+              onClick={async () => {
+                if (!moveToStatus) return;
+                try {
+                  await onMoveTicket(ticket.id, moveToStatus);
+                  setMoveToStatus("");
+                } catch (err) {
+                  showError((err as Error).message ?? "Failed to move ticket");
+                }
+              }}
+            >
+              Move
             </button>
           </div>
         ) : null}
@@ -300,7 +342,7 @@ export const TicketDetailPage = ({
           {blockerTickets.map((blocker, index) => (
             <span key={blocker.id}>
               {index > 0 ? ", " : ""}
-              <Link to={`/tickets/${blocker.id}`}>{blocker.title}</Link>
+              <Link to={`/ticket/${blocker.id}`}>{blocker.title}</Link>
               {" "}({blocker.status})
             </span>
           ))}

@@ -5,10 +5,10 @@ import {
   dismissAuditFinding,
   exportFixBundle,
   runAudit
-} from "../../api";
-import type { AuditCategory, AuditReport } from "../../types";
-import { useToast } from "../context/toast";
-import { DiffViewer, findDiffRowsForFinding } from "../components/diff-viewer";
+} from "../../api.js";
+import type { AuditCategory, AuditReport } from "../../types.js";
+import { useToast } from "../context/toast.js";
+import { DiffViewer, findDiffRowsForFinding } from "./diff-viewer.js";
 
 const CATEGORY_BADGE: Record<AuditCategory, string> = {
   bug: "badge danger",
@@ -188,7 +188,7 @@ export const AuditPanel = ({
                     onClick={async () => {
                       try {
                         const ticket = await createTicketFromAuditFinding(runId, selectedFinding.id);
-                        navigate(`/tickets/${ticket.id}`);
+                        navigate(`/ticket/${ticket.id}`);
                       } catch (err) {
                         showError((err as Error).message ?? "Failed to create ticket");
                       }
