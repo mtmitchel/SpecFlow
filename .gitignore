@@ -27,3 +27,6 @@ dist/
 
 # Local runtime artifacts
 specflow/
+
+# Git worktrees
+.worktrees/
