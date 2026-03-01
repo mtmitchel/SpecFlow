@@ -23,8 +23,10 @@ SpecFlow is fully implemented. The repository includes a working app/client work
 
 All four workflows are functional: Groundwork, Milestone Run, Quick Build, and Drift Audit.
 
-Key capabilities in the current version (0.2.0):
+Key capabilities in the current version (0.3.0):
 
+- Master-detail layout: navigator tree sidebar (initiatives > specs/phases > tickets) + detail workspace
+- Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
 - Spec-driven planning with repo context scanning (grounded file targets)
 - Mermaid phase-dependency diagrams on initiative detail pages
 - Verification with per-criterion severity (Critical/Major/Minor/Outdated) and remediation hints

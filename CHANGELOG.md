@@ -5,6 +5,32 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [0.3.0] - 2026-03-01
+
+### Changed
+
+**UI: master-detail layout replaces page-based navigation**
+- Two-panel `WorkspaceShell`: 280px navigator sidebar + detail workspace; Kanban board removed
+- `Navigator` component: WAI-ARIA TreeView with full keyboard navigation (ArrowUp/Down/Left/Right, Enter, Home, End); hierarchy: initiatives > specs/phases > tickets + Quick Tasks section; auto-expands to reveal the active route; filter input
+- `CommandPalette` (Cmd+K / Ctrl+K): fuzzy search across initiatives, tickets, runs, and specs; inline Quick Task flow; inline GitHub Import flow; New Initiative shortcut; Settings shortcut
+- `SettingsModal`: settings form rendered as a modal overlay at `/settings` (previously a dedicated page); `navigate(-1)` to close
+- `StatusBar`: bottom bar showing per-initiative progress (done/blocked/in-verify counts)
+- All detail views ported to `src/app/views/`: `initiative-view`, `spec-view`, `ticket-view`, `run-view`, `overview-panel`, `initiative-creator`
+- `TicketView` status change: status dropdown in ticket header using `canTransition()` replaces Kanban drag-and-drop
+- `SpecView`: dedicated route at `/initiative/:id/spec/:type` for inline spec editing
+- `InitiativeCreator`: multi-step flow at `/new-initiative` (describe → analyze → answer questions → generate specs → navigate)
+- Route canonicalization: `/tickets/:id` → `/ticket/:id`, `/initiatives/:id` → `/initiative/:id`, `/runs/:id` → `/run/:id` (backward-compat redirects in place)
+- `audit-panel` moved from `pages/` to `components/`
+- CSS token system: `--surface-*`, `--accent-*`, `--warning-*`, `--danger-*`, `--success-*` custom properties; `--radius-sm/md/lg/pill`; `--transition-fast/normal`; hover/focus transitions on all interactive elements
+- Responsive breakpoints: navigator becomes a slide-out drawer at 1080px; compact layout at 760px
+
+### Removed
+- Kanban board (five-column ticket view)
+- Page-based navigation (`initiatives-page`, `tickets-page`, `runs-page`, `specs-page`, `settings-page`)
+- `app-shell` layout and `navigate-to-tickets` routing helper
+
+---
+
 ## [0.2.0] - 2026-02-28
 
 ### Added

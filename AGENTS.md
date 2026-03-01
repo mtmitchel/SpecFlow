@@ -45,13 +45,13 @@ src/
 src/
   api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
   app/
-    components/     shared UI: diff-viewer, markdown-view, mermaid-view
-    constants/      status-columns (Kanban column definitions)
+    components/     shared UI: audit-panel, diff-viewer, markdown-view, mermaid-view
+    constants/      status-columns (status transition rules, canTransition helper)
+    context/        toast (error notification context and useToast hook)
     hooks/          use-sse-reconnect
-    layout/         app-shell (left nav + main content frame)
-    pages/          one file per page/panel
-    routing/        navigate-to-tickets (catch-all redirect)
+    layout/         workspace-shell, navigator, navigator-tree, command-palette, settings-modal, status-bar
     utils/          phase-warning, specs
+    views/          detail-workspace, overview-panel, initiative-view, initiative-creator, spec-view, ticket-view, run-view
   api.ts            consolidated re-export of all API modules
   App.tsx           root component, ArtifactsSnapshot state, refreshArtifacts callback
   types.ts          all client-facing types including AgentTarget, Config, ConfigSavePayload

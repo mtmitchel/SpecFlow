@@ -56,12 +56,14 @@ node packages/app/dist/cli.js verify --ticket <ticket-id> --summary "Implemented
 - Keep `specflow/config.yaml` non-secret (`provider`, `model`, `host`, `port`, `repoInstructionFile`).
 - `.env` is ignored by git; `.env.example` is safe to commit.
 
-The Settings page lets you change provider, model, and API key at runtime. For OpenRouter, a searchable model picker loads all available models. The server never returns your API key in API responses -- the UI only shows whether a key is currently set.
+The Settings modal (open via Cmd+K or navigator) lets you change provider, model, and API key at runtime. For OpenRouter, a searchable model picker loads all available models. The server never returns your API key in API responses -- the UI only shows whether a key is currently set.
 
 ## Key Features
 
 - **Spec-driven planning**: describe a feature; the planner generates a Brief, PRD, Tech Spec, phased plan, and per-ticket acceptance criteria grounded in your actual repo file tree.
 - **Mermaid phase diagrams**: each initiative plan includes a dependency diagram rendered on the initiative detail page.
+- **Master-detail layout**: navigator tree sidebar (initiatives > specs/phases > tickets) + detail workspace; no page navigation required.
+- **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Bundle export**: packages a ticket's full context (specs, criteria, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
 - **Fix-forward loop**: failed verification auto-enriches the re-export bundle with failure context; one-click re-export and re-verify.
