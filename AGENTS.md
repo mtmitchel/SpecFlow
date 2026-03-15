@@ -63,6 +63,7 @@ src/
 Use these canonical commands:
 
 - `npm install` - install workspaces
+- `npm run check` - type-check both packages (tsc --noEmit); no build output
 - `npm test` - run backend Vitest suite
 - `npm run build` - build client and backend
 - `npm run ui` - build and start local server/UI
@@ -91,11 +92,12 @@ Direct CLI examples (after build):
 
 Backend tests use Vitest under `packages/app/test`. Test files are split by domain:
 
-- `artifact-store.test.ts` - in-memory store semantics, staged commits, file watcher
+- `artifact-store.test.ts` - in-memory store semantics, staged commits, reload serialization, orphan cleanup, file watcher
 - `atomic-write.test.ts` - atomic temp-rename writes
 - `bundle-generator.test.ts` - bundle generation, agent renderers, manifest versioning
 - `llm-client.test.ts` - LLM streaming and error handling
 - `planner.test.ts` - spec generation, JSON parsing, job orchestration
+- `validation.test.ts` - input validation helpers (entity IDs, path containment, git refs, SSE event names)
 - `verifier.test.ts` - verification pass/fail logic, drift flags
 - `server/audit-routes.test.ts` - drift audit endpoints
 - `server/initiative-routes.test.ts` - initiative CRUD and spec generation
@@ -104,7 +106,7 @@ Backend tests use Vitest under `packages/app/test`. Test files are split by doma
 - `server/runtime-status.test.ts` - server health/capability probes
 - `server/ticket-routes.test.ts` - ticket CRUD, export, capture, SSE
 
-Add or adjust tests when modifying server routes, verifier/diff logic, bundle generation, or artifact store semantics. Before pushing, run `npm test` and `npm run build`.
+Add or adjust tests when modifying server routes, verifier/diff logic, bundle generation, or artifact store semantics. Before pushing, run `npm run check`, `npm test`, and `npm run build`.
 
 ## Code Quality Policy
 

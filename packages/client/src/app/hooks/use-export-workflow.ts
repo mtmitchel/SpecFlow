@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { exportBundle } from "../../api.js";
 import type { AgentTarget, VerificationResult } from "../../types.js";
 import { useToast } from "../context/toast.js";
@@ -20,22 +20,38 @@ export const useExportWorkflow = (
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [fixForwardReady, setFixForwardReady] = useState(false);
+  const downloadUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     setExportResult(null);
     setCopyFeedback(false);
+    setFixForwardReady(false);
+
+    if (downloadUrlRef.current) {
+      URL.revokeObjectURL(downloadUrlRef.current);
+      downloadUrlRef.current = null;
+      setDownloadUrl(null);
+    }
+
+    return () => {
+      if (downloadUrlRef.current) {
+        URL.revokeObjectURL(downloadUrlRef.current);
+        downloadUrlRef.current = null;
+      }
+    };
   }, [ticketId]);
 
   const handleExport = async () => {
     if (!ticketId) return;
     try {
       const exported = await exportBundle(ticketId, agentTarget);
-      if (downloadUrl) {
-        URL.revokeObjectURL(downloadUrl);
+      if (downloadUrlRef.current) {
+        URL.revokeObjectURL(downloadUrlRef.current);
       }
 
       const blob = new Blob([exported.flatString], { type: "text/plain" });
       const nextUrl = URL.createObjectURL(blob);
+      downloadUrlRef.current = nextUrl;
       setDownloadUrl(nextUrl);
       setExportResult({
         runId: exported.runId,
@@ -66,10 +82,11 @@ export const useExportWorkflow = (
         failureLines.length > 0
           ? `# Verification Failure Context\n${failureLines.join("\n")}\n\n${exported.flatString}`
           : exported.flatString;
-      if (downloadUrl) {
-        URL.revokeObjectURL(downloadUrl);
+      if (downloadUrlRef.current) {
+        URL.revokeObjectURL(downloadUrlRef.current);
       }
       const nextUrl = URL.createObjectURL(new Blob([enrichedFlat], { type: "text/plain" }));
+      downloadUrlRef.current = nextUrl;
       setDownloadUrl(nextUrl);
       setExportResult({
         runId: exported.runId,

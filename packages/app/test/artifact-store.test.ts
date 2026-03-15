@@ -1,11 +1,14 @@
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeYamlFile } from "../src/io/yaml.js";
 import {
   attemptDir,
+  operationDir,
   operationManifestPath,
+  runDir,
+  runTmpDir,
   runYamlPath,
   specflowDir,
   ticketPath,
@@ -360,6 +363,115 @@ describe("ArtifactStore", () => {
     expect(store.runs.get(runFailed.id)?.activeOperationId).toBeNull();
 
     await store.close();
+    await rm(rootDir, { recursive: true, force: true });
+  });
+
+  it("recovery adopts committed manifest with stale run.yaml", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-recovery-committed-"));
+    await createSpecflowLayout(rootDir);
+
+    const run: Run = makeRun({
+      id: "run-committed",
+      activeOperationId: "op-committed",
+      operationLeaseExpiresAt: "2026-02-27T21:00:00.000Z",
+      committedAttemptId: null,
+      attempts: [],
+      status: "pending"
+    });
+
+    await writeYamlFile(runYamlPath(rootDir, run.id), run);
+
+    const committedManifest: OperationManifest = {
+      operationId: "op-committed",
+      runId: run.id,
+      targetAttemptId: "attempt-adopted",
+      state: "committed",
+      leaseExpiresAt: "2026-02-27T21:00:00.000Z",
+      validation: { passed: true },
+      preparedAt: now,
+      updatedAt: now,
+      committedAt: now
+    };
+    await writeYamlFile(operationManifestPath(rootDir, run.id, "op-committed"), committedManifest);
+
+    await mkdir(attemptDir(rootDir, run.id, "attempt-adopted"), { recursive: true });
+
+    const store = makeStore(rootDir);
+    await store.initialize();
+
+    const recovered = store.runs.get(run.id);
+    expect(recovered?.committedAttemptId).toBe("attempt-adopted");
+    expect(recovered?.activeOperationId).toBeNull();
+    expect(recovered?.status).toBe("complete");
+    expect(recovered?.attempts).toContain("attempt-adopted");
+
+    await store.close();
+    await rm(rootDir, { recursive: true, force: true });
+  });
+
+  it("serializes concurrent reloadFromDisk calls", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-reload-serial-"));
+    await createSpecflowLayout(rootDir);
+
+    const ticket: Ticket = {
+      id: "ticket-serial",
+      initiativeId: null,
+      phaseId: null,
+      title: "Serialization test",
+      description: "test",
+      status: "ready",
+      acceptanceCriteria: [],
+      implementationPlan: "",
+      fileTargets: [],
+      blockedBy: [],
+      blocks: [],
+      runId: null,
+      createdAt: now,
+      updatedAt: now
+    };
+    await writeYamlFile(ticketPath(rootDir, ticket.id), ticket);
+
+    const store = makeStore(rootDir);
+    await store.initialize();
+
+    // Fire two reloads concurrently -- both should resolve without error
+    // and the store should be in a consistent state afterward
+    await Promise.all([store.reloadFromDisk(), store.reloadFromDisk()]);
+
+    expect(store.tickets.get("ticket-serial")?.title).toBe("Serialization test");
+
+    await store.close();
+    await rm(rootDir, { recursive: true, force: true });
+  });
+
+  it("cleans up manifestless orphan temp dirs past TTL", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-cleanup-orphan-"));
+    await createSpecflowLayout(rootDir);
+
+    const run = makeRun();
+    await writeYamlFile(runYamlPath(rootDir, run.id), run);
+
+    // Create an orphan _tmp/op-orphan dir with no manifest
+    const orphanDir = path.join(runTmpDir(rootDir, run.id), "op-orphan");
+    await mkdir(orphanDir, { recursive: true });
+    await writeFile(path.join(orphanDir, "leftover.txt"), "stale data");
+
+    // Use a far-future now() so the dir's real ctime is always in the past
+    const farFuture = "2099-01-01T00:00:00.000Z";
+    const aggressiveStore = new ArtifactStore({
+      rootDir,
+      cleanupTtlMs: 0,
+      cleanupIntervalMs: 999_999,
+      now: () => new Date(farFuture)
+    });
+    await aggressiveStore.initialize();
+    await aggressiveStore.pruneExpiredTempOperations();
+
+    // The orphan dir should have been removed
+    const readResult = await readFile(path.join(orphanDir, "leftover.txt"), "utf8").catch(() => null);
+    expect(readResult).toBeNull();
+
+    await aggressiveStore.close();
     await rm(rootDir, { recursive: true, force: true });
   });
 

@@ -37,6 +37,8 @@ export interface OperationStoreContext {
   clearRunOperationPointer: (runId: string) => Promise<void>;
   isLeaseExpired: (leaseExpiresAt: string | null) => boolean;
   uniquePush: (items: string[], value: string) => string[];
+  suppressWatcher: () => void;
+  resumeWatcher: () => void;
 }
 
 export const prepareRunOperation = async (
@@ -132,30 +134,35 @@ export const commitRunOperation = async (
     const stagedAttempt = operationAttemptDir(store.rootDir, input.runId, input.operationId, manifest.targetAttemptId);
     const committedAttempt = attemptDir(store.rootDir, input.runId, manifest.targetAttemptId);
 
-    await rm(committedAttempt, { recursive: true, force: true });
-    await mkdir(path.dirname(committedAttempt), { recursive: true });
-    await cp(stagedAttempt, committedAttempt, { recursive: true });
+    store.suppressWatcher();
+    try {
+      await rm(committedAttempt, { recursive: true, force: true });
+      await mkdir(path.dirname(committedAttempt), { recursive: true });
+      await cp(stagedAttempt, committedAttempt, { recursive: true });
 
-    const nowIso = store.now().toISOString();
-    const updatedManifest: OperationManifest = {
-      ...manifest,
-      state: "committed",
-      updatedAt: nowIso,
-      committedAt: nowIso
-    };
-    await writeYamlFile(manifestPath, updatedManifest);
+      const nowIso = store.now().toISOString();
+      const updatedManifest: OperationManifest = {
+        ...manifest,
+        state: "committed",
+        updatedAt: nowIso,
+        committedAt: nowIso
+      };
+      await writeYamlFile(manifestPath, updatedManifest);
 
-    const updatedRun: Run = {
-      ...run,
-      attempts: store.uniquePush(run.attempts, manifest.targetAttemptId),
-      committedAttemptId: manifest.targetAttemptId,
-      activeOperationId: null,
-      operationLeaseExpiresAt: null,
-      lastCommittedAt: nowIso,
-      status: "complete"
-    };
-    await store.upsertRun(updatedRun);
-    await store.reloadFromDisk();
+      const updatedRun: Run = {
+        ...run,
+        attempts: store.uniquePush(run.attempts, manifest.targetAttemptId),
+        committedAttemptId: manifest.targetAttemptId,
+        activeOperationId: null,
+        operationLeaseExpiresAt: null,
+        lastCommittedAt: nowIso,
+        status: "complete"
+      };
+      await store.upsertRun(updatedRun);
+      await store.reloadFromDisk();
+    } finally {
+      store.resumeWatcher();
+    }
 
     const committedRun = store.runs.get(input.runId);
     if (!committedRun) {

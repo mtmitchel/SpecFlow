@@ -88,6 +88,7 @@ export class ArtifactStore {
 
   private watcher: SpecflowWatcher | null = null;
   private cleanupTimer: NodeJS.Timeout | null = null;
+  private reloadInFlight: Promise<void> | null = null;
 
   public constructor(options: ArtifactStoreOptions) {
     this.rootDir = options.rootDir;
@@ -124,35 +125,63 @@ export class ArtifactStore {
   }
 
   public async reloadFromDisk(): Promise<void> {
-    this.config = await readYamlFile<Config>(configPath(this.rootDir));
+    if (this.reloadInFlight) {
+      await this.reloadInFlight;
+      return;
+    }
+    this.reloadInFlight = this.doReloadFromDisk().finally(() => {
+      this.reloadInFlight = null;
+    });
+    await this.reloadInFlight;
+  }
 
-    this.initiatives.clear();
-    this.tickets.clear();
-    this.runs.clear();
-    this.runAttempts.clear();
-    this.specs.clear();
+  private async doReloadFromDisk(): Promise<void> {
+    const nextConfig = await readYamlFile<Config>(configPath(this.rootDir));
+
+    const nextInitiatives = new Map<string, Initiative>();
+    const nextTickets = new Map<string, Ticket>();
+    const nextRuns = new Map<string, Run>();
+    const nextRunAttempts = new Map<string, RunAttempt>();
+    const nextSpecs = new Map<string, SpecDocument>();
 
     await Promise.all([
       loadInitiatives({
         rootDir: this.rootDir,
-        initiatives: this.initiatives,
-        specs: this.specs
+        initiatives: nextInitiatives,
+        specs: nextSpecs
       }),
       loadTickets({
         rootDir: this.rootDir,
-        tickets: this.tickets
+        tickets: nextTickets
       }),
       loadRuns({
         rootDir: this.rootDir,
-        runs: this.runs,
-        runAttempts: this.runAttempts,
+        runs: nextRuns,
+        runAttempts: nextRunAttempts,
         runAttemptKey: (runId, attemptId) => this.runAttemptKey(runId, attemptId)
       }),
       loadDecisions({
         rootDir: this.rootDir,
-        specs: this.specs
+        specs: nextSpecs
       })
     ]);
+
+    this.config = nextConfig;
+
+    this.initiatives.clear();
+    for (const [k, v] of nextInitiatives) this.initiatives.set(k, v);
+
+    this.tickets.clear();
+    for (const [k, v] of nextTickets) this.tickets.set(k, v);
+
+    this.runs.clear();
+    for (const [k, v] of nextRuns) this.runs.set(k, v);
+
+    this.runAttempts.clear();
+    for (const [k, v] of nextRunAttempts) this.runAttempts.set(k, v);
+
+    this.specs.clear();
+    for (const [k, v] of nextSpecs) this.specs.set(k, v);
 
     this.rebuildOperationIndex();
   }
@@ -239,7 +268,9 @@ export class ArtifactStore {
         markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
         clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
         isLeaseExpired: (leaseExpiresAt) => this.isLeaseExpired(leaseExpiresAt),
-        uniquePush: (items, value) => this.uniquePush(items, value)
+        uniquePush: (items, value) => this.uniquePush(items, value),
+        suppressWatcher: () => this.suppressWatcher(),
+        resumeWatcher: () => this.resumeWatcher()
       },
       input
     );
@@ -261,7 +292,9 @@ export class ArtifactStore {
         markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
         clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
         isLeaseExpired: (leaseExpiresAt) => this.isLeaseExpired(leaseExpiresAt),
-        uniquePush: (items, value) => this.uniquePush(items, value)
+        uniquePush: (items, value) => this.uniquePush(items, value),
+        suppressWatcher: () => this.suppressWatcher(),
+        resumeWatcher: () => this.resumeWatcher()
       },
       input
     );
@@ -308,8 +341,29 @@ export class ArtifactStore {
       rootDir: this.rootDir,
       runs: this.runs,
       markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
-      clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId)
+      clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
+      adoptCommittedOperation: (runId, manifest) => this.adoptCommittedOperation(runId, manifest)
     });
+  }
+
+  private async adoptCommittedOperation(runId: string, manifest: OperationManifest): Promise<void> {
+    const run = this.runs.get(runId);
+    if (!run) {
+      return;
+    }
+
+    const updatedRun: Run = {
+      ...run,
+      attempts: this.uniquePush(run.attempts, manifest.targetAttemptId),
+      committedAttemptId: manifest.targetAttemptId,
+      activeOperationId: null,
+      operationLeaseExpiresAt: null,
+      lastCommittedAt: manifest.committedAt ?? manifest.updatedAt,
+      status: "complete"
+    };
+
+    await writeYamlFile(runYamlPath(this.rootDir, runId), updatedRun);
+    this.runs.set(runId, updatedRun);
   }
 
   public async getOperationStatus(operationId: string): Promise<
@@ -345,6 +399,14 @@ export class ArtifactStore {
 
   private async clearRunOperationPointer(runId: string): Promise<void> {
     await clearRunOperationPointerInternal(this.rootDir, this.runs, runId);
+  }
+
+  private suppressWatcher(): void {
+    this.watcher?.suppress();
+  }
+
+  private resumeWatcher(): void {
+    this.watcher?.resume();
   }
 
   private async ensureRunWritable(runId: string, requestedOperationId: string): Promise<void> {

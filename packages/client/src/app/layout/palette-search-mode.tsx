@@ -44,7 +44,7 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
       label: "New Initiative",
       sublabel: "Start a multi-step planning flow",
       isAction: true,
-      action: () => { onNavigate("/new-initiative"); onClose(); }
+      action: () => { go("/new-initiative"); }
     },
     {
       id: "action-quick-task",

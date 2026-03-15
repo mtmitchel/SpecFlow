@@ -20,11 +20,14 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const [saving, setSaving] = useState(false);
   const [saveConfirm, setSaveConfirm] = useState(false);
   const [modelsGeneration, setModelsGeneration] = useState(0);
+  const [dirty, setDirty] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setForm(config);
-    setApiKeyInput("");
+    if (!dirty) {
+      setForm(config);
+      setApiKeyInput("");
+    }
   }, [config]);
 
   const close = useCallback(() => {
@@ -91,6 +94,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                 .then(() => {
                   showSuccess("Settings saved");
                   setSaveConfirm(true);
+                  setDirty(false);
                   setApiKeyInput("");
                   if (hadKeyInput) {
                     setModelsGeneration((n) => n + 1);
@@ -105,7 +109,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
           >
             <label>
               Provider
-              <select value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value as Config["provider"] })}>
+              <select value={form.provider} onChange={(event) => { setDirty(true); setForm({ ...form, provider: event.target.value as Config["provider"] }); }}>
                 <option value="anthropic">Anthropic</option>
                 <option value="openai">OpenAI</option>
                 <option value="openrouter">OpenRouter</option>
@@ -117,7 +121,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                 provider={form.provider}
                 hasApiKey={form.hasApiKey ?? false}
                 value={form.model}
-                onSelect={(modelId) => setForm({ ...form, model: modelId })}
+                onSelect={(modelId) => { setDirty(true); setForm({ ...form, model: modelId }); }}
                 modelsGeneration={modelsGeneration}
               />
             </label>
@@ -127,7 +131,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                 type="password"
                 placeholder={form.hasApiKey ? "(key set -- leave blank to keep)" : "Paste your API key"}
                 value={apiKeyInput}
-                onChange={(event) => setApiKeyInput(event.target.value)}
+                onChange={(event) => { setDirty(true); setApiKeyInput(event.target.value); }}
               />
             </label>
             <label>

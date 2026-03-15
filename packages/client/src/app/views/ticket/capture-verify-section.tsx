@@ -27,7 +27,7 @@ interface CaptureVerifySectionProps {
   setSelectedNoGitPaths: (paths: string[]) => void;
   captureSummary: string;
   setCaptureSummary: (value: string) => void;
-  refreshCapturePreview: () => Promise<void>;
+  refreshCapturePreview: () => void;
   verifyStreamEvents: string[];
   verifyState: "idle" | "running" | "reconnecting";
   setVerifyStreamEvents: (fn: (prev: string[]) => string[]) => void;

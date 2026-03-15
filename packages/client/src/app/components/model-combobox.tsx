@@ -3,7 +3,7 @@ import { fetchProviderModels } from "../../api.js";
 import type { ProviderModel } from "../../types.js";
 
 interface ModelComboboxProps {
-  provider: string;
+  provider: "anthropic" | "openai" | "openrouter";
   hasApiKey: boolean;
   value: string;
   onSelect: (modelId: string) => void;

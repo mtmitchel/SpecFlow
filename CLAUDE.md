@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install                # install all workspaces
 npm run build              # build client (Vite) then server (tsc) -- order matters
+npm run check              # type-check both packages (tsc --noEmit); no build output
 npm test                   # run backend Vitest suite (packages/app only)
 npm run ui                 # build + start local server with UI
 
@@ -45,8 +46,8 @@ Monorepo with two npm workspaces:
 
 All data is flat YAML/JSON files on disk under `specflow/` (gitignored runtime directory). There is no database.
 
-- `ArtifactStore` (packages/app/src/store/artifact-store.ts) loads everything into memory at startup, serves reads from in-memory Maps, and writes atomically (tmp + rename).
-- Staged commit model: long operations write to `runs/<id>/_tmp/<op-id>/` first, then `commitRunOperation()` moves files to their final location. Write locks prevent concurrent ops on the same run.
+- `ArtifactStore` (packages/app/src/store/artifact-store.ts) loads everything into memory at startup, serves reads from in-memory Maps, and writes atomically (tmp + rename). Concurrent `reloadFromDisk()` calls are serialized (coalesced) via a `reloadInFlight` guard to prevent interleaved map mutations.
+- Staged commit model: long operations write to `runs/<id>/_tmp/<op-id>/` first, then `commitRunOperation()` moves files to their final location. Write locks prevent concurrent ops on the same run. The file watcher is suppressed for the entire commit critical section (cp + manifest write + upsertRun + reload).
 - chokidar watches `specflow/` for external edits and triggers debounced `reloadFromDisk()`.
 
 ### Server structure
@@ -92,7 +93,7 @@ Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by tick
 - **React components**: do NOT annotate return types with `: JSX.Element` (removed in `@types/react@19`). Use `ConfigSavePayload` for writes, `Config` for reads. `AgentTarget` is the shared agent selection type.
 - **File names**: kebab-case.
 - **Ellipsis in UI copy**: never use `...` (ellipsis) in static copy such as placeholders, labels, or empty-state messages. Ellipsis is reserved exclusively for loading/progress states (e.g. "Creating", "Importing"). Placeholder text should read naturally without trailing dots (e.g. `"Search tickets"` not `"Search tickets..."`).
-- **Code quality**: if you encounter errors or failing tests in areas you touch, fix them even if you didn't introduce them. Run `npm test` and `npm run build` before considering work complete.
+- **Code quality**: if you encounter errors or failing tests in areas you touch, fix them even if you didn't introduce them. Run `npm run check`, `npm test`, and `npm run build` before considering work complete.
 
 ## Test Infrastructure
 

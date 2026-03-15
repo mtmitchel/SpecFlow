@@ -1,5 +1,5 @@
-import { attemptDir, operationDir, runYamlPath } from "../../io/paths.js";
-import { writeYamlFile } from "../../io/yaml.js";
+import { attemptDir, operationDir, operationManifestPath, runYamlPath } from "../../io/paths.js";
+import { readYamlFile, writeYamlFile } from "../../io/yaml.js";
 import { pathExists } from "./fs-utils.js";
 import type { OperationManifest, OperationState, Run } from "../../types/entities.js";
 
@@ -8,6 +8,7 @@ export interface RecoveryStoreContext {
   runs: Map<string, Run>;
   markOperationState: (runId: string, operationId: string, state: OperationState) => Promise<OperationManifest>;
   clearRunOperationPointer: (runId: string) => Promise<void>;
+  adoptCommittedOperation: (runId: string, manifest: OperationManifest) => Promise<void>;
 }
 
 export const recoverOrphanOperations = async (store: RecoveryStoreContext): Promise<void> => {
@@ -24,6 +25,31 @@ export const recoverOrphanOperations = async (store: RecoveryStoreContext): Prom
       await store.markOperationState(run.id, opId, "failed");
       await store.clearRunOperationPointer(run.id);
       continue;
+    }
+
+    const manifest = await readYamlFile<OperationManifest>(
+      operationManifestPath(store.rootDir, run.id, opId)
+    );
+
+    if (manifest?.state === "committed") {
+      await store.adoptCommittedOperation(run.id, manifest);
+      continue;
+    }
+
+    if (manifest && manifest.state === "prepared") {
+      const finalAttemptExists = await pathExists(
+        attemptDir(store.rootDir, run.id, manifest.targetAttemptId)
+      );
+
+      if (finalAttemptExists) {
+        await store.markOperationState(run.id, opId, "committed");
+        await store.adoptCommittedOperation(run.id, {
+          ...manifest,
+          state: "committed",
+          committedAt: manifest.updatedAt
+        });
+        continue;
+      }
     }
 
     const committedAttemptExists =

@@ -47,6 +47,8 @@ export const TicketView = ({
     if (params.id !== prevTicketId.current) {
       prevTicketId.current = params.id;
       setMoveToStatus("");
+      setShowAuditPanel(false);
+      setActiveTab("plan");
     }
   }, [params.id]);
 

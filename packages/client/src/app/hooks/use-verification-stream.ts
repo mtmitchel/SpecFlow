@@ -1,6 +1,31 @@
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { fetchRunState } from "../../api.js";
 import type { VerificationResult } from "../../types.js";
+
+const syncVerificationFromRunState = (
+  attemptData: Array<{
+    overallPass: boolean;
+    attemptId: string;
+    criteriaResults: VerificationResult["criteriaResults"];
+    driftFlags: VerificationResult["driftFlags"];
+  }>,
+  setResult: Dispatch<SetStateAction<VerificationResult | null>>
+): void => {
+  const latest = attemptData
+    .slice()
+    .sort((left, right) => left.attemptId.localeCompare(right.attemptId))
+    .at(-1);
+
+  if (!latest) {
+    return;
+  }
+
+  setResult({
+    overallPass: latest.overallPass,
+    criteriaResults: latest.criteriaResults,
+    driftFlags: latest.driftFlags
+  });
+};
 
 export const useVerificationStream = (
   ticketId: string | undefined,
@@ -18,6 +43,26 @@ export const useVerificationStream = (
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [verifyState, setVerifyState] = useState<"idle" | "running" | "reconnecting">("idle");
 
+  const verifyStateRef = useRef(verifyState);
+  verifyStateRef.current = verifyState;
+
+  useEffect(() => {
+    setVerificationResult(null);
+
+    if (!runId) return;
+
+    let cancelled = false;
+    void fetchRunState(runId)
+      .then((snapshot) => {
+        if (!cancelled) {
+          syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
+        }
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [ticketId, runId]);
+
   useEffect(() => {
     if (!ticketId) {
       return;
@@ -27,28 +72,6 @@ export const useVerificationStream = (
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectAttempt = 0;
     let source: EventSource | null = null;
-
-    const syncVerificationFromRunState = (attemptData: Array<{
-      overallPass: boolean;
-      attemptId: string;
-      criteriaResults: VerificationResult["criteriaResults"];
-      driftFlags: VerificationResult["driftFlags"];
-    }>): void => {
-      const latest = attemptData
-        .slice()
-        .sort((left, right) => left.attemptId.localeCompare(right.attemptId))
-        .at(-1);
-
-      if (!latest) {
-        return;
-      }
-
-      setVerificationResult({
-        overallPass: latest.overallPass,
-        criteriaResults: latest.criteriaResults,
-        driftFlags: latest.driftFlags
-      });
-    };
 
     const connect = (): void => {
       if (!isMounted) {
@@ -74,12 +97,12 @@ export const useVerificationStream = (
       });
 
       source.addEventListener("verify-complete", () => {
-        if (!runId) {
+        if (!runId || verifyStateRef.current === "running") {
           return;
         }
 
         void fetchRunState(runId).then((snapshot) => {
-          syncVerificationFromRunState(snapshot.attempts);
+          syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
         });
       });
 
@@ -89,14 +112,18 @@ export const useVerificationStream = (
         reconnectAttempt += 1;
 
         reconnectTimer = setTimeout(() => {
-          setVerifyState("reconnecting");
+          if (verifyStateRef.current !== "running") {
+            setVerifyState("reconnecting");
+          }
           if (runId) {
             void fetchRunState(runId)
-              .then((snapshot) => syncVerificationFromRunState(snapshot.attempts))
+              .then((snapshot) => syncVerificationFromRunState(snapshot.attempts, setVerificationResult))
               .catch(() => {});
           }
           void onRefresh().finally(() => {
-            setVerifyState("idle");
+            if (verifyStateRef.current === "reconnecting") {
+              setVerifyState("idle");
+            }
             connect();
           });
         }, backoff);

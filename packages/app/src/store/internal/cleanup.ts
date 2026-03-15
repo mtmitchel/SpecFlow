@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { operationDir, operationManifestPath, runTmpDir, runsDir } from "../../io/paths.js";
 import { readYamlFile } from "../../io/yaml.js";
 import { listDirectoryNames } from "./fs-utils.js";
@@ -22,10 +22,25 @@ export const pruneExpiredTempOperations = async (store: CleanupStoreContext): Pr
       const manifest = await readYamlFile<OperationManifest>(operationManifestPath(store.rootDir, runId, operationId));
 
       if (!manifest) {
+        try {
+          const dirStat = await stat(opPath);
+          if (store.now().getTime() - dirStat.ctimeMs > store.cleanupTtlMs) {
+            await rm(opPath, { recursive: true, force: true });
+          }
+        } catch { /* dir already gone */ }
         continue;
       }
 
-      if (manifest.state !== "abandoned" && manifest.state !== "superseded") {
+      const isPreparedAndExpired =
+        manifest.state === "prepared" &&
+        manifest.leaseExpiresAt &&
+        Date.parse(manifest.leaseExpiresAt) <= store.now().getTime();
+
+      if (
+        manifest.state !== "abandoned" &&
+        manifest.state !== "superseded" &&
+        !isPreparedAndExpired
+      ) {
         continue;
       }
 

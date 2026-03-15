@@ -1,5 +1,14 @@
 import path from "node:path";
 
+/** Throws if resolved child escapes the parent directory. */
+export const assertContainedId = (parent: string, child: string): void => {
+  const resolvedParent = path.resolve(parent);
+  const resolvedChild = path.resolve(parent, child);
+  if (!resolvedChild.startsWith(resolvedParent + path.sep) && resolvedChild !== resolvedParent) {
+    throw new Error(`Path traversal detected: "${child}" escapes "${parent}"`);
+  }
+};
+
 export const specflowDir = (rootDir: string): string => path.join(rootDir, "specflow");
 
 export const configPath = (rootDir: string): string => path.join(specflowDir(rootDir), "config.yaml");
@@ -25,8 +34,11 @@ export const verificationPath = (rootDir: string, runId: string, attemptId: stri
   path.join(attemptDir(rootDir, runId, attemptId), "verification.json");
 
 export const runTmpDir = (rootDir: string, runId: string): string => path.join(runDir(rootDir, runId), "_tmp");
-export const operationDir = (rootDir: string, runId: string, operationId: string): string =>
-  path.join(runTmpDir(rootDir, runId), operationId);
+export const operationDir = (rootDir: string, runId: string, operationId: string): string => {
+  const parent = runTmpDir(rootDir, runId);
+  assertContainedId(parent, operationId);
+  return path.join(parent, operationId);
+};
 export const operationManifestPath = (rootDir: string, runId: string, operationId: string): string =>
   path.join(operationDir(rootDir, runId, operationId), "operation-manifest.yaml");
 export const operationAttemptDir = (

@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "build": "npm run -w @specflow/client build && npm run -w @specflow/app build",
+    "check": "tsc -p packages/app/tsconfig.json --noEmit && tsc -p packages/client/tsconfig.json --noEmit",
     "test": "npm run -w @specflow/app test",
     "ui": "npm run build && node packages/app/dist/cli.js ui"
   }

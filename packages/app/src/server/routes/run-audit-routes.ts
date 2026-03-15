@@ -9,7 +9,7 @@ import { buildAuditFindings, extractDiffChanges, normalizeScopePaths, readAgents
 import { buildAuditFindingsWithLlm } from "../audit/llm-audit.js";
 import { readAuditReport, writeAuditReport } from "../audit/report-store.js";
 import type { AuditReport } from "../audit/types.js";
-import { isValidEntityId, isValidGitRef } from "../validation.js";
+import { isValidEntityId, isValidFindingId, isValidGitRef } from "../validation.js";
 
 export interface RegisterRunAuditRoutesOptions {
   rootDir: string;
@@ -128,6 +128,10 @@ export const registerRunAuditRoutes = (app: FastifyInstance, options: RegisterRu
       await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
       return;
     }
+    if (!isValidFindingId(params.findingId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid finding ID format" });
+      return;
+    }
     const report = await readAuditReport(rootDir, params.id);
 
     if (!report) {
@@ -171,6 +175,10 @@ export const registerRunAuditRoutes = (app: FastifyInstance, options: RegisterRu
     const params = request.params as { id: string; findingId: string };
     if (!isValidEntityId(params.id)) {
       await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
+      return;
+    }
+    if (!isValidFindingId(params.findingId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid finding ID format" });
       return;
     }
     const body = (request.body ?? {}) as { note?: string };

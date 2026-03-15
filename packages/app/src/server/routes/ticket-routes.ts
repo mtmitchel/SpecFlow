@@ -5,7 +5,7 @@ import type { ArtifactStore } from "../../store/artifact-store.js";
 import { DiffEngine } from "../../verify/diff-engine.js";
 import { VerifierService } from "../../verify/verifier-service.js";
 import { startSseSession, type SseSession } from "../sse/session.js";
-import { isValidEntityId } from "../validation.js";
+import { isValidEntityId, isValidFindingId } from "../validation.js";
 
 export interface RegisterTicketRoutesOptions {
   bundleGenerator: BundleGenerator;
@@ -127,6 +127,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
       exportMode?: "standard" | "quick-fix";
       operationId?: string;
     };
+    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
+      return;
+    }
     const agentTarget = body.agent ?? "codex-cli";
     const exportMode = body.exportMode === "quick-fix" ? "quick-fix" : "standard";
 
@@ -159,6 +163,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
       await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
       return;
     }
+    if (!isValidFindingId(params.findingId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid finding ID format" });
+      return;
+    }
     const run = store.runs.get(params.id);
 
     if (!run) {
@@ -175,6 +183,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
       agent?: "claude-code" | "codex-cli" | "opencode" | "generic";
       operationId?: string;
     };
+    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
+      return;
+    }
     const agentTarget = body.agent ?? "codex-cli";
 
     try {
@@ -214,6 +226,11 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
       widenedScopePaths?: string[];
       operationId?: string;
     };
+
+    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
+      return;
+    }
 
     try {
       broadcastVerificationEvent(ticketId, "verify-started", { ticketId });
@@ -307,6 +324,11 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
       overrideAccepted?: boolean;
       operationId?: string;
     };
+
+    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
+      return;
+    }
 
     try {
       const result = await verifierService.overrideDone({

@@ -71,7 +71,7 @@ export const registerProviderRoutes = (app: FastifyInstance, options: RegisterPr
         await reply.code(502).send({
           error: "Provider Error",
           message: `OpenRouter model discovery failed (${response.status})`,
-          details: body.slice(0, 200)
+          details: "Check your API key and provider status"
         });
         return;
       }
@@ -111,7 +111,7 @@ export const registerProviderRoutes = (app: FastifyInstance, options: RegisterPr
       await reply.code(502).send({
         error: "Provider Error",
         message: "Failed to reach OpenRouter model registry",
-        details: (error as Error).message
+        details: "Network error; check connectivity"
       });
     }
   });

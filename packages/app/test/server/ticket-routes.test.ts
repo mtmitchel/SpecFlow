@@ -32,4 +32,36 @@ describe("ticket routes", () => {
       await fixture.cleanup();
     }
   });
+
+  it("rejects export-bundle with path-traversal operationId", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const response = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/tickets/ticket-aabbccdd/export-bundle",
+        payload: { agent: "generic", operationId: "../../etc/passwd" }
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toContain("Invalid operationId format");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("rejects export-fix-bundle with invalid findingId", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const response = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/runs/run-aabb1122/findings/bad-id/export-fix-bundle",
+        payload: { agent: "generic" }
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toContain("Invalid finding ID format");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
 });

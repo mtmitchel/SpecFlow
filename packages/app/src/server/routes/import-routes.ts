@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { PlannerService } from "../../planner/planner-service.js";
+import { isValidGitHubOwner, isValidGitHubRepo } from "../validation.js";
 
 export interface RegisterImportRoutesOptions {
   plannerService: PlannerService;
@@ -63,6 +64,18 @@ export const registerImportRoutes = (
       repo = parsed.repo;
       issueNumber = parsed.number;
     } else if (body.owner && body.repo && body.number) {
+      if (!isValidGitHubOwner(body.owner)) {
+        await reply.code(400).send({ error: "Bad Request", message: "Invalid GitHub owner format" });
+        return;
+      }
+      if (!isValidGitHubRepo(body.repo)) {
+        await reply.code(400).send({ error: "Bad Request", message: "Invalid GitHub repo format" });
+        return;
+      }
+      if (!Number.isInteger(body.number) || body.number <= 0) {
+        await reply.code(400).send({ error: "Bad Request", message: "Issue number must be a positive integer" });
+        return;
+      }
       owner = body.owner;
       repo = body.repo;
       issueNumber = body.number;
@@ -91,13 +104,13 @@ export const registerImportRoutes = (
     let githubReply: Response;
     try {
       githubReply = await fetchImpl(
-        `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`,
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`,
         { headers }
       );
-    } catch (err) {
+    } catch {
       await reply.code(502).send({
         error: "Import Failed",
-        message: `GitHub API unreachable: ${(err as Error).message}`
+        message: "GitHub API unreachable; check connectivity"
       });
       return;
     }

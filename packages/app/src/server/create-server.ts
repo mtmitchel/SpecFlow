@@ -140,6 +140,12 @@ export const createSpecFlowServer = async (
     host,
     port,
     start: async () => {
+      if (host === "0.0.0.0" || host === "::") {
+        process.stderr.write(
+          `[SpecFlow] WARNING: server is binding to ${host}, which exposes it to all network interfaces. ` +
+          `Use 127.0.0.1 or ::1 to restrict access to localhost.\n`
+        );
+      }
       await app.listen({ host, port });
       return `http://${host}:${port}`;
     },

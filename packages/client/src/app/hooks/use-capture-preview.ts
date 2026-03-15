@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { capturePreview } from "../../api.js";
 import { useToast } from "../context/toast.js";
 import { parseScopeCsv } from "../utils/scope-paths.js";
@@ -23,55 +23,71 @@ export const useCapturePreview = (
   const [selectedNoGitPaths, setSelectedNoGitPaths] = useState<string[]>([]);
   const [captureSummary, setCaptureSummary] = useState("");
 
+  const scopeRef = useRef(captureScopeInput);
+  scopeRef.current = captureScopeInput;
+  const widenedRef = useRef(widenedInput);
+  widenedRef.current = widenedInput;
+
   useEffect(() => {
-    if (initialFileTargets.length > 0) {
-      setCaptureScopeInput(initialFileTargets.join(", "));
-    }
+    setCapturePreviewData(null);
+    setSelectedNoGitPaths([]);
+    setCaptureSummary("");
+    setWidenedInput("");
+    setCaptureScopeInput(initialFileTargets.length > 0 ? initialFileTargets.join(", ") : "");
   }, [ticketId]);
 
-  const refreshCapturePreview = useCallback(async (): Promise<void> => {
-    if (!ticketId) {
-      return;
-    }
-
-    try {
-      const preview = await capturePreview(ticketId, {
-        scopePaths: parseScopeCsv(captureScopeInput),
-        widenedScopePaths: parseScopeCsv(widenedInput),
-        diffSource: { mode: "auto" }
-      });
+  const fetchPreview = (
+    tid: string,
+    scope: string,
+    widened: string,
+    signal: AbortSignal
+  ): void => {
+    void capturePreview(tid, {
+      scopePaths: parseScopeCsv(scope),
+      widenedScopePaths: parseScopeCsv(widened),
+      diffSource: { mode: "auto" }
+    }).then((preview) => {
+      if (signal.aborted) return;
 
       setCapturePreviewData(preview);
 
-      if (!captureScopeInput.trim() && preview.defaultScope.length > 0) {
+      if (!scope.trim() && preview.defaultScope.length > 0) {
         setCaptureScopeInput(preview.defaultScope.join(", "));
       }
-    } catch (err) {
+    }).catch((err) => {
+      if (signal.aborted) return;
       showError((err as Error).message ?? "Failed to load diff preview");
-    }
-  }, [ticketId, captureScopeInput, widenedInput, showError]);
+    });
+  };
 
   useEffect(() => {
-    if (!ticketId || !runId) {
-      return;
-    }
+    if (!ticketId || !runId) return;
 
-    void refreshCapturePreview();
-  }, [ticketId, runId, refreshCapturePreview]);
+    const controller = new AbortController();
+    fetchPreview(ticketId, scopeRef.current, widenedRef.current, controller.signal);
+
+    return () => { controller.abort(); };
+  }, [ticketId, runId]);
 
   useEffect(() => {
-    if (!ticketId || !runId) {
-      return;
-    }
+    if (!ticketId || !runId) return;
 
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      void refreshCapturePreview();
+      fetchPreview(ticketId, captureScopeInput, widenedInput, controller.signal);
     }, 300);
 
     return () => {
       clearTimeout(timer);
+      controller.abort();
     };
-  }, [captureScopeInput, widenedInput, ticketId, runId, refreshCapturePreview]);
+  }, [captureScopeInput, widenedInput, ticketId, runId]);
+
+  const refreshCapturePreview = (): void => {
+    if (!ticketId) return;
+    const controller = new AbortController();
+    fetchPreview(ticketId, scopeRef.current, widenedRef.current, controller.signal);
+  };
 
   return {
     captureScopeInput,

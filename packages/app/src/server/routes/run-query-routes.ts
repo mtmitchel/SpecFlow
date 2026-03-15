@@ -149,6 +149,11 @@ export const registerRunQueryRoutes = (app: FastifyInstance, options: RegisterRu
       ? path.join(rootDir, "specflow", "runs", run.id, "attempts", run.committedAttemptId)
       : null;
 
+    if (attemptRoot && !isContainedPath(path.join(rootDir, "specflow", "runs"), attemptRoot)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Path traversal detected" });
+      return;
+    }
+
     const bundleManifest = attemptRoot
       ? await readYamlFile<BundleManifest>(path.join(attemptRoot, "bundle-manifest.yaml"))
       : null;

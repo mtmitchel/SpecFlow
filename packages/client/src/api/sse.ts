@@ -1,3 +1,5 @@
+const ERROR_EVENTS = new Set(["planner-error", "verify-error"]);
+
 export const parseSseResult = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const text = await response.text();
@@ -29,6 +31,15 @@ export const parseSseResult = async <T>(response: Response): Promise<T> => {
         currentEvent = line.replace("event:", "").trim();
       } else if (line.startsWith("data:")) {
         const payload = JSON.parse(line.replace("data:", "").trim()) as unknown;
+
+        if (ERROR_EVENTS.has(currentEvent)) {
+          const msg =
+            (payload as { message?: string })?.message ??
+            (payload as { error?: string })?.error ??
+            `Server error (${currentEvent})`;
+          throw new Error(msg);
+        }
+
         if (currentEvent === "planner-result") {
           latestResult = payload as T;
         }
