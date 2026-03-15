@@ -46,7 +46,7 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
     <Route path="/new-initiative" element={<InitiativeCreator onRefresh={onRefresh} />} />
 
     {/* Aggregate views */}
-    <Route path="/tickets" element={<TicketsListView snapshot={snapshot} />} />
+    <Route path="/tickets" element={<TicketsListView snapshot={snapshot} onOpenCommandPalette={onOpenCommandPalette} />} />
     <Route path="/runs" element={<RunsListView snapshot={snapshot} />} />
     <Route path="/specs" element={<SpecsListView snapshot={snapshot} />} />
 
