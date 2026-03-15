@@ -31,7 +31,16 @@ const classifyProviderError = (statusCode: number, message: string): LlmProvider
     return new LlmProviderError("Rate limited by provider", "rate_limit", statusCode);
   }
 
-  return new LlmProviderError("Provider request failed", "provider_error", statusCode);
+  // Extract a useful detail from the provider response
+  let detail = "";
+  try {
+    const parsed = JSON.parse(message);
+    detail = parsed?.error?.message ?? "";
+  } catch {
+    detail = message.slice(0, 200);
+  }
+  const suffix = detail ? `: ${detail}` : ` (HTTP ${statusCode})`;
+  return new LlmProviderError(`Provider request failed${suffix}`, "provider_error", statusCode);
 };
 
 export class HttpLlmClient implements LlmClient {
@@ -127,8 +136,7 @@ export class HttpLlmClient implements LlmClient {
       },
       body: JSON.stringify({
         model: request.model,
-        temperature: 0.2,
-        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+        max_completion_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
         stream: true,
         messages: [
           { role: "system", content: request.systemPrompt },
@@ -162,7 +170,7 @@ export class HttpLlmClient implements LlmClient {
       body: JSON.stringify({
         model: request.model,
         temperature: 0.2,
-        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+        max_completion_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
         stream: true,
         messages: [
           { role: "system", content: request.systemPrompt },

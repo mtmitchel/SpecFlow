@@ -8,6 +8,7 @@ export interface PlannerQuestion {
 }
 
 export interface ClarifyResult {
+  title?: string;
   questions: PlannerQuestion[];
 }
 

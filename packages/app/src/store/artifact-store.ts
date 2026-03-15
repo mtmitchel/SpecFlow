@@ -220,6 +220,17 @@ export class ArtifactStore {
     }
   }
 
+  public async deleteInitiative(id: string): Promise<void> {
+    const dir = initiativeDir(this.rootDir, id);
+    const { rm } = await import("node:fs/promises");
+    await rm(dir, { recursive: true, force: true });
+    this.initiatives.delete(id);
+    // Remove associated specs from memory
+    for (const [key, spec] of this.specs) {
+      if (spec.initiativeId === id) this.specs.delete(key);
+    }
+  }
+
   public async upsertTicket(ticket: Ticket): Promise<void> {
     await writeYamlFile(ticketPath(this.rootDir, ticket.id), ticket);
     this.tickets.set(ticket.id, ticket);

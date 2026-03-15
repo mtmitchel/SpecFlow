@@ -13,6 +13,7 @@ const outputContract = (job: PlannerJob): string => {
       return [
         "Respond ONLY as JSON:",
         "{",
+        '  "title": "string (short project name, 3-6 words, e.g. \'Fedora Note-Taking App\')",',
         '  "questions": [',
         '    { "id": "string", "label": "string", "type": "text|select|multi-select|boolean", "options": ["string"] }',
         "  ]",
@@ -73,9 +74,15 @@ export const buildPlannerPrompt = (
     return {
       systemPrompt,
       userPrompt: [
-        "Generate targeted follow-up clarification questions for this initiative idea.",
+        "Generate 5-8 targeted follow-up clarification questions for this initiative idea.",
+        "Rules:",
+        "- Keep it to 5-8 questions maximum. Focus on the decisions that most affect architecture and scope.",
+        "- Use \"select\" or \"multi-select\" type with an \"options\" array when there is a finite set of reasonable choices (e.g. frameworks, platforms, storage backends). Always provide 3-6 concrete options.",
+        "- Use \"boolean\" type for yes/no decisions.",
+        "- Use \"text\" type only when the answer is truly open-ended.",
+        "- Do NOT ask questions the user already answered in their description.",
         `Description:\n${clarifyInput.description}`
-      ].join("\n\n")
+      ].join("\n")
     };
   }
 

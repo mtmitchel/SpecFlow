@@ -114,20 +114,54 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
               <h3>Answer follow-up questions</h3>
               {questions.length > 0 ? (
                 <div className="qa-grid">
-                  {questions.map((question) => (
-                    <label key={question.id}>
-                      {question.label}
-                      <input
-                        value={answers[question.id] ?? ""}
-                        onChange={(event) =>
-                          setAnswers((current) => ({
-                            ...current,
-                            [question.id]: event.target.value
-                          }))
-                        }
-                      />
-                    </label>
-                  ))}
+                  {questions.map((question) => {
+                    const opts = question.type === "boolean"
+                      ? ["Yes", "No"]
+                      : question.options ?? [];
+                    const hasOptions = opts.length > 0 && (question.type === "select" || question.type === "multi-select" || question.type === "boolean");
+                    const val = answers[question.id] ?? "";
+                    const isOther = hasOptions && val !== "" && !opts.includes(val);
+
+                    return (
+                      <div key={question.id} className="qa-question">
+                        <span className="qa-label">{question.label}</span>
+                        {hasOptions ? (
+                          <>
+                            <select
+                              value={isOther ? "__other__" : val}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setAnswers((cur) => ({ ...cur, [question.id]: v === "__other__" ? "" : v }));
+                              }}
+                            >
+                              <option value="">Select one</option>
+                              {opts.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                              <option value="__other__">Other</option>
+                            </select>
+                            {isOther && (
+                              <input
+                                placeholder="Specify"
+                                value={val}
+                                onChange={(e) =>
+                                  setAnswers((cur) => ({ ...cur, [question.id]: e.target.value }))
+                                }
+                                autoFocus
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <input
+                            value={val}
+                            onChange={(e) =>
+                              setAnswers((cur) => ({ ...cur, [question.id]: e.target.value }))
+                            }
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p style={{ color: "var(--muted)" }}>No questions -- ready to generate.</p>

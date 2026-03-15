@@ -63,7 +63,7 @@ export class PlannerService {
     const initiativeId = `initiative-${this.idGenerator()}`;
     const initiative: Initiative = {
       id: initiativeId,
-      title: deriveInitiativeTitle(input.description),
+      title: result.title?.trim() || deriveInitiativeTitle(input.description),
       description: input.description,
       status: "draft",
       phases: [],

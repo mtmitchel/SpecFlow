@@ -3,7 +3,7 @@ import type { ArtifactsSnapshot } from "../../types.js";
 export const StatusBar = ({ snapshot }: { snapshot: ArtifactsSnapshot }) => {
   const { initiatives, tickets } = snapshot;
 
-  if (initiatives.length === 0) return null;
+  return null;
 
   const parts = initiatives.slice(0, 3).map((init) => {
     const initTickets = tickets.filter((t) => t.initiativeId === init.id);

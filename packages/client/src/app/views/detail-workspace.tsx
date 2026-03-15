@@ -10,6 +10,8 @@ import { RunView } from "./run-view.js";
 import { TicketsListView } from "./tickets-list-view.js";
 import { RunsListView } from "./runs-list-view.js";
 import { SpecsListView } from "./specs-list-view.js";
+import { NewChooser } from "./new-chooser.js";
+import { QuickTaskPage } from "./quick-task-page.js";
 
 interface DetailWorkspaceProps {
   snapshot: ArtifactsSnapshot;
@@ -43,7 +45,9 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
       }
     />
     <Route path="/run/:id" element={<RunView />} />
+    <Route path="/new" element={<NewChooser />} />
     <Route path="/new-initiative" element={<InitiativeCreator onRefresh={onRefresh} />} />
+    <Route path="/new-quick-task" element={<QuickTaskPage onRefresh={onRefresh} />} />
 
     {/* Aggregate views */}
     <Route path="/tickets" element={<TicketsListView snapshot={snapshot} />} />

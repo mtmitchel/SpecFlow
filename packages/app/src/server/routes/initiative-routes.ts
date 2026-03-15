@@ -19,6 +19,20 @@ export const registerInitiativeRoutes = (
     await reply.send({ initiatives: Array.from(store.initiatives.values()) });
   });
 
+  app.delete("/api/initiatives/:id", async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    if (!isValidEntityId(id)) {
+      await reply.code(400).send({ error: "Bad Request", message: "Invalid initiative ID format" });
+      return;
+    }
+    if (!store.initiatives.has(id)) {
+      await reply.code(404).send({ error: "Not Found", message: `Initiative ${id} not found` });
+      return;
+    }
+    await store.deleteInitiative(id);
+    await reply.code(204).send();
+  });
+
   app.patch("/api/initiatives/:id", async (request, reply) => {
     const initiativeId = (request.params as { id: string }).id;
     if (!isValidEntityId(initiativeId)) {

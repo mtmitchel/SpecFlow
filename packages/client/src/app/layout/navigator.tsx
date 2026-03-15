@@ -237,7 +237,7 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
 
   return (
     <div className="navigator">
-      <div className="navigator-brand">
+      <div className="navigator-brand navigator-brand-clickable" onClick={() => navigate("/")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") navigate("/"); }}>
         <div className="brand-mark">SF</div>
         <div>
           <div className="navigator-brand-name">SpecFlow</div>
@@ -248,11 +248,11 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
         <div className="navigator-filter-wrap">
           <input
             type="text"
-            placeholder="Filter"
+            placeholder="Search"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             className="navigator-filter-input"
-            aria-label="Filter navigator"
+            aria-label="Search navigator"
             style={filterText ? { paddingRight: "1.8rem" } : undefined}
           />
           {filterText && (
@@ -272,7 +272,7 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
         <button
           type="button"
           className="btn-primary navigator-new-button"
-          onClick={() => navigate("/new-initiative")}
+          onClick={() => navigate("/new")}
         >
           + New
         </button>

@@ -85,9 +85,7 @@ const AppInner = () => {
     <>
       <WorkspaceShell
         navigator={
-          <Navigator
-            snapshot={snapshot}
-          />
+          <Navigator snapshot={snapshot} />
         }
         statusBar={<StatusBar snapshot={snapshot} />}
         commandPalette={

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { generateInitiativePlan, saveInitiativeSpecs, updateInitiativePhases } from "../../api.js";
+import { deleteInitiative, generateInitiativeSpecs } from "../../api/initiatives.js";
+import { useToast } from "../context/toast.js";
 import type { ArtifactsSnapshot } from "../../types.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { MermaidView } from "../components/mermaid-view.js";
@@ -42,6 +44,8 @@ export const InitiativeView = ({
   onRefresh: () => Promise<void>;
 }) => {
   const params = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { showError } = useToast();
   const initiative = snapshot.initiatives.find((item) => item.id === params.id);
   const [activeTab, setActiveTab] = useState<"brief" | "prd" | "tech" | "tickets" | "diagram">("brief");
   const [editMode, setEditMode] = useState(false);
@@ -80,13 +84,64 @@ export const InitiativeView = ({
 
   const initiativeTickets = snapshot.tickets.filter((ticket) => ticket.initiativeId === initiative.id);
   const linkedRuns = snapshot.runs.filter((run) => run.ticketId && initiativeTickets.some((ticket) => ticket.id === run.ticketId));
+  const specsEmpty = !savedBrief && !savedPrd && !savedTech;
+  const [generating, setGenerating] = useState(false);
+
+  const handleGenerateSpecs = async () => {
+    if (generating) return;
+    setGenerating(true);
+    setBusy(true);
+    try {
+      await generateInitiativeSpecs(initiative.id, {});
+      await onRefresh();
+    } finally {
+      setGenerating(false);
+      setBusy(false);
+    }
+  };
 
   return (
     <section>
       <header className="section-header">
-        <h2>{initiative.title}</h2>
-        <p>{initiative.description}</p>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "1rem" }}>
+          <h2>{initiative.title}</h2>
+          <button
+            type="button"
+            className="btn-danger-subtle"
+            onClick={async () => {
+              if (!window.confirm(`Delete "${initiative.title}"? This cannot be undone.`)) return;
+              try {
+                await deleteInitiative(initiative.id);
+                await onRefresh();
+                navigate("/");
+              } catch (err) {
+                showError((err as Error).message);
+              }
+            }}
+          >
+            Delete
+          </button>
+        </div>
+        {initiative.description !== initiative.title && !initiative.title.startsWith(initiative.description.slice(0, 30)) && !initiative.description.startsWith(initiative.title.replace(/\.{3}$/, "")) && (
+          <p>{initiative.description}</p>
+        )}
       </header>
+
+      {specsEmpty && (
+        <div className="panel" style={{ marginBottom: "1rem" }}>
+          <p style={{ color: "var(--muted)", margin: "0 0 0.6rem" }}>
+            Specs have not been generated yet. Generate them from the initiative description.
+          </p>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy}
+            onClick={() => void handleGenerateSpecs()}
+          >
+            {generating ? "Generating" : "Generate Specs"}
+          </button>
+        </div>
+      )}
 
       <div className="tab-row" role="tablist">
         <button type="button" role="tab" aria-selected={activeTab === "brief"} className={activeTab === "brief" ? "tab active" : "tab"} onClick={() => setActiveTab("brief")}>

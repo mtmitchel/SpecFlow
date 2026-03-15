@@ -69,17 +69,19 @@ API layer: thin wrappers over `fetch` in `src/api/`. `http.ts` provides `request
 
 Pages use `useToast()` for error display. Root wraps: `<ErrorBoundary><ToastProvider><AppInner/></ToastProvider></ErrorBoundary>`.
 
-Reusable hooks in `src/app/hooks/`: `useDirtyForm` (unsaved changes warning for spec/initiative editing), `useVerificationStream` (SSE EventSource with reconnection), `useCapturePreview` (diff preview with debounced refresh), `useExportWorkflow` (export/copy/fix-forward state), `useTreeNavigation` (keyboard nav for navigator tree).
+Reusable hooks in `src/app/hooks/`: `useDirtyForm` (unsaved changes warning via click-intercept + beforeunload; does NOT use `useBlocker` since the app uses `<BrowserRouter>`, not a data router), `useVerificationStream` (SSE EventSource with reconnection), `useCapturePreview` (diff preview with debounced refresh), `useExportWorkflow` (export/copy/fix-forward state), `useTreeNavigation` (keyboard nav for navigator tree).
 
 `TicketView` is decomposed into sub-components in `src/app/views/ticket/`: `ExportSection`, `CaptureVerifySection`, `VerificationResultsSection`, `OverridePanel`. Shared presentation components `WorkflowSection` and `WorkflowStepper` live in `src/app/components/`.
 
 `CommandPalette` delegates to mode sub-components: `PaletteSearchMode`, `PaletteQuickTaskMode`, `PaletteGithubImportMode` in `src/app/layout/`. `SettingsModal` delegates model picking to `ModelCombobox` in `src/app/components/`.
 
+The `+ New` button in the navigator navigates to `/new` (creation chooser page with New Initiative and Quick Task cards). Quick Task has a standalone page at `/new-quick-task` (`QuickTaskPage` component). The navigator does NOT use a dropdown menu or open the command palette for creation actions.
+
 Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by ticket-view, audit-panel, and capture/verify components.
 
 ### LLM integration
 
-`HttpLlmClient` (packages/app/src/llm/client.ts) supports Anthropic, OpenAI, and OpenRouter with real SSE streaming. Provider-specific SSE parsing is handled by `parseStreamingSse()` in `packages/app/src/llm/sse-parser.ts` with `ANTHROPIC_SSE_CONFIG` and `OPENAI_SSE_CONFIG` config objects. Provider is selected at runtime from `specflow/config.yaml`; API keys come from `.env` vars or the config's `apiKey` field. The server never returns raw keys in responses (redacted to `hasApiKey: boolean`).
+`HttpLlmClient` (packages/app/src/llm/client.ts) supports Anthropic, OpenAI, and OpenRouter with real SSE streaming. Provider-specific SSE parsing is handled by `parseStreamingSse()` in `packages/app/src/llm/sse-parser.ts` with `ANTHROPIC_SSE_CONFIG` and `OPENAI_SSE_CONFIG` config objects. Provider is selected at runtime from `specflow/config.yaml`; API keys come from `.env` vars or the config's `apiKey` field. The server never returns raw keys in responses (redacted to `hasApiKey: boolean`). OpenAI requests use `max_completion_tokens` (not deprecated `max_tokens`) and omit `temperature` for models that only support the default.
 
 ### Store internals
 
