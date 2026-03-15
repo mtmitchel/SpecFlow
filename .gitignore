@@ -30,3 +30,6 @@ specflow/
 
 # Git worktrees
 .worktrees/
+
+# Serena MCP
+.serena/
