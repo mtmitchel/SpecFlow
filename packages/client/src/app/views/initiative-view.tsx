@@ -4,6 +4,7 @@ import { generateInitiativePlan, saveInitiativeSpecs, updateInitiativePhases } f
 import type { ArtifactsSnapshot } from "../../types.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { MermaidView } from "../components/mermaid-view.js";
+import { useDirtyForm } from "../hooks/use-dirty-form.js";
 import { getSpecMarkdown } from "../utils/specs.js";
 
 const PhaseNameEditor = ({
@@ -50,6 +51,13 @@ export const InitiativeView = ({
   const [prd, setPrd] = useState(initiative ? getSpecMarkdown(snapshot.specs, initiative.id, "prd") : "");
   const [tech, setTech] = useState(initiative ? getSpecMarkdown(snapshot.specs, initiative.id, "tech-spec") : "");
 
+  // Canonical (saved) versions for dirty tracking
+  const savedBrief = initiative ? getSpecMarkdown(snapshot.specs, initiative.id, "brief") : "";
+  const savedPrd = initiative ? getSpecMarkdown(snapshot.specs, initiative.id, "prd") : "";
+  const savedTech = initiative ? getSpecMarkdown(snapshot.specs, initiative.id, "tech-spec") : "";
+
+  const isDirty = editMode && (brief !== savedBrief || prd !== savedPrd || tech !== savedTech);
+
   useEffect(() => {
     if (!initiative) {
       return;
@@ -59,6 +67,8 @@ export const InitiativeView = ({
     setPrd(getSpecMarkdown(snapshot.specs, initiative.id, "prd"));
     setTech(getSpecMarkdown(snapshot.specs, initiative.id, "tech-spec"));
   }, [initiative?.id, snapshot.specs]);
+
+  useDirtyForm(isDirty);
 
   if (!initiative) {
     return (
@@ -78,21 +88,21 @@ export const InitiativeView = ({
         <p>{initiative.description}</p>
       </header>
 
-      <div className="tab-row">
-        <button type="button" className={activeTab === "brief" ? "tab active" : "tab"} onClick={() => setActiveTab("brief")}>
+      <div className="tab-row" role="tablist">
+        <button type="button" role="tab" aria-selected={activeTab === "brief"} className={activeTab === "brief" ? "tab active" : "tab"} onClick={() => setActiveTab("brief")}>
           Brief
         </button>
-        <button type="button" className={activeTab === "prd" ? "tab active" : "tab"} onClick={() => setActiveTab("prd")}>
+        <button type="button" role="tab" aria-selected={activeTab === "prd"} className={activeTab === "prd" ? "tab active" : "tab"} onClick={() => setActiveTab("prd")}>
           PRD
         </button>
-        <button type="button" className={activeTab === "tech" ? "tab active" : "tab"} onClick={() => setActiveTab("tech")}>
+        <button type="button" role="tab" aria-selected={activeTab === "tech"} className={activeTab === "tech" ? "tab active" : "tab"} onClick={() => setActiveTab("tech")}>
           Tech Spec
         </button>
-        <button type="button" className={activeTab === "tickets" ? "tab active" : "tab"} onClick={() => setActiveTab("tickets")}>
+        <button type="button" role="tab" aria-selected={activeTab === "tickets"} className={activeTab === "tickets" ? "tab active" : "tab"} onClick={() => setActiveTab("tickets")}>
           Tickets
         </button>
         {initiative.mermaidDiagram ? (
-          <button type="button" className={activeTab === "diagram" ? "tab active" : "tab"} onClick={() => setActiveTab("diagram")}>
+          <button type="button" role="tab" aria-selected={activeTab === "diagram"} className={activeTab === "diagram" ? "tab active" : "tab"} onClick={() => setActiveTab("diagram")}>
             Diagram
           </button>
         ) : null}
@@ -111,6 +121,7 @@ export const InitiativeView = ({
             {editMode ? (
               <button
                 type="button"
+                className="btn-primary"
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
@@ -129,6 +140,9 @@ export const InitiativeView = ({
               >
                 Save Spec
               </button>
+            ) : null}
+            {isDirty ? (
+              <span style={{ color: "var(--warning)", fontSize: "0.82rem", alignSelf: "center" }}>Unsaved changes</span>
             ) : null}
           </div>
 
@@ -159,6 +173,7 @@ export const InitiativeView = ({
           <div className="button-row">
             <button
               type="button"
+              className="btn-primary"
               disabled={busy}
               onClick={async () => {
                 setBusy(true);
@@ -175,7 +190,9 @@ export const InitiativeView = ({
           </div>
 
           <h3>Phase grouped tickets</h3>
-          {initiative.phases.length === 0 ? <p>No phases yet.</p> : null}
+          {initiative.phases.length === 0 ? (
+            <p style={{ color: "var(--muted)" }}>No phases generated. Click "Generate Plan" to create a phased ticket breakdown.</p>
+          ) : null}
           {initiative.phases
             .slice()
             .sort((left, right) => left.order - right.order)
@@ -206,7 +223,9 @@ export const InitiativeView = ({
 
           <h3>Run history</h3>
           <ul>
-            {linkedRuns.length === 0 ? <li>No runs linked yet.</li> : linkedRuns.map((run) => <li key={run.id}>{run.id} · {run.status}</li>)}
+            {linkedRuns.length === 0
+              ? <li style={{ color: "var(--muted)" }}>No runs linked yet</li>
+              : linkedRuns.map((run) => <li key={run.id}>{run.id} · {run.status}</li>)}
           </ul>
         </div>
       )}

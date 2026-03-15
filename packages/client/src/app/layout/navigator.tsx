@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ArtifactsSnapshot } from "../../types.js";
+import { useTreeNavigation } from "../hooks/use-tree-navigation.js";
 import {
   buildNavigatorTree,
   computeAutoExpansion,
@@ -10,9 +11,9 @@ import {
 
 interface NavigatorProps {
   snapshot: ArtifactsSnapshot;
-  onOpenCommandPalette: () => void;
 }
 
+// Covers both initiative statuses (draft/active/done) and phase statuses (active/complete)
 const STATUS_DOT: Record<string, string> = {
   active: "var(--accent)",
   done: "var(--success)",
@@ -38,7 +39,6 @@ interface TreeItemProps {
   focusedId: string | null;
   setFocusedId: (id: string) => void;
   flatList: NavigatorNode[];
-  snapshot: ArtifactsSnapshot;
   manualExpanded: Set<string>;
   autoExpanded: Set<string>;
 }
@@ -54,7 +54,7 @@ const TreeItem = ({
   setFocusedId,
   flatList,
   manualExpanded,
-  autoExpanded
+  autoExpanded,
 }: TreeItemProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const hasChildren = node.children && node.children.length > 0;
@@ -69,52 +69,15 @@ const TreeItem = ({
     if (focusedId === node.id) ref.current?.focus();
   }, [focusedId, node.id]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    const currentIndex = flatList.findIndex((n) => n.id === node.id);
-    switch (e.key) {
-      case "Enter":
-      case " ":
-        e.preventDefault();
-        onNavigate(node.path);
-        break;
-      case "ArrowRight":
-        e.preventDefault();
-        if (hasChildren && !isExpanded) {
-          onToggle(node.id);
-        } else if (hasChildren && isExpanded && node.children?.[0]) {
-          setFocusedId(node.children[0].id);
-        }
-        break;
-      case "ArrowLeft":
-        e.preventDefault();
-        if (hasChildren && isExpanded) {
-          onToggle(node.id);
-        }
-        break;
-      case "ArrowDown": {
-        e.preventDefault();
-        const next = flatList[currentIndex + 1];
-        if (next) setFocusedId(next.id);
-        break;
-      }
-      case "ArrowUp": {
-        e.preventDefault();
-        const prev = flatList[currentIndex - 1];
-        if (prev) setFocusedId(prev.id);
-        break;
-      }
-      case "Home":
-        e.preventDefault();
-        if (flatList[0]) setFocusedId(flatList[0].id);
-        break;
-      case "End":
-        e.preventDefault();
-        if (flatList[flatList.length - 1]) setFocusedId(flatList[flatList.length - 1].id);
-        break;
-    }
-  };
+  const handleKeyDown = useTreeNavigation(
+    node.id,
+    flatList,
+    { onNavigate, onToggle, setFocusedId },
+    { isExpanded, hasChildren: !!hasChildren, children: node.children, path: node.path }
+  );
 
   const isHeader = node.type === "quick-tasks-header";
+  const isAggregateLink = node.type === "aggregate-link";
   const indentPx = depth * 14;
 
   return (
@@ -125,7 +88,7 @@ const TreeItem = ({
         aria-selected={isActive}
         aria-expanded={hasChildren ? isExpanded : undefined}
         tabIndex={focusedId === node.id ? 0 : -1}
-        className={`nav-tree-item${isActive ? " active" : ""}${isHeader ? " nav-tree-header" : ""}`}
+        className={`nav-tree-item${isActive ? " active" : ""}${isHeader ? " nav-tree-header" : ""}${isAggregateLink ? " nav-tree-aggregate" : ""}`}
         style={{ paddingLeft: `${0.7 + indentPx / 16}rem` }}
         onClick={() => {
           setFocusedId(node.id);
@@ -144,7 +107,7 @@ const TreeItem = ({
             aria-hidden="true"
           />
         )}
-        <span className="nav-tree-label">{node.label}</span>
+        <span className="nav-tree-label" title={node.label}>{node.label}</span>
       </div>
       {hasChildren && isExpanded && node.children && (
         <div role="group">
@@ -162,7 +125,6 @@ const TreeItem = ({
                 focusedId={focusedId}
                 setFocusedId={setFocusedId}
                 flatList={flatList}
-                snapshot={{} as ArtifactsSnapshot}
                 manualExpanded={manualExpanded}
                 autoExpanded={autoExpanded}
               />
@@ -185,7 +147,7 @@ const flattenVisible = (nodes: NavigatorNode[], expanded: Set<string>): Navigato
   return result;
 };
 
-export const Navigator = ({ snapshot, onOpenCommandPalette }: NavigatorProps) => {
+export const Navigator = ({ snapshot }: NavigatorProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
@@ -249,6 +211,30 @@ export const Navigator = ({ snapshot, onOpenCommandPalette }: NavigatorProps) =>
     ? flattenVisible(filteredTree, new Set(filteredTree.map((n) => n.id)))
     : flatList;
 
+  const aggregateNodes = displayTree.filter((n) => n.type === "aggregate-link");
+  const contentNodes = displayTree.filter((n) => n.type !== "aggregate-link");
+
+  const renderItem = (node: NavigatorNode) => {
+    const expanded = allExpanded.has(node.id);
+    const isActive = activeNodeId === node.id;
+    return (
+      <TreeItem
+        key={node.id}
+        node={node}
+        depth={0}
+        isExpanded={expanded}
+        isActive={isActive}
+        onToggle={handleToggle}
+        onNavigate={handleNavigate}
+        focusedId={focusedId}
+        setFocusedId={setFocusedId}
+        flatList={displayFlatList}
+        manualExpanded={manualExpanded}
+        autoExpanded={autoExpanded}
+      />
+    );
+  };
+
   return (
     <div className="navigator">
       <div className="navigator-brand">
@@ -259,47 +245,53 @@ export const Navigator = ({ snapshot, onOpenCommandPalette }: NavigatorProps) =>
       </div>
 
       <div className="navigator-filter">
-        <input
-          type="text"
-          placeholder="Filter..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          className="navigator-filter-input"
-          aria-label="Filter navigator"
-        />
+        <div className="navigator-filter-wrap">
+          <input
+            type="text"
+            placeholder="Filter"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            className="navigator-filter-input"
+            aria-label="Filter navigator"
+            style={filterText ? { paddingRight: "1.8rem" } : undefined}
+          />
+          {filterText && (
+            <button
+              type="button"
+              className="navigator-filter-clear"
+              onClick={() => setFilterText("")}
+              aria-label="Clear filter"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       <div role="tree" aria-label="Project navigator" className="navigator-tree">
-        {displayTree.map((node) => {
-          const expanded = allExpanded.has(node.id);
-          const isActive = activeNodeId === node.id;
-          return (
-            <TreeItem
-              key={node.id}
-              node={node}
-              depth={0}
-              isExpanded={expanded}
-              isActive={isActive}
-              onToggle={handleToggle}
-              onNavigate={handleNavigate}
-              focusedId={focusedId}
-              setFocusedId={setFocusedId}
-              flatList={displayFlatList}
-              snapshot={snapshot}
-              manualExpanded={manualExpanded}
-              autoExpanded={autoExpanded}
-            />
-          );
-        })}
+        {aggregateNodes.length > 0 && (
+          <>
+            {aggregateNodes.map(renderItem)}
+            {contentNodes.length > 0 && <div className="nav-tree-divider" />}
+          </>
+        )}
+        {contentNodes.map(renderItem)}
       </div>
 
-      <button
-        className="navigator-new-button"
-        onClick={onOpenCommandPalette}
-        type="button"
-      >
-        + New
-      </button>
+      <div className="navigator-footer">
+        <button
+          className="navigator-settings-button"
+          onClick={() => navigate("/settings")}
+          type="button"
+          aria-label="Settings"
+          title="Settings"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="8" cy="8" r="2.5" />
+            <path d="M6.8 1.5h2.4l.35 1.7a5 5 0 0 1 1.2.7l1.65-.55.95 1.65-1.3 1.15a5 5 0 0 1 0 1.4l1.3 1.15-.95 1.65-1.65-.55a5 5 0 0 1-1.2.7l-.35 1.7H6.8l-.35-1.7a5 5 0 0 1-1.2-.7l-1.65.55-.95-1.65 1.3-1.15a5 5 0 0 1 0-1.4L2.65 5.05l.95-1.65 1.65.55a5 5 0 0 1 1.2-.7l.35-1.7Z" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 };

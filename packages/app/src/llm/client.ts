@@ -1,4 +1,5 @@
 import { LlmProviderError } from "./errors.js";
+import { ANTHROPIC_SSE_CONFIG, OPENAI_SSE_CONFIG, parseStreamingSse } from "./sse-parser.js";
 
 export interface LlmRequest {
   provider: "anthropic" | "openai" | "openrouter";
@@ -31,137 +32,6 @@ const classifyProviderError = (statusCode: number, message: string): LlmProvider
   }
 
   return new LlmProviderError("Provider request failed", "provider_error", statusCode);
-};
-
-/** Parse Anthropic streaming SSE and return accumulated text, calling onToken for each delta. */
-const streamAnthropic = async (
-  response: Response,
-  onToken?: LlmTokenHandler
-): Promise<string> => {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new LlmProviderError("Anthropic response body is not readable", "provider_error");
-  }
-
-  const decoder = new TextDecoder();
-  let accumulated = "";
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      if (!line.startsWith("data:")) {
-        continue;
-      }
-
-      const data = line.slice(5).trim();
-      if (!data) {
-        continue;
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(data);
-      } catch {
-        continue;
-      }
-
-      const event = parsed as {
-        type?: string;
-        delta?: { type?: string; text?: string };
-        error?: { message?: string };
-      };
-
-      if (event.type === "error" && event.error?.message) {
-        throw new LlmProviderError(event.error.message, "provider_error");
-      }
-
-      if (event.type === "content_block_delta" && event.delta?.type === "text_delta" && event.delta.text) {
-        const text = event.delta.text;
-        accumulated += text;
-        if (onToken) {
-          await onToken(text);
-        }
-      }
-    }
-  }
-
-  return accumulated;
-};
-
-/** Parse OpenAI-compatible streaming SSE (also used for OpenRouter) and return accumulated text. */
-const streamOpenAi = async (
-  response: Response,
-  onToken?: LlmTokenHandler
-): Promise<string> => {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new LlmProviderError("OpenAI response body is not readable", "provider_error");
-  }
-
-  const decoder = new TextDecoder();
-  let accumulated = "";
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      if (!line.startsWith("data:")) {
-        continue;
-      }
-
-      const data = line.slice(5).trim();
-      if (data === "[DONE]") {
-        break;
-      }
-
-      if (!data) {
-        continue;
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(data);
-      } catch {
-        continue;
-      }
-
-      const event = parsed as {
-        choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>;
-        error?: { message?: string };
-      };
-
-      if (event.error?.message) {
-        throw new LlmProviderError(event.error.message, "provider_error");
-      }
-
-      const content = event.choices?.[0]?.delta?.content;
-      if (content) {
-        accumulated += content;
-        if (onToken) {
-          await onToken(content);
-        }
-      }
-    }
-  }
-
-  return accumulated;
 };
 
 export class HttpLlmClient implements LlmClient {
@@ -240,7 +110,7 @@ export class HttpLlmClient implements LlmClient {
       throw classifyProviderError(response.status, raw);
     }
 
-    return streamAnthropic(response, onToken);
+    return parseStreamingSse(response, ANTHROPIC_SSE_CONFIG, onToken);
   }
 
   private async requestOpenAi(
@@ -272,7 +142,7 @@ export class HttpLlmClient implements LlmClient {
       throw classifyProviderError(response.status, raw);
     }
 
-    return streamOpenAi(response, onToken);
+    return parseStreamingSse(response, OPENAI_SSE_CONFIG, onToken);
   }
 
   private async requestOpenRouter(
@@ -306,6 +176,6 @@ export class HttpLlmClient implements LlmClient {
       throw classifyProviderError(response.status, raw);
     }
 
-    return streamOpenAi(response, onToken);
+    return parseStreamingSse(response, OPENAI_SSE_CONFIG, onToken);
   }
 }

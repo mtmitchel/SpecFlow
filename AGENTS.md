@@ -21,17 +21,17 @@ src/
     commands/
   config/           env key resolution
   io/               file I/O: agents-md (secure loader), atomic-write, paths, yaml
-  llm/              LLM provider client and error types
+  llm/              LLM provider client, error types, SSE stream parser
   planner/          spec + plan generation service
     internal/       helpers: agents-md, config, job-executor, ticket-factory, validators
   server/           Fastify HTTP server
     audit/          drift audit logic (findings, report-store, types)
-    routes/         one file per domain: import, initiative, operation, provider, run, runtime, ticket
+    routes/         one file per domain: import, initiative, operation, provider, run-query, run-audit, runtime, ticket
     sse/            SSE session management
     validation.ts   security validators (see Security section)
     zip/            bundle ZIP streaming
   store/            in-memory artifact store with staged commits
-    internal/       helpers: cleanup, fs-utils, loaders, operations, recovery, watcher
+    internal/       helpers: artifact-writer, cleanup, fs-utils, loaders, operations, recovery, spec-utils, watcher
     types.ts        PreparedOperationArtifacts interface (shared between store and operations)
   types/            core entity types (Initiative, Ticket, Run, Config, etc.)
   verify/           verification and diff engine
@@ -45,13 +45,14 @@ src/
 src/
   api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
   app/
-    components/     shared UI: audit-panel, diff-viewer, markdown-view, mermaid-view
+    components/     shared UI: audit-panel, diff-viewer, markdown-view, mermaid-view, model-combobox, workflow-section, workflow-stepper
     constants/      status-columns (status transition rules, canTransition helper)
     context/        toast (error notification context and useToast hook)
-    hooks/          use-sse-reconnect
-    layout/         workspace-shell, navigator, navigator-tree, command-palette, settings-modal, status-bar
-    utils/          phase-warning, specs
+    hooks/          use-capture-preview, use-dirty-form, use-export-workflow, use-sse-reconnect, use-tree-navigation, use-verification-stream
+    layout/         workspace-shell, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal, status-bar
+    utils/          phase-warning, scope-paths, specs
     views/          detail-workspace, overview-panel, initiative-view, initiative-creator, spec-view, ticket-view, run-view
+      ticket/       export-section, capture-verify-section, verification-results-section, override-panel
   api.ts            consolidated re-export of all API modules
   App.tsx           root component, ArtifactsSnapshot state, refreshArtifacts callback
   types.ts          all client-facing types including AgentTarget, Config, ConfigSavePayload

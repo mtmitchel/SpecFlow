@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { fetchProviderModels } from "../../api.js";
-import type { Config, ConfigSavePayload, ProviderModel } from "../../types.js";
+import type { Config, ConfigSavePayload } from "../../types.js";
+import { useToast } from "../context/toast.js";
+import { ModelCombobox } from "../components/model-combobox.js";
 
 interface SettingsModalProps {
   config: Config | null;
@@ -11,18 +12,14 @@ interface SettingsModalProps {
 export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const isOpen = location.pathname === "/settings";
 
   const [form, setForm] = useState<Config | null>(config);
   const [apiKeyInput, setApiKeyInput] = useState("");
-  const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
-  const [modelSearch, setModelSearch] = useState("");
-  const [modelsLoading, setModelsLoading] = useState(false);
-  const [modelsError, setModelsError] = useState<string | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
-  const comboRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveConfirm, setSaveConfirm] = useState(false);
+  const [modelsGeneration, setModelsGeneration] = useState(0);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,52 +27,13 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
     setApiKeyInput("");
   }, [config]);
 
-  useEffect(() => {
-    if (!form || form.provider !== "openrouter") {
-      setAvailableModels([]);
-      setModelsError(null);
-      setModelSearch("");
-      return;
+  const close = useCallback(() => {
+    if (window.history.state?.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
     }
-
-    let cancelled = false;
-    setModelSearch("");
-    setModelsLoading(true);
-    setModelsError(null);
-
-    void fetchProviderModels("openrouter")
-      .then((models) => {
-        if (!cancelled) setAvailableModels(models);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setModelsError((error as Error).message ?? "Failed to load OpenRouter models");
-          setAvailableModels([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setModelsLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [form?.provider]);
-
-  useEffect(() => {
-    if (highlightIndex >= 0 && listRef.current) {
-      const item = listRef.current.children[highlightIndex] as HTMLElement | undefined;
-      item?.scrollIntoView({ block: "nearest" });
-    }
-  }, [highlightIndex]);
-
-  useEffect(() => {
-    const onClickOutside = (event: MouseEvent): void => {
-      if (comboRef.current && !comboRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,21 +42,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen]);
-
-  const filteredModels = useMemo(() => {
-    if (!form || form.provider !== "openrouter") return [];
-    const search = modelSearch.trim().toLowerCase();
-    const filtered = search
-      ? availableModels.filter((m) => m.id.toLowerCase().includes(search) || m.name.toLowerCase().includes(search))
-      : [...availableModels];
-    if (form.model && !filtered.some((m) => m.id === form.model)) {
-      filtered.unshift({ id: form.model, name: `${form.model} (custom)`, contextLength: null });
-    }
-    return filtered;
-  }, [availableModels, form, modelSearch]);
-
-  const close = () => navigate(-1);
+  }, [isOpen, close]);
 
   if (!isOpen) return null;
 
@@ -106,7 +50,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
     return (
       <div className="settings-modal-overlay" onClick={close}>
         <div className="settings-modal-panel" onClick={(e) => e.stopPropagation()}>
-          <p>Configuration not loaded.</p>
+          <p>Settings could not be loaded. Check the terminal for errors.</p>
         </div>
       </div>
     );
@@ -134,12 +78,29 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
             className="settings-form"
             onSubmit={(event) => {
               event.preventDefault();
+              if (saving) return;
               const { hasApiKey, ...rest } = form;
+              const hadKeyInput = !!apiKeyInput;
               const payload: ConfigSavePayload = {
                 ...rest,
                 ...(apiKeyInput ? { apiKey: apiKeyInput } : {})
               };
-              void onSave(payload).then(() => close());
+              setSaving(true);
+              setSaveConfirm(false);
+              void onSave(payload)
+                .then(() => {
+                  showSuccess("Settings saved");
+                  setSaveConfirm(true);
+                  setApiKeyInput("");
+                  if (hadKeyInput) {
+                    setModelsGeneration((n) => n + 1);
+                  }
+                  setTimeout(() => setSaveConfirm(false), 3000);
+                })
+                .catch((err) => {
+                  showError((err as Error).message ?? "Failed to save settings");
+                })
+                .finally(() => setSaving(false));
             }}
           >
             <label>
@@ -152,98 +113,48 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
             </label>
             <label>
               Model
-              {form.provider === "openrouter" ? (
-                <div className="settings-model-picker" ref={comboRef}>
-                  <input
-                    placeholder={modelsLoading ? "Loading models..." : "Search OpenRouter models"}
-                    value={dropdownOpen ? modelSearch : form.model}
-                    onChange={(event) => {
-                      setModelSearch(event.target.value);
-                      setDropdownOpen(true);
-                      setHighlightIndex(-1);
-                    }}
-                    onFocus={() => {
-                      setModelSearch("");
-                      setDropdownOpen(true);
-                      setHighlightIndex(-1);
-                    }}
-                    onKeyDown={(event) => {
-                      if (!dropdownOpen) {
-                        if (event.key === "ArrowDown" || event.key === "Enter") setDropdownOpen(true);
-                        return;
-                      }
-                      if (event.key === "ArrowDown") {
-                        event.preventDefault();
-                        setHighlightIndex((prev) => Math.min(prev + 1, filteredModels.length - 1));
-                      } else if (event.key === "ArrowUp") {
-                        event.preventDefault();
-                        setHighlightIndex((prev) => Math.max(prev - 1, 0));
-                      } else if (event.key === "Enter" && highlightIndex >= 0 && filteredModels[highlightIndex]) {
-                        event.preventDefault();
-                        const selected = filteredModels[highlightIndex];
-                        setForm({ ...form, model: selected.id });
-                        setModelSearch("");
-                        setDropdownOpen(false);
-                      } else if (event.key === "Escape") {
-                        setDropdownOpen(false);
-                      }
-                    }}
-                  />
-                  {dropdownOpen ? (
-                    <ul className="settings-model-list" ref={listRef}>
-                      {filteredModels.length === 0 ? (
-                        <li className="settings-model-item disabled">
-                          {modelsLoading ? "Loading models..." : "No models found"}
-                        </li>
-                      ) : (
-                        filteredModels.map((model, index) => (
-                          <li
-                            key={model.id}
-                            className={
-                              "settings-model-item"
-                              + (form.model === model.id ? " selected" : "")
-                              + (index === highlightIndex ? " highlighted" : "")
-                            }
-                            onMouseEnter={() => setHighlightIndex(index)}
-                            onClick={() => {
-                              setForm({ ...form, model: model.id });
-                              setModelSearch("");
-                              setDropdownOpen(false);
-                            }}
-                          >
-                            <span className="settings-model-name">{model.name}</span>
-                            {model.contextLength ? (
-                              <span className="settings-model-ctx">{model.contextLength.toLocaleString()} ctx</span>
-                            ) : null}
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  ) : null}
-                  {modelsError ? <small className="settings-error">{modelsError}</small> : null}
-                </div>
-              ) : (
-                <input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} />
-              )}
+              <ModelCombobox
+                provider={form.provider}
+                hasApiKey={form.hasApiKey ?? false}
+                value={form.model}
+                onSelect={(modelId) => setForm({ ...form, model: modelId })}
+                modelsGeneration={modelsGeneration}
+              />
             </label>
             <label>
               API key
               <input
                 type="password"
-                placeholder={form.hasApiKey ? "(key set -- leave blank to keep)" : "Set in .env when possible"}
+                placeholder={form.hasApiKey ? "(key set -- leave blank to keep)" : "Paste your API key"}
                 value={apiKeyInput}
                 onChange={(event) => setApiKeyInput(event.target.value)}
               />
             </label>
             <label>
-              Host
-              <input value={form.host} readOnly />
+              Host <span className="settings-readonly-hint">(configured in CLI)</span>
+              <div className="settings-readonly">
+                <span className="settings-readonly-value">{form.host}</span>
+              </div>
             </label>
             <label>
-              Port
-              <input value={String(form.port)} readOnly />
+              Port <span className="settings-readonly-hint">(configured in CLI)</span>
+              <div className="settings-readonly">
+                <span className="settings-readonly-value">{String(form.port)}</span>
+              </div>
             </label>
-            <button type="submit">Save settings</button>
+            <div className="settings-button-row">
+              <button type="submit" disabled={saving}>
+                {saving ? "Saving" : saveConfirm ? "Saved" : "Save Settings"}
+              </button>
+              <button type="button" className="settings-cancel" onClick={close}>
+                Close
+              </button>
+              {saveConfirm && (
+                <span style={{ color: "var(--success)", fontSize: "0.85rem", alignSelf: "center" }}>
+                  Settings saved
+                </span>
+              )}
+            </div>
           </form>
         </div>
       </div>

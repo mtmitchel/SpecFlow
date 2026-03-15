@@ -12,7 +12,8 @@ import { registerImportRoutes } from "./routes/import-routes.js";
 import { registerInitiativeRoutes } from "./routes/initiative-routes.js";
 import { registerOperationRoutes } from "./routes/operation-routes.js";
 import { registerProviderRoutes } from "./routes/provider-routes.js";
-import { registerRunRoutes } from "./routes/run-routes.js";
+import { registerRunAuditRoutes } from "./routes/run-audit-routes.js";
+import { registerRunQueryRoutes } from "./routes/run-query-routes.js";
 import { registerRuntimeRoutes } from "./routes/runtime-routes.js";
 import { registerTicketRoutes } from "./routes/ticket-routes.js";
 import type { SseSession } from "./sse/session.js";
@@ -119,7 +120,11 @@ export const createSpecFlowServer = async (
     broadcastVerificationEvent,
     verificationSubscribers
   });
-  registerRunRoutes(app, {
+  registerRunQueryRoutes(app, {
+    rootDir: options.rootDir,
+    store
+  });
+  registerRunAuditRoutes(app, {
     rootDir: options.rootDir,
     store,
     diffEngine

@@ -1,6 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import type { FSWatcher } from "chokidar";
 import { writeFileAtomic } from "../io/atomic-write.js";
 import {
   configPath,
@@ -25,7 +24,9 @@ import {
   clearRunOperationPointer as clearRunOperationPointerInternal,
   recoverOrphanOperations as recoverOrphanOperationsInternal
 } from "./internal/recovery.js";
-import { createSpecflowWatcher } from "./internal/watcher.js";
+import { writePreparedArtifacts } from "./internal/artifact-writer.js";
+import { specTypeToFileName } from "./internal/spec-utils.js";
+import { type SpecflowWatcher, createSpecflowWatcher } from "./internal/watcher.js";
 import { NotFoundError, RetryableConflictError } from "./errors.js";
 import type { PreparedOperationArtifacts } from "./types.js";
 import type {
@@ -85,10 +86,8 @@ export class ArtifactStore {
   private readonly writeLocks = new Map<string, string>();
   private readonly operationIndex = new Map<string, string>();
 
-  private watcher: FSWatcher | null = null;
+  private watcher: SpecflowWatcher | null = null;
   private cleanupTimer: NodeJS.Timeout | null = null;
-  private reloadTimer: NodeJS.Timeout | null = null;
-  private reloadInFlight: Promise<void> | null = null;
 
   public constructor(options: ArtifactStoreOptions) {
     this.rootDir = options.rootDir;
@@ -112,17 +111,13 @@ export class ArtifactStore {
   }
 
   public async close(): Promise<void> {
-    if (this.reloadTimer) {
-      clearTimeout(this.reloadTimer);
-      this.reloadTimer = null;
-    }
-
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
 
     if (this.watcher) {
+      this.watcher.destroy();
       await this.watcher.close();
       this.watcher = null;
     }
@@ -222,7 +217,7 @@ export class ArtifactStore {
         throw new Error("initiativeId is required for non-decision specs");
       }
 
-      const fileName = this.specTypeToFileName(spec.type);
+      const fileName = specTypeToFileName(spec.type);
       const filePath = path.join(initiativeDir(this.rootDir, spec.initiativeId), fileName);
       await writeFileAtomic(filePath, spec.content);
     }
@@ -238,7 +233,7 @@ export class ArtifactStore {
         runs: this.runs,
         writeLocks: this.writeLocks,
         ensureRunWritable: (runId, requestedOperationId) => this.ensureRunWritable(runId, requestedOperationId),
-        writePreparedArtifacts: (stagedAttemptDir, artifacts) => this.writePreparedArtifacts(stagedAttemptDir, artifacts),
+        writePreparedArtifacts,
         upsertRun: (run) => this.upsertRun(run),
         reloadFromDisk: () => this.reloadFromDisk(),
         markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
@@ -260,7 +255,7 @@ export class ArtifactStore {
         runs: this.runs,
         writeLocks: this.writeLocks,
         ensureRunWritable: (runId, requestedOperationId) => this.ensureRunWritable(runId, requestedOperationId),
-        writePreparedArtifacts: (stagedAttemptDir, artifacts) => this.writePreparedArtifacts(stagedAttemptDir, artifacts),
+        writePreparedArtifacts,
         upsertRun: (run) => this.upsertRun(run),
         reloadFromDisk: () => this.reloadFromDisk(),
         markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
@@ -305,9 +300,7 @@ export class ArtifactStore {
       return;
     }
 
-    this.watcher = await createSpecflowWatcher(this.rootDir, () => {
-      this.scheduleReload();
-    });
+    this.watcher = await createSpecflowWatcher(this.rootDir, () => this.reloadFromDisk());
   }
 
   public async recoverOrphanOperations(): Promise<void> {
@@ -392,84 +385,6 @@ export class ArtifactStore {
     }
 
     return Date.parse(leaseExpiresAt) <= this.now().getTime();
-  }
-
-  private async writePreparedArtifacts(
-    stagedAttemptDir: string,
-    artifacts: PreparedOperationArtifacts
-  ): Promise<void> {
-    if (artifacts.bundleFlat !== undefined) {
-      await writeFileAtomic(path.join(stagedAttemptDir, "bundle-flat.md"), artifacts.bundleFlat);
-    }
-
-    if (artifacts.bundleManifest !== undefined) {
-      await writeYamlFile(path.join(stagedAttemptDir, "bundle-manifest.yaml"), artifacts.bundleManifest);
-    }
-
-    if (artifacts.primaryDiff !== undefined) {
-      await writeFileAtomic(path.join(stagedAttemptDir, "diff-primary.patch"), artifacts.primaryDiff);
-    }
-
-    if (artifacts.driftDiff !== undefined) {
-      await writeFileAtomic(path.join(stagedAttemptDir, "diff-drift.patch"), artifacts.driftDiff);
-    }
-
-    if (artifacts.verification !== undefined) {
-      await writeFileAtomic(
-        path.join(stagedAttemptDir, "verification.json"),
-        JSON.stringify(artifacts.verification, null, 2)
-      );
-    }
-
-    for (const file of artifacts.additionalFiles ?? []) {
-      const destination = path.resolve(stagedAttemptDir, file.relativePath);
-      const normalizedStagedRoot = `${path.resolve(stagedAttemptDir)}${path.sep}`;
-      if (!destination.startsWith(normalizedStagedRoot)) {
-        throw new Error(`Invalid staged artifact path '${file.relativePath}'`);
-      }
-
-      await writeFileAtomic(destination, file.content);
-    }
-  }
-
-  private scheduleReload(): void {
-    if (this.reloadTimer) {
-      clearTimeout(this.reloadTimer);
-    }
-
-    this.reloadTimer = setTimeout(() => {
-      void this.queueReload();
-    }, 150);
-  }
-
-  private async queueReload(): Promise<void> {
-    if (this.reloadInFlight) {
-      await this.reloadInFlight;
-      return;
-    }
-
-    this.reloadInFlight = this.reloadFromDisk().finally(() => {
-      this.reloadInFlight = null;
-    });
-
-    await this.reloadInFlight;
-  }
-
-  private specTypeToFileName(type: SpecDocument["type"]): string {
-    switch (type) {
-      case "brief":
-        return "brief.md";
-      case "prd":
-        return "prd.md";
-      case "tech-spec":
-        return "tech-spec.md";
-      case "decision":
-        return "decision.md";
-      default: {
-        const exhaustive: never = type;
-        throw new Error(`Unhandled spec type: ${String(exhaustive)}`);
-      }
-    }
   }
 
   private runAttemptKey(runId: string, attemptId: string): string {

@@ -3,17 +3,48 @@ import path from "node:path";
 import chokidar, { type FSWatcher } from "chokidar";
 import { specflowDir } from "../../io/paths.js";
 
+export interface SpecflowWatcher {
+  close: () => Promise<void>;
+  destroy: () => void;
+}
+
 export const isReloadablePath = (filePath: string): boolean =>
   [".yaml", ".yml", ".md", ".json"].includes(path.extname(filePath));
 
 export const createSpecflowWatcher = async (
   rootDir: string,
-  onReloadableChange: () => void
-): Promise<FSWatcher> => {
+  onReload: () => Promise<void>
+): Promise<SpecflowWatcher> => {
   const root = specflowDir(rootDir);
   await mkdir(root, { recursive: true });
 
-  const watcher = chokidar.watch(root, {
+  let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let reloadInFlight: Promise<void> | null = null;
+
+  const scheduleReload = (): void => {
+    if (reloadTimer) {
+      clearTimeout(reloadTimer);
+    }
+
+    reloadTimer = setTimeout(() => {
+      void queueReload();
+    }, 150);
+  };
+
+  const queueReload = async (): Promise<void> => {
+    if (reloadInFlight) {
+      await reloadInFlight;
+      return;
+    }
+
+    reloadInFlight = onReload().finally(() => {
+      reloadInFlight = null;
+    });
+
+    await reloadInFlight;
+  };
+
+  const watcher: FSWatcher = chokidar.watch(root, {
     ignoreInitial: true,
     awaitWriteFinish: {
       stabilityThreshold: 120,
@@ -26,12 +57,20 @@ export const createSpecflowWatcher = async (
       return;
     }
 
-    onReloadableChange();
+    scheduleReload();
   });
 
   await new Promise<void>((resolve) => {
     watcher.once("ready", () => resolve());
   });
 
-  return watcher;
+  return {
+    close: () => watcher.close(),
+    destroy: () => {
+      if (reloadTimer) {
+        clearTimeout(reloadTimer);
+        reloadTimer = null;
+      }
+    }
+  };
 };

@@ -314,14 +314,14 @@ graph TD
 | **CLI Entry** | Parses commands; delegates mutating commands to running server when available; fail-closed on protocol mismatch; local fallback only when server absent |
 | **Fastify Server** | HTTP + SSE, serves static client build, mounts API routes |
 | **API Routes** | REST endpoints for all CRUD + action operations; streams SSE for LLM jobs |
-| **Artifact Store** | Typed in-memory maps; staged commit orchestrator; chokidar reload on external edits |
+| **Artifact Store** | Typed in-memory maps; staged commit orchestrator; delegates artifact writing to `artifact-writer.ts`, spec filename mapping to `spec-utils.ts`, and chokidar file watching with debounced reload to `watcher.ts` |
 | **Artifact IO** | Reads/writes YAML + Markdown; enforces `specflow/` directory layout; atomic writes via temp-rename |
 | **Planner Service** | Assembles prompts per job type (clarify, spec-gen, plan, triage); injects repo context from Repo Scanner; parses structured LLM responses |
 | **Repo Scanner** | Runs `git ls-files` + reads key config files; produces a condensed file tree for plan prompt grounding |
 | **Verifier Service** | Assembles primary diff + drift diff + criteria + AGENTS.md; parses per-criterion results including severity and remediation hints |
 | **Diff Engine** | Git diff via `simple-git`; file snapshot diff via `diff` library; snapshot capture at export time |
 | **Bundle Generator** | Assembles context; renders per-agent formats; emits versioned bundle manifest; supports quick-fix export linkage metadata; validated by golden tests |
-| **LLM Client** | Single provider adapter (Anthropic/OpenAI/OpenRouter); real SSE token streaming; configurable `max_tokens` per job type; resolves API keys from `.env` |
+| **LLM Client** | Single provider adapter (Anthropic/OpenAI/OpenRouter); real SSE token streaming via shared `parseStreamingSse()` parser with per-provider config objects; configurable `max_tokens` per job type; resolves API keys from `.env` |
 
 **API surface:**
 
@@ -399,23 +399,24 @@ graph TD
 | Component | Responsibility |
 |---|---|
 | **WorkspaceShell** | Two-column grid (`280px 1fr`); slots: navigator, detail workspace, status bar, command palette |
-| **Navigator** | WAI-ARIA TreeView sidebar; hierarchy: initiatives > specs/phases > tickets + Quick Tasks; filter input; full keyboard navigation (ArrowUp/Down/Left/Right, Enter, Home, End); auto-expands to reveal active route |
-| **CommandPalette** | Cmd+K modal overlay; sections: static actions + recent entities (empty input), fuzzy-filtered results (with text); inline Quick Task, GitHub Import, and New Initiative flows |
+| **Navigator** | WAI-ARIA TreeView sidebar; hierarchy: initiatives > specs/phases > tickets + Quick Tasks; filter input; keyboard navigation via `useTreeNavigation` hook; auto-expands to reveal active route |
+| **CommandPalette** | Cmd+K modal overlay; delegates to mode sub-components (`PaletteSearchMode`, `PaletteQuickTaskMode`, `PaletteGithubImportMode`); parent owns mode state and overlay |
 | **StatusBar** | Bottom bar showing per-initiative progress: done count, blocked count, in-verify count |
-| **SettingsModal** | Overlay triggered by `pathname === "/settings"`; full provider/model/API-key form; OpenRouter model combobox; `navigate(-1)` to close |
+| **SettingsModal** | Overlay triggered by `pathname === "/settings"`; provider/API-key form; delegates model picker to `ModelCombobox` component; `navigate(-1)` to close |
 | **DetailWorkspace** | React Router `<Routes>` switch for `/initiative/:id`, `/initiative/:id/spec/:type`, `/ticket/:id`, `/run/:id`, `/new-initiative`; backward-compat redirects from old plural paths |
 | **OverviewPanel** | Welcome/empty state; initiative + ticket counts; Cmd+K hint |
 | **InitiativeView** | Initiative metadata, tabs (Brief/PRD/Tech Spec/Diagram), phase + ticket list, inline spec editing, plan generation |
-| **SpecView** | Single spec document at `/initiative/:id/spec/:type`; inline Markdown editing and save |
-| **TicketView** | Full ticket detail; status dropdown using `canTransition()`; all 20 state variables and SSE EventSource logic preserved from original; export, capture, verify, override, blockers |
+| **SpecView** | Single spec document at `/initiative/:id/spec/:type`; inline Markdown editing and save; unsaved changes warning via `useDirtyForm` hook |
+| **TicketView** | Full ticket detail; status dropdown using `canTransition()`; state decomposed into hooks (`useVerificationStream`, `useCapturePreview`, `useExportWorkflow`) and sub-components (`ExportSection`, `CaptureVerifySection`, `VerificationResultsSection`, `OverridePanel`); blockers banner |
 | **InitiativeCreator** | Multi-step flow at `/new-initiative`: describe → analyze → answer questions → generate specs → navigate to initiative |
 | **RunView** | Run detail with diff viewer, verification panel, and contextual audit panel |
 | **Root Error Boundary** | Catches rendering crashes; presents a recovery UI instead of a blank screen |
 | **Toast Context** | Surfaces API errors (rate limits, conflicts, auth failures) that would otherwise be silent |
 | **SSE Client** | Maintains SSE connections; on disconnect performs snapshot refresh via REST and resumes from latest persisted state |
-| **Export Bundle Panel** | Agent selector; displays flattened clipboard string; copy button; download link; `exportMode` standard or quick-fix |
-| **Capture Results Panel** | Git diff preview (if git detected) or folder/file picker (no-git); optional summary text area |
-| **Verification Panel** | Per-criterion pass/fail with severity and remediation hint; drift flags; Re-export button; two-step Override to Done flow |
+| **ExportSection** | Agent selector; displays flattened clipboard string; copy button; download link; state managed by `useExportWorkflow` hook |
+| **CaptureVerifySection** | Git diff preview (if git detected) or folder/file picker (no-git); optional summary; state managed by `useCapturePreview` hook |
+| **VerificationResultsSection** | Per-criterion pass/fail with severity and remediation hint; drift flags; fix-forward re-export; delegates override UI to `OverridePanel` |
+| **OverridePanel** | Two-step Override to Done flow with required reason |
 | **Audit Panel** | Diff source selector; two-panel findings list + diff viewer with gutter markers; per-finding actions |
 | **Blockers Banner** | Shows unfinished and finished blocker tickets on ticket detail; warns when ticket cannot be started |
 | **MermaidView** | Renders Mermaid syntax to sanitized SVG (DOMPurify); used on initiative Diagram tab |

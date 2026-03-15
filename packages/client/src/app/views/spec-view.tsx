@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { saveInitiativeSpecs } from "../../api.js";
 import type { ArtifactsSnapshot } from "../../types.js";
 import { MarkdownView } from "../components/markdown-view.js";
+import { useDirtyForm } from "../hooks/use-dirty-form.js";
 import { getSpecMarkdown } from "../utils/specs.js";
 
 type SpecType = "brief" | "prd" | "tech-spec";
@@ -29,9 +30,13 @@ export const SpecView = ({
   const [editMode, setEditMode] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const isDirty = editMode && editContent !== currentContent;
+
   useEffect(() => {
     setEditContent(currentContent);
   }, [id, specType, currentContent]);
+
+  useDirtyForm(isDirty);
 
   if (!initiative) {
     return (
@@ -65,7 +70,7 @@ export const SpecView = ({
   return (
     <section>
       <header className="section-header">
-        <h2>{initiative.title} — {label}</h2>
+        <h2>{initiative.title} -- {label}</h2>
         <p>{initiative.description}</p>
       </header>
 
@@ -75,9 +80,12 @@ export const SpecView = ({
             {editMode ? "View" : "Edit"}
           </button>
           {editMode ? (
-            <button type="button" disabled={busy} onClick={() => void handleSave()}>
+            <button type="button" className="btn-primary" disabled={busy} onClick={() => void handleSave()}>
               Save
             </button>
+          ) : null}
+          {isDirty ? (
+            <span style={{ color: "var(--warning)", fontSize: "0.82rem", alignSelf: "center" }}>Unsaved changes</span>
           ) : null}
         </div>
 

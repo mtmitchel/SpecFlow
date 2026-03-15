@@ -8,6 +8,7 @@ import {
 } from "../../api.js";
 import type { AuditCategory, AuditReport } from "../../types.js";
 import { useToast } from "../context/toast.js";
+import { parseScopeCsv } from "../utils/scope-paths.js";
 import { DiffViewer, findDiffRowsForFinding } from "./diff-viewer.js";
 
 const CATEGORY_BADGE: Record<AuditCategory, string> = {
@@ -65,14 +66,8 @@ export const AuditPanel = ({
 
       const payload = await runAudit(runId, {
         diffSource,
-        scopePaths: scopeInput
-          .split(",")
-          .map((entry) => entry.trim())
-          .filter(Boolean),
-        widenedScopePaths: widenedInput
-          .split(",")
-          .map((entry) => entry.trim())
-          .filter(Boolean)
+        scopePaths: parseScopeCsv(scopeInput),
+        widenedScopePaths: parseScopeCsv(widenedInput)
       });
 
       setReport(payload);

@@ -1,0 +1,125 @@
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { fetchRunState } from "../../api.js";
+import type { VerificationResult } from "../../types.js";
+
+export const useVerificationStream = (
+  ticketId: string | undefined,
+  runId: string | undefined,
+  onRefresh: () => Promise<void>
+): {
+  verifyStreamEvents: string[];
+  verificationResult: VerificationResult | null;
+  verifyState: "idle" | "running" | "reconnecting";
+  setVerifyStreamEvents: Dispatch<SetStateAction<string[]>>;
+  setVerificationResult: Dispatch<SetStateAction<VerificationResult | null>>;
+  setVerifyState: Dispatch<SetStateAction<"idle" | "running" | "reconnecting">>;
+} => {
+  const [verifyStreamEvents, setVerifyStreamEvents] = useState<string[]>([]);
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  const [verifyState, setVerifyState] = useState<"idle" | "running" | "reconnecting">("idle");
+
+  useEffect(() => {
+    if (!ticketId) {
+      return;
+    }
+
+    let isMounted = true;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectAttempt = 0;
+    let source: EventSource | null = null;
+
+    const syncVerificationFromRunState = (attemptData: Array<{
+      overallPass: boolean;
+      attemptId: string;
+      criteriaResults: VerificationResult["criteriaResults"];
+      driftFlags: VerificationResult["driftFlags"];
+    }>): void => {
+      const latest = attemptData
+        .slice()
+        .sort((left, right) => left.attemptId.localeCompare(right.attemptId))
+        .at(-1);
+
+      if (!latest) {
+        return;
+      }
+
+      setVerificationResult({
+        overallPass: latest.overallPass,
+        criteriaResults: latest.criteriaResults,
+        driftFlags: latest.driftFlags
+      });
+    };
+
+    const connect = (): void => {
+      if (!isMounted) {
+        return;
+      }
+
+      source = new EventSource(`/api/tickets/${ticketId}/verify/stream`);
+
+      source.onopen = () => {
+        reconnectAttempt = 0;
+      };
+
+      source.addEventListener("verify-token", (event) => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data) as { chunk?: string };
+          const chunk = payload.chunk;
+          if (chunk) {
+            setVerifyStreamEvents((current) => [...current, chunk].slice(-200));
+          }
+        } catch {
+          // ignore invalid event payloads
+        }
+      });
+
+      source.addEventListener("verify-complete", () => {
+        if (!runId) {
+          return;
+        }
+
+        void fetchRunState(runId).then((snapshot) => {
+          syncVerificationFromRunState(snapshot.attempts);
+        });
+      });
+
+      source.onerror = () => {
+        source?.close();
+        const backoff = Math.min(1000 * 2 ** reconnectAttempt, 10_000);
+        reconnectAttempt += 1;
+
+        reconnectTimer = setTimeout(() => {
+          setVerifyState("reconnecting");
+          if (runId) {
+            void fetchRunState(runId)
+              .then((snapshot) => syncVerificationFromRunState(snapshot.attempts))
+              .catch(() => {});
+          }
+          void onRefresh().finally(() => {
+            setVerifyState("idle");
+            connect();
+          });
+        }, backoff);
+      };
+    };
+
+    connect();
+
+    return () => {
+      isMounted = false;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      source?.close();
+    };
+  }, [ticketId, runId]);
+
+  return {
+    verifyStreamEvents,
+    verificationResult,
+    verifyState,
+    setVerifyStreamEvents,
+    setVerificationResult,
+    setVerifyState
+  };
+};

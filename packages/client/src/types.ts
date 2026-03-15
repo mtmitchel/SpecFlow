@@ -77,6 +77,23 @@ export interface RunListItem {
 
 export type VerificationSeverity = "critical" | "major" | "minor" | "outdated";
 
+export interface VerificationResult {
+  overallPass: boolean;
+  criteriaResults: Array<{
+    criterionId: string;
+    pass: boolean;
+    evidence: string;
+    severity?: VerificationSeverity;
+    remediationHint?: string;
+  }>;
+  driftFlags: Array<{
+    type: string;
+    file: string;
+    description: string;
+    severity?: VerificationSeverity;
+  }>;
+}
+
 export interface RunDetailAttempt {
   id: string;
   attemptId: string;
