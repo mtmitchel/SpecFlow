@@ -94,9 +94,10 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
     store,
     staticDir,
     fetchImpl: async (input, init) => {
-      if (typeof input === "string" && input === "https://openrouter.ai/api/v1/models") {
-        void init;
+      void init;
+      const url = typeof input === "string" ? input : (input as Request).url;
 
+      if (url === "https://openrouter.ai/api/v1/models") {
         return new Response(
           JSON.stringify({
             data: [
@@ -104,16 +105,35 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
               { id: "openai/gpt-4o-mini", name: "GPT-4o mini", context_length: 128000 }
             ]
           }),
-          {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json"
-            }
-          }
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
 
-      throw new Error(`Unexpected fetch request: ${String(input)}`);
+      if (url === "https://api.openai.com/v1/models") {
+        return new Response(
+          JSON.stringify({
+            data: [
+              { id: "gpt-4o", name: "gpt-4o" },
+              { id: "gpt-4o-mini", name: "gpt-4o-mini" }
+            ]
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (url === "https://api.anthropic.com/v1/models") {
+        return new Response(
+          JSON.stringify({
+            data: [
+              { id: "claude-sonnet-4-5-20250514", display_name: "Claude Sonnet 4.5" },
+              { id: "claude-opus-4-6-20260515", display_name: "Claude Opus 4.6" }
+            ]
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
     }
   });
 

@@ -46,7 +46,7 @@ export const registerProviderRoutes = (app: FastifyInstance, options: RegisterPr
 
   app.get("/api/providers/:provider/models", async (request, reply) => {
     const { provider } = request.params as { provider: string };
-    if (provider !== "openrouter") {
+    if (provider !== "openrouter" && provider !== "openai" && provider !== "anthropic") {
       await reply.code(400).send({
         error: "Bad Request",
         message: `Provider '${provider}' is not supported for model discovery`
@@ -56,21 +56,42 @@ export const registerProviderRoutes = (app: FastifyInstance, options: RegisterPr
 
     const query = (request.query ?? {}) as Partial<{ q: string }>;
     const searchTerm = (query.q ?? "").trim().toLowerCase();
-    const apiKey = resolveProviderApiKey("openrouter", store.config?.apiKey);
-    try {
-      const response = await fetchImpl("https://openrouter.ai/api/v1/models", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-        }
+    const apiKey = resolveProviderApiKey(provider, store.config?.apiKey);
+
+    if (!apiKey) {
+      await reply.code(400).send({
+        error: "Bad Request",
+        message: `No API key configured for ${provider}. Set one in Settings or via environment variable.`
       });
+      return;
+    }
+
+    const endpointUrl =
+      provider === "openrouter"
+        ? "https://openrouter.ai/api/v1/models"
+        : provider === "openai"
+          ? "https://api.openai.com/v1/models"
+          : "https://api.anthropic.com/v1/models";
+
+    const headers: Record<string, string> =
+      provider === "anthropic"
+        ? {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+          }
+        : {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          };
+
+    try {
+      const response = await fetchImpl(endpointUrl, { method: "GET", headers });
 
       if (!response.ok) {
-        const body = await response.text();
         await reply.code(502).send({
           error: "Provider Error",
-          message: `OpenRouter model discovery failed (${response.status})`,
+          message: `${provider} model discovery failed (${response.status})`,
           details: "Check your API key and provider status"
         });
         return;
@@ -80,17 +101,19 @@ export const registerProviderRoutes = (app: FastifyInstance, options: RegisterPr
         data?: Array<{
           id?: string;
           name?: string;
+          display_name?: string;
           context_length?: number;
         }>;
       };
 
       const models = (payload.data ?? [])
         .filter(
-          (model): model is { id: string; name?: string; context_length?: number } => typeof model.id === "string"
+          (model): model is { id: string; name?: string; display_name?: string; context_length?: number } =>
+            typeof model.id === "string"
         )
         .map((model) => ({
           id: model.id,
-          name: model.name ?? model.id,
+          name: model.display_name ?? model.name ?? model.id,
           contextLength: typeof model.context_length === "number" ? model.context_length : null
         }))
         .filter((model) => {
@@ -103,14 +126,14 @@ export const registerProviderRoutes = (app: FastifyInstance, options: RegisterPr
         .sort((left, right) => left.id.localeCompare(right.id));
 
       await reply.send({
-        provider: "openrouter",
+        provider,
         count: models.length,
         models
       });
-    } catch (error) {
+    } catch {
       await reply.code(502).send({
         error: "Provider Error",
-        message: "Failed to reach OpenRouter model registry",
+        message: `Failed to reach ${provider} model registry`,
         details: "Network error; check connectivity"
       });
     }

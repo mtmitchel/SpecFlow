@@ -9,7 +9,7 @@ describe("provider routes", () => {
       const configResponse = await fixture.server.app.inject({
         method: "PUT",
         url: "/api/config",
-        payload: { provider: "openrouter", model: "openrouter/model" }
+        payload: { provider: "openrouter", model: "openrouter/model", apiKey: "test-key" }
       });
       expect(configResponse.statusCode).toBe(200);
       expect(configResponse.json().config.provider).toBe("openrouter");
