@@ -147,6 +147,17 @@ a {
   border-color: var(--accent-border);
 }
 
+.navigator-actions {
+  padding: 0 0.7rem 0.4rem;
+  flex-shrink: 0;
+}
+
+.navigator-new-button {
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 0.35rem 0;
+}
+
 .navigator-tree {
   flex: 1;
   overflow-y: auto;

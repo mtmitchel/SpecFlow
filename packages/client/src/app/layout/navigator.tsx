@@ -268,6 +268,16 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
         </div>
       </div>
 
+      <div className="navigator-actions">
+        <button
+          type="button"
+          className="btn-primary navigator-new-button"
+          onClick={() => navigate("/new-initiative")}
+        >
+          + New
+        </button>
+      </div>
+
       <div role="tree" aria-label="Project navigator" className="navigator-tree">
         {aggregateNodes.length > 0 && (
           <>

@@ -1,15 +1,13 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot, TicketStatus } from "../../types.js";
 import { statusColumns } from "../constants/status-columns.js";
 
 interface TicketsListViewProps {
   snapshot: ArtifactsSnapshot;
-  onOpenCommandPalette: () => void;
 }
 
-export const TicketsListView = ({ snapshot, onOpenCommandPalette }: TicketsListViewProps) => {
-  const navigate = useNavigate();
+export const TicketsListView = ({ snapshot }: TicketsListViewProps) => {
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "">("");
   const [initiativeFilter, setInitiativeFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -64,15 +62,6 @@ export const TicketsListView = ({ snapshot, onOpenCommandPalette }: TicketsListV
           </p>
         )}
       </header>
-
-      <div className="button-row">
-        <button type="button" className="btn-primary" onClick={() => navigate("/new-initiative")}>
-          New Initiative
-        </button>
-        <button type="button" onClick={onOpenCommandPalette}>
-          Quick Task
-        </button>
-      </div>
 
       <div className="aggregate-filters">
         <input
