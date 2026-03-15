@@ -29,6 +29,9 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="error-boundary">
           <h2>Something went wrong</h2>
           <pre>{this.state.error.message}</pre>
+          <p className="error-boundary-hint">
+            Try reloading the page. If the problem persists, check the terminal where SpecFlow is running.
+          </p>
           <button
             type="button"
             onClick={() => {

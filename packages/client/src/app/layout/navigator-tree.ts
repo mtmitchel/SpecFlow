@@ -6,7 +6,8 @@ export type NavigatorNodeType =
   | "spec"
   | "ticket"
   | "quick-tasks-header"
-  | "quick-task";
+  | "quick-task"
+  | "aggregate-link";
 
 export interface NavigatorNode {
   id: string;
@@ -33,6 +34,13 @@ const statusDotClass = (status: Initiative["status"]): string => {
 export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[] => {
   const { initiatives, tickets, specs } = snapshot;
   const nodes: NavigatorNode[] = [];
+
+  // Aggregate view links
+  nodes.push(
+    { id: "agg-tickets", type: "aggregate-link", label: "All Tickets", path: "/tickets" },
+    { id: "agg-runs", type: "aggregate-link", label: "All Runs", path: "/runs" },
+    { id: "agg-specs", type: "aggregate-link", label: "All Specs", path: "/specs" }
+  );
 
   for (const initiative of initiatives) {
     const initiativeTickets = tickets.filter((t) => t.initiativeId === initiative.id);
@@ -98,7 +106,7 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
       id: "quick-tasks-header",
       type: "quick-tasks-header",
       label: "Quick Tasks",
-      path: "/",
+      path: "/#quick-tasks",
       children: quickTasks.map((t) => ticketNode(t))
     });
   }

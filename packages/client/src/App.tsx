@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchArtifacts, saveConfig, updateTicketStatus } from "./api";
-import type { ArtifactsSnapshot, TicketStatus } from "./types";
+import type { ArtifactsSnapshot, ConfigSavePayload, TicketStatus } from "./types";
 import { ErrorBoundary } from "./app/components/error-boundary";
 import { useSseReconnect } from "./app/hooks/use-sse-reconnect";
 import { Navigator } from "./app/layout/navigator";
@@ -51,11 +51,7 @@ const AppInner = () => {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  if (loading) {
-    return <div className="loading">Loading SpecFlow board...</div>;
-  }
-
-  const handleMoveTicket = async (ticketId: string, status: TicketStatus): Promise<void> => {
+  const handleMoveTicket = useCallback(async (ticketId: string, status: TicketStatus): Promise<void> => {
     try {
       const updatedTicket = await updateTicketStatus(ticketId, status);
       setSnapshot((prev) => ({
@@ -65,16 +61,25 @@ const AppInner = () => {
     } catch (err) {
       showError((err as Error).message ?? "Failed to update ticket status");
     }
-  };
+  }, [showError]);
 
-  const handleSaveConfig = async (next: Parameters<typeof saveConfig>[0]): Promise<void> => {
+  const handleSaveConfig = useCallback(async (next: ConfigSavePayload): Promise<void> => {
     try {
       const updatedConfig = await saveConfig(next);
       setSnapshot((prev) => ({ ...prev, config: updatedConfig }));
     } catch (err) {
       showError((err as Error).message ?? "Failed to save settings");
     }
-  };
+  }, [showError]);
+
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="loading-brand">SF</div>
+        <div className="loading-text">Starting SpecFlow</div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -82,7 +87,6 @@ const AppInner = () => {
         navigator={
           <Navigator
             snapshot={snapshot}
-            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
           />
         }
         statusBar={<StatusBar snapshot={snapshot} />}
@@ -99,6 +103,7 @@ const AppInner = () => {
           snapshot={snapshot}
           onRefresh={refreshArtifacts}
           onMoveTicket={handleMoveTicket}
+          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         />
       </WorkspaceShell>
       <SettingsModal config={snapshot.config} onSave={handleSaveConfig} />

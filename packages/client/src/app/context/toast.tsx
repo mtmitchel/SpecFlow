@@ -56,7 +56,7 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
             <div key={toast.id} className={`toast toast-${toast.level}`}>
               <span>{toast.message}</span>
               <button type="button" className="toast-dismiss" onClick={() => dismiss(toast.id)}>
-                x
+                ×
               </button>
             </div>
           ))}

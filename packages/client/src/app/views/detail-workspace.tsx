@@ -7,11 +7,15 @@ import { InitiativeView } from "./initiative-view.js";
 import { SpecView } from "./spec-view.js";
 import { TicketView } from "./ticket-view.js";
 import { RunView } from "./run-view.js";
+import { TicketsListView } from "./tickets-list-view.js";
+import { RunsListView } from "./runs-list-view.js";
+import { SpecsListView } from "./specs-list-view.js";
 
 interface DetailWorkspaceProps {
   snapshot: ArtifactsSnapshot;
   onRefresh: () => Promise<void>;
   onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
+  onOpenCommandPalette: () => void;
 }
 
 // Inline redirect helper for :id patterns
@@ -20,7 +24,7 @@ const RedirectParam = ({ base }: { base: string }) => {
   return <Navigate to={`${base}/${id ?? ""}`} replace />;
 };
 
-export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket }: DetailWorkspaceProps) => (
+export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenCommandPalette }: DetailWorkspaceProps) => (
   <Routes>
     {/* Canonical views */}
     <Route path="/initiative/:id" element={<InitiativeView snapshot={snapshot} onRefresh={onRefresh} />} />
@@ -41,12 +45,17 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket }: DetailWor
     <Route path="/run/:id" element={<RunView />} />
     <Route path="/new-initiative" element={<InitiativeCreator onRefresh={onRefresh} />} />
 
+    {/* Aggregate views */}
+    <Route path="/tickets" element={<TicketsListView snapshot={snapshot} />} />
+    <Route path="/runs" element={<RunsListView snapshot={snapshot} />} />
+    <Route path="/specs" element={<SpecsListView snapshot={snapshot} />} />
+
     {/* Backward-compat redirects */}
     <Route path="/initiatives/:id" element={<RedirectParam base="/initiative" />} />
     <Route path="/tickets/:id" element={<RedirectParam base="/ticket" />} />
     <Route path="/runs/:id" element={<RedirectParam base="/run" />} />
 
     {/* Everything else — overview */}
-    <Route path="*" element={<OverviewPanel snapshot={snapshot} />} />
+    <Route path="*" element={<OverviewPanel snapshot={snapshot} onOpenCommandPalette={onOpenCommandPalette} />} />
   </Routes>
 );

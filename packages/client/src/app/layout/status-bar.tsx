@@ -18,9 +18,10 @@ export const StatusBar = ({ snapshot }: { snapshot: ArtifactsSnapshot }) => {
 
     let text = `${init.title}: ${done}/${initTickets.length} done`;
     if (blocked > 0) text += ` — ${blocked} blocked`;
-    if (failing > 0) text += ` — ${failing} in verify`;
+    if (failing > 0) text += ` — ${failing} verifying`;
     return text;
   });
 
-  return <>{parts.join("  ·  ")}</>;
+  const overflow = initiatives.length > 3 ? ` · and ${initiatives.length - 3} more` : "";
+  return <>{parts.join("  ·  ")}{overflow}</>;
 };

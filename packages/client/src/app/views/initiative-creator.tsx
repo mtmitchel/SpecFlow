@@ -3,6 +3,30 @@ import { useNavigate } from "react-router-dom";
 import { createInitiative, generateInitiativeSpecs } from "../../api/initiatives.js";
 import { useToast } from "../context/toast.js";
 
+const StepIndicator = ({ current }: { current: "describe" | "questions" | "generating" }) => {
+  const steps: Array<{ key: string; label: string }> = [
+    { key: "describe", label: "Describe" },
+    { key: "questions", label: "Refine" },
+    { key: "generating", label: "Generate" }
+  ];
+
+  const currentIndex = steps.findIndex((s) => s.key === current);
+
+  return (
+    <div className="step-indicator">
+      {steps.map((step, i) => (
+        <span key={step.key} style={{ display: "contents" }}>
+          {i > 0 && <span className="step-connector" />}
+          <span className={`step-dot${i === currentIndex ? " active" : i < currentIndex ? " done" : ""}`}>
+            {i < currentIndex ? "\u2713" : i + 1}
+          </span>
+          <span className={`step-label${i === currentIndex ? " active" : ""}`}>{step.label}</span>
+        </span>
+      ))}
+    </div>
+  );
+};
+
 export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void> }) => {
   const navigate = useNavigate();
   const { showError } = useToast();
@@ -53,6 +77,8 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
         <p>Describe what you want to build. AI will generate specs and a delivery plan.</p>
       </header>
 
+      <StepIndicator current={step} />
+
       {step === "describe" || step === "questions" ? (
         <div className="panel">
           {step === "describe" ? (
@@ -69,11 +95,18 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
               <div className="button-row">
                 <button
                   type="button"
+                  className="btn-primary"
                   onClick={() => void handleAnalyze()}
                   disabled={busy || description.trim().length === 0}
                 >
-                  {busy ? "Analyzing..." : "Analyze"}
+                  {busy ? "Analyzing" : "Analyze"}
                 </button>
+                {busy && (
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--muted)", fontSize: "0.85rem" }}>
+                    <span className="verify-spinner" />
+                    AI is analyzing your description
+                  </span>
+                )}
               </div>
             </>
           ) : (
@@ -97,15 +130,16 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
                   ))}
                 </div>
               ) : (
-                <p style={{ color: "var(--muted)" }}>No questions — ready to generate.</p>
+                <p style={{ color: "var(--muted)" }}>No questions -- ready to generate.</p>
               )}
               <div className="button-row">
                 <button
                   type="button"
+                  className="btn-primary"
                   onClick={() => void handleGenerateSpecs()}
                   disabled={busy}
                 >
-                  {busy ? "Generating..." : "Generate Specs"}
+                  Generate Specs
                 </button>
                 <button
                   type="button"
@@ -120,7 +154,11 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
         </div>
       ) : (
         <div className="panel">
-          <p>Generating specs and delivery plan...</p>
+          <div className="generating-panel">
+            <div className="generating-spinner" />
+            <p>Generating specs and delivery plan</p>
+            <p className="generating-hint">This typically takes 30-60 seconds</p>
+          </div>
         </div>
       )}
     </section>

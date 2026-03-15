@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 interface WorkspaceShellProps {
   navigator: ReactNode;
@@ -7,11 +7,29 @@ interface WorkspaceShellProps {
   commandPalette?: ReactNode;
 }
 
-export const WorkspaceShell = ({ navigator, children, statusBar, commandPalette }: WorkspaceShellProps) => (
-  <div className="workspace-shell">
-    <aside className="workspace-navigator">{navigator}</aside>
-    <main className="workspace-detail">{children}</main>
-    {statusBar && <div className="workspace-status-bar">{statusBar}</div>}
-    {commandPalette}
-  </div>
-);
+export const WorkspaceShell = ({ navigator, children, statusBar, commandPalette }: WorkspaceShellProps) => {
+  const [navOpen, setNavOpen] = useState(false);
+
+  return (
+    <div className="workspace-shell">
+      <button
+        type="button"
+        className="workspace-nav-toggle"
+        onClick={() => setNavOpen((v) => !v)}
+        aria-label="Toggle navigation"
+      >
+        &#9776;
+      </button>
+      {navOpen && (
+        <div
+          className="workspace-nav-backdrop"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+      <aside className={`workspace-navigator${navOpen ? " open" : ""}`}>{navigator}</aside>
+      <main className="workspace-detail">{children}</main>
+      {statusBar && <div className="workspace-status-bar">{statusBar}</div>}
+      {commandPalette}
+    </div>
+  );
+};
