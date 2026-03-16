@@ -9,7 +9,7 @@ SpecFlow is a local-first tool for a **solo non-developer who uses AI coding age
 The tool's value proposition is: **turn a vague idea into structured planning artifacts, break those into ordered tickets, generate agent-ready prompt bundles, then verify the agent's output against acceptance criteria.**
 
 The four workflows are:
-1. **Groundwork** -- describe idea -> AI creates Brief / Core flows / PRD / Tech spec with targeted blocker questions only when needed -> AI runs review gates and cross-checks -> AI generates phased ticket plan
+1. **Groundwork** -- describe idea -> required brief intake for fresh initiatives -> AI creates Brief / Core flows / PRD / Tech spec with targeted blocker questions only when needed -> AI runs review gates and cross-checks -> AI generates phased ticket plan
 2. **Milestone Run** -- export ticket as agent prompt -> user runs agent -> capture results -> AI verifies against criteria -> pass/fail with remediation hints
 3. **Quick Build** -- single-task shortcut (describe -> AI triages -> ticket -> export -> verify)
 4. **Drift Audit** -- point at a diff, AI categorizes findings (bug/security/performance/etc.)
@@ -72,7 +72,8 @@ AGENTS.md:
 User: Decide whether SpecFlow can create the next artifact now or must ask targeted blocker questions first.
 
 Rules:
-- Default to "proceed".
+- Fresh initiatives must start with a required brief intake before the first brief is generated.
+- After that first intake, default to "proceed".
 - Ask questions only when missing information would materially change the current artifact and would be costly to unwind later.
 - Use finite options whenever reasonable.
 - If you can proceed, return explicit assumptions.

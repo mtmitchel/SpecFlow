@@ -456,11 +456,11 @@ graph TD
 | `PATCH` | `/api/initiatives/:id` | Update initiative metadata |
 | `PATCH` | `/api/initiatives/:id/refinement/:step` | Autosave blocker-question answers/default assumptions for a planning step |
 | `POST` | `/api/initiatives/:id/refinement/help` | Return focused guidance for one blocker question |
-| `POST` | `/api/initiatives/:id/brief-check` | Decide whether Brief can be created now or needs blocker questions |
+| `POST` | `/api/initiatives/:id/brief-check` | Return the required first brief intake for fresh initiatives, otherwise decide whether Brief can be created now or needs blocker questions |
 | `POST` | `/api/initiatives/:id/core-flows-check` | Decide whether Core flows can be created now or needs blocker questions |
 | `POST` | `/api/initiatives/:id/prd-check` | Decide whether PRD can be created now or needs blocker questions |
 | `POST` | `/api/initiatives/:id/tech-spec-check` | Decide whether Tech spec can be created now or needs blocker questions |
-| `POST` | `/api/initiatives/:id/generate-brief` | Generate Brief + auto-run required review gates |
+| `POST` | `/api/initiatives/:id/generate-brief` | Generate Brief after intake is resolved + auto-run required review gates |
 | `POST` | `/api/initiatives/:id/generate-core-flows` | Generate Core flows + auto-run required review gates |
 | `POST` | `/api/initiatives/:id/generate-prd` | Generate PRD + auto-run required review gates |
 | `POST` | `/api/initiatives/:id/generate-tech-spec` | Generate Tech spec + auto-run required review gates |
@@ -503,19 +503,19 @@ graph TD
 
     Navigator --> NavTree[aggregate links > initiatives > phases > tickets > quick tasks]
 
-    CommandPalette --> QuickTask[Quick Task inline flow]
+    CommandPalette --> QuickTask[Quick Task short-shell flow]
     CommandPalette --> GitHubImport[GitHub Import inline flow]
     CommandPalette --> NewInitiative[Navigate to /new-initiative]
     CommandPalette --> FuzzySearch[Fuzzy search: initiatives / tickets / runs]
 
-    DetailWorkspace --> InitiativeView[Initiative View - Brief / Core flows / PRD / Tech spec / Tickets + review gates]
+    DetailWorkspace --> InitiativeView[Initiative View - contained planning shell with Consult / Draft / Checkpoint / Complete]
     DetailWorkspace --> SpecView[Spec View - legacy /initiative/:id/spec/:type redirect surface]
-    DetailWorkspace --> TicketView[Ticket View - Plan / Execute / Verify / Done]
-    DetailWorkspace --> RunView[Run View - summary + changes + verification + history]
-    DetailWorkspace --> InitiativeCreator[Initiative Creator - describe idea, create draft initiative, hand off to workflow]
-    DetailWorkspace --> OverviewPanel[Overview Panel - empty state with Cmd+K hint]
+    DetailWorkspace --> TicketView[Ticket View - preflight + execution timeline + run history]
+    DetailWorkspace --> RunView[Run View - secondary execution report]
+    DetailWorkspace --> InitiativeCreator[Initiative Creator - same planning shell, raw idea entry, hand off to brief intake]
+    DetailWorkspace --> OverviewPanel[Home action queue]
 
-    TicketView --> BlockersBanner[Blockers Banner]
+    TicketView --> PreflightCard[Preflight Card]
     TicketView --> ExportPanel[Export Bundle Panel]
     TicketView --> CapturePanel[Capture Results Panel]
     TicketView --> VerificationPanel[Verification Panel]
@@ -536,12 +536,12 @@ graph TD
 | **StatusBar** | Bottom bar showing per-initiative progress: done count, blocked count, in-verify count |
 | **SettingsModal** | Overlay triggered by `pathname === "/settings"`; provider/API-key form; delegates model picker to `ModelCombobox` component; `navigate(-1)` to close |
 | **DetailWorkspace** | React Router `<Routes>` switch for `/initiative/:id`, `/initiative/:id/spec/:type`, `/ticket/:id`, `/run/:id`, `/new`, `/new-initiative`, `/new-quick-task`, aggregate list routes, and backward-compat redirects from old plural paths |
-| **OverviewPanel** | Welcome/empty state; initiative + ticket counts; Cmd+K hint |
-| **InitiativeView** | Canonical planning workspace: step tabs (Brief/Core flows/PRD/Tech spec/Tickets), blocker-question panels, autosaved artifact editing, extracted review and tickets sections, coverage review card, and next-step handoff driven by a dedicated workspace hook |
+| **OverviewPanel** | Action-oriented home queue: continue planning, needs review, ready to run, needs verification, recent audit activity |
+| **InitiativeView** | Canonical planning shell: sticky step rail, one active stage (Consult/Draft/Checkpoint/Complete), summary-first artifact view, autosaved editing, collapsed review checkpoints, and ticket coverage checkpoint driven by a dedicated workspace hook |
 | **SpecView** | Legacy single-artifact route that redirects back into the initiative workflow step |
-| **TicketView** | Full ticket detail; status dropdown using `canTransition()`; covered spec items panel; initiative coverage warning banner; state decomposed into hooks (`useVerificationStream`, `useCapturePreview`, `useExportWorkflow`) and sub-components (`ExportSection`, `CaptureVerifySection`, `VerificationResultsSection`, `OverridePanel`) |
-| **InitiativeCreator** | Single-screen draft-initiative creation flow at `/new-initiative`; sends the user directly into the planning workspace |
-| **RunView** | Run detail with summary, diff viewer, verification state, history, and contextual audit panel |
+| **TicketView** | Ticket execution workspace; status dropdown using `canTransition()`; single preflight card for coverage/blockers/phase warnings; covered spec items context; execution sections driven by `useVerificationStream`, `useCapturePreview`, and `useExportWorkflow`; run history kept subordinate to the ticket |
+| **InitiativeCreator** | Entry into the same planning shell used by the initiative workspace; captures a raw idea and routes directly into required brief intake |
+| **RunView** | Secondary execution report with summary, diff viewer, attempt history, and contextual audit panel; links back to the ticket as the primary recovery path |
 | **Root Error Boundary** | Catches rendering crashes; presents a recovery UI instead of a blank screen |
 | **Toast Context** | Surfaces API errors (rate limits, conflicts, auth failures) that would otherwise be silent |
 | **SSE Client** | Maintains SSE connections; on disconnect performs snapshot refresh via REST and resumes from latest persisted state |
@@ -550,7 +550,7 @@ graph TD
 | **VerificationResultsSection** | Per-criterion pass/fail with severity and remediation hint; drift flags; fix-forward re-export; delegates override UI to `OverridePanel` |
 | **OverridePanel** | Two-step Override to Done flow with required reason |
 | **Audit Panel** | Diff source selector; two-panel findings list + diff viewer with gutter markers; per-finding actions |
-| **Blockers Banner** | Shows unfinished and finished blocker tickets on ticket detail; warns when ticket cannot be started |
+| **Preflight Card** | Shows execution blockers, coverage gate state, and phase warnings in one place before export/execution |
 ---
 
 ## End-to-End Request Trace: Verification

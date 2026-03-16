@@ -10,7 +10,13 @@ import type {
   Ticket,
   TicketCoverageItem
 } from "../types/entities.js";
+import {
+  BRIEF_CONSULTATION_REQUIRED_MESSAGE,
+  buildRequiredBriefConsultationResult,
+  requiresInitialBriefConsultation
+} from "./brief-consultation.js";
 import { AUTO_REVIEW_KINDS_BY_STEP, getImpactedReviewKinds } from "./planning-reviews.js";
+import { PlannerConflictError } from "./planner-errors.js";
 import { createInitiativeWorkflow, updateRefinementState } from "./workflow-state.js";
 import { loadPlannerAgentsMd } from "./internal/agents-md.js";
 import {
@@ -84,7 +90,7 @@ const REFINEMENT_JOB_BY_STEP: Record<
 };
 
 const CHECK_BUDGET_BY_STEP: Record<RefinementStep, number> = {
-  brief: 2,
+  brief: 4,
   "core-flows": 2,
   prd: 3,
   "tech-spec": 3
@@ -130,11 +136,20 @@ export class PlannerService {
     onToken?: LlmTokenHandler
   ): Promise<PhaseCheckResult> {
     const initiative = this.requireInitiative(input.initiativeId);
-    const result = await this.executePlannerJob<PhaseCheckResult>(
-      REFINEMENT_JOB_BY_STEP[input.step],
-      buildPhaseCheckInput(initiative, input.step, getArtifactMarkdownMap(initiative.id, this.store.specs)),
-      onToken
-    );
+    const markdownByStep = getArtifactMarkdownMap(initiative.id, this.store.specs);
+    const initialBriefConsultationRequired =
+      input.step === "brief" &&
+      requiresInitialBriefConsultation({
+        initiative,
+        briefMarkdown: markdownByStep.brief
+      });
+    const result = initialBriefConsultationRequired
+      ? buildRequiredBriefConsultationResult()
+      : await this.executePlannerJob<PhaseCheckResult>(
+          REFINEMENT_JOB_BY_STEP[input.step],
+          buildPhaseCheckInput(initiative, input.step, markdownByStep),
+          onToken
+        );
 
     validatePhaseCheckResult(result, CHECK_BUDGET_BY_STEP[input.step]);
 
@@ -385,9 +400,20 @@ export class PlannerService {
     onToken?: LlmTokenHandler
   ): Promise<GeneratedPhaseResult> {
     const initiative = this.requireInitiative(initiativeId);
+    const markdownByStep = getArtifactMarkdownMap(initiative.id, this.store.specs);
+    if (
+      step === "brief" &&
+      requiresInitialBriefConsultation({
+        initiative,
+        briefMarkdown: markdownByStep.brief
+      })
+    ) {
+      throw new PlannerConflictError(BRIEF_CONSULTATION_REQUIRED_MESSAGE);
+    }
+
     const result = await this.executePlannerJob<PhaseMarkdownResult>(
       job,
-      buildSpecGenerationInput(initiative, step, getArtifactMarkdownMap(initiative.id, this.store.specs)),
+      buildSpecGenerationInput(initiative, step, markdownByStep),
       onToken
     );
 

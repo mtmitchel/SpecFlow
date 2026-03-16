@@ -9,7 +9,6 @@ import type {
   TicketCoverageArtifact,
   TicketCoverageItem
 } from "../../../types.js";
-import { REVIEW_KIND_LABELS } from "../../utils/initiative-workflow.js";
 import {
   groupReviewFindings,
   isResolvedReview,
@@ -95,36 +94,52 @@ export const TicketsStepSection = ({
   const showOverrideForm = reviewOverrideKind === TICKET_COVERAGE_REVIEW_KIND;
 
   return (
-    <>
-      <div className="button-row">
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busyAction !== null || initiative.workflow.steps.tickets.status === "complete"}
-          onClick={() => void onGenerateTickets()}
-        >
-          {busyAction === "generate-tickets"
-            ? "Creating..."
-            : initiative.workflow.steps.tickets.status === "stale"
-              ? "Refresh tickets"
-              : "Create tickets"}
-        </button>
-        {firstTicket ? (
-          <button type="button" onClick={() => onOpenFirstTicket(firstTicket.id)}>
-            Open first ticket
-          </button>
+    <div className="planning-main-column">
+      <div className="planning-section-card">
+        <div className="planning-section-header">
+          <div>
+            <h4 style={{ margin: 0 }}>Ticket plan</h4>
+            <p style={{ margin: "0.25rem 0 0", color: "var(--muted)" }}>
+              Generate tickets once the planning set is stable enough to break into execution slices.
+            </p>
+          </div>
+          <div className="button-row planning-view-toggle">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busyAction !== null || initiative.workflow.steps.tickets.status === "complete"}
+              onClick={() => void onGenerateTickets()}
+            >
+              {busyAction === "generate-tickets"
+                ? "Generating..."
+                : initiative.workflow.steps.tickets.status === "stale"
+                  ? "Refresh tickets"
+                  : "Generate tickets"}
+            </button>
+            {firstTicket ? (
+              <button type="button" onClick={() => onOpenFirstTicket(firstTicket.id)}>
+                Open first ticket
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {initiative.phases.length === 0 ? (
+          <p style={{ color: "var(--muted)", margin: 0 }}>
+            No tickets yet. Generate the ticket plan after the tech spec is ready.
+          </p>
         ) : null}
       </div>
 
       {ticketCoverageReview || ticketCoverageArtifact ? (
         <PlanningReviewCard
-          title={REVIEW_KIND_LABELS[TICKET_COVERAGE_REVIEW_KIND]}
+          title="Coverage checkpoint"
           status={ticketCoverageReview?.status ?? "stale"}
           meta={
             <>
               {ticketCoverageArtifact
                 ? `${coveredCoverageCount} covered · ${uncoveredCoverageItems.length} uncovered`
-                : "Coverage will appear after tickets are created."}
+                : "Coverage appears after ticket generation."}
               {ticketCoverageReview
                 ? ` · ${blockers} blocker${blockers === 1 ? "" : "s"} · ${warnings} warning${warnings === 1 ? "" : "s"}`
                 : ""}
@@ -177,10 +192,6 @@ export const TicketsStepSection = ({
         />
       ) : null}
 
-      {initiative.phases.length === 0 ? (
-        <p style={{ color: "var(--muted)" }}>No tickets yet. Create tickets after the tech spec is ready.</p>
-      ) : null}
-
       {initiative.phases
         .slice()
         .sort((left, right) => left.order - right.order)
@@ -188,31 +199,44 @@ export const TicketsStepSection = ({
           const phaseTickets = initiativeTickets.filter((ticket) => ticket.phaseId === phase.id);
           return (
             <div key={phase.id} className="phase-block">
-              <PhaseNameEditor name={phase.name} onCommit={(nextName) => onCommitPhaseName(phase.id, nextName)} />
-              <ul>
-                {phaseTickets.map((ticket) => (
-                  <li key={ticket.id}>
-                    <Link to={`/ticket/${ticket.id}`}>{ticket.title}</Link> · {ticket.status} · covers{" "}
-                    {ticket.coverageItemIds.length} spec item{ticket.coverageItemIds.length === 1 ? "" : "s"}
-                  </li>
-                ))}
-              </ul>
+              <div className="planning-section-header">
+                <PhaseNameEditor name={phase.name} onCommit={(nextName) => onCommitPhaseName(phase.id, nextName)} />
+                <span className="planning-phase-count">
+                  {phaseTickets.length} ticket{phaseTickets.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              {phaseTickets.length === 0 ? (
+                <p style={{ color: "var(--muted)", margin: 0 }}>No tickets in this phase yet.</p>
+              ) : (
+                <ul className="planning-ticket-list">
+                  {phaseTickets.map((ticket) => (
+                    <li key={ticket.id}>
+                      <Link to={`/ticket/${ticket.id}`}>{ticket.title}</Link>
+                      <span>
+                        {ticket.status} · covers {ticket.coverageItemIds.length} spec item
+                        {ticket.coverageItemIds.length === 1 ? "" : "s"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           );
         })}
 
       {linkedRuns.length > 0 ? (
-        <>
-          <h3>Recent runs</h3>
-          <ul>
+        <div className="planning-section-card">
+          <h4 style={{ marginTop: 0 }}>Linked runs</h4>
+          <ul className="planning-ticket-list">
             {linkedRuns.map((run) => (
               <li key={run.id}>
-                <Link to={`/run/${run.id}`}>{run.id}</Link> · {run.status}
+                <Link to={`/run/${run.id}`}>{run.id}</Link>
+                <span>{run.status}</span>
               </li>
             ))}
           </ul>
-        </>
+        </div>
       ) : null}
-    </>
+    </div>
   );
 };

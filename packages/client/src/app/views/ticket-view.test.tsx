@@ -199,7 +199,7 @@ describe("TicketView", () => {
     });
 
     expect(screen.getByText("Resolve the coverage check before starting execution for this ticket.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open the tickets step" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open the initiative tickets step" })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=tickets`
     );

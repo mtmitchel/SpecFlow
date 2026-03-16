@@ -1,6 +1,11 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot } from "../../types.js";
+import {
+  getInitiativeResumeStep,
+  INITIATIVE_WORKFLOW_LABELS,
+  REVIEW_KIND_LABELS
+} from "../utils/initiative-workflow.js";
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -15,20 +20,6 @@ function relativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-const TICKET_DOT: Record<string, string> = {
-  backlog: "var(--muted)",
-  ready: "var(--accent)",
-  "in-progress": "var(--warning)",
-  verify: "var(--accent)",
-  done: "var(--success)"
-};
-
-const INIT_STATUS_COLOR: Record<string, string> = {
-  draft: "var(--muted)",
-  active: "var(--accent)",
-  done: "var(--success)"
-};
-
 const modKey =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
     ? "Cmd"
@@ -36,237 +27,226 @@ const modKey =
 
 export const OverviewPanel = ({
   snapshot,
+  onOpenCommandPalette
 }: {
   snapshot: ArtifactsSnapshot;
   onOpenCommandPalette: () => void;
 }) => {
-  const total = snapshot.tickets.length;
-
   const initiativeMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const init of snapshot.initiatives) map.set(init.id, init.title);
+    for (const initiative of snapshot.initiatives) {
+      map.set(initiative.id, initiative.title);
+    }
     return map;
   }, [snapshot.initiatives]);
 
-  const statusCounts = useMemo(() => {
-    const c: Record<string, number> = { backlog: 0, ready: 0, "in-progress": 0, verify: 0, done: 0 };
-    for (const t of snapshot.tickets) if (t.status in c) c[t.status]++;
-    return c;
-  }, [snapshot.tickets]);
-
-  const initiativesWithCounts = useMemo(
+  const planningQueue = useMemo(
     () =>
-      snapshot.initiatives.map((init) => ({
-        ...init,
-        ticketCount: snapshot.tickets.filter((t) => t.initiativeId === init.id).length,
-        doneCount: snapshot.tickets.filter((t) => t.initiativeId === init.id && t.status === "done").length,
-        activeCount: snapshot.tickets.filter(
-          (t) => t.initiativeId === init.id && (t.status === "in-progress" || t.status === "ready")
-        ).length,
-      })),
-    [snapshot.initiatives, snapshot.tickets]
+      snapshot.initiatives
+        .map((initiative) => {
+          const unresolvedReviews = snapshot.planningReviews.filter(
+            (review) =>
+              review.initiativeId === initiative.id &&
+              review.status !== "passed" &&
+              review.status !== "overridden"
+          );
+
+          return {
+            initiative,
+            resumeStep: getInitiativeResumeStep(initiative.workflow),
+            unresolvedReviews
+          };
+        })
+        .sort((left, right) => new Date(right.initiative.updatedAt).getTime() - new Date(left.initiative.updatedAt).getTime()),
+    [snapshot.initiatives, snapshot.planningReviews]
   );
 
-  const recentTickets = useMemo(
+  const readyToRun = useMemo(
     () =>
-      [...snapshot.tickets]
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, 8),
+      snapshot.tickets
+        .filter((ticket) => ticket.status === "ready")
+        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+        .slice(0, 6),
     [snapshot.tickets]
   );
 
-  const recentRuns = useMemo(
+  const needsVerification = useMemo(
     () =>
-      [...snapshot.runs]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      snapshot.tickets
+        .filter((ticket) => ticket.status === "verify")
+        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+        .slice(0, 6),
+    [snapshot.tickets]
+  );
+
+  const recentAuditRuns = useMemo(
+    () =>
+      snapshot.runs
+        .filter((run) => run.type === "audit")
+        .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
         .slice(0, 6),
     [snapshot.runs]
   );
 
-  const ticketForRun = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const run of snapshot.runs) {
-      if (run.ticketId) {
-        const t = snapshot.tickets.find((t) => t.id === run.ticketId);
-        if (t) map.set(run.id, t.title);
-      }
-    }
-    return map;
-  }, [snapshot.runs, snapshot.tickets]);
-
-  const runPassMap = useMemo(() => {
-    const map = new Map<string, boolean | null>();
-    for (const run of snapshot.runs) {
-      if (run.committedAttemptId) {
-        const attempt = snapshot.runAttempts.find(
-          (a) => a.id === run.id && a.attemptId === run.committedAttemptId
-        );
-        map.set(run.id, attempt ? attempt.overallPass : null);
-      } else {
-        map.set(run.id, null);
-      }
-    }
-    return map;
-  }, [snapshot.runs, snapshot.runAttempts]);
-
-  const hasContent = snapshot.initiatives.length > 0 || total > 0 || snapshot.runs.length > 0;
-  const hasListData = recentTickets.length > 0 || recentRuns.length > 0;
+  const hasContent =
+    planningQueue.length > 0 || readyToRun.length > 0 || needsVerification.length > 0 || recentAuditRuns.length > 0;
 
   return (
-    <section className="dash">
-      <div className="dash-header">
-        <h2 className="dash-title">Overview</h2>
-        {total > 0 && (
-          <div className="dash-counters">
-            {statusCounts.backlog > 0 && (
-              <span className="dash-counter">
-                <span className="dash-counter-n">{statusCounts.backlog}</span> backlog
-              </span>
-            )}
-            {statusCounts.ready > 0 && (
-              <span className="dash-counter">
-                <span className="dash-counter-n dash-n--accent">{statusCounts.ready}</span> ready
-              </span>
-            )}
-            {statusCounts["in-progress"] > 0 && (
-              <span className="dash-counter">
-                <span className="dash-counter-n dash-n--warn">{statusCounts["in-progress"]}</span> in progress
-              </span>
-            )}
-            {statusCounts.done > 0 && (
-              <span className="dash-counter">
-                <span className="dash-counter-n dash-n--success">{statusCounts.done}</span> done
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {total > 0 && (
-        <div
-          className="dash-progress-bar"
-          title={`${statusCounts.done} done, ${statusCounts["in-progress"]} in-progress, ${statusCounts.verify} verify, ${statusCounts.ready} ready, ${statusCounts.backlog} backlog`}
-        >
-          {statusCounts.done > 0 && <div className="dash-progress-seg" style={{ width: `${(statusCounts.done / total) * 100}%`, background: "var(--success)" }} />}
-          {statusCounts["in-progress"] > 0 && <div className="dash-progress-seg" style={{ width: `${(statusCounts["in-progress"] / total) * 100}%`, background: "var(--warning)" }} />}
-          {statusCounts.verify > 0 && <div className="dash-progress-seg" style={{ width: `${(statusCounts.verify / total) * 100}%`, background: "var(--accent)" }} />}
-          {statusCounts.ready > 0 && <div className="dash-progress-seg" style={{ width: `${(statusCounts.ready / total) * 100}%`, background: "var(--accent)", opacity: 0.4 }} />}
-          {statusCounts.backlog > 0 && <div className="dash-progress-seg" style={{ width: `${(statusCounts.backlog / total) * 100}%`, background: "var(--muted)", opacity: 0.25 }} />}
+    <section className="journey-queue">
+      <header className="journey-queue-header">
+        <div>
+          <div className="planning-shell-kicker">Home</div>
+          <h2 className="journey-queue-title">What needs attention</h2>
+          <p className="journey-queue-copy">
+            SpecFlow is strongest when the next action is obvious. Start new work, continue planning, or move tickets through execution and verification from one queue.
+          </p>
         </div>
-      )}
+        <div className="journey-queue-actions">
+          <Link to="/new-initiative" className="journey-queue-action journey-queue-action-primary">
+            Start planning
+          </Link>
+          <Link to="/new-quick-task" className="journey-queue-action">
+            Quick task
+          </Link>
+          <button type="button" className="journey-queue-action" onClick={onOpenCommandPalette}>
+            Import or search
+          </button>
+        </div>
+      </header>
 
       {hasContent ? (
-        <>
-          {initiativesWithCounts.length > 0 && (
-            <div className="dash-section">
-              <div className="dash-section-head">
-                <span className="dash-section-title">Initiatives</span>
-                <span className="dash-section-count">{snapshot.initiatives.length}</span>
-              </div>
-              <div className="dash-card">
-                {initiativesWithCounts.map((init) => (
-                  <Link key={init.id} to={`/initiative/${init.id}`} className="dash-row">
-                    <span className="dash-dot" style={{ background: INIT_STATUS_COLOR[init.status] ?? "var(--muted)" }} />
-                    <span className="dash-row-main">
-                      <span className="dash-row-title">{init.title}</span>
-                      <span className="dash-row-context">
-                        {init.phases.length} phase{init.phases.length !== 1 ? "s" : ""}&ensp;&middot;&ensp;
-                        {init.ticketCount} ticket{init.ticketCount !== 1 ? "s" : ""}
-                        {init.activeCount > 0 && <>&ensp;&middot;&ensp;<span style={{ color: "var(--warning)" }}>{init.activeCount} active</span></>}
-                        {init.doneCount > 0 && <>&ensp;&middot;&ensp;<span style={{ color: "var(--success)" }}>{init.doneCount} done</span></>}
+        <div className="journey-queue-grid">
+          <div className="journey-queue-section">
+            <div className="journey-queue-section-head">
+              <h3>Continue planning</h3>
+              <span>{planningQueue.length}</span>
+            </div>
+            {planningQueue.length > 0 ? (
+              <div className="journey-queue-card">
+                {planningQueue.map(({ initiative, resumeStep, unresolvedReviews }) => (
+                  <Link key={initiative.id} to={`/initiative/${initiative.id}?step=${resumeStep}`} className="journey-queue-row">
+                    <div className="journey-queue-row-main">
+                      <span className="journey-queue-row-title">{initiative.title}</span>
+                      <span className="journey-queue-row-context">
+                        Next: {INITIATIVE_WORKFLOW_LABELS[resumeStep]}
+                        {unresolvedReviews.length > 0
+                          ? ` · ${unresolvedReviews.length} checkpoint${unresolvedReviews.length === 1 ? "" : "s"} open`
+                          : " · no open checkpoints"}
                       </span>
-                    </span>
-                    <span className="dash-row-right">
-                      <span className={`dash-status-chip dash-status-${init.status}`}>{init.status}</span>
-                      <span className="dash-row-time">{relativeTime(init.updatedAt)}</span>
-                    </span>
+                    </div>
+                    <span className="journey-queue-row-time">{relativeTime(initiative.updatedAt)}</span>
                   </Link>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="journey-queue-empty">No active initiatives yet.</p>
+            )}
+          </div>
 
-          {hasListData && (
-            <div className="dash-grid">
-              <div className="dash-section">
-                <div className="dash-section-head">
-                  <span className="dash-section-title">Recent Tickets</span>
-                  {recentTickets.length > 0 && <Link to="/tickets" className="dash-section-link">All &rarr;</Link>}
-                </div>
-                {recentTickets.length > 0 ? (
-                  <div className="dash-card">
-                    {recentTickets.map((ticket) => (
-                      <Link key={ticket.id} to={`/ticket/${ticket.id}`} className="dash-row">
-                        <span className="dash-dot" style={{ background: TICKET_DOT[ticket.status] ?? "var(--muted)" }} />
-                        <span className="dash-row-main">
-                          <span className="dash-row-title">{ticket.title}</span>
-                          {ticket.initiativeId && initiativeMap.get(ticket.initiativeId) && (
-                            <span className="dash-row-context">{initiativeMap.get(ticket.initiativeId)}</span>
-                          )}
-                        </span>
-                        <span className="dash-row-right">
-                          <span className={`dash-status-chip dash-status-${ticket.status}`}>{ticket.status}</span>
-                          <span className="dash-row-time">{relativeTime(ticket.updatedAt)}</span>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="dash-section-empty">No tickets yet</p>
-                )}
-              </div>
-
-              <div className="dash-section">
-                <div className="dash-section-head">
-                  <span className="dash-section-title">Recent Runs</span>
-                  {recentRuns.length > 0 && <Link to="/runs" className="dash-section-link">All &rarr;</Link>}
-                </div>
-                {recentRuns.length > 0 ? (
-                  <div className="dash-card">
-                    {recentRuns.map((run) => {
-                      const passed = runPassMap.get(run.id);
-                      return (
-                        <Link key={run.id} to={`/run/${run.id}`} className="dash-row">
-                          <span
-                            className="dash-dot"
-                            style={{
-                              background:
-                                passed === true ? "var(--success)" :
-                                passed === false ? "var(--danger)" :
-                                run.status === "pending" ? "var(--warning)" :
-                                "var(--muted)"
-                            }}
-                          />
-                          <span className="dash-row-main">
-                            <span className="dash-row-title">{ticketForRun.get(run.id) ?? run.id}</span>
-                            <span className="dash-row-context">{run.agentType}&ensp;&middot;&ensp;{run.type}</span>
-                          </span>
-                          <span className="dash-row-right">
-                            {passed !== null ? (
-                              <span className="dash-verdict" style={{ color: passed ? "var(--success)" : "var(--danger)" }}>
-                                {passed ? "pass" : "fail"}
-                              </span>
-                            ) : run.status === "pending" ? (
-                              <span className="dash-verdict" style={{ color: "var(--warning)" }}>pending</span>
-                            ) : null}
-                            <span className="dash-row-time">{relativeTime(run.createdAt)}</span>
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="dash-section-empty">No runs yet</p>
-                )}
-              </div>
+          <div className="journey-queue-section">
+            <div className="journey-queue-section-head">
+              <h3>Needs review</h3>
+              <span>{planningQueue.filter((item) => item.unresolvedReviews.length > 0).length}</span>
             </div>
-          )}
-        </>
+            {planningQueue.some((item) => item.unresolvedReviews.length > 0) ? (
+              <div className="journey-queue-card">
+                {planningQueue
+                  .filter((item) => item.unresolvedReviews.length > 0)
+                  .map(({ initiative, unresolvedReviews }) => (
+                    <Link key={initiative.id} to={`/initiative/${initiative.id}`} className="journey-queue-row">
+                      <div className="journey-queue-row-main">
+                        <span className="journey-queue-row-title">{initiative.title}</span>
+                        <span className="journey-queue-row-context">
+                          {unresolvedReviews
+                            .slice(0, 2)
+                            .map((review) => REVIEW_KIND_LABELS[review.kind])
+                            .join(" · ")}
+                        </span>
+                      </div>
+                      <span className="journey-queue-row-time">{relativeTime(initiative.updatedAt)}</span>
+                    </Link>
+                  ))}
+              </div>
+            ) : (
+              <p className="journey-queue-empty">No planning checkpoints are waiting right now.</p>
+            )}
+          </div>
+
+          <div className="journey-queue-section">
+            <div className="journey-queue-section-head">
+              <h3>Ready to run</h3>
+              <span>{readyToRun.length}</span>
+            </div>
+            {readyToRun.length > 0 ? (
+              <div className="journey-queue-card">
+                {readyToRun.map((ticket) => (
+                  <Link key={ticket.id} to={`/ticket/${ticket.id}`} className="journey-queue-row">
+                    <div className="journey-queue-row-main">
+                      <span className="journey-queue-row-title">{ticket.title}</span>
+                      <span className="journey-queue-row-context">
+                        {ticket.initiativeId ? initiativeMap.get(ticket.initiativeId) ?? "Initiative ticket" : "Quick task"}
+                      </span>
+                    </div>
+                    <span className="journey-queue-row-time">{relativeTime(ticket.updatedAt)}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="journey-queue-empty">No tickets are ready to start.</p>
+            )}
+          </div>
+
+          <div className="journey-queue-section">
+            <div className="journey-queue-section-head">
+              <h3>Needs verification</h3>
+              <span>{needsVerification.length}</span>
+            </div>
+            {needsVerification.length > 0 ? (
+              <div className="journey-queue-card">
+                {needsVerification.map((ticket) => (
+                  <Link key={ticket.id} to={`/ticket/${ticket.id}`} className="journey-queue-row">
+                    <div className="journey-queue-row-main">
+                      <span className="journey-queue-row-title">{ticket.title}</span>
+                      <span className="journey-queue-row-context">Verification still needs a committed result.</span>
+                    </div>
+                    <span className="journey-queue-row-time">{relativeTime(ticket.updatedAt)}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="journey-queue-empty">No tickets are waiting for verification.</p>
+            )}
+          </div>
+
+          <div className="journey-queue-section journey-queue-section-wide">
+            <div className="journey-queue-section-head">
+              <h3>Recent audit activity</h3>
+              <span>{recentAuditRuns.length}</span>
+            </div>
+            {recentAuditRuns.length > 0 ? (
+              <div className="journey-queue-card">
+                {recentAuditRuns.map((run) => (
+                  <Link key={run.id} to={`/run/${run.id}`} className="journey-queue-row">
+                    <div className="journey-queue-row-main">
+                      <span className="journey-queue-row-title">{run.id}</span>
+                      <span className="journey-queue-row-context">
+                        {run.ticketId ? initiativeMap.get(snapshot.tickets.find((ticket) => ticket.id === run.ticketId)?.initiativeId ?? "") ?? "Ticket-linked audit" : "Standalone audit"}
+                      </span>
+                    </div>
+                    <span className="journey-queue-row-time">{relativeTime(run.createdAt)}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="journey-queue-empty">No recent audit runs.</p>
+            )}
+          </div>
+        </div>
       ) : (
-        <div className="dash-empty-state">
-          <p className="dash-empty-lead">No work yet</p>
-          <p className="dash-empty-hint">
-            Create an initiative to start planning, or import a ticket to jump into execution. Press <kbd className="dash-kbd">{modKey}+K</kbd> for quick actions.
+        <div className="journey-queue-empty-state">
+          <p className="journey-queue-empty-lead">No work is in motion yet.</p>
+          <p className="journey-queue-empty-copy">
+            Start planning for multi-step work, use a quick task for something small, or open <kbd className="dash-kbd">{modKey}+K</kbd> to import an issue.
           </p>
         </div>
       )}

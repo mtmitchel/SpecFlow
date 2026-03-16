@@ -27,9 +27,10 @@ All four workflows are functional: Groundwork, Milestone Run, Quick Build, and D
 
 Key capabilities in the current version (0.1.0):
 
-- Master-detail layout: navigator tree sidebar (aggregate views, initiatives, phases, tickets, quick tasks) + detail workspace
+- Action-oriented home plus a master-detail workspace: navigator tree sidebar (aggregate views, initiatives, phases, tickets, quick tasks) + detail workspace
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
-- Progressive planning: Brief -> Core flows -> PRD -> Tech spec -> Tickets
+- Contained planning spectrum: Brief -> Core flows -> PRD -> Tech spec -> Tickets inside one shared shell
+- Mandatory brief intake before the first brief is generated
 - Persisted review gates and cross-checks across planning artifacts
 - Traceability-backed planning with artifact sidecar trace outlines
 - Spec-driven ticket planning with repo context scanning (grounded file targets)

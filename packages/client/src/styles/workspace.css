@@ -1,0 +1,113 @@
+/* WorkspaceShell: master-detail two-column layout */
+.workspace-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "nav detail"
+    "nav status";
+  min-height: 100vh;
+}
+
+.workspace-navigator {
+  grid-area: nav;
+  border-right: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(72, 203, 255, 0.08), rgba(72, 203, 255, 0));
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.workspace-detail {
+  grid-area: detail;
+  overflow-y: auto;
+  padding: 1.2rem;
+}
+
+.workspace-status-bar {
+  grid-area: status;
+  grid-column: 2;
+  border-top: 1px solid var(--panel-border);
+  padding: 0.4rem 1.2rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.workspace-nav-toggle {
+  display: none;
+  position: fixed;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 110;
+  background: var(--surface-button);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.workspace-nav-toggle:hover {
+  opacity: 0.8;
+}
+
+.workspace-nav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.section-header p {
+  margin-top: 0.3rem;
+  color: var(--muted);
+}
+
+.settings-form input,
+.settings-form select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text-light);
+  border-radius: var(--radius-pill);
+  padding: 0.12rem 0.55rem;
+  font-size: 0.72rem;
+}
+
+.badge.warn {
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.badge.danger {
+  border-color: var(--danger-border);
+  color: var(--danger-text-light);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 0.7rem;
+  padding: 0.95rem;
+}
+

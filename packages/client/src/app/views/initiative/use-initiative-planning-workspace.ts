@@ -34,6 +34,7 @@ import {
   REVIEWS_BY_STEP
 } from "../../utils/initiative-workflow.js";
 import {
+  type PlanningJourneyStage,
   PHASE_TRANSITIONS,
   TICKET_COVERAGE_REVIEW_KIND,
   isQuestionResolved,
@@ -129,6 +130,7 @@ export const useInitiativePlanningWorkspace = (
     }) ??
       null);
   const requestedStep = searchParams.get("step");
+  const handoff = searchParams.get("handoff");
   const resumeStep = initiative ? reviewBlockedStep ?? getInitiativeResumeStep(initiative.workflow) : "brief";
   const activeStep: InitiativePlanningStep =
     initiative && canOpenInitiativeStep(initiative.workflow, initiativeReviews, initiative.id, requestedStep)
@@ -140,6 +142,14 @@ export const useInitiativePlanningWorkspace = (
       setSearchParams({ step: activeStep }, { replace: true });
     }
   }, [activeStep, initiative, requestedStep, setSearchParams]);
+
+  useEffect(() => {
+    if (!initiative || !handoff) {
+      return;
+    }
+
+    setSearchParams({ step: activeStep }, { replace: true });
+  }, [activeStep, handoff, initiative, setSearchParams]);
 
   const activeSpecStep: SpecStep | null = activeStep === "tickets" ? null : activeStep;
   const activeRefinement = initiative && activeSpecStep ? initiative.workflow.refinements[activeSpecStep] : null;
@@ -207,6 +217,22 @@ export const useInitiativePlanningWorkspace = (
   const blockingReviewBeforeActiveStep = REQUIRED_REVIEWS_BEFORE_STEP(activeStep).find(
     (kind) => !isResolvedReview(getReview(kind))
   );
+  const ticketReviewsResolved =
+    !ticketCoverageReview || ticketCoverageReview.status === "passed" || ticketCoverageReview.status === "overridden";
+  const activeStage: PlanningJourneyStage =
+    activeStep === "tickets"
+      ? initiativeTickets.length === 0
+        ? "draft"
+        : ticketReviewsResolved
+          ? "complete"
+          : "checkpoint"
+      : !hasActiveContent
+        ? !activeRefinement?.checkedAt || hasRefinementQuestions
+          ? "consult"
+          : "draft"
+        : stepStatus === "stale" || unresolvedReviewsForActiveStep.length > 0
+          ? "checkpoint"
+          : "complete";
 
   useEffect(() => {
     if (!initiative || !activeSpecStep || editingStep !== activeSpecStep) {
@@ -295,6 +321,7 @@ export const useInitiativePlanningWorkspace = (
   };
 
   const navigateToStep = (step: InitiativePlanningStep): void => {
+    setTransitionNotice(null);
     setSearchParams({ step });
   };
 
@@ -338,11 +365,17 @@ export const useInitiativePlanningWorkspace = (
       const result = await checkInitiativePhase(initiative.id, step);
       await onRefresh();
       setRefinementAssumptions(result.assumptions);
-
-      if (result.decision === "proceed") {
-        setBusyAction(`generate-${step}`);
-        await generateSpec(step);
-      }
+      setTransitionNotice(
+        result.decision === "ask"
+          ? {
+              heading: `${INITIATIVE_WORKFLOW_LABELS[step]} intake ready`,
+              body: `Answer the questions below before you generate the ${INITIATIVE_WORKFLOW_LABELS[step].toLowerCase()}.`
+            }
+          : {
+              heading: `${INITIATIVE_WORKFLOW_LABELS[step]} intake complete`,
+              body: `The decisions for this step are in place. Generate the ${INITIATIVE_WORKFLOW_LABELS[step].toLowerCase()} when you are ready.`
+            }
+      );
     });
   };
 
@@ -505,6 +538,7 @@ export const useInitiativePlanningWorkspace = (
     initiativeReviews,
     initiativeTickets,
     linkedRuns,
+    activeStage,
     ticketCoverageArtifact,
     ticketCoverageReview,
     uncoveredCoverageItems,

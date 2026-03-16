@@ -5,6 +5,7 @@ import type { RunDetail } from "../../types.js";
 import { DiffViewer } from "../components/diff-viewer.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { AuditPanel } from "../components/audit-panel.js";
+import { WorkflowSection } from "../components/workflow-section.js";
 
 export const RunView = () => {
   const params = useParams<{ id: string }>();
@@ -101,49 +102,55 @@ export const RunView = () => {
   ];
 
   return (
-    <section>
-      <header className="section-header">
-        <h2>{detail.run.id}</h2>
-        <p>
-          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"} ·{" "}
-          {detail.run.agentType} · {detail.run.type}
-        </p>
+    <section className="ticket-journey">
+      <header className="section-header ticket-journey-header">
+        <div>
+          <div className="planning-shell-kicker">Run report</div>
+          <h2>{detail.run.id}</h2>
+          <p>
+            {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"} ·{" "}
+            {detail.run.agentType} · {detail.run.type}
+          </p>
+        </div>
+        {detail.ticket ? (
+          <div className="button-row" style={{ marginBottom: 0 }}>
+            <Link to={`/ticket/${detail.ticket.id}`}>Back to ticket</Link>
+          </div>
+        ) : null}
       </header>
 
       {detail.operationState === "abandoned" ||
       detail.operationState === "superseded" ||
       detail.operationState === "failed" ? (
-        <div className="status-banner warn">
-          This run ended {detail.operationState}. Start a new run from{" "}
-          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>ticket actions</Link> : "the linked ticket"}.
-          {detail.ticket ? (
+        <div className="ticket-preflight-card">
+          <div className="ticket-preflight-item ticket-preflight-item-warn">
+            <strong>Run ended early</strong>
             <span>
-              {" "}
-              <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link>
+              This run ended {detail.operationState}. Start the next run from the ticket so the execution history stays attached to the same work item.
             </span>
-          ) : null}
+            {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link> : null}
+          </div>
         </div>
       ) : null}
 
       <div className="panel">
-        <div className="button-row">
-          <strong>Verification:</strong>{" "}
-          {verificationPass === null ? "Not run yet" : verificationPass ? "Passed" : "Failed"}
-          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link> : null}
-          <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-            {showAuditPanel ? "Hide drift review" : "Review drift"}
-          </button>
-        </div>
+        <WorkflowSection title="Report summary" badge={verificationPass === null ? "No verdict yet" : verificationPass ? "Pass" : "Fail"} defaultOpen>
+          <div className="button-row">
+            <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
+              {showAuditPanel ? "Hide drift review" : "Review drift"}
+            </button>
+          </div>
 
-        {showAuditPanel ? <AuditPanel runId={detail.run.id} defaultScopePaths={detail.ticket?.fileTargets ?? []} /> : null}
+          {showAuditPanel ? <AuditPanel runId={detail.run.id} defaultScopePaths={detail.ticket?.fileTargets ?? []} /> : null}
 
-        <h3>Included files</h3>
-        <ul>
-          {bundleFiles.length === 0 ? <li>No bundled files were recorded for the committed attempt.</li> : bundleFiles.map((entry) => <li key={entry}>{entry}</li>)}
-        </ul>
+          <h4>Included files</h4>
+          <ul>
+            {bundleFiles.length === 0 ? <li>No bundled files were recorded for the committed attempt.</li> : bundleFiles.map((entry) => <li key={entry}>{entry}</li>)}
+          </ul>
 
-        <h3>Run summary</h3>
-        <MarkdownView content={detail.committed?.attempt?.agentSummary || "(no summary provided)"} />
+          <h4>Agent summary</h4>
+          <MarkdownView content={detail.committed?.attempt?.agentSummary || "(no summary provided)"} />
+        </WorkflowSection>
 
         {detail.committed?.primaryDiff ? <DiffViewer title="Changes" diff={detail.committed.primaryDiff} /> : <p>No captured changes for this run.</p>}
 
@@ -159,19 +166,25 @@ export const RunView = () => {
           </div>
         ) : null}
 
-        <h3>Attempts</h3>
-        <ul>
-          {detail.attempts.length === 0 ? (
-            <li>No attempts recorded.</li>
-          ) : (
-            detail.attempts.map((attempt) => (
-              <li key={attempt.id}>
-                {attempt.attemptId} · {attempt.overallPass ? "pass" : "fail"} · {new Date(attempt.createdAt).toLocaleString()}
-                {attempt.overrideReason ? ` · override: ${attempt.overrideReason}` : ""}
+        <WorkflowSection title="Attempt history" badge={`${detail.attempts.length} attempt${detail.attempts.length === 1 ? "" : "s"}`} defaultOpen>
+          <ul className="planning-ticket-list">
+            {detail.attempts.length === 0 ? (
+              <li>
+                <span>No attempts recorded.</span>
               </li>
-            ))
-          )}
-        </ul>
+            ) : (
+              detail.attempts.map((attempt) => (
+                <li key={attempt.id}>
+                  <span>
+                    {attempt.attemptId} · {attempt.overallPass ? "pass" : "fail"}
+                    {attempt.overrideReason ? ` · override: ${attempt.overrideReason}` : ""}
+                  </span>
+                  <span>{new Date(attempt.createdAt).toLocaleString()}</span>
+                </li>
+              ))
+            )}
+          </ul>
+        </WorkflowSection>
       </div>
     </section>
   );

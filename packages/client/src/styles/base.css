@@ -1,0 +1,105 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg: radial-gradient(circle at 10% 0%, #223b53 0%, #10151f 35%, #090d14 100%);
+  --panel: rgba(16, 24, 38, 0.82);
+  --panel-border: rgba(152, 188, 220, 0.24);
+  --text: #e8f1ff;
+  --muted: #8ea7c3;
+  --accent: #48cbff;
+  --success: #50d493;
+  --warning: #f3bb52;
+  --danger: #ff7f78;
+
+  /* Surface tokens */
+  --surface-deep: rgba(8, 12, 20, 0.7);
+  --surface-raised: rgba(20, 35, 55, 0.72);
+  --surface-button: rgba(20, 34, 52, 0.5);
+  --surface-dropdown: rgb(16, 24, 38);
+
+  /* Accent variants */
+  --accent-bg-subtle: rgba(72, 203, 255, 0.08);
+  --accent-bg: rgba(72, 203, 255, 0.14);
+  --accent-bg-active: rgba(72, 203, 255, 0.18);
+  --accent-border-faint: rgba(72, 203, 255, 0.2);
+  --accent-border-subtle: rgba(72, 203, 255, 0.3);
+  --accent-border: rgba(72, 203, 255, 0.55);
+  --accent-text: #d6f4ff;
+  --accent-text-light: #bdefff;
+
+  /* Warning variants */
+  --warning-bg: rgba(243, 187, 82, 0.12);
+  --warning-border: rgba(243, 187, 82, 0.5);
+  --warning-border-subtle: rgba(243, 187, 82, 0.4);
+  --warning-text: #ffebc3;
+
+  /* Danger variants */
+  --danger-bg: rgba(255, 127, 120, 0.14);
+  --danger-border: rgba(255, 127, 120, 0.45);
+  --danger-text: #ffd3d1;
+  --danger-text-light: #ffc3bf;
+  --danger-text-muted: #ffada8;
+
+  /* Success variants */
+  --success-bg: rgba(80, 212, 147, 0.14);
+  --success-border: rgba(80, 212, 147, 0.55);
+  --success-text: #cfffe5;
+
+  /* Muted variants */
+  --muted-bg: rgba(142, 167, 195, 0.12);
+  --muted-border: rgba(142, 167, 195, 0.3);
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Transitions */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+.loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  gap: 1rem;
+  text-align: center;
+}
+
+.loading-brand {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+
+@keyframes pulse-fade {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.loading-text {
+  animation: pulse-fade 1.6s ease-in-out infinite;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+

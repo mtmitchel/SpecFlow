@@ -2,6 +2,75 @@ import { describe, expect, it } from "vitest";
 import { createServerFixture } from "../helpers/server-fixture.js";
 
 describe("initiative routes", () => {
+  it("returns required brief consultation questions for a fresh initiative", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const createResponse = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/initiatives",
+        payload: { description: "Build auth" }
+      });
+      expect(createResponse.statusCode).toBe(201);
+      const { initiativeId } = createResponse.json() as { initiativeId: string };
+
+      const briefCheck = await fixture.server.app.inject({
+        method: "POST",
+        url: `/api/initiatives/${initiativeId}/brief-check`
+      });
+
+      expect(briefCheck.statusCode).toBe(200);
+      const briefCheckPayload = briefCheck.json() as {
+        decision: string;
+        assumptions: string[];
+        questions: unknown[];
+      };
+      expect(briefCheckPayload).toMatchObject({
+        decision: "ask",
+        assumptions: []
+      });
+      expect(briefCheckPayload.questions).toHaveLength(4);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("blocks brief generation until the required consultation is completed", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const createResponse = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/initiatives",
+        payload: { description: "Build auth" }
+      });
+      expect(createResponse.statusCode).toBe(201);
+      const { initiativeId } = createResponse.json() as { initiativeId: string };
+
+      const spoofCheckedAt = await fixture.server.app.inject({
+        method: "PATCH",
+        url: `/api/initiatives/${initiativeId}/refinement/brief`,
+        payload: {
+          answers: {},
+          defaultAnswerQuestionIds: []
+        }
+      });
+      expect(spoofCheckedAt.statusCode).toBe(200);
+
+      const generateBrief = await fixture.server.app.inject({
+        method: "POST",
+        url: `/api/initiatives/${initiativeId}/generate-brief`
+      });
+
+      expect(generateBrief.statusCode).toBe(409);
+      expect(generateBrief.json().message).toBe(
+        "Complete the required Brief consultation before creating this artifact"
+      );
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("updates phases and saves a single spec", async () => {
     const fixture = await createServerFixture();
 

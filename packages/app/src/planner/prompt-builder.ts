@@ -129,20 +129,34 @@ const buildCheckPrompt = (
   input: PhaseCheckInput,
   maxQuestions: number,
   artifactDescription: string
-): PromptBuildResult => ({
-  systemPrompt,
-  userPrompt: [
-    `Decide whether SpecFlow can create the ${artifactDescription} now or must ask targeted blocker questions first.`,
-    "Rules:",
-    '- Default to "proceed". Ask questions only when missing information would materially change the current artifact and would be costly to unwind later.',
-    `- You may ask at most ${maxQuestions} question${maxQuestions === 1 ? "" : "s"}.`,
-    "- If you ask, every question must explain why it blocks this artifact, include an assumptionIfUnanswered, and use finite options whenever reasonable.",
-    "- If you can proceed, return an empty questions array and include any explicit assumptions you are making.",
-    "- Do not ask broad discovery questions. Ask only about blockers for this artifact.",
-    "- Use text questions only when the answer cannot be represented as a finite set of meaningful options.",
-    ...getArtifactSections(input)
-  ].join("\n\n")
-});
+): PromptBuildResult => {
+  const requiresInitialConsultation = input.phase === "brief" && input.requiresInitialConsultation;
+
+  return {
+    systemPrompt,
+    userPrompt: [
+      `Decide whether SpecFlow can create the ${artifactDescription} now or must ask targeted blocker questions first.`,
+      "Rules:",
+      ...(requiresInitialConsultation
+        ? [
+            '- This is the first required Brief consultation for a fresh initiative. You must return "ask".',
+            "- Ask exactly 4 short consultation questions that cover the primary problem, primary first-release user, success criteria, and hard constraints or platform/package targets.",
+            "- Do not return proceed or an empty questions array for this first Brief consultation."
+          ]
+        : [
+            '- Default to "proceed". Ask questions only when missing information would materially change the current artifact and would be costly to unwind later.'
+          ]),
+      `- You may ask at most ${maxQuestions} question${maxQuestions === 1 ? "" : "s"}.`,
+      "- If you ask, every question must explain why it blocks this artifact, include an assumptionIfUnanswered, and use finite options whenever reasonable.",
+      ...(requiresInitialConsultation
+        ? []
+        : ["- If you can proceed, return an empty questions array and include any explicit assumptions you are making."]),
+      "- Do not ask broad discovery questions. Ask only about blockers for this artifact.",
+      "- Use text questions only when the answer cannot be represented as a finite set of meaningful options.",
+      ...getArtifactSections(input)
+    ].join("\n\n")
+  };
+};
 
 const buildGenerationPrompt = (
   systemPrompt: string,
@@ -207,7 +221,7 @@ export const buildPlannerPrompt = (
   ].join("\n\n");
 
   if (job === "brief-check") {
-    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, 2, "Brief");
+    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, 4, "Brief");
   }
 
   if (job === "core-flows-check") {

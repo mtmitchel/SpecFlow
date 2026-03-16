@@ -4,8 +4,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { specflowDir } from "../src/io/paths.js";
 import type { LlmClient, LlmRequest, LlmTokenHandler } from "../src/llm/client.js";
+import { buildPlannerPrompt } from "../src/planner/prompt-builder.js";
 import { parseJsonEnvelope } from "../src/planner/json-parser.js";
 import { PlannerService } from "../src/planner/planner-service.js";
+import { updateRefinementState } from "../src/planner/workflow-state.js";
 import { ArtifactStore } from "../src/store/artifact-store.js";
 
 class MockLlmClient implements LlmClient {
@@ -54,7 +56,45 @@ const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   await writeFile(path.join(base, "AGENTS.md"), "team-rules: always include tests\n", "utf8");
 };
 
+const resolveBriefConsultation = async (
+  store: ArtifactStore,
+  initiativeId: string,
+  defaultAnswerQuestionIds: string[]
+): Promise<void> => {
+  const initiative = store.initiatives.get(initiativeId);
+  if (!initiative) {
+    throw new Error(`Initiative ${initiativeId} not found in test fixture`);
+  }
+
+  await store.upsertInitiative({
+    ...initiative,
+    workflow: updateRefinementState(initiative.workflow, "brief", {
+      defaultAnswerQuestionIds,
+      checkedAt: initiative.workflow.refinements.brief.checkedAt ?? "2026-02-27T20:00:00.000Z"
+    }),
+    updatedAt: "2026-02-27T20:00:00.000Z"
+  });
+};
+
 describe("PlannerService", () => {
+  it("marks the first brief-check prompt as required starter consultation", () => {
+    const prompt = buildPlannerPrompt(
+      "brief-check",
+      {
+        initiativeDescription: "Build auth",
+        phase: "brief",
+        briefMarkdown: "",
+        savedContext: {},
+        requiresInitialConsultation: true
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain("first required Brief consultation for a fresh initiative");
+    expect(prompt.userPrompt).toContain('You must return "ask"');
+    expect(prompt.userPrompt).toContain("Ask exactly 4 short consultation questions");
+  });
+
   it("includes AGENTS.md content in prompts for phase checks, phase generation, plan, and triage", async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-prompts-"));
     await createSpecflowLayout(rootDir);
@@ -164,6 +204,18 @@ describe("PlannerService", () => {
       });
 
       const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      const initialBriefConsultation = await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "brief"
+      });
+      expect(initialBriefConsultation.decision).toBe("ask");
+      expect(initialBriefConsultation.questions).toHaveLength(4);
+      expect(mockClient.requests).toHaveLength(0);
+      await resolveBriefConsultation(
+        store,
+        initiative.id,
+        initialBriefConsultation.questions.map((question) => question.id)
+      );
       await planner.runPhaseCheckJob({
         initiativeId: initiative.id,
         step: "brief"
@@ -197,6 +249,7 @@ describe("PlannerService", () => {
 
       expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
       expect(mockClient.requests).toHaveLength(19);
+      expect(mockClient.requests[0]?.userPrompt).toContain('Default to "proceed"');
       for (const req of mockClient.requests) {
         expect(req.systemPrompt).toContain("team-rules: always include tests");
         expect(req.provider).toBe("openrouter");
@@ -393,6 +446,15 @@ describe("PlannerService", () => {
       });
 
       const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      const initialBriefConsultation = await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "brief"
+      });
+      await resolveBriefConsultation(
+        store,
+        initiative.id,
+        initialBriefConsultation.questions.map((question) => question.id)
+      );
       await planner.runBriefJob({ initiativeId: initiative.id });
       await planner.runCoreFlowsJob({ initiativeId: initiative.id });
       await planner.runPrdJob({ initiativeId: initiative.id });
@@ -492,6 +554,15 @@ describe("PlannerService", () => {
       });
 
       const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      const initialBriefConsultation = await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "brief"
+      });
+      await resolveBriefConsultation(
+        store,
+        initiative.id,
+        initialBriefConsultation.questions.map((question) => question.id)
+      );
       await planner.runBriefJob({ initiativeId: initiative.id });
       await planner.runCoreFlowsJob({ initiativeId: initiative.id });
       await planner.runPrdJob({ initiativeId: initiative.id });
@@ -500,6 +571,71 @@ describe("PlannerService", () => {
       await expect(planner.runPlanJob({ initiativeId: initiative.id })).rejects.toThrow(
         'Coverage item "coverage-core-flows-flows-1" is missing from the generated plan'
       );
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("requires the initial brief consultation before generating the first brief", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-brief-consult-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-5";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        apiKey: "",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            markdown: "# Brief",
+            traceOutline: traceOutline("Brief")
+          }),
+          JSON.stringify(reviewResult("Brief review"))
+        ]),
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "consult1"
+      });
+
+      const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      const consultation = await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "brief"
+      });
+
+      expect(consultation.decision).toBe("ask");
+      expect(consultation.questions).toHaveLength(4);
+      await expect(planner.runBriefJob({ initiativeId: initiative.id })).rejects.toThrow(
+        "Complete the required Brief consultation before creating this artifact"
+      );
+
+      await resolveBriefConsultation(
+        store,
+        initiative.id,
+        consultation.questions.map((question) => question.id)
+      );
+
+      await expect(planner.runBriefJob({ initiativeId: initiative.id })).resolves.toMatchObject({
+        markdown: "# Brief"
+      });
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });

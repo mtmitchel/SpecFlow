@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchOperationStatus } from "../../api.js";
 import type {
@@ -23,6 +23,15 @@ import { ExportSection } from "./ticket/export-section.js";
 import { CaptureVerifySection } from "./ticket/capture-verify-section.js";
 import { VerificationResultsSection } from "./ticket/verification-results-section.js";
 
+const COVERAGE_GATE_MESSAGE = "Resolve the coverage check before starting execution for this ticket.";
+
+interface TicketPreflightIssue {
+  tone: "warn";
+  title: string;
+  body: string;
+  action: ReactNode | null;
+}
+
 export const TicketView = ({
   tickets,
   runs,
@@ -44,7 +53,6 @@ export const TicketView = ({
 }) => {
   const params = useParams<{ id: string }>();
   const { showError } = useToast();
-  const [activeTab, setActiveTab] = useState<"plan" | "runs">("plan");
   const [operationState, setOperationState] = useState<string | null>(null);
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const [moveToStatus, setMoveToStatus] = useState<TicketStatus | "">("");
@@ -53,14 +61,12 @@ export const TicketView = ({
   const run = runs.find((item) => item.id === ticket?.runId);
   const attempts = runAttempts.filter((attempt) => run?.attempts.includes(attempt.attemptId));
 
-  // Reset per-ticket state when navigating to a different ticket
   const prevTicketId = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (params.id !== prevTicketId.current) {
       prevTicketId.current = params.id;
       setMoveToStatus("");
       setShowAuditPanel(false);
-      setActiveTab("plan");
     }
   }, [params.id]);
 
@@ -116,33 +122,77 @@ export const TicketView = ({
     ticket.status === "done"
       ? "done"
       : verify.verificationResult
-      ? "verify"
-      : exportWf.exportResult || run
-      ? "agent"
-      : "export";
+        ? "verify"
+        : exportWf.exportResult || run
+          ? "agent"
+          : "export";
+
+  const preflightIssues = [
+    coverageBlocked && initiative
+      ? {
+          tone: "warn" as const,
+          title: "Coverage gate",
+          body: COVERAGE_GATE_MESSAGE,
+          action: <Link to={`/initiative/${initiative.id}?step=tickets`}>Open the initiative tickets step</Link>
+        }
+      : null,
+    hasUnfinishedBlockers
+      ? {
+          tone: "warn" as const,
+          title: "Blocked by other tickets",
+          body: blockerTickets.map((blocker) => `${blocker.title} (${blocker.status})`).join(", "),
+          action: null
+        }
+      : null,
+    phaseWarning.hasWarning
+      ? {
+          tone: "warn" as const,
+          title: "Phase warning",
+          body: phaseWarning.message,
+          action: null
+        }
+      : null,
+    operationState === "abandoned" || operationState === "superseded" || operationState === "failed"
+      ? {
+          tone: "warn" as const,
+          title: "Previous run ended early",
+          body: `The last execution ended ${operationState}. Export a fresh bundle before you continue.`,
+          action: null
+        }
+      : null,
+    verify.verifyState === "reconnecting"
+      ? {
+          tone: "warn" as const,
+          title: "Verification reconnecting",
+          body: "The verification stream is reconnecting. Results will refresh automatically.",
+          action: null
+        }
+      : null
+  ] as Array<TicketPreflightIssue | null>;
+  const visiblePreflightIssues = preflightIssues.filter((issue): issue is TicketPreflightIssue => issue !== null);
 
   return (
-    <section>
-      <header className="section-header">
-        <h2>{ticket.title}</h2>
-        <p>{ticket.description}</p>
-        {run ? (
-          <div className="button-row">
-            <Link to={`/run/${run.id}`}>Review run</Link>
-            <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-              {showAuditPanel ? "Hide drift review" : "Review drift"}
-            </button>
+    <section className="ticket-journey">
+      <header className="section-header ticket-journey-header">
+        <div>
+          <div className="planning-shell-kicker">Execution</div>
+          <h2>{ticket.title}</h2>
+          <p>{ticket.description}</p>
+          <div className="ticket-journey-links">
+            {initiative ? <Link to={`/initiative/${initiative.id}?step=tickets`}>Back to initiative</Link> : null}
+            {run ? <Link to={`/run/${run.id}`}>Open run report</Link> : null}
           </div>
-        ) : null}
+        </div>
         {validTransitions.length > 0 ? (
-          <div className="button-row">
-            <select
-              value={moveToStatus}
-              onChange={(e) => setMoveToStatus(e.target.value as TicketStatus)}
-            >
-              <option value="" disabled>Change status</option>
+          <div className="button-row" style={{ marginBottom: 0 }}>
+            <select value={moveToStatus} onChange={(e) => setMoveToStatus(e.target.value as TicketStatus)}>
+              <option value="" disabled>
+                Change status
+              </option>
               {validTransitions.map((col) => (
-                <option key={col.key} value={col.key}>{col.label}</option>
+                <option key={col.key} value={col.key}>
+                  {col.label}
+                </option>
               ))}
             </select>
             <button
@@ -164,180 +214,171 @@ export const TicketView = ({
         ) : null}
       </header>
 
-      {operationState === "abandoned" || operationState === "superseded" || operationState === "failed" ? (
-        <div className="status-banner">
-          The previous execution did not complete. Start a new run from the plan tab.
-          <span>
-            {" "}
-            <button type="button" onClick={() => setActiveTab("plan")}>
-              Return to plan
-            </button>
-          </span>
+      <div className="ticket-preflight-card">
+        <div className="ticket-preflight-top">
+          <div>
+            <div className="planning-stage-chip">Preflight</div>
+            <h3>Check blockers before you run</h3>
+          </div>
+          <div className="ticket-preflight-next">
+            {visiblePreflightIssues.length > 0 ? "Next action required" : "Ready to execute"}
+          </div>
         </div>
-      ) : null}
 
-      {phaseWarning.hasWarning ? <div className="status-banner warn">{phaseWarning.message}</div> : null}
-      {coverageBlocked && initiative ? (
-        <div className="status-banner warn">
-          Resolve the coverage check before starting execution for this ticket.{" "}
-          <Link to={`/initiative/${initiative.id}?step=tickets`}>Open the tickets step</Link>
-        </div>
-      ) : null}
-      {blockerTickets.length > 0 ? (
-        <div className={hasUnfinishedBlockers ? "status-banner warn" : "status-banner"}>
-          {hasUnfinishedBlockers ? "Blocked by: " : "Dependencies (all done): "}
-          {blockerTickets.map((blocker, index) => (
-            <span key={blocker.id}>
-              {index > 0 ? ", " : ""}
-              <Link to={`/ticket/${blocker.id}`}>{blocker.title}</Link>
-              {" "}({blocker.status})
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {verify.verifyState === "reconnecting" ? (
-        <div className="status-banner warn">Reconnecting. Results will refresh automatically.</div>
-      ) : null}
-
-      {showAuditPanel && run ? <AuditPanel runId={run.id} defaultScopePaths={ticket.fileTargets} /> : null}
-
-      <div className="tab-row" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "plan"}
-          className={activeTab === "plan" ? "tab active" : "tab"}
-          onClick={() => setActiveTab("plan")}
-        >
-          Plan
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "runs"}
-          className={activeTab === "runs" ? "tab active" : "tab"}
-          onClick={() => setActiveTab("runs")}
-        >
-          Runs
-        </button>
+        {visiblePreflightIssues.length > 0 ? (
+          <div className="ticket-preflight-list">
+            {visiblePreflightIssues.map((issue) => (
+              <div key={issue.title} className={`ticket-preflight-item ticket-preflight-item-${issue.tone}`}>
+                <strong>{issue.title}</strong>
+                <span>{issue.body}</span>
+                {issue.action}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="ticket-preflight-ready">
+            This ticket has no execution blockers. Export the bundle, capture the work, then verify the result in the sections below.
+          </p>
+        )}
       </div>
 
-      {activeTab === "plan" ? (
-        <div className="panel">
-          <WorkflowStepper currentPhase={workflowPhase} />
+      <div className="panel">
+        <WorkflowStepper currentPhase={workflowPhase} />
 
-          <WorkflowSection title="Plan" badge={`${ticket.acceptanceCriteria.length} criteria`} defaultOpen>
-            {ticket.initiativeId ? (
-              <>
-                <h4>Covered spec items</h4>
-                {coveredItems.length === 0 ? (
-                  <p style={{ color: "var(--muted)" }}>
-                    No covered spec items are linked to this ticket yet.
-                  </p>
-                ) : (
-                  Object.entries(groupedCoveredItems).map(([step, items]) => (
-                    <div key={step}>
-                      <span className="qa-label">{step}</span>
-                      <ul>
-                        {items.map((item) => (
-                          <li key={item.id}>{item.text}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))
-                )}
-              </>
-            ) : null}
-            <h4>Acceptance Criteria</h4>
-            <ul>
-              {ticket.acceptanceCriteria.map((criterion) => (
-                <li key={criterion.id}>{criterion.text}</li>
-              ))}
-            </ul>
-            <h4>Implementation Plan</h4>
-            <pre>{ticket.implementationPlan || "No implementation plan generated yet"}</pre>
-            <h4>File Targets</h4>
-            <ul>
-              {ticket.fileTargets.length === 0
-                ? <li style={{ color: "var(--muted)" }}>No target files identified yet</li>
-                : ticket.fileTargets.map((target) => <li key={target}>{target}</li>)}
-            </ul>
-          </WorkflowSection>
+        <WorkflowSection title="Context" badge={`${ticket.acceptanceCriteria.length} criteria`} defaultOpen>
+          {ticket.initiativeId ? (
+            <>
+              <h4>Covered spec items</h4>
+              {coveredItems.length === 0 ? (
+                <p style={{ color: "var(--muted)" }}>
+                  No covered spec items are linked to this ticket yet.
+                </p>
+              ) : (
+                Object.entries(groupedCoveredItems).map(([step, items]) => (
+                  <div key={step}>
+                    <span className="qa-label">{step}</span>
+                    <ul>
+                      {items.map((item) => (
+                        <li key={item.id}>{item.text}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </>
+          ) : null}
 
-          <ExportSection
-            ticket={ticket}
-            workflowPhase={workflowPhase}
-            agentTarget={exportWf.agentTarget}
-            setAgentTarget={exportWf.setAgentTarget}
-            exportResult={exportWf.exportResult}
-            downloadUrl={exportWf.downloadUrl}
-            copyFeedback={exportWf.copyFeedback}
-            handleExport={exportWf.handleExport}
-            handleCopyBundle={exportWf.handleCopyBundle}
-          />
+          <h4>Acceptance criteria</h4>
+          <ul>
+            {ticket.acceptanceCriteria.map((criterion) => (
+              <li key={criterion.id}>{criterion.text}</li>
+            ))}
+          </ul>
 
-          <CaptureVerifySection
+          <h4>Implementation plan</h4>
+          <pre>{ticket.implementationPlan || "No implementation plan generated yet."}</pre>
+
+          <h4>File targets</h4>
+          <ul>
+            {ticket.fileTargets.length === 0
+              ? <li style={{ color: "var(--muted)" }}>No target files identified yet.</li>
+              : ticket.fileTargets.map((target) => <li key={target}>{target}</li>)}
+          </ul>
+        </WorkflowSection>
+
+        <ExportSection
+          ticket={ticket}
+          workflowPhase={workflowPhase}
+          agentTarget={exportWf.agentTarget}
+          setAgentTarget={exportWf.setAgentTarget}
+          exportResult={exportWf.exportResult}
+          downloadUrl={exportWf.downloadUrl}
+          copyFeedback={exportWf.copyFeedback}
+          handleExport={exportWf.handleExport}
+          handleCopyBundle={exportWf.handleCopyBundle}
+        />
+
+        <CaptureVerifySection
+          ticketId={ticket.id}
+          workflowPhase={workflowPhase}
+          captureScopeInput={capture.captureScopeInput}
+          setCaptureScopeInput={capture.setCaptureScopeInput}
+          widenedInput={capture.widenedInput}
+          setWidenedInput={capture.setWidenedInput}
+          capturePreviewData={capture.capturePreviewData}
+          selectedNoGitPaths={capture.selectedNoGitPaths}
+          setSelectedNoGitPaths={capture.setSelectedNoGitPaths}
+          captureSummary={capture.captureSummary}
+          setCaptureSummary={capture.setCaptureSummary}
+          refreshCapturePreview={capture.refreshCapturePreview}
+          verifyStreamEvents={verify.verifyStreamEvents}
+          verifyState={verify.verifyState}
+          setVerifyStreamEvents={verify.setVerifyStreamEvents}
+          setVerifyState={verify.setVerifyState}
+          setVerificationResult={verify.setVerificationResult}
+          onRefresh={onRefresh}
+        />
+
+        {verify.verificationResult ? (
+          <VerificationResultsSection
             ticketId={ticket.id}
-            workflowPhase={workflowPhase}
+            verificationResult={verify.verificationResult}
+            attempts={attempts}
+            fixForwardReady={exportWf.fixForwardReady}
+            setFixForwardReady={exportWf.setFixForwardReady}
+            handleReExportWithFindings={exportWf.handleReExportWithFindings}
             captureScopeInput={capture.captureScopeInput}
-            setCaptureScopeInput={capture.setCaptureScopeInput}
             widenedInput={capture.widenedInput}
-            setWidenedInput={capture.setWidenedInput}
-            capturePreviewData={capture.capturePreviewData}
-            selectedNoGitPaths={capture.selectedNoGitPaths}
-            setSelectedNoGitPaths={capture.setSelectedNoGitPaths}
             captureSummary={capture.captureSummary}
-            setCaptureSummary={capture.setCaptureSummary}
-            refreshCapturePreview={capture.refreshCapturePreview}
-            verifyStreamEvents={verify.verifyStreamEvents}
-            verifyState={verify.verifyState}
-            setVerifyStreamEvents={verify.setVerifyStreamEvents}
             setVerifyState={verify.setVerifyState}
+            setVerifyStreamEvents={verify.setVerifyStreamEvents}
             setVerificationResult={verify.setVerificationResult}
             onRefresh={onRefresh}
           />
+        ) : (
+          <WorkflowSection title="Verification">
+            <p style={{ color: "var(--muted)" }}>
+              No verification result yet. Export the bundle, complete the work, and run verification here.
+            </p>
+          </WorkflowSection>
+        )}
 
-          {verify.verificationResult ? (
-            <VerificationResultsSection
-              ticketId={ticket.id}
-              verificationResult={verify.verificationResult}
-              attempts={attempts}
-              fixForwardReady={exportWf.fixForwardReady}
-              setFixForwardReady={exportWf.setFixForwardReady}
-              handleReExportWithFindings={exportWf.handleReExportWithFindings}
-              captureScopeInput={capture.captureScopeInput}
-              widenedInput={capture.widenedInput}
-              captureSummary={capture.captureSummary}
-              setVerifyState={verify.setVerifyState}
-              setVerifyStreamEvents={verify.setVerifyStreamEvents}
-              setVerificationResult={verify.setVerificationResult}
-              onRefresh={onRefresh}
-            />
+        <WorkflowSection title="Run history" badge={run ? "Linked run" : "No run yet"} defaultOpen>
+          {run ? (
+            <div className="ticket-run-summary">
+              <div className="button-row">
+                <Link to={`/run/${run.id}`}>Open run report</Link>
+                <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
+                  {showAuditPanel ? "Hide drift review" : "Review drift"}
+                </button>
+              </div>
+              {showAuditPanel ? <AuditPanel runId={run.id} defaultScopePaths={ticket.fileTargets} /> : null}
+            </div>
           ) : (
-            <WorkflowSection title="Verification">
-              <p style={{ color: "var(--muted)" }}>
-                No verification result yet. Create a bundle, run the work, then verify it above.
-              </p>
-            </WorkflowSection>
+            <p style={{ color: "var(--muted)" }}>No run has been linked to this ticket yet.</p>
           )}
-        </div>
-      ) : (
-        <div className="panel">
-          <h3>Attempts</h3>
-          {attempts.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>No verification attempts yet.</p>
-          ) : (
-            <ul>
-              {attempts.map((attempt) => (
+
+          <ul className="planning-ticket-list">
+            {attempts.length === 0 ? (
+              <li>
+                <span>No verification attempts yet.</span>
+              </li>
+            ) : (
+              attempts.map((attempt) => (
                 <li key={attempt.id}>
-                  {attempt.attemptId} · {attempt.overallPass ? "pass" : "fail"} · {new Date(attempt.createdAt).toLocaleString()}
-                  {attempt.overrideReason ? ` · override: ${attempt.overrideReason}` : ""}
+                  <span>
+                    {attempt.attemptId} · {attempt.overallPass ? "pass" : "fail"}
+                    {attempt.overrideReason ? ` · override: ${attempt.overrideReason}` : ""}
+                  </span>
+                  <span>{new Date(attempt.createdAt).toLocaleString()}</span>
                 </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+              ))
+            )}
+          </ul>
+        </WorkflowSection>
+      </div>
     </section>
   );
 };
+
+export { COVERAGE_GATE_MESSAGE };

@@ -85,6 +85,7 @@ export interface PhaseCheckInput {
   coreFlowsMarkdown?: string;
   prdMarkdown?: string;
   savedContext?: Record<string, string | string[] | boolean>;
+  requiresInitialConsultation?: boolean;
 }
 
 export interface SpecGenInput {

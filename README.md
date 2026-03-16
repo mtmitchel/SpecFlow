@@ -71,11 +71,13 @@ The Settings modal (open via Cmd+K or navigator) lets you change provider, model
 
 ## Key Features
 
-- **Progressive planning workflow**: describe a feature, then move through Brief, Core flows, PRD, Tech spec, and Tickets with targeted blocker questions only when ambiguity would materially affect the next artifact.
+- **Contained planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, and Tickets without route-level mental-model breaks.
+- **Mandatory brief intake**: fresh initiatives always begin with a short consultation before the first brief is generated, so the product does not hallucinate scope, users, or success criteria from a single paragraph.
 - **Review gates and cross-checks**: every major artifact can be reviewed for gaps and cross-checked against adjacent artifacts before the next planning step opens.
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
 - **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved coverage checks block export and execution until the user reruns or overrides the check.
-- **Master-detail layout**: navigator tree sidebar (initiatives > phases > tickets, plus aggregate views) + detail workspace; no page navigation required.
+- **Action-oriented home**: the landing view is a queue of what needs attention next across planning, execution, verification, and audit activity.
+- **Master-detail layout**: navigator tree sidebar (initiatives > phases > tickets, plus aggregate views) + detail workspace keeps planning, execution, and audit work in one workspace.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.

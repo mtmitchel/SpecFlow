@@ -4,6 +4,7 @@ import type {
   SpecDocument,
   Ticket
 } from "../../types/entities.js";
+import { requiresInitialBriefConsultation } from "../brief-consultation.js";
 import { getRefinementAssumptions } from "../workflow-state.js";
 import type {
   PhaseCheckInput,
@@ -51,7 +52,14 @@ export const buildPhaseCheckInput = (
   briefMarkdown: markdownByStep.brief,
   coreFlowsMarkdown: markdownByStep["core-flows"],
   prdMarkdown: markdownByStep.prd,
-  savedContext: getSavedContext(initiative, step)
+  savedContext: getSavedContext(initiative, step),
+  requiresInitialConsultation:
+    step === "brief"
+      ? requiresInitialBriefConsultation({
+          initiative,
+          briefMarkdown: markdownByStep.brief
+        })
+      : false
 });
 
 export const buildSpecGenerationInput = (

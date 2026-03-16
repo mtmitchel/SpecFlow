@@ -1,10 +1,19 @@
 import { LlmProviderError } from "../../llm/errors.js";
+import { PlannerConflictError } from "../planner-errors.js";
 
 export const toStructuredPlannerError = (error: unknown): {
   code: string;
   message: string;
   statusCode: number;
 } => {
+  if (error instanceof PlannerConflictError) {
+    return {
+      code: "planner_conflict",
+      message: error.message,
+      statusCode: 409
+    };
+  }
+
   if (error instanceof LlmProviderError) {
     const statusCode =
       error.code === "invalid_api_key"

@@ -5,7 +5,6 @@ import {
 } from "../../utils/initiative-workflow.js";
 import {
   groupReviewFindings,
-  isResolvedReview,
   type SpecStep
 } from "./shared.js";
 import { PlanningReviewCard } from "./planning-review-card.js";
@@ -36,14 +35,13 @@ export const ArtifactReviewsSection = ({
   onConfirmOverride
 }: ArtifactReviewsSectionProps) => {
   const reviewKinds = REVIEWS_BY_STEP[activeSpecStep];
-  const hasUnresolvedReviews = reviewKinds.some((kind) => !isResolvedReview(getReview(kind)));
 
   return (
     <div style={{ display: "grid", gap: "0.85rem", marginTop: "1rem" }}>
       <div style={{ display: "grid", gap: "0.2rem" }}>
-        <h3 style={{ margin: 0 }}>Reviews</h3>
+        <h3 style={{ margin: 0 }}>Checkpoint</h3>
         <p style={{ margin: 0, color: "var(--muted)" }}>
-          Review this artifact for gaps and traceability before moving forward.
+          Review the generated artifact before you move on to the next step.
         </p>
       </div>
 
@@ -93,12 +91,6 @@ export const ArtifactReviewsSection = ({
           />
         );
       })}
-
-      {hasUnresolvedReviews ? (
-        <div className="status-banner warn" style={{ marginBottom: 0 }}>
-          Resolve the remaining reviews before continuing to the next phase.
-        </div>
-      ) : null}
     </div>
   );
 };

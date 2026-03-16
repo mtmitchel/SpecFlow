@@ -69,7 +69,7 @@ Clarification is not a named top-level phase.
 
 Clarification is a refinement mechanism that can appear:
 
-- before the Brief, when the initial idea is too ambiguous
+- before the Brief, always as the required brief intake for a fresh initiative
 - before Core flows, when the core journey or state model is unclear
 - before the PRD, when product behavior is still unclear
 - before the Tech spec, when implementation tradeoffs need resolution
@@ -101,6 +101,7 @@ Use these terms consistently.
 - `Ticket`
 - `Run`
 - `Review`
+- `Brief intake`
 - `Coverage check`
 - `Covered spec items`
 - `Verification`
@@ -130,11 +131,11 @@ Avoid these unless the context is explicitly technical or advanced.
 - `Locked` -> `Not ready`
 - `Ready` -> `Up next`
 - `Stale` -> `Needs review`
-- `Generate Brief` -> `Create brief`
-- `Generate PRD` -> `Create PRD`
-- `Generate Core Flows` -> `Create core flows`
-- `Generate Tech Spec` -> `Create tech spec`
-- `Generate Tickets` -> `Create tickets`
+- `Generate Brief` -> `Generate brief`
+- `Generate PRD` -> `Generate PRD`
+- `Generate Core Flows` -> `Generate core flows`
+- `Generate Tech Spec` -> `Generate tech spec`
+- `Generate Tickets` -> `Generate tickets`
 - `Ticket coverage review` -> `Coverage check`
 - `Regenerate` -> `Refresh`
 - `Run Audit` -> `Review changes`
@@ -204,17 +205,19 @@ The primary action should answer:
 
 ### Canonical planning CTAs
 
-- `Create brief`
+- `Continue to brief intake`
+- `Start brief intake`
+- `Generate brief`
 - `Continue to core flows`
-- `Create core flows`
+- `Generate core flows`
 - `Continue to PRD`
-- `Create PRD`
+- `Generate PRD`
 - `Continue to tech spec`
-- `Create tech spec`
+- `Generate tech spec`
 - `Continue to tickets`
-- `Create tickets`
+- `Generate tickets`
 - `Run coverage check`
-- `Resolve coverage check`
+- `Open checkpoint`
 - `Open first ticket`
 - `Open ticket`
 
@@ -223,12 +226,15 @@ The primary action should answer:
 - `Review questions`
 - `Edit answer`
 - `Edit brief`
-- `View brief`
+- `Summary`
+- `Document`
 - `Refresh brief`
+- `Refresh brief intake`
 - `Refresh PRD`
 - `Refresh tech spec`
 - `Run coverage check`
 - `Override coverage blockers`
+- `Accept risk`
 - `Get guidance`
 - `Answer later`
 
@@ -282,24 +288,24 @@ Avoid empty states that only state absence.
 
 ### Canonical empty states
 
-#### Dashboard
+#### Home
 
 - Title: `Start planning`
-- Body: `Create an initiative or add a quick task to begin.`
-- Primary action: `New initiative`
-- Secondary action: `New quick task`
+- Body: `Start planning for multi-step work, use a quick task for something small, or import an issue.`
+- Primary action: `Start planning`
+- Secondary action: `Quick task`
 
 #### Initiative without a brief
 
 - Title: `No brief yet`
-- Body: `Create the brief to define the problem, goals, and scope.`
-- Primary action: `Create brief`
+- Body: `Start brief intake to lock the problem, goals, and scope before the first brief is generated.`
+- Primary action: `Start brief intake`
 
 #### Initiative without tickets
 
 - Title: `No tickets yet`
-- Body: `Create tickets after the tech spec is ready.`
-- Primary action: `Create tickets`
+- Body: `Generate tickets after the tech spec is ready.`
+- Primary action: `Generate tickets`
 
 #### No runs
 
@@ -448,15 +454,17 @@ Avoid backend-state phrasing in the main message when a simpler user meaning exi
 
 ## List-view language
 
-### Overview
+### Home
 
-The dashboard should be action-oriented, not just archival.
+The home view should be action-oriented, not just archival.
 
 Use section names that support forward movement:
 
-- `Active initiatives`
-- `Next tickets`
-- `Recent runs`
+- `Continue planning`
+- `Needs review`
+- `Ready to run`
+- `Needs verification`
+- `Recent audit activity`
 
 ### Aggregate pages
 

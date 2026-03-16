@@ -19,21 +19,18 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 **Steps:**
 
-1. User lands on a blank Initiative page. A large free-text area prompts: *"Describe what you want to build."*
-2. User types a free-form description and clicks **Create brief**.
-3. If the idea is ambiguous enough to block a solid brief, the planner asks at most a few targeted blocker questions. Otherwise it generates the Brief immediately.
-4. After the Brief is generated, SpecFlow runs a **Brief review** for gaps before the user can continue.
-5. User moves into **Core flows**. If needed, the planner asks a few phase-specific questions about journeys, screens, or states. Then it generates the Core flows artifact.
-6. After Core flows is generated, SpecFlow runs **Review core flows** and **Cross-check brief and core flows**.
-7. User moves into **PRD**. If needed, the planner asks a few product-behavior blocker questions, then generates the PRD.
-8. After PRD is generated, SpecFlow runs **Review PRD** and **Cross-check core flows and PRD**.
-9. User moves into **Tech spec**. If needed, the planner asks a few implementation blocker questions, then generates the Tech spec.
-10. After Tech spec is generated, SpecFlow runs **Review tech spec**, **Cross-check PRD and tech spec**, and a **full spec-set review** across Brief + Core flows + PRD + Tech spec.
-11. User reviews or overrides any remaining blockers, then clicks **Create tickets**. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger.
-12. After ticket generation, SpecFlow runs a **Coverage check**. If the ticket plan leaves important flows, requirements, or decisions uncovered, the user must rerun or override that check before execution starts.
-13. Initiative page now shows: Brief + Core flows + PRD + Tech spec + ticket plan + coverage check + review findings + empty Runs section.
+1. User lands in the same planning shell they will use for the full journey. The left rail shows **Brief**, **Core flows**, **PRD**, **Tech spec**, and **Tickets** as one contained spectrum.
+2. User types a free-form idea and continues directly into **Brief** inside that same shell.
+3. Fresh initiatives always begin with **Brief intake**. SpecFlow asks a required four-question consultation before the first brief can be generated. The questions lock the primary problem, primary user, success criteria, and hard constraints or platform assumptions.
+4. Once the intake is answered or explicitly deferred, the user generates the Brief. SpecFlow then runs a **Brief review** checkpoint.
+5. User moves into **Core flows**. If needed, the planner asks a few phase-specific blocker questions about journeys, screens, or states. The user then generates the Core flows artifact and resolves the **Review core flows** plus **Cross-check brief and core flows** checkpoint.
+6. User moves into **PRD**. If needed, the planner asks a few product-behavior blocker questions, then the user generates the PRD and resolves **Review PRD** plus **Cross-check core flows and PRD**.
+7. User moves into **Tech spec**. If needed, the planner asks a few implementation blocker questions, then the user generates the Tech spec and resolves **Review tech spec**, **Cross-check PRD and tech spec**, and the **spec-set review**.
+8. User moves into **Tickets** and generates the ticket plan. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger.
+9. After ticket generation, SpecFlow runs a **Coverage checkpoint**. If the ticket plan leaves important flows, requirements, or decisions uncovered, the user must rerun or override that check before execution starts.
+10. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page.
 
-**Exit:** Initiative is ready for execution once the coverage check is passed or overridden. All tickets are in Backlog. User proceeds to Milestone Run.
+**Exit:** Initiative is ready for execution once the coverage checkpoint is passed or overridden. All tickets are in Backlog. User proceeds to Milestone Run.
 
 ---
 
@@ -45,7 +42,7 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 **Steps:**
 
-1. User opens a ticket from the navigator tree or the initiative's ticket list. The ticket view shows: description, covered spec items, acceptance criteria, implementation plan, suggested file targets, a blockers banner (if blocked), and a status dropdown in the header.
+1. User opens a ticket from the navigator tree or the initiative's ticket list. The ticket view opens as a single execution workspace with a **Preflight** card first, then execution sections below.
 2. If the ticket is still in **Backlog**, the user can move it to **Ready** via the status dropdown. When they try to move it into **In Progress**, the server rejects the change with a 409 error if the ticket still has unfinished blockers or the initiative's **Coverage check** is blocked or stale.
 3. User clicks **Export Bundle**. A panel slides in asking: *"Which agent?"* -- options are Claude Code, Codex CLI, OpenCode, Generic. User selects one. For initiative-linked tickets, unresolved coverage checks also block export until the user resolves or overrides the check in the initiative view.
 4. The bundle is generated and displayed: a copy-to-clipboard button and a download link. The ticket moves to **In Progress**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
@@ -64,7 +61,7 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
     - **Override to Done** -- two-step safeguard: user enters a required reason, then confirms *"I accept risk"*; reason + confirmation are logged in run history.
 13. Run history is grouped by ticket with expandable attempts, so retries remain auditable without clutter.
 14. If an operation is recovered as `abandoned`, `superseded`, or `failed`, Runs and Ticket detail show a status badge with guided retry actions.
-15. Phase guidance is soft. Users can start next-phase tickets early, but SpecFlow shows a warning badge (e.g., *"Starting Phase 2 before Phase 1 is complete"*).
+15. Phase guidance is soft. Users can start next-phase tickets early, but SpecFlow shows the warning in the ticket preflight instead of scattering it across multiple banners.
 16. When all tickets in a phase are Done, the phase collapses with a complete indicator.
 
 **Exit:** All phases complete -> Initiative is marked Done.
@@ -79,8 +76,8 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 **Steps:**
 
-1. The command palette switches to Quick Task mode: a focused text input with the prompt *"What do you need to build?"*
-2. User types a brief description (1-3 sentences) and clicks **Plan It**.
+1. The user opens Quick Task from Cmd+K or the new-work chooser. The UI uses the same contained shell pattern as planning, but with a shorter step rail.
+2. User types a brief description (1-3 sentences) and clicks **Continue**.
 3. The Planner triages task size/clarity:
    - If focused and bounded, it continues Quick Build.
    - If too large or ambiguous, SpecFlow auto-converts it into a **draft initiative** and routes the user into Groundwork with the original input prefilled.

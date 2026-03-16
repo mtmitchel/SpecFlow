@@ -44,6 +44,7 @@ src/
 ```
 src/
   api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
+  styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, journey-redesign)
   app/
     components/     shared UI: audit-panel, diff-viewer, markdown-view, model-combobox, workflow-section, workflow-stepper
     constants/      status-columns (status transition rules, canTransition helper)
@@ -110,6 +111,8 @@ Backend tests use Vitest under `packages/app/test`. Test files are split by doma
 
 Client tests use Vitest + React Testing Library under `packages/client/src/**/*.test.tsx`. Current high-value UI coverage includes:
 
+- `app/views/initiative-creator.test.tsx` - new-initiative handoff into brief intake
+- `app/views/initiative-view.test.tsx` - contained brief-intake stage after initiative creation
 - `app/views/initiative/tickets-step-section.test.tsx` - coverage check card and override states in the Tickets step
 - `app/views/ticket-view.test.tsx` - ticket execution gating banner and covered spec items rendering
 

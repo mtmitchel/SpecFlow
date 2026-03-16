@@ -1,0 +1,568 @@
+/* Planning journey redesign */
+.planning-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.planning-shell-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-shell-header-main {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.planning-shell-kicker {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-text-light);
+}
+
+.planning-shell-grid {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.planning-rail {
+  position: sticky;
+  top: 1.2rem;
+  display: grid;
+  gap: 0.85rem;
+  background: linear-gradient(180deg, rgba(72, 203, 255, 0.08), rgba(16, 24, 38, 0.92));
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem;
+}
+
+.planning-rail-header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.planning-rail-step-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.planning-rail-step-label {
+  font-weight: 600;
+}
+
+.planning-rail-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.planning-rail-item {
+  display: grid;
+  gap: 0.12rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.45);
+  color: var(--muted);
+  padding: 0.75rem;
+  font-family: inherit;
+}
+
+button.planning-rail-item {
+  cursor: pointer;
+}
+
+button.planning-rail-item:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.planning-rail-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.planning-rail-item.active {
+  border-color: var(--accent-border);
+  background: var(--accent-bg-subtle);
+  color: var(--text);
+}
+
+.planning-rail-item-title {
+  font-weight: 600;
+}
+
+.planning-rail-item-meta {
+  font-size: 0.82rem;
+}
+
+.planning-workspace,
+.planning-main-column {
+  display: grid;
+  gap: 1rem;
+}
+
+.planning-stage-card,
+.planning-section-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.planning-stage-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.planning-stage-card-top,
+.planning-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-stage-card-top h3 {
+  margin: 0.3rem 0 0;
+}
+
+.planning-stage-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-pill);
+  padding: 0.18rem 0.6rem;
+  font-size: 0.76rem;
+  color: var(--accent-text-light);
+}
+
+.planning-stage-step-copy,
+.planning-stage-guidance {
+  color: var(--muted);
+  max-width: 34rem;
+}
+
+.planning-stage-step-copy {
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.planning-stage-body {
+  margin: 0;
+  max-width: 52rem;
+}
+
+.planning-inline-note {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--muted-border);
+  border-radius: var(--radius-md);
+  background: var(--muted-bg);
+  padding: 0.7rem 0.8rem;
+}
+
+.planning-inline-note-success {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.planning-inline-note-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.planning-view-toggle {
+  margin: 0;
+}
+
+.planning-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.85rem;
+}
+
+.planning-summary-card {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.4);
+  padding: 0.85rem;
+}
+
+.planning-summary-card h4 {
+  margin: 0 0 0.55rem;
+}
+
+.planning-document-view {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+  padding: 0.85rem;
+}
+
+.planning-review-card {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  padding: 1rem;
+}
+
+.planning-review-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-review-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.planning-review-title-row h4 {
+  margin: 0;
+}
+
+.planning-review-meta,
+.planning-review-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.planning-review-note {
+  margin: 0;
+}
+
+.planning-review-note-warn {
+  color: var(--warning-text);
+}
+
+.planning-review-summary {
+  margin: 0;
+}
+
+.planning-review-details {
+  display: grid;
+  gap: 0.85rem;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 0.9rem;
+}
+
+.planning-review-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--muted-border);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.planning-review-status-passed {
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.planning-review-status-blocked,
+.planning-review-status-stale {
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.planning-review-status-overridden {
+  border-color: var(--accent-border);
+  color: var(--accent-text-light);
+}
+
+.planning-phase-count {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.planning-ticket-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.planning-ticket-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+}
+
+.planning-ticket-list li a {
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.planning-ticket-list li a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Home action queue */
+.journey-queue {
+  display: grid;
+  gap: 1rem;
+}
+
+.journey-queue-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.journey-queue-title {
+  margin: 0.2rem 0 0;
+}
+
+.journey-queue-copy {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  max-width: 50rem;
+}
+
+.journey-queue-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.journey-queue-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.85rem;
+  background: var(--surface-button);
+  color: var(--text);
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.journey-queue-action-primary {
+  border-color: var(--accent-border);
+  background: var(--accent-bg-active);
+  color: var(--accent-text);
+}
+
+.journey-queue-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.journey-queue-section,
+.journey-queue-empty-state {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.journey-queue-section-wide {
+  grid-column: 1 / -1;
+}
+
+.journey-queue-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.journey-queue-section-head h3 {
+  margin: 0;
+}
+
+.journey-queue-section-head span {
+  color: var(--muted);
+}
+
+.journey-queue-card {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.journey-queue-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(152, 188, 220, 0.08);
+}
+
+.journey-queue-row:last-child {
+  border-bottom: none;
+}
+
+.journey-queue-row:hover {
+  background: var(--accent-bg-subtle);
+}
+
+.journey-queue-row-main {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.journey-queue-row-title {
+  font-weight: 600;
+}
+
+.journey-queue-row-context,
+.journey-queue-row-time,
+.journey-queue-empty,
+.journey-queue-empty-copy {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.journey-queue-empty-lead {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.journey-queue-empty-copy {
+  margin: 0;
+}
+
+/* Ticket execution redesign */
+.ticket-journey {
+  display: grid;
+  gap: 1rem;
+}
+
+.ticket-journey-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.ticket-journey-links {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ticket-preflight-card {
+  display: grid;
+  gap: 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.ticket-preflight-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.ticket-preflight-top h3 {
+  margin: 0.3rem 0 0;
+}
+
+.ticket-preflight-next {
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-align: right;
+}
+
+.ticket-preflight-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.ticket-preflight-item {
+  display: grid;
+  gap: 0.3rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+  padding: 0.8rem;
+}
+
+.ticket-preflight-item-warn {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.ticket-preflight-ready {
+  margin: 0;
+  color: var(--muted);
+}
+
+.ticket-run-summary {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.quick-task-shell {
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .planning-shell-grid,
+  .journey-queue-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .planning-rail {
+    position: static;
+  }
+
+  .planning-stage-card-top,
+  .planning-section-header,
+  .planning-review-header,
+  .ticket-preflight-top,
+  .planning-shell-header,
+  .journey-queue-header,
+  .ticket-journey-header {
+    flex-direction: column;
+  }
+
+  .planning-stage-step-copy,
+  .ticket-preflight-next {
+    text-align: left;
+  }
+}
+
+@media (max-width: 720px) {
+  .planning-inline-note,
+  .planning-ticket-list li,
+  .journey-queue-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

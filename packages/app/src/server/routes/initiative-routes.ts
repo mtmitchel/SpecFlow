@@ -1,5 +1,9 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import {
+  BRIEF_CONSULTATION_REQUIRED_MESSAGE,
+  requiresInitialBriefConsultation
+} from "../../planner/brief-consultation.js";
+import {
   REVIEW_KIND_LABELS,
   getReviewsRequiredBeforeStep,
   isReviewResolved
@@ -132,6 +136,12 @@ const hasResolvedRefinementQuestions = (initiative: Initiative, step: ArtifactSt
 const hasCheckedPhase = (initiative: Initiative, step: ArtifactStep): boolean =>
   initiative.workflow.refinements[step].checkedAt !== null ||
   Boolean(initiative.specIds.includes(`${initiative.id}:${step}`));
+
+const blocksInitialBriefGeneration = (initiative: Initiative, store: ArtifactStore): boolean =>
+  requiresInitialBriefConsultation({
+    initiative,
+    briefMarkdown: store.specs.get(`${initiative.id}:brief`)?.content ?? ""
+  });
 
 const getBlockingReview = (
   initiativeId: string,
@@ -416,6 +426,17 @@ export const registerInitiativeRoutes = (
         await reply.code(409).send({
           error: "Blocked",
           message: `Run ${stepLabel(step)} checks before creating this artifact`
+        });
+        return;
+      }
+
+      if (step === "brief" && blocksInitialBriefGeneration(initiative, store)) {
+        const hasPendingBriefQuestions = initiative.workflow.refinements.brief.questions.length > 0;
+        await reply.code(409).send({
+          error: "Blocked",
+          message: hasPendingBriefQuestions
+            ? `Answer or defer all ${stepLabel(step)} questions before continuing`
+            : BRIEF_CONSULTATION_REQUIRED_MESSAGE
         });
         return;
       }

@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -41,18 +42,39 @@ class MockLlmClient implements LlmClient {
   }
 }
 
+const canSpawnGit = (): boolean => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "specflow-git-check-"));
+  try {
+    execFileSync("git", ["init"], { cwd: tempDir, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+};
+
 describe("DiffEngine", () => {
-  it("uses git diff when repository is available", async () => {
+  it.skipIf(!canSpawnGit())("uses git diff when repository is available", async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-diff-git-"));
     await createSpecflowLayout(rootDir);
     await mkdir(path.join(rootDir, "src"), { recursive: true });
     await writeFile(path.join(rootDir, "src", "app.ts"), "export const value = 1;\n", "utf8");
 
-    execFileSync("git", ["init"], { cwd: rootDir });
-    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: rootDir });
-    execFileSync("git", ["config", "user.name", "Tester"], { cwd: rootDir });
-    execFileSync("git", ["add", "."], { cwd: rootDir });
-    execFileSync("git", ["commit", "-m", "init"], { cwd: rootDir });
+    try {
+      execFileSync("git", ["init"], { cwd: rootDir });
+      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: rootDir });
+      execFileSync("git", ["config", "user.name", "Tester"], { cwd: rootDir });
+      execFileSync("git", ["add", "."], { cwd: rootDir });
+      execFileSync("git", ["commit", "-m", "init"], { cwd: rootDir });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EPERM") {
+        await rm(rootDir, { recursive: true, force: true });
+        return;
+      }
+
+      throw error;
+    }
 
     await writeFile(path.join(rootDir, "src", "app.ts"), "export const value = 2;\n", "utf8");
 
