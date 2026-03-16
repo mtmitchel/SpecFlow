@@ -30,6 +30,9 @@ describe("initiative routes", () => {
         assumptions: []
       });
       expect(briefCheckPayload.questions).toHaveLength(4);
+      expect(
+        (briefCheckPayload.questions as Array<{ type: string }>).every((question) => question.type !== "text")
+      ).toBe(true);
     } finally {
       await fixture.cleanup();
     }

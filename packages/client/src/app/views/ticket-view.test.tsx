@@ -54,10 +54,6 @@ vi.mock("../components/workflow-section.js", () => ({
   )
 }));
 
-vi.mock("../components/workflow-stepper.js", () => ({
-  WorkflowStepper: ({ currentPhase }: { currentPhase: string }) => <div>Workflow phase: {currentPhase}</div>
-}));
-
 vi.mock("./ticket/export-section.js", () => ({
   ExportSection: () => <div>ExportSection</div>
 }));

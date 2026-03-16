@@ -25,7 +25,7 @@ export const getPlanningQuestionActionLabel = (
     return step === "brief" ? "Answer a few questions" : `Answer ${getPlanningStepName(step)} questions`;
   }
 
-  return "Update answers";
+  return "Change inputs";
 };
 
 export const getPlanningGenerateActionLabel = (

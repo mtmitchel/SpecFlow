@@ -22,6 +22,7 @@ import { useExportWorkflow } from "../hooks/use-export-workflow.js";
 import { ExportSection } from "./ticket/export-section.js";
 import { CaptureVerifySection } from "./ticket/capture-verify-section.js";
 import { VerificationResultsSection } from "./ticket/verification-results-section.js";
+import type { WorkflowPhase } from "./ticket/workflow.js";
 
 const COVERAGE_GATE_MESSAGE = "Review coverage before you run this ticket.";
 
@@ -163,7 +164,7 @@ export const TicketView = ({
   );
   const validTransitions = statusColumns.filter((col) => canTransition(ticket.status, col.key));
 
-  const workflowPhase: "export" | "agent" | "verify" | "done" =
+  const workflowPhase: WorkflowPhase =
     ticket.status === "done"
       ? "done"
       : verify.verificationResult

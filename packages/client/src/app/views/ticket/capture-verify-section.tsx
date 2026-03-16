@@ -1,6 +1,6 @@
 import type { VerificationResult } from "../../../types.js";
 import { WorkflowSection } from "../../components/workflow-section.js";
-import type { WorkflowPhase } from "../../components/workflow-stepper.js";
+import type { WorkflowPhase } from "./workflow.js";
 import { parseScopeCsv } from "../../utils/scope-paths.js";
 import { captureResults } from "../../../api.js";
 import { useToast } from "../../context/toast.js";

@@ -116,12 +116,25 @@ export const OverviewPanel = ({
       })
       .slice(0, 6);
   }, [initiativeCards, snapshot.runs, snapshot.tickets]);
+  const queuedInitiativeIds = useMemo(
+    () =>
+      new Set(
+        upNext
+          .map((action) => snapshot.initiatives.find((initiative) => action.id === initiative.id)?.id ?? null)
+          .filter((initiativeId): initiativeId is string => Boolean(initiativeId)),
+      ),
+    [snapshot.initiatives, upNext],
+  );
+  const visibleInitiativeCards = useMemo(
+    () => initiativeCards.filter(({ initiative }) => !queuedInitiativeIds.has(initiative.id)),
+    [initiativeCards, queuedInitiativeIds],
+  );
 
   return (
     <section className="journey-home-shell">
       {upNext.length > 0 ? (
         <div className="action-queue">
-          <div className="action-queue-heading">Up next</div>
+          <div className="action-queue-heading">In progress</div>
           <div className="action-queue-list">
             {upNext.map((action, index) => (
               <Link
@@ -137,7 +150,6 @@ export const OverviewPanel = ({
                   <span className="action-queue-context">{action.initiativeName}</span>
                 </div>
                 <div className="action-queue-trailing">
-                  {index === 0 ? <span className="action-queue-now">Now</span> : null}
                   <span className="action-queue-arrow" aria-hidden="true">
                     →
                   </span>
@@ -154,7 +166,7 @@ export const OverviewPanel = ({
       )}
 
       <div className="initiative-card-grid">
-        {initiativeCards.map(({ initiative, progress }) => (
+        {visibleInitiativeCards.map(({ initiative, progress }) => (
           <Link key={initiative.id} to={`/initiative/${initiative.id}`} className="initiative-card">
             <div className="initiative-card-top">
               <div>

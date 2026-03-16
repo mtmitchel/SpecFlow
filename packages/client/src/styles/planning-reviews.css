@@ -1,0 +1,265 @@
+/* Planning review and transition surfaces */
+.phase-transition-banner,
+.checkpoint-gate-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  border-radius: var(--radius-lg);
+  padding: 0.95rem 1rem;
+}
+
+.phase-transition-banner {
+  border: 1px solid var(--accent-border);
+  background: rgba(72, 203, 255, 0.1);
+}
+
+.checkpoint-gate-banner {
+  border: 1px solid var(--warning-border);
+  background: rgba(243, 187, 82, 0.14);
+}
+
+.phase-transition-copy,
+.checkpoint-gate-copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.phase-transition-copy strong,
+.checkpoint-gate-copy strong {
+  font-size: 0.96rem;
+}
+
+.phase-transition-copy span,
+.checkpoint-gate-copy span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.checkpoint-gate-banner button,
+.phase-transition-banner button {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-xs);
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-body-sm);
+  background: var(--surface-button);
+  color: var(--text);
+}
+
+.checkpoint-gate-banner button {
+  border-color: var(--warning-border);
+}
+
+.planning-review-card {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(18, 27, 40, 0.92), rgba(13, 20, 31, 0.96));
+  padding: 1rem;
+}
+
+.planning-review-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-review-actions {
+  margin-top: 0;
+}
+
+.planning-review-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.planning-review-title-row h4 {
+  margin: 0;
+}
+
+.planning-review-meta,
+.planning-review-note {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.planning-review-note {
+  margin: 0;
+}
+
+.planning-review-note-warn {
+  color: var(--warning-text);
+}
+
+.planning-review-summary {
+  margin: 0;
+}
+
+.planning-review-details {
+  display: grid;
+  gap: 0.85rem;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 0.9rem;
+}
+
+.planning-review-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--muted-border);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.55rem;
+  font-size: var(--font-caption);
+}
+
+.planning-review-status-passed {
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.planning-review-status-blocked,
+.planning-review-status-stale {
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.planning-review-status-overridden {
+  border-color: var(--accent-border);
+  color: var(--accent-text-light);
+}
+
+.planning-review-drawer-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.planning-review-switcher {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.planning-review-switcher-item {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(152, 188, 220, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.3);
+  padding: 0.8rem 0.9rem;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.planning-review-switcher-item.active {
+  border-color: var(--accent-border);
+  background: rgba(20, 35, 55, 0.55);
+}
+
+.planning-review-switcher-title {
+  font-weight: 600;
+}
+
+.planning-review-switcher-meta,
+.planning-review-empty {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.planning-review-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.planning-review-detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-review-detail-header h3 {
+  margin: 0;
+}
+
+.planning-review-detail-header p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.planning-review-detail-actions {
+  margin-top: 0;
+}
+
+.planning-review-question-card {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgba(152, 188, 220, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(8, 12, 20, 0.32);
+}
+
+.planning-review-question-top {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.planning-review-question-type {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-pill);
+  background: rgba(8, 12, 20, 0.28);
+  color: var(--warning-text);
+  font-size: var(--font-sm);
+}
+
+.planning-review-question-card h4,
+.planning-review-question-card p {
+  margin: 0;
+}
+
+.planning-review-question-card p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.planning-review-secondary-action {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.planning-review-override-panel {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: rgba(243, 187, 82, 0.08);
+}
+
+.planning-review-override-label {
+  font-weight: 600;
+}
+
+@media (max-width: 1000px) {
+  .planning-review-header,
+  .planning-review-detail-header {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 720px) {
+  .phase-transition-banner,
+  .checkpoint-gate-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -16,6 +16,8 @@ For setup and quick-start instructions, see the root [`README.md`](../README.md)
 For coding conventions, testing guidelines, and commit rules, see [`AGENTS.md`](../AGENTS.md).
 For the version history, see [`CHANGELOG.md`](../CHANGELOG.md).
 
+Agent-facing rule: duplicated or near-duplicated UI meaning is treated as a defect. The repo-level `npm run check` command includes a hard UI dedupe gate.
+
 ## Implementation Status
 
 SpecFlow is fully implemented. The repository includes a working app/client workspace:

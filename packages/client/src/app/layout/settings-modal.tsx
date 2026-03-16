@@ -135,14 +135,17 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                   : "Paste a key to load models and run planning."}
               </span>
             </label>
+            <p className="settings-readonly-hint" style={{ margin: "0 0 0.35rem" }}>
+              Host and port are set in the CLI.
+            </p>
             <label>
-              Host <span className="settings-readonly-hint">(set in the CLI)</span>
+              Host
               <div className="settings-readonly">
                 <span className="settings-readonly-value">{form.host}</span>
               </div>
             </label>
             <label>
-              Port <span className="settings-readonly-hint">(set in the CLI)</span>
+              Port
               <div className="settings-readonly">
                 <span className="settings-readonly-value">{String(form.port)}</span>
               </div>

@@ -47,6 +47,7 @@ npm run ui
 ```
 
 `npm test` runs both the backend and client Vitest suites.
+`npm run check` now also runs a UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
 
 Direct CLI commands (after `npm run build`):
 

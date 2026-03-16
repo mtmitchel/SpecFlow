@@ -64,7 +64,7 @@ const SelectChoiceCards = ({
   value: string | undefined;
   onChange: (nextValue: string) => void;
 }) => {
-  const options = question.options ?? [];
+  const options = (question.options ?? []).filter((option) => option !== "Other");
   const currentValue = value ?? "";
   const hasCustomValue = currentValue !== "" && !options.includes(currentValue) && currentValue !== "Other";
   const otherSelected = currentValue === "Other" || hasCustomValue;
@@ -170,7 +170,7 @@ const RefinementField = ({
 
   if (question.type === "multi-select") {
     const selected = Array.isArray(value) ? value : [];
-    const options = question.options ?? [];
+    const options = (question.options ?? []).filter((option) => option !== "Other");
     const customValues = selected.filter((item) => !options.includes(item) && item !== "Other");
     const hasOther = selected.includes("Other") || customValues.length > 0;
 
@@ -248,7 +248,10 @@ interface RefinementSectionProps {
   busyAction: string | null;
   isBusy: boolean;
   saveStateIndicator: ReactNode;
-  variant?: "full" | "compact";
+  loadingStateLabel?: string | null;
+  variant?: "full" | "compact" | "survey";
+  leadingStepCount?: number;
+  onBackToPreviousStep?: () => void;
   onRequestGuidance: (questionId: string) => void | Promise<void>;
   onAnswerChange: (questionId: string, nextValue: string | string[] | boolean) => void;
   onAnswerLater: (questionId: string) => void;
@@ -266,7 +269,10 @@ export const RefinementSection = ({
   busyAction,
   isBusy,
   saveStateIndicator,
+  loadingStateLabel = null,
   variant = "full",
+  leadingStepCount = 0,
+  onBackToPreviousStep,
   onRequestGuidance,
   onAnswerChange,
   onAnswerLater
@@ -274,7 +280,8 @@ export const RefinementSection = ({
   const [openQuestionId, setOpenQuestionId] = useState<string | null>(() =>
     getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds),
   );
-  const compact = variant === "compact";
+  const compact = variant !== "full";
+  const survey = variant === "survey";
 
   const resolvedQuestionCount = activeRefinement.questions.length - unresolvedQuestionCount;
   const completionPercent =
@@ -284,6 +291,9 @@ export const RefinementSection = ({
 
   useEffect(() => {
     if (openQuestionId === null) {
+      if (survey && unresolvedQuestionCount > 0) {
+        setOpenQuestionId(getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
+      }
       return;
     }
 
@@ -293,16 +303,36 @@ export const RefinementSection = ({
     }
 
     setOpenQuestionId(getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
-  }, [activeRefinement, defaultAnswerQuestionIds, openQuestionId, refinementAnswers]);
+  }, [activeRefinement, defaultAnswerQuestionIds, openQuestionId, refinementAnswers, survey, unresolvedQuestionCount]);
 
   const questionIds = useMemo(
     () => activeRefinement.questions.map((question) => question.id),
     [activeRefinement.questions],
   );
+  const currentQuestion = survey
+    ? openQuestionId === null
+      ? null
+      : activeRefinement.questions.find((question) => question.id === openQuestionId) ?? null
+    : null;
+  const currentQuestionIndex = currentQuestion ? questionIds.indexOf(currentQuestion.id) : -1;
+  const previousQuestionId = currentQuestionIndex > 0 ? questionIds[currentQuestionIndex - 1] ?? null : null;
+  const nextQuestionId =
+    currentQuestionIndex >= 0 && currentQuestionIndex < questionIds.length - 1
+      ? questionIds[currentQuestionIndex + 1] ?? null
+      : null;
+  const surveyStepLabel =
+    currentQuestionIndex >= 0
+      ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + activeRefinement.questions.length}`
+      : null;
 
   return (
-    <div className={`planning-intake-flow${compact ? " planning-intake-flow-compact" : ""}`}>
-      {!compact ? (
+    <div className={`planning-intake-flow${compact ? " planning-intake-flow-compact" : ""}${survey ? " planning-intake-flow-survey" : ""}`}>
+      {survey ? (
+        <div className="planning-survey-step-header">
+          {surveyStepLabel ? <span className="planning-survey-card-step">{surveyStepLabel}</span> : null}
+          {saveStateIndicator}
+        </div>
+      ) : !compact ? (
         <div className="planning-intake-header">
           <div>
             <div className="planning-intake-title">
@@ -326,7 +356,17 @@ export const RefinementSection = ({
         <div className="planning-intake-progress-fill" style={{ width: `${completionPercent}%` }} />
       </div>
 
-      {!compact && unresolvedQuestionCount > 0 ? (
+      {loadingStateLabel ? (
+        <div className="planning-intake-loading" role="status" aria-live="polite">
+          <span className="planning-intake-loading-dot" aria-hidden="true" />
+          <div className="planning-intake-loading-copy">
+            <strong>{loadingStateLabel}</strong>
+            <span>Stay here. More questions may appear, or the next step will unlock.</span>
+          </div>
+        </div>
+      ) : null}
+
+      {!compact && !survey && unresolvedQuestionCount > 0 ? (
         <div className="planning-inline-note planning-inline-note-warn">
           <span>
             Answer {unresolvedQuestionCount} more question{unresolvedQuestionCount === 1 ? "" : "s"} or use a default assumption before generation.
@@ -334,93 +374,97 @@ export const RefinementSection = ({
         </div>
       ) : null}
 
-      <div className="planning-intake-question-list">
-        {activeRefinement.questions.map((question, index) => {
-          const usingDefault =
-            defaultAnswerQuestionIds.includes(question.id) && !isQuestionAnswered(refinementAnswers[question.id]);
-          const preview = getAnswerPreview(question, refinementAnswers[question.id], usingDefault);
-          const resolved = Boolean(preview);
-          const open = openQuestionId === question.id;
-          const questionIndex = questionIds.indexOf(question.id);
-          const nextQuestionId = questionIds[questionIndex + 1] ?? null;
+      {!survey ? (
+        <div className="planning-intake-question-list">
+          {activeRefinement.questions.map((question, index) => {
+            const usingDefault =
+              defaultAnswerQuestionIds.includes(question.id) && !isQuestionAnswered(refinementAnswers[question.id]);
+            const preview = getAnswerPreview(question, refinementAnswers[question.id], usingDefault);
+            const resolved = Boolean(preview);
+            const open = openQuestionId === question.id;
+            const questionIndex = questionIds.indexOf(question.id);
+            const nextQuestionId = questionIds[questionIndex + 1] ?? null;
 
-          return (
-            <div
-              key={question.id}
-              className={`planning-intake-question${open ? " active" : ""}${resolved ? " resolved" : ""}${
-                usingDefault ? " defaulted" : ""
-              }`}
-            >
-              <button
-                type="button"
-                className="planning-intake-question-toggle"
-                onClick={() => setOpenQuestionId((current) => (current === question.id ? null : question.id))}
+            return (
+              <div
+                key={question.id}
+                className={`planning-intake-question${open ? " active" : ""}${resolved ? " resolved" : ""}${
+                  usingDefault ? " defaulted" : ""
+                }`}
               >
-                <span className="planning-intake-question-index" aria-hidden="true">
-                  {resolved ? "✓" : index + 1}
-                </span>
-                <span className="planning-intake-question-body-copy">
-                  <span className="planning-intake-question-label">{question.label}</span>
-                  <span className="planning-intake-question-hint">
-                    {usingDefault ? "Using default assumption" : question.whyThisBlocks}
+                <button
+                  type="button"
+                  className="planning-intake-question-toggle"
+                  onClick={() => setOpenQuestionId((current) => (current === question.id ? null : question.id))}
+                >
+                  <span className="planning-intake-question-index" aria-hidden="true">
+                    {resolved ? "✓" : index + 1}
                   </span>
-                </span>
-                {preview && !open ? <span className="planning-intake-question-preview">{preview}</span> : null}
-                {!compact ? (
-                  <span className="planning-intake-question-pill">{QUESTION_DECISION_LABELS[question.decisionType]}</span>
-                ) : null}
-              </button>
-
-              {open ? (
-                <div className="planning-intake-question-panel">
-                  <p className="planning-intake-question-support">{question.whyThisBlocks}</p>
-                  <RefinementField
-                    question={question}
-                    value={refinementAnswers[question.id]}
-                    onChange={(nextValue) => onAnswerChange(question.id, nextValue)}
-                  />
-
-                  <div className="button-row planning-intake-question-actions">
-                    {!compact ? (
-                      <button type="button" onClick={() => void onRequestGuidance(question.id)} disabled={isBusy}>
-                        {busyAction === "refinement-help" && guidanceQuestionId === question.id ? "Thinking..." : "Get guidance"}
-                      </button>
+                  <span className="planning-intake-question-body-copy">
+                    <span className="planning-intake-question-label">{question.label}</span>
+                    {!open ? (
+                      <span className="planning-intake-question-hint">
+                        {usingDefault ? "Using default assumption" : question.whyThisBlocks}
+                      </span>
                     ) : null}
-                    <button type="button" onClick={() => onAnswerLater(question.id)}>
-                      {usingDefault ? (compact ? "Using default" : "Using default assumption") : compact ? "Skip" : "Use default assumption"}
-                    </button>
-                    {nextQuestionId ? (
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        onClick={() => setOpenQuestionId(nextQuestionId)}
-                      >
-                        {compact ? "Next" : "Next question"}
+                  </span>
+                  {preview && !open ? <span className="planning-intake-question-preview">{preview}</span> : null}
+                  {!compact ? (
+                    <span className="planning-intake-question-pill">{QUESTION_DECISION_LABELS[question.decisionType]}</span>
+                  ) : null}
+                </button>
+
+                {open ? (
+                  <div className="planning-intake-question-panel">
+                    <p className="planning-intake-question-support">{question.whyThisBlocks}</p>
+                    <RefinementField
+                      question={question}
+                      value={refinementAnswers[question.id]}
+                      onChange={(nextValue) => onAnswerChange(question.id, nextValue)}
+                    />
+
+                    <div className="button-row planning-intake-question-actions">
+                      {!compact ? (
+                        <button type="button" onClick={() => void onRequestGuidance(question.id)} disabled={isBusy}>
+                          {busyAction === "refinement-help" && guidanceQuestionId === question.id ? "Thinking..." : "Get guidance"}
+                        </button>
+                      ) : null}
+                      <button type="button" onClick={() => onAnswerLater(question.id)}>
+                        {usingDefault ? (compact ? "Using default" : "Using default assumption") : compact ? "Skip" : "Use default assumption"}
                       </button>
-                    ) : (
-                      <button type="button" className="btn-primary" onClick={() => setOpenQuestionId(null)}>
-                        Done
-                      </button>
-                    )}
+                      {nextQuestionId ? (
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          onClick={() => setOpenQuestionId(nextQuestionId)}
+                        >
+                          {compact ? "Next" : "Next question"}
+                        </button>
+                      ) : (
+                        <button type="button" className="btn-primary" onClick={() => setOpenQuestionId(null)}>
+                          Done
+                        </button>
+                      )}
+                    </div>
+
+                    {!compact && guidanceQuestionId === question.id && guidanceText ? (
+                      <div className="clarification-guidance">
+                        <MarkdownView content={guidanceText} />
+                      </div>
+                    ) : null}
+
+                    {!compact && usingDefault ? (
+                      <div className="status-banner warn" style={{ marginBottom: 0 }}>
+                        Default assumption: {question.assumptionIfUnanswered}
+                      </div>
+                    ) : null}
                   </div>
-
-                  {!compact && guidanceQuestionId === question.id && guidanceText ? (
-                    <div className="clarification-guidance">
-                      <MarkdownView content={guidanceText} />
-                    </div>
-                  ) : null}
-
-                  {!compact && usingDefault ? (
-                    <div className="status-banner warn" style={{ marginBottom: 0 }}>
-                      Default assumption: {question.assumptionIfUnanswered}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {!compact && refinementAssumptions.length > 0 ? (
         <div className="clarification-help-panel">
@@ -430,6 +474,66 @@ export const RefinementSection = ({
               <li key={assumption}>{assumption}</li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {survey && currentQuestion ? (
+        <div className="planning-survey-question">
+          <h3 className="planning-survey-question-title">{currentQuestion.label}</h3>
+          <p className="planning-survey-question-copy">{currentQuestion.whyThisBlocks}</p>
+          <RefinementField
+            question={currentQuestion}
+            value={refinementAnswers[currentQuestion.id]}
+            onChange={(nextValue) => onAnswerChange(currentQuestion.id, nextValue)}
+          />
+
+          <div className="button-row planning-intake-question-actions">
+            <button
+              type="button"
+              onClick={() => {
+                if (previousQuestionId) {
+                  setOpenQuestionId(previousQuestionId);
+                  return;
+                }
+
+                onBackToPreviousStep?.();
+              }}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onAnswerLater(currentQuestion.id);
+                if (nextQuestionId) {
+                  setOpenQuestionId(nextQuestionId);
+                  return;
+                }
+
+                setOpenQuestionId(null);
+              }}
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={
+                !defaultAnswerQuestionIds.includes(currentQuestion.id) &&
+                !isQuestionAnswered(refinementAnswers[currentQuestion.id])
+              }
+              onClick={() => {
+                if (nextQuestionId) {
+                  setOpenQuestionId(nextQuestionId);
+                  return;
+                }
+
+                setOpenQuestionId(null);
+              }}
+            >
+              Continue
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

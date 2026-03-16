@@ -30,12 +30,23 @@ const initiative: Initiative = {
         questions: [
           {
             id: "brief-problem",
-            label: "What problem should the first release solve?",
-            type: "text",
+            label: "Which problem matters most in v1?",
+            type: "select",
             whyThisBlocks: "One focused problem — not a feature list.",
             affectedArtifact: "brief",
             decisionType: "scope",
             assumptionIfUnanswered: "Focus on the user's primary note-taking problem.",
+            options: [
+              "Capture something quickly",
+              "Find or organize things better",
+              "Replace an existing tool or workflow",
+              "Support a platform-specific need",
+              "Other"
+            ],
+            optionHelp: {
+              "Capture something quickly": "Use this when speed matters most."
+            },
+            recommendedOption: null
           },
         ],
         answers: {},
@@ -106,6 +117,12 @@ const reviewSnapshot: ArtifactsSnapshot = {
           type: "blocker",
           message: "The scope is still too broad for a first release.",
           relatedArtifacts: ["brief"]
+        },
+        {
+          id: "finding-2",
+          type: "warning",
+          message: "The goals still need one measurable success metric.",
+          relatedArtifacts: ["brief"]
         }
       ],
       sourceUpdatedAts: {
@@ -116,6 +133,39 @@ const reviewSnapshot: ArtifactsSnapshot = {
       updatedAt: "2026-03-16T12:12:00.000Z"
     }
   ]
+};
+
+const completedReviewBlockedSnapshot: ArtifactsSnapshot = {
+  ...snapshot,
+  initiatives: [
+    {
+      ...initiative,
+      workflow: {
+        activeStep: "core-flows",
+        steps: {
+          brief: { status: "complete", updatedAt: "2026-03-16T12:10:00.000Z" },
+          "core-flows": { status: "ready", updatedAt: "2026-03-16T12:12:00.000Z" },
+          prd: { status: "locked", updatedAt: null },
+          "tech-spec": { status: "locked", updatedAt: null },
+          tickets: { status: "locked", updatedAt: null }
+        },
+        refinements: initiative.workflow.refinements
+      }
+    }
+  ],
+  specs: [
+    {
+      id: "spec-brief",
+      initiativeId: initiative.id,
+      type: "brief",
+      title: "Brief",
+      content: "# Brief\n\nA short summary.\n\n## Goals\n\n- Keep capture fast.\n- Support richer notes.",
+      sourcePath: "specflow/initiatives/initiative-12345678/brief.md",
+      createdAt: "2026-03-16T12:10:00.000Z",
+      updatedAt: "2026-03-16T12:10:00.000Z"
+    }
+  ],
+  planningReviews: reviewSnapshot.planningReviews
 };
 
 const WorkspaceWithLocation = () => {
@@ -140,16 +190,31 @@ describe("InitiativeView", () => {
     );
 
     expect(screen.getByText("New initiative")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Brief intake" })).toBeInTheDocument();
-    expect(screen.getByText("What problem should the first release solve?")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Brief intake" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Idea" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change idea" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "What do you want to build?" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Build a Linux note app with fast capture and richer note editing.")).not.toBeInTheDocument();
+    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(screen.getByRole("heading", { name: "What do you want to build?" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Build a Linux note app with fast capture and richer note editing.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.queryByText("Build a Linux note app with fast capture and richer note editing.")).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText("?step=brief&handoff=created")).toBeInTheDocument();
     });
   });
 
-  it("keeps review detail out of the page body until the drawer is opened", async () => {
+  it("opens the clarification flow instead of dumping review findings into the page", async () => {
     render(
       <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
         <Routes>
@@ -168,10 +233,54 @@ describe("InitiativeView", () => {
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "See issues" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fix issues" }));
+
+    expect(screen.getByRole("dialog", { name: "Change brief inputs" })).toBeInTheDocument();
+    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Capture something quickly/i })).toBeInTheDocument();
+    expect(screen.queryByText("24 questions to answer")).not.toBeInTheDocument();
+    expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Move on anyway" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the override path behind the menu instead of showing the review wall by default", async () => {
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={<InitiativeRouteView snapshot={reviewSnapshot} onRefresh={vi.fn(async () => undefined)} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("More"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Move on anyway" }));
 
     expect(screen.getByRole("dialog", { name: "Brief review" })).toBeInTheDocument();
-    expect(screen.getByText("The scope is still too broad for a first release.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue with risk" })).toBeInTheDocument();
+    expect(screen.getByText("Make a few changes before you move on")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change inputs" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit text" })).toBeInTheDocument();
+    expect(screen.queryByText("24 questions to answer")).not.toBeInTheDocument();
+  });
+
+  it("keeps the blocked phase active in the pipeline when the next phase is ready", () => {
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=core-flows`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={
+              <InitiativeRouteView snapshot={completedReviewBlockedSnapshot} onRefresh={vi.fn(async () => undefined)} />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { name: "Brief" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Brief" })).toHaveClass("pipeline-node-checkpoint");
+    expect(screen.getByRole("button", { name: "Core flows" })).toHaveClass("pipeline-node-future");
   });
 });

@@ -93,6 +93,7 @@ describe("PlannerService", () => {
     expect(prompt.userPrompt).toContain("first required Brief consultation for a fresh initiative");
     expect(prompt.userPrompt).toContain('You must return "ask"');
     expect(prompt.userPrompt).toContain("Ask exactly 4 short consultation questions");
+    expect(prompt.userPrompt).toContain('Every question must use "select", "multi-select", or "boolean"');
   });
 
   it("includes AGENTS.md content in prompts for phase checks, phase generation, plan, and triage", async () => {
@@ -210,6 +211,7 @@ describe("PlannerService", () => {
       });
       expect(initialBriefConsultation.decision).toBe("ask");
       expect(initialBriefConsultation.questions).toHaveLength(4);
+      expect(initialBriefConsultation.questions.every((question) => question.type !== "text")).toBe(true);
       expect(mockClient.requests).toHaveLength(0);
       await resolveBriefConsultation(
         store,

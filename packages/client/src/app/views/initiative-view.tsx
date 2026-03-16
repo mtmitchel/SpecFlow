@@ -138,6 +138,7 @@ export const InitiativeView = ({
     updateRefinementAnswer,
     deferRefinementQuestion,
     openReviewDrawer,
+    openRefinementDrawer,
     selectReviewInDrawer,
     openDocumentDrawer,
     openEditDrawer,
@@ -247,6 +248,61 @@ export const InitiativeView = ({
       );
     }
 
+    if (drawerState.type === "refinement") {
+      return (
+        <SideDrawer
+          open
+          title={`Change ${label.toLowerCase()} inputs`}
+          headerActions={renderSaveState(refinementSaveState)}
+          onClose={closeDrawer}
+        >
+          {activeRefinement && activeRefinement.questions.length > 0 ? (
+            <div className="planning-drawer-refinement">
+              <RefinementSection
+                activeSpecStep={drawerState.step}
+                activeRefinement={activeRefinement}
+                refinementAnswers={refinementAnswers}
+                defaultAnswerQuestionIds={defaultAnswerQuestionIds}
+                refinementAssumptions={refinementAssumptions}
+                refinementSaveState={refinementSaveState}
+                unresolvedQuestionCount={unresolvedQuestionCount}
+                guidanceQuestionId={guidanceQuestionId}
+                guidanceText={guidanceText}
+                busyAction={busyAction}
+                isBusy={isBusy}
+                saveStateIndicator={renderSaveState(refinementSaveState)}
+                variant="compact"
+                onRequestGuidance={handleRequestGuidance}
+                onAnswerChange={updateRefinementAnswer}
+                onAnswerLater={deferRefinementQuestion}
+              />
+              <div className="planning-step-actions planning-step-actions-centered">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void handleGenerateSpec(drawerState.step)}
+                  disabled={isBusy || unresolvedQuestionCount > 0}
+                >
+                  {busyAction === `generate-${drawerState.step}` ? "Updating..." : `Update ${label.toLowerCase()}`}
+                </button>
+              </div>
+            </div>
+          ) : busyAction === `check-${drawerState.step}` ? (
+            <p className="ticket-empty-note">Loading choices...</p>
+          ) : (
+            <div className="planning-step-card planning-step-card-quiet">
+              <p className="ticket-empty-note">No inputs need changing right now.</p>
+              <div className="planning-step-actions planning-step-actions-centered">
+                <button type="button" onClick={() => openEditDrawer(drawerState.step)}>
+                  Edit text
+                </button>
+              </div>
+            </div>
+          )}
+        </SideDrawer>
+      );
+    }
+
     return (
       <SideDrawer
         open
@@ -266,6 +322,8 @@ export const InitiativeView = ({
           onClearReviewOverride={clearReviewOverride}
           onChangeReviewOverrideReason={setReviewOverrideReason}
           onConfirmOverride={handleOverrideReview}
+          onOpenEditor={() => openEditDrawer(drawerState.step)}
+          onOpenRefinement={() => void openRefinementDrawer(drawerState.step)}
         />
       </SideDrawer>
     );
@@ -281,27 +339,41 @@ export const InitiativeView = ({
     const checkpointReviewKind = unresolvedReviewsForActiveStep[0] ?? null;
     const needsIntakeStart = activeStage === "consult" && !refinementCheckedAt && !hasRefinementQuestions;
     const label = INITIATIVE_WORKFLOW_LABELS[activeSpecStep];
+    const loadingStateLabel =
+      busyAction === `check-${activeSpecStep}` && activeRefinement?.questions.length && unresolvedQuestionCount === 0
+        ? `Checking if the ${label.toLowerCase()} needs anything else`
+        : null;
     const stageBody = getPlanningStageCopy(activeSpecStep, activeStage);
-    const actionMenuItems = [
+    const actionMenuItems: Array<{
+      label: string;
+      onSelect: () => void | Promise<void>;
+      disabled?: boolean;
+    }> = [
       {
-        label: `Open full ${label.toLowerCase()}`,
+        label: "View full",
         onSelect: () => openDocumentDrawer(activeSpecStep)
       },
       {
-        label: `Edit ${label.toLowerCase()}`,
+        label: "Edit text",
         onSelect: () => openEditDrawer(activeSpecStep)
-      },
-      {
-        label: getPlanningQuestionActionLabel(activeSpecStep, refinementCheckedAt),
-        onSelect: () => void handleCheckAndAdvance(activeSpecStep),
-        disabled: isBusy
-      },
-      {
-        label: getPlanningGenerateActionLabel(activeSpecStep, true),
-        onSelect: () => void handleGenerateSpec(activeSpecStep),
-        disabled: isBusy
       }
     ];
+
+    if (activeRefinement?.checkedAt || activeRefinement?.questions.length) {
+      actionMenuItems.push({
+        label: "Change inputs",
+        onSelect: () => openRefinementDrawer(activeSpecStep),
+        disabled: isBusy
+      });
+    }
+
+    if (checkpointReviewKind) {
+      actionMenuItems.push({
+        label: "Move on anyway",
+        onSelect: () => openReviewDrawer(activeSpecStep, checkpointReviewKind),
+        disabled: isBusy
+      });
+    }
 
     return (
       <div className={`planning-step-column${hasActiveContent ? " planning-step-column-wide" : " planning-step-column-narrow"}`}>
@@ -353,6 +425,7 @@ export const InitiativeView = ({
               busyAction={busyAction}
               isBusy={isBusy}
               saveStateIndicator={renderSaveState(refinementSaveState)}
+              loadingStateLabel={loadingStateLabel}
               variant="compact"
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
@@ -380,10 +453,10 @@ export const InitiativeView = ({
               <CheckpointGateBanner
                 body={stepStatus === "stale"
                     ? "Something changed. Review it again before you continue."
-                    : "Review this before you move on."}
-                actionLabel="See issues"
+                    : "Fix the open issues before you move on."}
+                actionLabel="Fix issues"
                 onAction={
-                  checkpointReviewKind ? () => openReviewDrawer(activeSpecStep, checkpointReviewKind) : undefined
+                  checkpointReviewKind ? () => void openRefinementDrawer(activeSpecStep) : undefined
                 }
                 disabled={!checkpointReviewKind}
               />
@@ -434,7 +507,7 @@ export const InitiativeView = ({
                 if (step !== "tickets") {
                   const unresolvedReviewKind = unresolvedReviewByStep[step];
                   if (unresolvedReviewKind) {
-                    openReviewDrawer(step, unresolvedReviewKind);
+                    void openRefinementDrawer(step);
                   }
                 }
 

@@ -7,7 +7,8 @@
   ],
   "scripts": {
     "build": "npm run -w @specflow/client build && npm run -w @specflow/app build",
-    "check": "tsc -p packages/app/tsconfig.json --noEmit && tsc -p packages/client/tsconfig.json --noEmit",
+    "check": "tsc -p packages/app/tsconfig.json --noEmit && tsc -p packages/client/tsconfig.json --noEmit && npm run check:ui-dedupe",
+    "check:ui-dedupe": "tsx scripts/check-ui-dedupe.ts",
     "dev": "concurrently -k -n server,client \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch packages/app/src/cli.ts ui --no-open --port 3142",
     "dev:client": "npm run -w @specflow/client dev",

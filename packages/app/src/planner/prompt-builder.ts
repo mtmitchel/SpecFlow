@@ -147,12 +147,15 @@ const buildCheckPrompt = (
             '- Default to "proceed". Ask questions only when missing information would materially change the current artifact and would be costly to unwind later.'
           ]),
       `- You may ask at most ${maxQuestions} question${maxQuestions === 1 ? "" : "s"}.`,
-      "- If you ask, every question must explain why it blocks this artifact, include an assumptionIfUnanswered, and use finite options whenever reasonable.",
+      "- Keep the set as short as possible. Ask only the highest-leverage blocker questions.",
+      "- If you ask, every question must explain why it blocks this artifact and include an assumptionIfUnanswered.",
+      '- Every question must use "select", "multi-select", or "boolean". Never use "text".',
+      "- Prefer 2 to 5 options per question. Include a recommendedOption when one choice is clearly best.",
       ...(requiresInitialConsultation
         ? []
         : ["- If you can proceed, return an empty questions array and include any explicit assumptions you are making."]),
       "- Do not ask broad discovery questions. Ask only about blockers for this artifact.",
-      "- Use text questions only when the answer cannot be represented as a finite set of meaningful options.",
+      "- Phrase each question so the user can answer it quickly without reading a long explanation.",
       ...getArtifactSections(input)
     ].join("\n\n")
   };

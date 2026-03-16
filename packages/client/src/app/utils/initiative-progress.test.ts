@@ -102,6 +102,87 @@ describe("getInitiativeProgressModel", () => {
     expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Review brief");
   });
 
+  it.each([
+    {
+      blockedStep: "brief" as const,
+      nextStep: "core-flows" as const,
+      reviewKind: "brief-review" as const,
+    },
+    {
+      blockedStep: "core-flows" as const,
+      nextStep: "prd" as const,
+      reviewKind: "core-flows-review" as const,
+    },
+    {
+      blockedStep: "prd" as const,
+      nextStep: "tech-spec" as const,
+      reviewKind: "prd-review" as const,
+    },
+    {
+      blockedStep: "tech-spec" as const,
+      nextStep: "tickets" as const,
+      reviewKind: "tech-spec-review" as const,
+    },
+  ])(
+    "keeps $blockedStep current when its review is still unresolved after completion",
+    ({ blockedStep, nextStep, reviewKind }) => {
+      const steps: Initiative["workflow"]["steps"] = {
+        brief: { status: "locked", updatedAt: null },
+        "core-flows": { status: "locked", updatedAt: null },
+        prd: { status: "locked", updatedAt: null },
+        "tech-spec": { status: "locked", updatedAt: null },
+        tickets: { status: "locked", updatedAt: null },
+      };
+
+      let markComplete = true;
+      for (const step of ["brief", "core-flows", "prd", "tech-spec", "tickets"] as const) {
+        if (step === nextStep) {
+          steps[step] = { status: "ready", updatedAt: "2026-03-16T10:30:00.000Z" };
+          markComplete = false;
+          continue;
+        }
+
+        if (markComplete) {
+          steps[step] = { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" };
+        }
+      }
+
+      const initiative: Initiative = {
+        ...baseInitiative,
+        workflow: {
+          ...baseInitiative.workflow,
+          steps,
+        },
+      };
+
+      const progress = getInitiativeProgressModel(
+        initiative,
+        createSnapshot({
+          initiative,
+          planningReviews: [
+            {
+              id: `${initiative.id}:${reviewKind}`,
+              initiativeId: initiative.id,
+              kind: reviewKind,
+              status: "blocked",
+              summary: "Still blocked.",
+              findings: [],
+              sourceUpdatedAts: { [blockedStep]: "2026-03-16T10:20:00.000Z" },
+              overrideReason: null,
+              reviewedAt: "2026-03-16T10:31:00.000Z",
+              updatedAt: "2026-03-16T10:31:00.000Z",
+            },
+          ],
+        }),
+      );
+
+      expect(progress.currentKey).toBe(blockedStep);
+      expect(progress.currentNodeState).toBe("checkpoint");
+      expect(progress.nodes.find((node) => node.key === blockedStep)?.state).toBe("checkpoint");
+      expect(progress.nodes.find((node) => node.key === nextStep)?.state).toBe("future");
+    },
+  );
+
   it("keeps the initiative at tickets when coverage is unresolved", () => {
     const initiative: Initiative = {
       ...baseInitiative,
@@ -236,6 +317,67 @@ describe("getInitiativeProgressModel", () => {
     expect(verifyProgress.currentNodeState).toBe("active");
     expect(getInitiativeQueueActionLabel(initiative, executeProgress)).toBe("Continue ticket");
     expect(getInitiativeQueueActionLabel(initiative, verifyProgress)).toBe("Verify ticket");
+  });
+
+  it("keeps tickets current when coverage is blocked even if execution already started", () => {
+    const initiative: Initiative = {
+      ...baseInitiative,
+      workflow: {
+        ...baseInitiative.workflow,
+        steps: {
+          brief: { status: "complete", updatedAt: "2026-03-16T10:00:00.000Z" },
+          "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
+          prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
+          "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
+        },
+      },
+    };
+
+    const progress = getInitiativeProgressModel(
+      initiative,
+      createSnapshot({
+        initiative,
+        tickets: [
+          {
+            id: "ticket-in-progress",
+            initiativeId: initiative.id,
+            phaseId: null,
+            title: "in-progress",
+            description: "in-progress",
+            status: "in-progress",
+            acceptanceCriteria: [],
+            implementationPlan: "",
+            fileTargets: [],
+            coverageItemIds: [],
+            blockedBy: [],
+            blocks: [],
+            runId: null,
+            createdAt: "2026-03-16T10:22:00.000Z",
+            updatedAt: "2026-03-16T10:22:00.000Z",
+          },
+        ],
+        planningReviews: [
+          {
+            id: `${initiative.id}:ticket-coverage-review`,
+            initiativeId: initiative.id,
+            kind: "ticket-coverage-review",
+            status: "blocked",
+            summary: "Coverage gaps remain.",
+            findings: [],
+            sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+            overrideReason: null,
+            reviewedAt: "2026-03-16T10:25:00.000Z",
+            updatedAt: "2026-03-16T10:25:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    expect(progress.currentKey).toBe("tickets");
+    expect(progress.currentNodeState).toBe("checkpoint");
+    expect(progress.nodes.find((node) => node.key === "execute")?.state).toBe("future");
+    expect(progress.nodes.find((node) => node.key === "verify")?.state).toBe("future");
   });
 
   it("marks the initiative done once every ticket is complete", () => {

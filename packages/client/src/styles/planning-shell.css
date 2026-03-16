@@ -1,0 +1,453 @@
+/* Planning shell */
+.planning-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 100%;
+}
+
+.planning-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text);
+  font-size: 1.05rem;
+  opacity: 0.7;
+}
+
+.planning-breadcrumb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.planning-breadcrumb a:hover {
+  opacity: 1;
+}
+
+.planning-topbar {
+  display: grid;
+  gap: 1.15rem;
+  padding: 1.25rem 1.75rem 1.35rem;
+  border: 1px solid rgba(152, 188, 220, 0.16);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(16, 24, 38, 0.62), rgba(16, 24, 38, 0.48));
+  overflow: hidden;
+}
+
+.planning-topbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  backdrop-filter: blur(18px);
+}
+
+.planning-topbar-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.planning-topbar-pipeline {
+  padding: 0;
+}
+
+.planning-content-area {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: 1.5rem;
+}
+
+.planning-entry-shell {
+  gap: 0;
+}
+
+.planning-entry-column,
+.planning-step-column {
+  width: min(100%, 960px);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.planning-step-column-narrow {
+  width: min(100%, 760px);
+}
+
+.planning-step-column-wide {
+  width: min(100%, 960px);
+}
+
+.planning-entry-card,
+.planning-step-card {
+  display: grid;
+  gap: 1.15rem;
+  padding: 1.5rem 1.6rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: rgba(16, 24, 38, 0.82);
+}
+
+.planning-step-card-quiet {
+  background: rgba(14, 21, 33, 0.84);
+}
+
+.planning-entry-card h3,
+.planning-entry-card-header h3 {
+  margin: 0;
+  font-size: 1.38rem;
+  line-height: 1.2;
+}
+
+.planning-entry-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-entry-card-header p {
+  margin: 0.42rem 0 0;
+  color: var(--muted);
+  font-size: 1.06rem;
+  line-height: 1.55;
+}
+
+.planning-entry-card-footer,
+.planning-step-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.planning-entry-card-footer {
+  justify-content: flex-end;
+}
+
+.planning-step-actions-centered {
+  justify-content: center;
+}
+
+.planning-entry-counter {
+  color: var(--muted);
+  font-size: var(--font-body-sm);
+}
+
+.planning-main-column {
+  display: grid;
+  gap: 1rem;
+}
+
+.planning-section-card {
+  display: grid;
+  gap: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.planning-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-step-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-step-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.planning-step-title-row h2 {
+  margin: 0;
+  font-size: 1.48rem;
+  line-height: 1.2;
+}
+
+.planning-step-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.6;
+  max-width: 44rem;
+}
+
+.planning-step-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-border-subtle);
+  padding: 0.2rem 0.72rem;
+  font-size: 1rem;
+  color: var(--accent-text-light);
+  background: var(--accent-bg-subtle);
+}
+
+.planning-step-status-complete {
+  border-color: var(--success-border);
+  color: var(--success-text);
+  background: var(--success-bg);
+}
+
+.planning-step-status-checkpoint {
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+  background: var(--warning-bg);
+}
+
+.planning-view-toggle {
+  margin: 0;
+}
+
+.planning-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.85rem;
+}
+
+.planning-summary-card {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  padding: 0.95rem;
+}
+
+.planning-summary-card h4 {
+  margin: 0 0 0.55rem;
+}
+
+.planning-drawer-refinement {
+  display: grid;
+  gap: 1rem;
+}
+
+.action-menu {
+  position: relative;
+}
+
+.action-menu summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 48px;
+  padding: 0.76rem 1.05rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+  cursor: pointer;
+  user-select: none;
+  font-size: 1rem;
+}
+
+.action-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.action-menu summary::after {
+  content: "▾";
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.action-menu[open] summary {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.action-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 3;
+  min-width: 190px;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-dropdown);
+  box-shadow: var(--shadow-lg);
+}
+
+.action-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-md) - 0.2rem);
+  padding: 0.8rem 0.9rem;
+  color: var(--text);
+  font: inherit;
+}
+
+.action-menu-item:hover:not(:disabled) {
+  background: rgba(72, 203, 255, 0.12);
+}
+
+.action-menu-item-danger {
+  color: var(--danger-text);
+}
+
+.side-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(3, 7, 12, 0.62);
+  backdrop-filter: blur(10px);
+}
+
+.side-drawer-panel {
+  width: min(100%, 520px);
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-left: 1px solid rgba(152, 188, 220, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(72, 203, 255, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(12, 19, 29, 0.98), rgba(10, 16, 25, 0.99));
+  box-shadow: var(--shadow-drawer);
+}
+
+.side-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem 1rem 0.9rem;
+  border-bottom: 1px solid rgba(152, 188, 220, 0.08);
+}
+
+.side-drawer-heading {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.side-drawer-heading h2 {
+  margin: 0;
+  font-size: 1.32rem;
+}
+
+.side-drawer-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.04rem;
+  line-height: 1.55;
+}
+
+.side-drawer-header-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.side-drawer-close {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.side-drawer-body {
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.planning-drawer-document {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: rgba(8, 12, 20, 0.36);
+  padding: 1rem;
+}
+
+.planning-topbar .btn-danger-subtle,
+.planning-entry-card-footer button,
+.planning-step-actions button,
+.side-drawer-header-actions button {
+  min-height: 48px;
+  padding: 0.76rem 1.05rem;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+}
+
+.planning-entry-card .multiline,
+.planning-step-card .multiline,
+.planning-drawer-textarea {
+  min-height: 180px;
+  padding: 1rem 1.1rem;
+  font-size: 1.04rem;
+  line-height: 1.65;
+}
+
+.planning-ticket-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.planning-ticket-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+}
+
+.planning-ticket-list li a {
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.planning-ticket-list li a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.planning-phase-count {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.ticket-empty-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 1000px) {
+  .planning-topbar-row,
+  .planning-step-header,
+  .side-drawer-header {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 720px) {
+  .planning-step-actions,
+  .planning-ticket-list li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .side-drawer-panel {
+    width: 100%;
+    border-left: none;
+  }
+}

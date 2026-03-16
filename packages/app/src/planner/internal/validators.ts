@@ -21,6 +21,10 @@ const validateQuestions = (
 
   for (const question of questions) {
     const options = Array.isArray(question.options) ? question.options : [];
+    if (question.type === "text") {
+      throw new Error(`Refinement question ${question.id} must use finite options`);
+    }
+
     if ((question.type === "select" || question.type === "multi-select") && options.length === 0) {
       throw new Error(`Refinement question ${question.id} is missing options`);
     }

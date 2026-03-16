@@ -15,7 +15,7 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
 
   return (
     <>
-      <h4>Override to Done</h4>
+      <h4>Override verification</h4>
       <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
         Mark this ticket as done despite verification results. This override and your reason will be recorded.
       </p>
@@ -47,7 +47,7 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
               setShowPanel(true);
             }}
           >
-            Override to Done
+            Mark done anyway
           </button>
         </div>
       ) : (

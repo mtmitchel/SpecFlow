@@ -1,6 +1,6 @@
 import type { AgentTarget, Ticket } from "../../../types.js";
 import { WorkflowSection } from "../../components/workflow-section.js";
-import type { WorkflowPhase } from "../../components/workflow-stepper.js";
+import type { WorkflowPhase } from "./workflow.js";
 
 const HelpTip = ({ text }: { text: string }) => (
   <span className="help-tip" data-tip={text}>?</span>

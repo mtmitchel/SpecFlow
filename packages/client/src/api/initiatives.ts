@@ -26,6 +26,25 @@ export const createInitiative = async (
     body: JSON.stringify({ description })
   });
 
+export const updateInitiative = async (
+  initiativeId: string,
+  payload: Partial<{
+    title: string;
+    description: string;
+    phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>;
+  }>
+): Promise<void> => {
+  await parse(
+    await fetch(`/api/initiatives/${initiativeId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    })
+  );
+};
+
 export const checkInitiativePhase = async (
   initiativeId: string,
   step: RefinementStep

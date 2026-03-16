@@ -44,13 +44,13 @@ src/
 ```
 src/
   api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
-  styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, journey-redesign)
+  styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, planning-shell, pipeline, planning-intake, planning-reviews, overview, ticket-execution, run-report)
   app/
-    components/     shared UI: audit-panel, checkpoint-gate-banner, diff-viewer, markdown-view, model-combobox, phase-transition-banner, pipeline, workflow-section, workflow-stepper
+    components/     shared UI: audit-panel, checkpoint-gate-banner, diff-viewer, markdown-view, model-combobox, phase-transition-banner, pipeline, workflow-section
     constants/      status-columns (status transition rules, canTransition helper)
     context/        toast (error notification context and useToast hook)
     hooks/          use-capture-preview, use-dirty-form, use-export-workflow, use-sse-reconnect, use-tree-navigation, use-verification-stream
-    layout/         workspace-shell, icon-rail, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal, status-bar
+    layout/         workspace-shell, icon-rail, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal
     utils/          initiative-progress, phase-warning, scope-paths, specs
     views/          detail-workspace, overview-panel, initiative-view, initiative-route-view, initiative-creator, initiative-handoff-view, spec-view, ticket-view, run-view
       initiative/   planning workspace sections, review cards, shared state/controller hook
@@ -84,6 +84,14 @@ Direct CLI examples (after build):
 - TypeScript: explicit interfaces for shared entities and API payloads.
 - Markdown docs: concise sections with clear scope boundaries.
 - File names use kebab-case unless framework conventions require otherwise.
+
+## No Duplicate UI
+
+- Never ship duplicated UI meaning.
+- Do not repeat the same action, state, or explanation in adjacent controls, cards, banners, drawers, or helper text.
+- Treat near-duplicates as defects, not copy tweaks. If two labels or blocks mean the same thing, keep one.
+- Do not render the same option twice in a choice set, including special fallback options such as `Other`.
+- Run `npm run check` after UI work. It now includes a hard UI dedupe gate.
 
 ### React / client conventions
 

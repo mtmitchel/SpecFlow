@@ -10,6 +10,7 @@ import type {
   TicketStatus,
 } from "../../types.js";
 import {
+  getInitiativeBlockedStep,
   INITIATIVE_WORKFLOW_LABELS,
   REVIEWS_BY_STEP,
   getInitiativeResumeStep,
@@ -156,13 +157,15 @@ export const getInitiativeProgressModel = (
     null;
 
   const resumePlanningStep = getInitiativeResumeStep(initiative.workflow);
+  const blockedPlanningStep = getInitiativeBlockedStep(initiative.workflow, planningReviews);
   const ticketsStepReviews = getOwnedReviews(planningReviews, initiative.id, "tickets");
   const ticketsCheckpoint =
     initiative.workflow.steps.tickets.status === "stale" ||
     ticketsStepReviews.some((review) => !isResolvedReview(review));
   const planningReadyForExecution = initiativeTickets.length > 0 && !ticketsCheckpoint;
   const executionCurrentKey = getExecutionCurrentKey(initiativeTickets, planningReadyForExecution);
-  const currentKey = overrides?.currentKey ?? executionCurrentKey ?? resumePlanningStep;
+  const visibleExecutionKey = blockedPlanningStep ? null : executionCurrentKey;
+  const currentKey = overrides?.currentKey ?? blockedPlanningStep ?? visibleExecutionKey ?? resumePlanningStep;
 
   const nodes = PIPELINE_NODE_ORDER.map<PipelineNodeModel>((key) => {
     const zone: PipelineNodeZone = EXECUTION_NODE_KEYS.includes(key) ? "execution" : "planning";
@@ -171,18 +174,18 @@ export const getInitiativeProgressModel = (
       let state: PipelineNodeState = "future";
 
       if (key === "execute") {
-        if (executionCurrentKey === "execute") {
+        if (visibleExecutionKey === "execute") {
           state = "active";
-        } else if (executionCurrentKey === "verify" || executionCurrentKey === "done") {
+        } else if (visibleExecutionKey === "verify" || visibleExecutionKey === "done") {
           state = "complete";
         }
       } else if (key === "verify") {
-        if (executionCurrentKey === "verify") {
+        if (visibleExecutionKey === "verify") {
           state = "active";
-        } else if (executionCurrentKey === "done") {
+        } else if (visibleExecutionKey === "done") {
           state = "complete";
         }
-      } else if (executionCurrentKey === "done") {
+      } else if (visibleExecutionKey === "done") {
         state = "complete";
       }
 

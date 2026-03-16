@@ -102,6 +102,7 @@ Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by tick
 - **Ticket entities** require `blockedBy: string[]` and `blocks: string[]` fields. Older YAML files are normalized to empty arrays in `loadTickets`. Always include both when creating Ticket literals.
 - **React components**: do NOT annotate return types with `: JSX.Element` (removed in `@types/react@19`). Use `ConfigSavePayload` for writes, `Config` for reads. `AgentTarget` is the shared agent selection type.
 - **File names**: kebab-case.
+- **No duplicate UI meaning**: never repeat the same action, state, explanation, or option in nearby UI. Exact duplicates and near-duplicates are defects. `npm run check` includes a hard UI dedupe gate; do not bypass it.
 - **Ellipsis in UI copy**: never use `...` (ellipsis) in static copy such as placeholders, labels, or empty-state messages. Ellipsis is reserved exclusively for loading/progress states (e.g. "Creating", "Importing"). Placeholder text should read naturally without trailing dots (e.g. `"Search tickets"` not `"Search tickets..."`).
 - **CSS design tokens**: all visual values must use tokens from `base.css`. Never hardcode `border-radius`, `font-size` (for small text), `box-shadow`, or disabled/hover opacity.
   - **Border radius**: `--radius-xs` (6px), `--radius-sm` (4px), `--radius-md` (8px), `--radius-lg` (12px), `--radius-pill` (999px).

@@ -26,6 +26,7 @@ import { getInitiativeDisplayTitle } from "../../utils/initiative-titles.js";
 import { getSpecMarkdown } from "../../utils/specs.js";
 import {
   canOpenInitiativeStep,
+  getInitiativeBlockedStep,
   getInitiativeResumeStep,
   getNextInitiativeStep,
   INITIATIVE_ARTIFACT_STEPS,
@@ -119,16 +120,7 @@ export const useInitiativePlanningWorkspace = (
   const getReview = (kind: PlanningReviewKind): PlanningReviewArtifact | undefined =>
     initiativeReviews.find((item) => item.kind === kind);
 
-  const reviewBlockedStep =
-    initiative &&
-    (INITIATIVE_ARTIFACT_STEPS.find((step) => {
-      if (!savedDrafts[step].trim()) {
-        return false;
-      }
-
-      return REVIEWS_BY_STEP[step].some((kind) => !isResolvedReview(getReview(kind)));
-    }) ??
-      null);
+  const reviewBlockedStep = initiative ? getInitiativeBlockedStep(initiative.workflow, initiativeReviews) : null;
   const requestedStep = searchParams.get("step");
   const resumeStep = initiative ? reviewBlockedStep ?? getInitiativeResumeStep(initiative.workflow) : "brief";
   const activeStep: InitiativePlanningStep =
@@ -229,7 +221,7 @@ export const useInitiativePlanningWorkspace = (
       return;
     }
 
-    if (drawerState.step === activeSpecStep) {
+    if (drawerState.step === activeSpecStep || requestedStep === drawerState.step) {
       return;
     }
 
@@ -478,6 +470,27 @@ export const useInitiativePlanningWorkspace = (
     setDrawerState({ type: "review", step, reviewKind });
   };
 
+  const openRefinementDrawer = async (step: SpecStep) => {
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+    setDrawerState({ type: "refinement", step });
+
+    if (!initiative) {
+      return;
+    }
+
+    const existingRefinement = initiative.workflow.refinements[step];
+    if (existingRefinement.questions.length > 0) {
+      return;
+    }
+
+    await withBusyAction(`check-${step}`, async () => {
+      const result = await checkInitiativePhase(initiative.id, step);
+      await onRefresh();
+      setRefinementAssumptions(result.assumptions);
+    });
+  };
+
   const selectReviewInDrawer = (reviewKind: PlanningReviewKind) => {
     setDrawerState((current) =>
       current?.type === "review"
@@ -617,6 +630,7 @@ export const useInitiativePlanningWorkspace = (
     clearReviewOverride,
     setReviewOverrideReason,
     openReviewDrawer,
+    openRefinementDrawer,
     selectReviewInDrawer,
     openDocumentDrawer,
     openEditDrawer,

@@ -82,16 +82,13 @@ describe("OverviewPanel", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Up next")).toBeInTheDocument();
+    expect(screen.getByText("In progress")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review brief.*Linux Notes/i })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=brief`
     );
     expect(screen.getByText("Verify quick task")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).toHaveAttribute(
-      "href",
-      `/initiative/${initiative.id}`
-    );
+    expect(screen.queryByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("Review brief")).toHaveLength(1);
   });
 });

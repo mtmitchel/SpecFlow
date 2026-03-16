@@ -27,6 +27,9 @@ export const TICKETS_REVIEWS: PlanningReviewKind[] = TICKET_REVIEW_KINDS;
 export const REQUIRED_REVIEWS_BEFORE_STEP = (step: InitiativePlanningStep): PlanningReviewKind[] =>
   getReviewsRequiredBeforePlanningStep(step);
 
+const getReviewsOwnedByPlanningStep = (step: InitiativePlanningStep): PlanningReviewKind[] =>
+  step === "tickets" ? TICKETS_REVIEWS : REVIEWS_BY_STEP[step];
+
 export const getInitiativeResumeStep = (workflow: InitiativeWorkflow): InitiativePlanningStep => {
   for (const step of INITIATIVE_WORKFLOW_STEPS) {
     const status = workflow.steps[step].status;
@@ -42,6 +45,28 @@ export const getInitiativeResumeStep = (workflow: InitiativeWorkflow): Initiativ
   }
 
   return "brief";
+};
+
+export const getInitiativeBlockedStep = (
+  workflow: InitiativeWorkflow,
+  planningReviews: PlanningReviewArtifact[],
+): InitiativePlanningStep | null => {
+  for (const step of INITIATIVE_WORKFLOW_STEPS) {
+    if (workflow.steps[step].status === "locked") {
+      continue;
+    }
+
+    const hasUnresolvedReview = getReviewsOwnedByPlanningStep(step).some((kind) => {
+      const review = planningReviews.find((item) => item.kind === kind);
+      return review && !isReviewResolved(review.status);
+    });
+
+    if (hasUnresolvedReview) {
+      return step;
+    }
+  }
+
+  return null;
 };
 
 export const canOpenInitiativeStep = (

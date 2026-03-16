@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import type { PipelineNodeKey, PipelineNodeModel } from "../utils/initiative-progress.js";
 
 const isInteractiveKey = (node: PipelineNodeModel): boolean =>
@@ -20,6 +20,9 @@ export const Pipeline = ({
   selectedKey = null,
 }: PipelineProps) => {
   const interactiveKeys = nodes.filter(isInteractiveKey).map((node) => node.key);
+  const pipelineStyle: CSSProperties = {
+    gridTemplateColumns: `repeat(${nodes.length}, minmax(0, 1fr))`,
+  };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, key: PipelineNodeKey) => {
     if (!onNodeClick) {
@@ -47,7 +50,12 @@ export const Pipeline = ({
   };
 
   return (
-    <div className={`pipeline${compact ? " pipeline-compact" : ""}`} role="list" aria-label={ariaLabel}>
+    <div
+      className={`pipeline${compact ? " pipeline-compact" : ""}`}
+      role="list"
+      aria-label={ariaLabel}
+      style={pipelineStyle}
+    >
       {nodes.map((node, index) => {
         const interactive = Boolean(onNodeClick) && isInteractiveKey(node);
         const selected = selectedKey === node.key;
@@ -60,16 +68,16 @@ export const Pipeline = ({
         ]
           .filter(Boolean)
           .join(" ");
+        const segmentClassName = [
+          "pipeline-segment",
+          index > 0 ? "pipeline-segment-has-connector" : "",
+          node.state === "complete" ? "pipeline-segment-connector-complete" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
 
         return (
-          <div key={node.key} className="pipeline-segment" role="listitem">
-            {index > 0 ? (
-              <div
-                className={`pipeline-connector${node.state === "complete" ? " pipeline-connector-complete" : ""}${
-                  index === 5 ? " pipeline-connector-boundary" : ""
-                }`}
-              />
-            ) : null}
+          <div key={node.key} className={segmentClassName} role="listitem">
             <button
               type="button"
               className={buttonClassName}

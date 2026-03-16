@@ -57,16 +57,16 @@
   --muted-border: rgba(142, 167, 195, 0.3);
 
   /* Border radius */
-  --radius-xs: 8px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-xs: 12px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
   --radius-pill: 999px;
 
   /* Typography scale */
-  --font-caption: 0.75rem;
-  --font-sm: 0.82rem;
-  --font-body-sm: 0.88rem;
+  --font-caption: 0.9rem;
+  --font-sm: 1rem;
+  --font-body-sm: 1.06rem;
 
   /* Shadows */
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);

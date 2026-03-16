@@ -203,9 +203,6 @@
     padding: 0.9rem;
   }
 
-  .workspace-status-bar {
-    grid-column: 1;
-  }
 }
 
 @media (max-width: 760px) {
@@ -230,4 +227,3 @@
     grid-template-columns: 1fr;
   }
 }
-
