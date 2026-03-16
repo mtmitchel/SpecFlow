@@ -837,7 +837,7 @@ button.planning-rail-item:hover:not(:disabled) {
 
 .checkpoint-gate-banner {
   border: 1px solid var(--warning-border);
-  background: rgba(243, 187, 82, 0.1);
+  background: rgba(243, 187, 82, 0.14);
 }
 
 .phase-transition-copy,
@@ -873,9 +873,9 @@ button.planning-rail-item:hover:not(:disabled) {
 
 .planning-summary-card {
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-md);
-  background: rgba(8, 12, 20, 0.4);
-  padding: 0.85rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  padding: 0.95rem;
 }
 
 .planning-summary-card h4 {
@@ -884,9 +884,9 @@ button.planning-rail-item:hover:not(:disabled) {
 
 .planning-document-view {
   border: 1px solid var(--panel-border);
-  border-radius: var(--radius-md);
-  background: rgba(8, 12, 20, 0.35);
-  padding: 0.85rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  padding: 0.95rem;
 }
 
 .planning-review-card {
