@@ -64,4 +64,128 @@ describe("ticket routes", () => {
       await fixture.cleanup();
     }
   });
+
+  it("blocks execution when the coverage check is unresolved", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const review = fixture.store.planningReviews.get("initiative-11223344:ticket-coverage-review");
+      if (!review) {
+        throw new Error("Expected coverage review fixture");
+      }
+
+      await fixture.store.upsertPlanningReview({
+        ...review,
+        status: "blocked",
+        summary: "Coverage gaps remain.",
+        updatedAt: new Date().toISOString()
+      });
+
+      const exportResponse = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/tickets/ticket-aabbccdd/export-bundle",
+        payload: { agent: "generic" }
+      });
+      expect(exportResponse.statusCode).toBe(409);
+      expect(exportResponse.json().message).toContain("coverage check");
+
+      const patchResponse = await fixture.server.app.inject({
+        method: "PATCH",
+        url: "/api/tickets/ticket-aabbccdd",
+        payload: { status: "in-progress" }
+      });
+      expect(patchResponse.statusCode).toBe(409);
+      expect(patchResponse.json().message).toContain("coverage check");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("allows execution when the coverage check is overridden", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const review = fixture.store.planningReviews.get("initiative-11223344:ticket-coverage-review");
+      if (!review) {
+        throw new Error("Expected coverage review fixture");
+      }
+
+      await fixture.store.upsertPlanningReview({
+        ...review,
+        status: "overridden",
+        overrideReason: "Coverage gaps accepted for a manual follow-up.",
+        updatedAt: new Date().toISOString()
+      });
+
+      const exportResponse = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/tickets/ticket-aabbccdd/export-bundle",
+        payload: { agent: "generic" }
+      });
+      expect(exportResponse.statusCode).toBe(201);
+      expect(exportResponse.json().runId).toBeTypeOf("string");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("allows quick tasks to start without a coverage review", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      await fixture.store.upsertTicket({
+        ...fixture.ticket,
+        id: "ticket-deadbeef",
+        initiativeId: null,
+        phaseId: null,
+        title: "Quick fix auth copy",
+        description: "Update the auth empty state",
+        coverageItemIds: [],
+        runId: null,
+        updatedAt: new Date().toISOString()
+      });
+
+      const response = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/tickets/ticket-deadbeef/export-bundle",
+        payload: { agent: "generic" }
+      });
+      expect(response.statusCode).toBe(201);
+      expect(response.json().runId).toBeTypeOf("string");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("blocks fix-bundle export when the coverage check is unresolved", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const review = fixture.store.planningReviews.get("initiative-11223344:ticket-coverage-review");
+      if (!review) {
+        throw new Error("Expected coverage review fixture");
+      }
+
+      await fixture.store.upsertPlanningReview({
+        ...review,
+        status: "blocked",
+        summary: "Coverage gaps remain.",
+        updatedAt: new Date().toISOString()
+      });
+      await fixture.store.upsertRun({
+        ...fixture.run,
+        ticketId: fixture.ticket.id
+      });
+
+      const response = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/runs/run-aabb1122/findings/finding-1/export-fix-bundle",
+        payload: { agent: "generic" }
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().message).toContain("coverage check");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
 });

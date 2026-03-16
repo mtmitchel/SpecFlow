@@ -168,6 +168,9 @@ describe("VerifierService", () => {
       ],
       implementationPlan: "",
       fileTargets: ["src/a.ts"],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
       runId: run.id,
       createdAt: now,
       updatedAt: now
@@ -274,6 +277,9 @@ describe("VerifierService", () => {
       acceptanceCriteria: [{ id: "c1", text: "A" }],
       implementationPlan: "",
       fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
       runId,
       createdAt: now,
       updatedAt: now

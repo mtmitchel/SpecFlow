@@ -3,7 +3,7 @@ import type { TriageTicketDraft } from "../types.js";
 
 export type PlannerTicketDraft =
   | TriageTicketDraft
-  | { title: string; description: string; acceptanceCriteria: string[]; fileTargets: string[] };
+  | { title: string; description: string; acceptanceCriteria: string[]; fileTargets: string[]; coverageItemIds?: string[] };
 
 const TITLE_STOP_WORDS = new Set([
   "a",
@@ -104,6 +104,11 @@ const hasImplementationPlan = (draft: PlannerTicketDraft): draft is TriageTicket
   return "implementationPlan" in draft && typeof draft.implementationPlan === "string";
 };
 
+const hasCoverageItemIds = (
+  draft: PlannerTicketDraft | undefined
+): draft is PlannerTicketDraft & { coverageItemIds: string[] } =>
+  Boolean(draft && "coverageItemIds" in draft && Array.isArray(draft.coverageItemIds));
+
 export const createTicketFromDraft = (input: {
   initiativeId: string | null;
   phaseId: string | null;
@@ -133,6 +138,7 @@ export const createTicketFromDraft = (input: {
     acceptanceCriteria,
     implementationPlan,
     fileTargets: input.draft?.fileTargets ?? [],
+    coverageItemIds: hasCoverageItemIds(input.draft) ? input.draft.coverageItemIds : [],
     blockedBy: [],
     blocks: [],
     runId: null,

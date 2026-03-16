@@ -29,10 +29,11 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 8. After PRD is generated, SpecFlow runs **Review PRD** and **Cross-check core flows and PRD**.
 9. User moves into **Tech spec**. If needed, the planner asks a few implementation blocker questions, then generates the Tech spec.
 10. After Tech spec is generated, SpecFlow runs **Review tech spec**, **Cross-check PRD and tech spec**, and a **full spec-set review** across Brief + Core flows + PRD + Tech spec.
-11. User reviews or overrides any remaining blockers, then clicks **Create tickets**. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases.
-12. Initiative page now shows: Brief + Core flows + PRD + Tech spec + ticket plan + review findings + empty Runs section.
+11. User reviews or overrides any remaining blockers, then clicks **Create tickets**. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger.
+12. After ticket generation, SpecFlow runs a **Coverage check**. If the ticket plan leaves important flows, requirements, or decisions uncovered, the user must rerun or override that check before execution starts.
+13. Initiative page now shows: Brief + Core flows + PRD + Tech spec + ticket plan + coverage check + review findings + empty Runs section.
 
-**Exit:** Initiative is ready for execution. All tickets are in Backlog. User proceeds to Milestone Run.
+**Exit:** Initiative is ready for execution once the coverage check is passed or overridden. All tickets are in Backlog. User proceeds to Milestone Run.
 
 ---
 
@@ -44,9 +45,9 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 **Steps:**
 
-1. User opens a ticket from the navigator tree or the initiative's ticket list. The ticket view shows: description, acceptance criteria, implementation plan, suggested file targets, a blockers banner (if blocked), and a status dropdown in the header.
-2. User changes the ticket status to **Ready** via the status dropdown in the ticket header when they are ready to act on it. If the ticket has unfinished blockers, moving to **In Progress** is rejected with a 409 error listing the blocking tickets.
-3. User clicks **Export Bundle**. A panel slides in asking: *"Which agent?"* -- options are Claude Code, Codex CLI, OpenCode, Generic. User selects one.
+1. User opens a ticket from the navigator tree or the initiative's ticket list. The ticket view shows: description, covered spec items, acceptance criteria, implementation plan, suggested file targets, a blockers banner (if blocked), and a status dropdown in the header.
+2. If the ticket is still in **Backlog**, the user can move it to **Ready** via the status dropdown. When they try to move it into **In Progress**, the server rejects the change with a 409 error if the ticket still has unfinished blockers or the initiative's **Coverage check** is blocked or stale.
+3. User clicks **Export Bundle**. A panel slides in asking: *"Which agent?"* -- options are Claude Code, Codex CLI, OpenCode, Generic. User selects one. For initiative-linked tickets, unresolved coverage checks also block export until the user resolves or overrides the check in the initiative view.
 4. The bundle is generated and displayed: a copy-to-clipboard button and a download link. The ticket moves to **In Progress**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
 5. User runs the agent manually in their terminal (outside SpecFlow). SpecFlow waits.
 6. User returns to the ticket page and clicks **Capture Results**.
@@ -92,6 +93,7 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 **Notes:**
 - Quick Tasks appear under a "Quick Tasks" section in the navigator tree (no initiative).
 - A Quick Task can be linked to an existing initiative later via the ticket's detail page.
+- Quick Tasks are exempt from initiative coverage gating until they are linked to an initiative.
 
 ---
 

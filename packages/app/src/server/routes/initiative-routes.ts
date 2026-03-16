@@ -5,6 +5,10 @@ import {
   isReviewResolved
 } from "../../planner/planning-reviews.js";
 import {
+  PLANNING_STEP_LABELS,
+  REVIEW_KINDS
+} from "../../planner/workflow-contract.js";
+import {
   canEditStep,
   completeWorkflowStep,
   getRefinementAssumptions,
@@ -67,7 +71,7 @@ export interface RegisterInitiativeRoutesOptions {
     runPlanJob: (
       input: { initiativeId: string },
       onToken?: (chunk: string) => Promise<void>
-    ) => Promise<{ phases: unknown[]; mermaidDiagram?: string }>;
+    ) => Promise<{ phases: unknown[] }>;
     markPlanningArtifactsStale: (initiativeId: string, step: ArtifactStep) => Promise<void>;
     toStructuredError: (error: unknown) => { code: string; message: string; statusCode: number };
   };
@@ -75,8 +79,6 @@ export interface RegisterInitiativeRoutesOptions {
 }
 
 const SPEC_STEP_TYPES: ArtifactStep[] = ["brief", "core-flows", "prd", "tech-spec"];
-const REVIEW_KINDS = Object.keys(REVIEW_KIND_LABELS) as PlanningReviewKind[];
-
 const readInitiativeOrReply = async (
   store: ArtifactStore,
   initiativeId: string,
@@ -96,24 +98,7 @@ const readInitiativeOrReply = async (
   return initiative;
 };
 
-const stepLabel = (step: InitiativePlanningStep): string => {
-  switch (step) {
-    case "brief":
-      return "Brief";
-    case "core-flows":
-      return "Core flows";
-    case "prd":
-      return "PRD";
-    case "tech-spec":
-      return "Tech spec";
-    case "tickets":
-      return "Tickets";
-    default: {
-      const exhaustive: never = step;
-      return String(exhaustive);
-    }
-  }
-};
+const stepLabel = (step: InitiativePlanningStep): string => PLANNING_STEP_LABELS[step];
 
 const canReplacePlanningTickets = (initiative: Initiative, store: ArtifactStore): boolean => {
   const initiativeTickets = Array.from(store.tickets.values()).filter((ticket) => ticket.initiativeId === initiative.id);
@@ -573,7 +558,6 @@ export const registerInitiativeRoutes = (
         ...initiative,
         phases: [],
         ticketIds: [],
-        mermaidDiagram: undefined,
         updatedAt: new Date().toISOString()
       });
     }

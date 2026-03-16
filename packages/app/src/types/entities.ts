@@ -62,7 +62,6 @@ export interface Initiative {
   specIds: string[];
   ticketIds: string[];
   workflow: InitiativeWorkflow;
-  mermaidDiagram?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +83,7 @@ export interface Ticket {
   acceptanceCriteria: TicketCriterion[];
   implementationPlan: string;
   fileTargets: string[];
+  coverageItemIds: string[];
   blockedBy: string[];
   blocks: string[];
   runId: string | null;
@@ -163,7 +163,8 @@ export type PlanningReviewKind =
   | "prd-review"
   | "prd-tech-spec-crosscheck"
   | "tech-spec-review"
-  | "spec-set-review";
+  | "spec-set-review"
+  | "ticket-coverage-review";
 
 export type PlanningReviewStatus = "passed" | "blocked" | "overridden" | "stale";
 
@@ -178,7 +179,7 @@ export interface PlanningReviewFinding {
   id: string;
   type: PlanningReviewFindingType;
   message: string;
-  relatedArtifacts: InitiativeArtifactStep[];
+  relatedArtifacts: InitiativePlanningStep[];
 }
 
 export interface PlanningReviewArtifact {
@@ -188,7 +189,7 @@ export interface PlanningReviewArtifact {
   status: PlanningReviewStatus;
   summary: string;
   findings: PlanningReviewFinding[];
-  sourceUpdatedAts: Partial<Record<InitiativeArtifactStep, string>>;
+  sourceUpdatedAts: Partial<Record<InitiativePlanningStep, string>>;
   overrideReason: string | null;
   reviewedAt: string;
   updatedAt: string;
@@ -206,6 +207,25 @@ export interface ArtifactTraceOutline {
   step: InitiativeArtifactStep;
   sections: ArtifactTraceOutlineSection[];
   sourceUpdatedAt: string;
+  generatedAt: string;
+  updatedAt: string;
+}
+
+export interface TicketCoverageItem {
+  id: string;
+  sourceStep: InitiativeArtifactStep;
+  sectionKey: string;
+  sectionLabel: string;
+  kind: string;
+  text: string;
+}
+
+export interface TicketCoverageArtifact {
+  id: string;
+  initiativeId: string;
+  items: TicketCoverageItem[];
+  uncoveredItemIds: string[];
+  sourceUpdatedAts: Partial<Record<InitiativePlanningStep, string>>;
   generatedAt: string;
   updatedAt: string;
 }

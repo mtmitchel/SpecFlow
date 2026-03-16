@@ -1,29 +1,40 @@
 import { randomUUID } from "node:crypto";
 import { loadEnvironment } from "../config/env.js";
 import { HttpLlmClient, type LlmClient, type LlmTokenHandler } from "../llm/client.js";
-import { LlmProviderError } from "../llm/errors.js";
 import { ArtifactStore } from "../store/artifact-store.js";
 import type {
-  ArtifactTraceOutline,
   Initiative,
   InitiativeArtifactStep,
   PlanningReviewArtifact,
-  PlanningReviewFinding,
-  PlanningReviewFindingType,
   PlanningReviewKind,
-  Ticket
+  Ticket,
+  TicketCoverageItem
 } from "../types/entities.js";
-import { AUTO_REVIEW_KINDS_BY_STEP, REVIEW_KIND_SOURCE_STEPS, getImpactedReviewKinds } from "./planning-reviews.js";
-import {
-  completeWorkflowStep,
-  createInitiativeWorkflow,
-  getRefinementAssumptions,
-  updateRefinementState
-} from "./workflow-state.js";
+import { AUTO_REVIEW_KINDS_BY_STEP, getImpactedReviewKinds } from "./planning-reviews.js";
+import { createInitiativeWorkflow, updateRefinementState } from "./workflow-state.js";
 import { loadPlannerAgentsMd } from "./internal/agents-md.js";
+import {
+  buildPhaseCheckInput,
+  buildSpecGenerationInput,
+  getArtifactMarkdownMap,
+  getInitiativeTickets,
+  getSavedContext,
+  requireSpecMarkdown,
+  requireSpecUpdatedAt
+} from "./internal/context.js";
 import { getResolvedPlannerConfig } from "./internal/config.js";
+import { toStructuredPlannerError } from "./internal/error-shaping.js";
 import { executePlannerJob as executePlannerJobInternal } from "./internal/job-executor.js";
+import { persistPlanArtifacts } from "./internal/plan-job.js";
 import { scanRepo } from "./internal/repo-scanner.js";
+import { executeReviewJob as executeReviewJobInternal } from "./internal/review-job.js";
+import {
+  buildPersistedTicketCoverageArtifact,
+  buildTicketCoverageInput,
+  ensureArtifactTrace as ensureArtifactTraceInternal,
+  persistPhaseMarkdown as persistPhaseMarkdownInternal,
+  requireTicketCoverageArtifact
+} from "./internal/spec-artifacts.js";
 import { createTicketFromDraft, deriveInitiativeTitle } from "./internal/ticket-factory.js";
 import {
   validateClarifyHelpResult,
@@ -44,7 +55,6 @@ import type {
   PlanResult,
   RefinementStep,
   ReviewRunInput,
-  ReviewRunResult,
   SpecGenInput,
   TriageInput,
   TriageResult
@@ -79,14 +89,6 @@ const CHECK_BUDGET_BY_STEP: Record<RefinementStep, number> = {
   prd: 3,
   "tech-spec": 3
 };
-
-const REVIEW_FINDING_ORDER: PlanningReviewFindingType[] = [
-  "blocker",
-  "warning",
-  "traceability-gap",
-  "assumption",
-  "recommended-fix"
-];
 
 export class PlannerService {
   private readonly rootDir: string;
@@ -124,16 +126,13 @@ export class PlannerService {
   }
 
   public async runPhaseCheckJob(
-    input: {
-      initiativeId: string;
-      step: RefinementStep;
-    },
+    input: { initiativeId: string; step: RefinementStep },
     onToken?: LlmTokenHandler
   ): Promise<PhaseCheckResult> {
     const initiative = this.requireInitiative(input.initiativeId);
     const result = await this.executePlannerJob<PhaseCheckResult>(
       REFINEMENT_JOB_BY_STEP[input.step],
-      this.buildPhaseCheckInput(initiative, input.step),
+      buildPhaseCheckInput(initiative, input.step, getArtifactMarkdownMap(initiative.id, this.store.specs)),
       onToken
     );
 
@@ -156,11 +155,7 @@ export class PlannerService {
   }
 
   public async runClarificationHelpJob(
-    input: {
-      initiativeId: string;
-      questionId: string;
-      note?: string;
-    },
+    input: { initiativeId: string; questionId: string; note?: string },
     onToken?: LlmTokenHandler
   ): Promise<ClarifyHelpResult> {
     const initiative = this.requireInitiative(input.initiativeId);
@@ -175,7 +170,7 @@ export class PlannerService {
       "clarify-help",
       {
         initiativeDescription: initiative.description,
-        savedContext: this.getSavedContext(initiative, question.affectedArtifact),
+        savedContext: getSavedContext(initiative, question.affectedArtifact),
         question,
         note: input.note
       } satisfies ClarifyHelpInput,
@@ -268,16 +263,20 @@ export class PlannerService {
   }
 
   public async runPlanJob(
-    input: {
-      initiativeId: string;
-    },
+    input: { initiativeId: string },
     onToken?: LlmTokenHandler
   ): Promise<PlanResult> {
     const initiative = this.requireInitiative(input.initiativeId);
-    const brief = this.requireSpecMarkdown(initiative.id, "brief");
-    const coreFlows = this.requireSpecMarkdown(initiative.id, "core-flows");
-    const prd = this.requireSpecMarkdown(initiative.id, "prd");
-    const techSpec = this.requireSpecMarkdown(initiative.id, "tech-spec");
+    const brief = requireSpecMarkdown(initiative.id, "brief", this.store.specs);
+    const coreFlows = requireSpecMarkdown(initiative.id, "core-flows", this.store.specs);
+    const prd = requireSpecMarkdown(initiative.id, "prd", this.store.specs);
+    const techSpec = requireSpecMarkdown(initiative.id, "tech-spec", this.store.specs);
+    const coverageInput = await buildTicketCoverageInput({
+      initiative,
+      requireSpecUpdatedAt: (currentInitiativeId, step) =>
+        requireSpecUpdatedAt(currentInitiativeId, step, this.store.specs),
+      ensureArtifactTrace: (currentInitiative, step) => this.ensureArtifactTrace(currentInitiative, step)
+    });
     const repoContext = await scanRepo(this.rootDir).catch(() => undefined);
 
     const result = await this.executePlannerJob<PlanResult>(
@@ -288,76 +287,39 @@ export class PlannerService {
         coreFlowsMarkdown: coreFlows,
         prdMarkdown: prd,
         techSpecMarkdown: techSpec,
+        coverageItems: coverageInput.items,
         repoContext
       } satisfies PlanInput,
       onToken
     );
 
     validatePlanResult(result);
+    this.validateCoverageMappings(result, coverageInput.items);
 
     const nowIso = this.now().toISOString();
-    const phaseIds: Initiative["phases"] = [];
-    const createdTicketIds: string[] = [];
-    const phaseTicketIds: string[][] = [];
+    await persistPlanArtifacts({
+      initiative,
+      result,
+      nowIso,
+      idGenerator: this.idGenerator,
+      upsertTicket: (ticket) => this.store.upsertTicket(ticket),
+      getTicket: (ticketId) => this.store.tickets.get(ticketId),
+      upsertInitiative: (updatedInitiative) => this.store.upsertInitiative(updatedInitiative),
+      upsertTicketCoverageArtifact: (artifact) => this.store.upsertTicketCoverageArtifact(artifact),
+      buildTicketCoverageArtifact: ({ initiativeId, items, uncoveredItemIds, sourceUpdatedAts, nowIso: artifactNowIso }) =>
+        buildPersistedTicketCoverageArtifact({
+          initiativeId,
+          items,
+          uncoveredItemIds,
+          sourceUpdatedAts,
+          nowIso: artifactNowIso
+        }),
+      coverageItems: coverageInput.items,
+      coverageSourceUpdatedAts: coverageInput.sourceUpdatedAts,
+      executeCoverageReview: (updatedInitiative) => this.executeReviewJob(updatedInitiative, "ticket-coverage-review"),
+      upsertPlanningReview: (review) => this.store.upsertPlanningReview(review)
+    });
 
-    for (const [phaseIndex, phase] of result.phases.entries()) {
-      const phaseId = `phase-${phaseIndex + 1}-${this.idGenerator()}`;
-      phaseIds.push({
-        id: phaseId,
-        name: phase.name,
-        order: phase.order,
-        status: "active"
-      });
-
-      const idsInPhase: string[] = [];
-      for (const draft of phase.tickets) {
-        const ticket = createTicketFromDraft({
-          initiativeId: initiative.id,
-          phaseId,
-          status: "backlog",
-          draft,
-          nowIso,
-          idGenerator: this.idGenerator
-        });
-
-        await this.store.upsertTicket(ticket);
-        createdTicketIds.push(ticket.id);
-        idsInPhase.push(ticket.id);
-      }
-
-      phaseTicketIds.push(idsInPhase);
-    }
-
-    for (let index = 1; index < phaseTicketIds.length; index += 1) {
-      const prevIds = phaseTicketIds[index - 1];
-      const currentIds = phaseTicketIds[index];
-
-      for (const id of currentIds) {
-        const ticket = this.store.tickets.get(id);
-        if (ticket) {
-          await this.store.upsertTicket({ ...ticket, blockedBy: prevIds });
-        }
-      }
-
-      for (const id of prevIds) {
-        const ticket = this.store.tickets.get(id);
-        if (ticket) {
-          await this.store.upsertTicket({ ...ticket, blocks: [...ticket.blocks, ...currentIds] });
-        }
-      }
-    }
-
-    const updatedInitiative: Initiative = {
-      ...initiative,
-      status: "active",
-      workflow: completeWorkflowStep(initiative.workflow, "tickets", nowIso),
-      phases: phaseIds,
-      ticketIds: Array.from(new Set([...initiative.ticketIds, ...createdTicketIds])),
-      mermaidDiagram: result.mermaidDiagram ?? undefined,
-      updatedAt: nowIso
-    };
-
-    await this.store.upsertInitiative(updatedInitiative);
     return result;
   }
 
@@ -413,28 +375,7 @@ export class PlannerService {
     message: string;
     statusCode: number;
   } {
-    if (error instanceof LlmProviderError) {
-      const statusCode =
-        error.code === "invalid_api_key"
-          ? 401
-          : error.code === "rate_limit"
-            ? 429
-            : error.code === "timeout"
-              ? 504
-              : error.statusCode ?? 502;
-
-      return {
-        code: error.code,
-        message: error.message,
-        statusCode
-      };
-    }
-
-    return {
-      code: "planner_error",
-      message: (error as Error).message ?? "Planner execution failed",
-      statusCode: 500
-    };
+    return toStructuredPlannerError(error);
   }
 
   private async generateArtifact(
@@ -446,12 +387,22 @@ export class PlannerService {
     const initiative = this.requireInitiative(initiativeId);
     const result = await this.executePlannerJob<PhaseMarkdownResult>(
       job,
-      this.buildSpecGenerationInput(initiative, step),
+      buildSpecGenerationInput(initiative, step, getArtifactMarkdownMap(initiative.id, this.store.specs)),
       onToken
     );
 
     validatePhaseMarkdownResult(result);
-    await this.persistPhaseMarkdown(initiative, step, result);
+    await persistPhaseMarkdownInternal({
+      initiative,
+      step,
+      result,
+      nowIso: this.now().toISOString(),
+      upsertInitiative: (updatedInitiative, docs) => this.store.upsertInitiative(updatedInitiative, docs),
+      specs: this.store.specs,
+      upsertArtifactTrace: (trace) => this.store.upsertArtifactTrace(trace),
+      markPlanningArtifactsStale: (currentInitiativeId, artifactStep) =>
+        this.markPlanningArtifactsStale(currentInitiativeId, artifactStep)
+    });
 
     const refreshedInitiative = this.requireInitiative(initiativeId);
     const reviews = await this.runAutoReviews(refreshedInitiative, step);
@@ -479,79 +430,60 @@ export class PlannerService {
     kind: PlanningReviewKind,
     onToken?: LlmTokenHandler
   ): Promise<PlanningReviewArtifact> {
-    const sourceSteps = REVIEW_KIND_SOURCE_STEPS[kind];
-    const markdownByStep = this.getArtifactMarkdownMap(initiative.id);
-    const traceOutlines: ReviewRunInput["traceOutlines"] = {};
-    const sourceUpdatedAts: Partial<Record<InitiativeArtifactStep, string>> = {};
-
-    for (const step of sourceSteps) {
-      if (!markdownByStep[step]?.trim()) {
-        throw new Error(`Cannot run ${kind} before ${step} exists`);
-      }
-      const trace = await this.ensureArtifactTrace(initiative, step);
-      traceOutlines[step] = { sections: trace.sections };
-      sourceUpdatedAts[step] = this.requireSpecUpdatedAt(initiative.id, step);
-    }
-
-    const result = await this.executePlannerJob<ReviewRunResult>(
-      "review",
-      {
-        initiativeDescription: initiative.description,
-        kind,
-        briefMarkdown: markdownByStep.brief,
-        coreFlowsMarkdown: markdownByStep["core-flows"],
-        prdMarkdown: markdownByStep.prd,
-        techSpecMarkdown: markdownByStep["tech-spec"],
-        traceOutlines
-      } satisfies ReviewRunInput,
-      onToken
-    );
-
-    validateReviewRunResult(result);
-
-    const nowIso = this.now().toISOString();
-    return {
-      id: `${initiative.id}:${kind}`,
-      initiativeId: initiative.id,
+    return executeReviewJobInternal({
+      initiative,
       kind,
-      status: result.blockers.length > 0 ? "blocked" : "passed",
-      summary: result.summary,
-      findings: this.buildReviewFindings(kind, result),
-      sourceUpdatedAts,
-      overrideReason: null,
-      reviewedAt: nowIso,
-      updatedAt: nowIso
-    };
+      nowIso: this.now().toISOString(),
+      validateReviewRunResult,
+      executePlannerJob: (job, payload, reviewOnToken) => this.executePlannerJob(job, payload, reviewOnToken),
+      getArtifactMarkdownMap: (initiativeId) => getArtifactMarkdownMap(initiativeId, this.store.specs),
+      ensureArtifactTrace: (currentInitiative, step) => this.ensureArtifactTrace(currentInitiative, step),
+      requireSpecUpdatedAt: (initiativeId, step) => requireSpecUpdatedAt(initiativeId, step, this.store.specs),
+      requireTicketCoverageArtifact: (initiativeId) =>
+        requireTicketCoverageArtifact(initiativeId, this.store.ticketCoverageArtifacts),
+      getInitiativeTickets: (currentInitiative) => getInitiativeTickets(currentInitiative, this.store.tickets),
+      onToken
+    });
   }
 
-  private buildReviewFindings(
-    kind: PlanningReviewKind,
-    result: ReviewRunResult
-  ): PlanningReviewFinding[] {
-    const relatedArtifacts = REVIEW_KIND_SOURCE_STEPS[kind];
-    const groups: Array<{ type: PlanningReviewFindingType; values: string[] }> = [
-      { type: "blocker", values: result.blockers },
-      { type: "warning", values: result.warnings },
-      { type: "traceability-gap", values: result.traceabilityGaps },
-      { type: "assumption", values: result.assumptions },
-      { type: "recommended-fix", values: result.recommendedFixes }
-    ];
+  private validateCoverageMappings(result: PlanResult, coverageItems: TicketCoverageItem[]): void {
+    const knownCoverageItemIds = new Set(coverageItems.map((item) => item.id));
+    const assignedCoverageItemIds = new Set<string>();
 
-    const findings: PlanningReviewFinding[] = [];
-    for (const { type, values } of groups) {
-      for (const value of values) {
-        findings.push({
-          id: `${kind}:${type}:${findings.length + 1}`,
-          type,
-          message: value,
-          relatedArtifacts
-        });
+    for (const phase of result.phases) {
+      for (const ticket of phase.tickets) {
+        if (knownCoverageItemIds.size > 0 && ticket.coverageItemIds.length === 0) {
+          throw new Error(`Plan ticket "${ticket.title}" must reference at least one coverage item`);
+        }
+
+        for (const coverageItemId of ticket.coverageItemIds) {
+          if (!knownCoverageItemIds.has(coverageItemId)) {
+            throw new Error(`Plan ticket "${ticket.title}" references unknown coverage item "${coverageItemId}"`);
+          }
+
+          assignedCoverageItemIds.add(coverageItemId);
+        }
       }
     }
 
-    return findings.sort(
-      (left, right) => REVIEW_FINDING_ORDER.indexOf(left.type) - REVIEW_FINDING_ORDER.indexOf(right.type)
-    );
+    const uncoveredCoverageItemIds = new Set<string>();
+    for (const coverageItemId of result.uncoveredCoverageItemIds) {
+      if (!knownCoverageItemIds.has(coverageItemId)) {
+        throw new Error(`Plan uncoveredCoverageItemIds references unknown coverage item "${coverageItemId}"`);
+      }
+
+      if (assignedCoverageItemIds.has(coverageItemId)) {
+        throw new Error(`Coverage item "${coverageItemId}" cannot be both assigned and uncovered`);
+      }
+
+      uncoveredCoverageItemIds.add(coverageItemId);
+    }
+
+    for (const coverageItemId of knownCoverageItemIds) {
+      if (!assignedCoverageItemIds.has(coverageItemId) && !uncoveredCoverageItemIds.has(coverageItemId)) {
+        throw new Error(`Coverage item "${coverageItemId}" is missing from the generated plan`);
+      }
+    }
   }
 
   private requireInitiative(initiativeId: string): Initiative {
@@ -559,163 +491,30 @@ export class PlannerService {
     if (!initiative) {
       throw new Error(`Initiative ${initiativeId} not found`);
     }
+
     return initiative;
-  }
-
-  private getSavedContext(
-    initiative: Initiative,
-    step: RefinementStep
-  ): Record<string, string | string[] | boolean> {
-    const context: Record<string, string | string[] | boolean> = {};
-    for (const phase of ["brief", "core-flows", "prd", "tech-spec"] as const) {
-      const refinement = initiative.workflow.refinements[phase];
-      for (const [questionId, answer] of Object.entries(refinement.answers)) {
-        context[`${phase}:${questionId}`] = answer;
-      }
-      for (const assumption of getRefinementAssumptions(initiative.workflow, phase)) {
-        context[`${phase}:assumption:${Object.keys(context).length}`] = assumption;
-      }
-      if (phase === step) {
-        break;
-      }
-    }
-    return context;
-  }
-
-  private buildPhaseCheckInput(initiative: Initiative, step: RefinementStep): PhaseCheckInput {
-    const markdownByStep = this.getArtifactMarkdownMap(initiative.id);
-    return {
-      initiativeDescription: initiative.description,
-      phase: step,
-      briefMarkdown: markdownByStep.brief,
-      coreFlowsMarkdown: markdownByStep["core-flows"],
-      prdMarkdown: markdownByStep.prd,
-      savedContext: this.getSavedContext(initiative, step)
-    };
-  }
-
-  private buildSpecGenerationInput(initiative: Initiative, step: RefinementStep): SpecGenInput {
-    const markdownByStep = this.getArtifactMarkdownMap(initiative.id);
-    return {
-      initiativeDescription: initiative.description,
-      savedContext: this.getSavedContext(initiative, step),
-      assumptions: getRefinementAssumptions(initiative.workflow, step),
-      briefMarkdown: step === "brief" ? undefined : markdownByStep.brief,
-      coreFlowsMarkdown:
-        step === "brief" || step === "core-flows" ? undefined : markdownByStep["core-flows"],
-      prdMarkdown: step === "tech-spec" ? markdownByStep.prd : undefined,
-      techSpecMarkdown: step === "tech-spec" ? markdownByStep["tech-spec"] : undefined
-    };
-  }
-
-  private getArtifactMarkdownMap(initiativeId: string): Record<InitiativeArtifactStep, string> {
-    return {
-      brief: this.store.specs.get(`${initiativeId}:brief`)?.content ?? "",
-      "core-flows": this.store.specs.get(`${initiativeId}:core-flows`)?.content ?? "",
-      prd: this.store.specs.get(`${initiativeId}:prd`)?.content ?? "",
-      "tech-spec": this.store.specs.get(`${initiativeId}:tech-spec`)?.content ?? ""
-    };
-  }
-
-  private requireSpecMarkdown(initiativeId: string, step: InitiativeArtifactStep): string {
-    const markdown = this.store.specs.get(`${initiativeId}:${step}`)?.content ?? "";
-    if (!markdown.trim()) {
-      throw new Error(`Artifact ${step} is missing for initiative ${initiativeId}`);
-    }
-    return markdown;
-  }
-
-  private requireSpecUpdatedAt(initiativeId: string, step: InitiativeArtifactStep): string {
-    const updatedAt = this.store.specs.get(`${initiativeId}:${step}`)?.updatedAt;
-    if (!updatedAt) {
-      throw new Error(`Artifact ${step} metadata is missing for initiative ${initiativeId}`);
-    }
-    return updatedAt;
   }
 
   private async ensureArtifactTrace(
     initiative: Initiative,
     step: InitiativeArtifactStep
-  ): Promise<ArtifactTraceOutline> {
-    const spec = this.store.specs.get(`${initiative.id}:${step}`);
-    if (!spec || !spec.content.trim()) {
-      throw new Error(`Artifact ${step} is missing for initiative ${initiative.id}`);
-    }
-
-    const existing = this.store.artifactTraces.get(`${initiative.id}:${step}`);
-    if (existing && existing.sourceUpdatedAt === spec.updatedAt) {
-      return existing;
-    }
-
-    const result = await this.executePlannerJob<PhaseMarkdownResult>(
-      "trace-outline",
-      {
-        ...this.buildSpecGenerationInput(initiative, step),
-        artifact: step,
-        briefMarkdown: step === "brief" ? spec.content : this.store.specs.get(`${initiative.id}:brief`)?.content ?? "",
-        coreFlowsMarkdown:
-          step === "core-flows" ? spec.content : this.store.specs.get(`${initiative.id}:core-flows`)?.content ?? "",
-        prdMarkdown: step === "prd" ? spec.content : this.store.specs.get(`${initiative.id}:prd`)?.content ?? "",
-        techSpecMarkdown:
-          step === "tech-spec" ? spec.content : this.store.specs.get(`${initiative.id}:tech-spec`)?.content ?? ""
-      } as SpecGenInput & { artifact: RefinementStep },
-      undefined
-    );
-
-    validatePhaseMarkdownResult(result);
-
-    const nowIso = this.now().toISOString();
-    const trace: ArtifactTraceOutline = {
-      id: `${initiative.id}:${step}`,
-      initiativeId: initiative.id,
+  ) {
+    return ensureArtifactTraceInternal({
+      initiative,
       step,
-      sections: result.traceOutline.sections,
-      sourceUpdatedAt: spec.updatedAt,
-      generatedAt: nowIso,
-      updatedAt: nowIso
-    };
-    await this.store.upsertArtifactTrace(trace);
-    return trace;
-  }
-
-  private async persistPhaseMarkdown(
-    initiative: Initiative,
-    step: RefinementStep,
-    result: PhaseMarkdownResult
-  ): Promise<void> {
-    const nowIso = this.now().toISOString();
-    const updatedInitiative: Initiative = {
-      ...initiative,
-      status: "active",
-      specIds: uniqueIds([...initiative.specIds, `${initiative.id}:${step}`]),
-      workflow: completeWorkflowStep(initiative.workflow, step, nowIso),
-      updatedAt: nowIso
-    };
-
-    await this.store.upsertInitiative(updatedInitiative, {
-      brief: step === "brief" ? result.markdown : undefined,
-      coreFlows: step === "core-flows" ? result.markdown : undefined,
-      prd: step === "prd" ? result.markdown : undefined,
-      techSpec: step === "tech-spec" ? result.markdown : undefined
+      specs: this.store.specs,
+      artifactTraces: this.store.artifactTraces,
+      nowIso: this.now().toISOString(),
+      validatePhaseMarkdownResult,
+      buildSpecGenerationInput: (currentInitiative, refinementStep) =>
+        buildSpecGenerationInput(
+          currentInitiative,
+          refinementStep,
+          getArtifactMarkdownMap(currentInitiative.id, this.store.specs)
+        ),
+      executePlannerJob: (job, payload, plannerOnToken) => this.executePlannerJob(job, payload, plannerOnToken),
+      upsertArtifactTrace: (trace) => this.store.upsertArtifactTrace(trace)
     });
-
-    await this.markPlanningArtifactsStale(initiative.id, step);
-
-    const refreshedSpec = this.store.specs.get(`${initiative.id}:${step}`);
-    if (!refreshedSpec) {
-      throw new Error(`Failed to persist ${step} for initiative ${initiative.id}`);
-    }
-
-    const trace: ArtifactTraceOutline = {
-      id: `${initiative.id}:${step}`,
-      initiativeId: initiative.id,
-      step,
-      sections: result.traceOutline.sections,
-      sourceUpdatedAt: refreshedSpec.updatedAt,
-      generatedAt: nowIso,
-      updatedAt: nowIso
-    };
-    await this.store.upsertArtifactTrace(trace);
   }
 
   private async executePlannerJob<T>(
@@ -736,5 +535,3 @@ export class PlannerService {
     });
   }
 }
-
-const uniqueIds = (values: string[]): string[] => Array.from(new Set(values));

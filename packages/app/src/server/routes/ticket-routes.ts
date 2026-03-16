@@ -1,7 +1,9 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { BundleGenerator } from "../../bundle/bundle-generator.js";
+import { getTicketExecutionGate } from "../../planner/execution-gates.js";
 import { PlannerService } from "../../planner/planner-service.js";
 import type { ArtifactStore } from "../../store/artifact-store.js";
+import type { Ticket } from "../../types/entities.js";
 import { DiffEngine } from "../../verify/diff-engine.js";
 import { VerifierService } from "../../verify/verifier-service.js";
 import { startSseSession, type SseSession } from "../sse/session.js";
@@ -16,6 +18,28 @@ export interface RegisterTicketRoutesOptions {
   broadcastVerificationEvent: (ticketId: string, event: string, payload: unknown) => void;
   verificationSubscribers: Map<string, Set<SseSession>>;
 }
+
+const requireCoverageReviewResolvedOrReply = async (
+  ticket: Ticket,
+  store: ArtifactStore,
+  reply: FastifyReply
+): Promise<boolean> => {
+  if (!ticket.initiativeId) {
+    return true;
+  }
+
+  const gate = getTicketExecutionGate(ticket, store.planningReviews);
+  if (gate.allowed) {
+    return true;
+  }
+
+  await reply.code(409).send({
+    error: "Blocked",
+    message: gate.message,
+    reviewKind: gate.reviewKind
+  });
+  return false;
+};
 
 export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTicketRoutesOptions): void => {
   const {
@@ -65,6 +89,10 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
           message: `Cannot start: ${unfinished.length} blocking ticket(s) must be completed first`,
           blockers: unfinished
         });
+        return;
+      }
+
+      if (!(await requireCoverageReviewResolvedOrReply(ticket, store, reply))) {
         return;
       }
     }
@@ -134,6 +162,16 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
     const agentTarget = body.agent ?? "codex-cli";
     const exportMode = body.exportMode === "quick-fix" ? "quick-fix" : "standard";
 
+    const ticket = store.tickets.get(ticketId);
+    if (!ticket) {
+      await reply.code(404).send({ error: "Not Found", message: `Ticket ${ticketId} not found` });
+      return;
+    }
+
+    if (!(await requireCoverageReviewResolvedOrReply(ticket, store, reply))) {
+      return;
+    }
+
     try {
       const result = await bundleGenerator.exportBundle({
         ticketId,
@@ -176,6 +214,16 @@ export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTick
 
     if (!run.ticketId) {
       await reply.code(400).send({ error: "Bad Request", message: "Run is not linked to a ticket" });
+      return;
+    }
+
+    const ticket = store.tickets.get(run.ticketId);
+    if (!ticket) {
+      await reply.code(404).send({ error: "Not Found", message: `Ticket ${run.ticketId} not found` });
+      return;
+    }
+
+    if (!(await requireCoverageReviewResolvedOrReply(ticket, store, reply))) {
       return;
     }
 

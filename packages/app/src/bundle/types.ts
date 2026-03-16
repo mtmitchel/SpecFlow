@@ -1,4 +1,4 @@
-import type { AgentType, Ticket } from "../types/entities.js";
+import type { AgentType, Ticket, TicketCoverageItem } from "../types/entities.js";
 
 export type BundleAgentTarget = AgentType;
 export type BundleExportMode = "standard" | "quick-fix";
@@ -27,6 +27,7 @@ export interface BundleContextFile {
 export interface RenderBundleInput {
   agentTarget: BundleAgentTarget;
   ticket: Ticket;
+  coveredItems: TicketCoverageItem[];
   exportMode: BundleExportMode;
   sourceRunId: string | null;
   sourceFindingId: string | null;

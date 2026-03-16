@@ -887,16 +887,6 @@ a {
   color: var(--muted);
 }
 
-.mermaid-view {
-  overflow-x: auto;
-  padding: 0.5rem 0;
-}
-
-.mermaid-view svg {
-  max-width: 100%;
-  height: auto;
-}
-
 .md-li {
   margin: 0.14rem 0;
 }

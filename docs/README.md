@@ -33,7 +33,7 @@ Key capabilities in the current version (0.1.0):
 - Persisted review gates and cross-checks across planning artifacts
 - Traceability-backed planning with artifact sidecar trace outlines
 - Spec-driven ticket planning with repo context scanning (grounded file targets)
-- Optional Mermaid dependency diagrams on initiative detail pages (collapsed by default; textual phases remain canonical)
+- Coverage checks that can block initiative ticket export and execution until gaps are resolved or explicitly overridden
 - Verification with per-criterion severity (Critical/Major/Minor/Outdated) and remediation hints
 - Fix-forward loop: quick-fix export mode chains failed verification to enriched re-export to re-verify
 - LLM-powered drift audit with Bug/Performance/Security/Clarity finding categories

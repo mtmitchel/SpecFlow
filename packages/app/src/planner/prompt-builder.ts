@@ -79,9 +79,9 @@ const outputContract = (job: PlannerJob): string => {
         "Respond ONLY as JSON:",
         "{",
         '  "phases": [',
-        '    { "name": "string", "order": 1, "tickets": [{ "title": "string", "description": "string", "acceptanceCriteria": ["string"], "fileTargets": ["string"] }] }',
+        '    { "name": "string", "order": 1, "tickets": [{ "title": "string", "description": "string", "acceptanceCriteria": ["string"], "fileTargets": ["string"], "coverageItemIds": ["string"] }] }',
         "  ],",
-        '  "mermaidDiagram": "string|null (optional Mermaid graph LR diagram for phase dependencies when it materially clarifies the plan)"',
+        '  "uncoveredCoverageItemIds": ["string"]',
         "}"
       ].join("\n");
     case "triage":
@@ -179,8 +179,17 @@ const buildReviewPrompt = (systemPrompt: string, input: ReviewRunInput): PromptB
     "- Use assumptions for important implicit decisions the team should make explicit.",
     "- Use recommendedFixes for concrete next actions.",
     "- Do not restate the entire artifact. Be concise and specific.",
-    ...getArtifactSections(input)
-  ].join("\n\n")
+    ...getArtifactSections(input),
+    input.coverageItems && input.coverageItems.length > 0
+      ? `Coverage items:\n${JSON.stringify(input.coverageItems, null, 2)}`
+      : null,
+    input.uncoveredCoverageItemIds && input.uncoveredCoverageItemIds.length > 0
+      ? `Uncovered coverage item IDs:\n${JSON.stringify(input.uncoveredCoverageItemIds, null, 2)}`
+      : null,
+    input.tickets && input.tickets.length > 0
+      ? `Generated tickets:\n${JSON.stringify(input.tickets, null, 2)}`
+      : null
+  ].filter((value): value is string => Boolean(value)).join("\n\n")
 });
 
 export const buildPlannerPrompt = (
@@ -289,12 +298,15 @@ export const buildPlannerPrompt = (
 
     const parts = [
       "Generate an ordered phase plan and ticket breakdown. The textual phase/ticket structure is canonical. Use the repository file tree to generate accurate fileTargets — only reference paths that exist in the repo.",
-      "Only include mermaidDiagram when a compact dependency diagram materially clarifies the plan. If the phase order is already obvious from the text, return null for mermaidDiagram.",
+      "Every coverage item must be accounted for. Assign each one to one or more tickets through coverageItemIds, or list it in uncoveredCoverageItemIds when the current plan intentionally leaves it out.",
+      "Write acceptance criteria as specific, observable outcomes that can be judged from a code diff. Avoid vague criteria like 'works well' or 'is intuitive'.",
+      "Each ticket must have at least one coverageItemId unless the plan is invalid.",
       `Initiative description:\n${planInput.initiativeDescription}`,
       `Brief:\n${planInput.briefMarkdown}`,
       `Core flows:\n${planInput.coreFlowsMarkdown}`,
       `PRD:\n${planInput.prdMarkdown}`,
-      `Tech spec:\n${planInput.techSpecMarkdown}`
+      `Tech spec:\n${planInput.techSpecMarkdown}`,
+      `Coverage items:\n${JSON.stringify(planInput.coverageItems, null, 2)}`
     ];
 
     if (repoSection) {

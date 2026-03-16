@@ -39,6 +39,8 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
           runs={snapshot.runs}
           runAttempts={snapshot.runAttempts}
           initiatives={snapshot.initiatives}
+          planningReviews={snapshot.planningReviews}
+          ticketCoverageArtifacts={snapshot.ticketCoverageArtifacts}
           onRefresh={onRefresh}
           onMoveTicket={onMoveTicket}
         />

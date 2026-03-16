@@ -101,6 +101,8 @@ Use these terms consistently.
 - `Ticket`
 - `Run`
 - `Review`
+- `Coverage check`
+- `Covered spec items`
 - `Verification`
 - `Needs review`
 - `Up next`
@@ -133,6 +135,7 @@ Avoid these unless the context is explicitly technical or advanced.
 - `Generate Core Flows` -> `Create core flows`
 - `Generate Tech Spec` -> `Create tech spec`
 - `Generate Tickets` -> `Create tickets`
+- `Ticket coverage review` -> `Coverage check`
 - `Regenerate` -> `Refresh`
 - `Run Audit` -> `Review changes`
 - `Capture Results` -> `Review changes` or `Verify work`
@@ -210,6 +213,9 @@ The primary action should answer:
 - `Create tech spec`
 - `Continue to tickets`
 - `Create tickets`
+- `Run coverage check`
+- `Resolve coverage check`
+- `Open first ticket`
 - `Open ticket`
 
 ### Secondary planning CTAs
@@ -221,6 +227,8 @@ The primary action should answer:
 - `Refresh brief`
 - `Refresh PRD`
 - `Refresh tech spec`
+- `Run coverage check`
+- `Override coverage blockers`
 - `Get guidance`
 - `Answer later`
 
@@ -325,6 +333,12 @@ Use this structure:
 
 - Heading: `Brief ready`
 - Body: `The brief now defines the problem, audience, goals, and scope.`
+- Primary action: `Continue to core flows`
+
+#### Core flows complete
+
+- Heading: `Core flows ready`
+- Body: `The primary journeys and states are ready for product requirements.`
 - Primary action: `Continue to PRD`
 
 #### PRD complete
@@ -342,7 +356,13 @@ Use this structure:
 #### Tickets complete
 
 - Heading: `Tickets ready`
-- Body: `The initiative is now broken into execution-ready work.`
+- Body: `The initiative is now broken into execution-ready work, but the coverage check still needs a pass or override before execution starts.`
+- Primary action: `Run coverage check`
+
+#### Coverage check complete
+
+- Heading: `Coverage check resolved`
+- Body: `The ticket plan is clear enough to start execution.`
 - Primary action: `Open first ticket`
 
 ## Guidance and question copy
@@ -396,6 +416,7 @@ The ticket page should read like an execution workflow, not an internal tool pan
 Preferred section names:
 
 - `Plan`
+- `Covered spec items`
 - `Included files`
 - `Verify work`
 - `Review findings`

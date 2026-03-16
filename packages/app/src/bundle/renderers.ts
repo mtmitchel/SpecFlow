@@ -19,6 +19,10 @@ const renderContextSection = (contextFiles: RenderBundleInput["contextFiles"]): 
 };
 
 const renderTicketCore = (input: RenderBundleInput): string => {
+  const coveredItems = input.coveredItems.length
+    ? input.coveredItems.map((item) => `- [${item.sourceStep} · ${item.sectionLabel}] ${item.text}`).join("\n")
+    : "- (none)";
+
   const criteria = input.ticket.acceptanceCriteria.length
     ? input.ticket.acceptanceCriteria.map((criterion) => `- ${criterion.text}`).join("\n")
     : "- (none)";
@@ -32,6 +36,9 @@ const renderTicketCore = (input: RenderBundleInput): string => {
     "",
     "## Description",
     input.ticket.description,
+    "",
+    "## Covered Spec Items",
+    coveredItems,
     "",
     "## Acceptance Criteria",
     criteria,

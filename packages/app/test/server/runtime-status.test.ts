@@ -26,6 +26,7 @@ describe("server runtime routes", () => {
       const artifactsResponse = await fixture.server.app.inject({ method: "GET", url: "/api/artifacts" });
       expect(artifactsResponse.statusCode).toBe(200);
       expect(artifactsResponse.json().runs).toHaveLength(1);
+      expect(artifactsResponse.json().ticketCoverageArtifacts).toHaveLength(1);
       expect(artifactsResponse.json().config).toMatchObject({
         provider: "openrouter",
         model: "openrouter/auto",

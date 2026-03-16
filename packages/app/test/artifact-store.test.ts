@@ -5,6 +5,9 @@ import { describe, expect, it } from "vitest";
 import { writeYamlFile } from "../src/io/yaml.js";
 import {
   attemptDir,
+  initiativeReviewPath,
+  initiativeTicketCoveragePath,
+  initiativeTracePath,
   operationDir,
   operationManifestPath,
   runDir,
@@ -25,6 +28,7 @@ import type {
   PlanningReviewArtifact,
   Run,
   RunAttempt,
+  TicketCoverageArtifact,
   Ticket
 } from "../src/types/entities.js";
 
@@ -58,6 +62,20 @@ const makeRun = (overrides: Partial<Run> = {}): Run => ({
   operationLeaseExpiresAt: null,
   lastCommittedAt: null,
   createdAt: now,
+  ...overrides
+});
+
+const makeInitiative = (overrides: Partial<Initiative> = {}): Initiative => ({
+  id: "initiative-1",
+  title: "Auth",
+  description: "Build authentication",
+  status: "active",
+  phases: [],
+  specIds: [],
+  ticketIds: [],
+  workflow: createInitiativeWorkflow(),
+  createdAt: now,
+  updatedAt: now,
   ...overrides
 });
 
@@ -137,6 +155,7 @@ describe("ArtifactStore", () => {
       acceptanceCriteria: [{ id: "c1", text: "Route exists" }],
       implementationPlan: "1. Add route\n2. Add tests",
       fileTargets: ["src/routes/auth.ts"],
+      coverageItemIds: ["coverage-brief-goals-1"],
       blockedBy: [],
       blocks: [],
       runId: "run-1",
@@ -167,6 +186,24 @@ describe("ArtifactStore", () => {
       generatedAt: now,
       updatedAt: now
     };
+    const coverage: TicketCoverageArtifact = {
+      id: "initiative-1:ticket-coverage",
+      initiativeId: initiative.id,
+      items: [
+        {
+          id: "coverage-brief-goals-1",
+          sourceStep: "brief",
+          sectionKey: "goals",
+          sectionLabel: "Goals",
+          kind: "goal",
+          text: "Ship auth"
+        }
+      ],
+      uncoveredItemIds: [],
+      sourceUpdatedAts: { brief: now, tickets: now },
+      generatedAt: now,
+      updatedAt: now
+    };
 
     const store = makeStore(rootDir);
     await store.initialize();
@@ -178,6 +215,7 @@ describe("ArtifactStore", () => {
       techSpec: "# Tech Spec\n"
     });
     await store.upsertPlanningReview(review);
+    await store.upsertTicketCoverageArtifact(coverage);
     await store.upsertArtifactTrace(trace);
     await store.upsertTicket(ticket);
     await store.upsertRun(run);
@@ -201,6 +239,7 @@ describe("ArtifactStore", () => {
     expect(reloaded.config).toEqual(config);
     expect(reloaded.initiatives.get(initiative.id)).toEqual(initiative);
     expect(reloaded.planningReviews.get(review.id)).toEqual(review);
+    expect(reloaded.ticketCoverageArtifacts.get(coverage.id)).toEqual(coverage);
     expect(reloaded.artifactTraces.get(trace.id)).toEqual(trace);
     expect(reloaded.tickets.get(ticket.id)).toEqual(ticket);
     expect(reloaded.runs.get(run.id)).toEqual(run);
@@ -463,6 +502,7 @@ describe("ArtifactStore", () => {
       acceptanceCriteria: [],
       implementationPlan: "",
       fileTargets: [],
+      coverageItemIds: [],
       blockedBy: [],
       blocks: [],
       runId: null,
@@ -529,6 +569,9 @@ describe("ArtifactStore", () => {
       acceptanceCriteria: [],
       implementationPlan: "",
       fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
       runId: null,
       createdAt: now,
       updatedAt: now

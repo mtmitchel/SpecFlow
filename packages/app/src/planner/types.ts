@@ -3,7 +3,8 @@ import type {
   InitiativePlanningQuestion,
   InitiativePlanningQuestionType,
   InitiativePlanningStep,
-  PlanningReviewKind
+  PlanningReviewKind,
+  TicketCoverageItem
 } from "../types/entities.js";
 
 export type PlannerQuestionType = InitiativePlanningQuestionType;
@@ -48,6 +49,7 @@ export interface PlanTicketStub {
   description: string;
   acceptanceCriteria: string[];
   fileTargets: string[];
+  coverageItemIds: string[];
 }
 
 export interface PlanPhase {
@@ -58,7 +60,7 @@ export interface PlanPhase {
 
 export interface PlanResult {
   phases: PlanPhase[];
-  mermaidDiagram?: string;
+  uncoveredCoverageItemIds: string[];
 }
 
 export interface TriageTicketDraft {
@@ -101,6 +103,7 @@ export interface PlanInput {
   coreFlowsMarkdown: string;
   prdMarkdown: string;
   techSpecMarkdown: string;
+  coverageItems: TicketCoverageItem[];
   repoContext?: {
     fileTree: string;
     totalFiles: number;
@@ -120,4 +123,13 @@ export interface ReviewRunInput {
   prdMarkdown?: string;
   techSpecMarkdown?: string;
   traceOutlines?: Partial<Record<RefinementStep, { sections: ArtifactTraceOutlineSection[] }>>;
+  coverageItems?: TicketCoverageItem[];
+  uncoveredCoverageItemIds?: string[];
+  tickets?: Array<{
+    title: string;
+    description: string;
+    acceptanceCriteria: string[];
+    fileTargets: string[];
+    coverageItemIds: string[];
+  }>;
 }

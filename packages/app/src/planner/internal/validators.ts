@@ -96,6 +96,20 @@ export const validatePlanResult = (result: PlanResult): void => {
   if (!Array.isArray(result.phases)) {
     throw new Error("Plan result missing phases array");
   }
+
+  validateStringArray(result.uncoveredCoverageItemIds, "Plan uncoveredCoverageItemIds");
+
+  for (const phase of result.phases) {
+    if (!Array.isArray(phase.tickets)) {
+      throw new Error(`Plan phase "${phase.name}" is missing tickets array`);
+    }
+
+    for (const ticket of phase.tickets) {
+      validateStringArray(ticket.acceptanceCriteria, `Plan ticket "${ticket.title}" acceptanceCriteria`);
+      validateStringArray(ticket.fileTargets, `Plan ticket "${ticket.title}" fileTargets`);
+      validateStringArray(ticket.coverageItemIds, `Plan ticket "${ticket.title}" coverageItemIds`);
+    }
+  }
 };
 
 export const validateTriageResult = (result: TriageResult): void => {

@@ -11,7 +11,7 @@
     "dev": "concurrently -k -n server,client \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch packages/app/src/cli.ts ui --no-open --port 3142",
     "dev:client": "npm run -w @specflow/client dev",
-    "test": "npm run -w @specflow/app test",
+    "test": "npm run -w @specflow/app test && npm run -w @specflow/client test",
     "ui": "npm run build && node packages/app/dist/cli.js ui"
   },
   "devDependencies": {

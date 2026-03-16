@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchOperationStatus } from "../../api.js";
-import type { Initiative, Run, RunAttempt, Ticket, TicketStatus } from "../../types.js";
+import type {
+  Initiative,
+  PlanningReviewArtifact,
+  Run,
+  RunAttempt,
+  Ticket,
+  TicketCoverageArtifact,
+  TicketStatus
+} from "../../types.js";
 import { useToast } from "../context/toast.js";
 import { canTransition, statusColumns } from "../constants/status-columns.js";
 import { findPhaseWarning } from "../utils/phase-warning.js";
@@ -20,6 +28,8 @@ export const TicketView = ({
   runs,
   runAttempts,
   initiatives,
+  planningReviews,
+  ticketCoverageArtifacts,
   onRefresh,
   onMoveTicket
 }: {
@@ -27,6 +37,8 @@ export const TicketView = ({
   runs: Run[];
   runAttempts: RunAttempt[];
   initiatives: Initiative[];
+  planningReviews: PlanningReviewArtifact[];
+  ticketCoverageArtifacts: TicketCoverageArtifact[];
   onRefresh: () => Promise<void>;
   onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
 }) => {
@@ -78,6 +90,26 @@ export const TicketView = ({
   const phaseWarning = findPhaseWarning(ticket, initiatives, tickets);
   const blockerTickets = (ticket.blockedBy ?? []).map((id) => tickets.find((t) => t.id === id)).filter(Boolean) as typeof tickets;
   const hasUnfinishedBlockers = blockerTickets.some((t) => t.status !== "done");
+  const initiative = ticket.initiativeId ? initiatives.find((item) => item.id === ticket.initiativeId) ?? null : null;
+  const coverageReview =
+    ticket.initiativeId
+      ? planningReviews.find((item) => item.id === `${ticket.initiativeId}:ticket-coverage-review`) ?? null
+      : null;
+  const coverageArtifact =
+    ticket.initiativeId
+      ? ticketCoverageArtifacts.find((item) => item.initiativeId === ticket.initiativeId) ?? null
+      : null;
+  const coveredItems = coverageArtifact
+    ? coverageArtifact.items.filter((item) => ticket.coverageItemIds.includes(item.id))
+    : [];
+  const groupedCoveredItems = coveredItems.reduce<Record<string, typeof coveredItems>>((acc, item) => {
+    const key = item.sourceStep;
+    acc[key] = [...(acc[key] ?? []), item];
+    return acc;
+  }, {});
+  const coverageBlocked = Boolean(
+    ticket.initiativeId && (!coverageReview || (coverageReview.status !== "passed" && coverageReview.status !== "overridden"))
+  );
   const validTransitions = statusColumns.filter((col) => canTransition(ticket.status, col.key));
 
   const workflowPhase: "export" | "agent" | "verify" | "done" =
@@ -145,6 +177,12 @@ export const TicketView = ({
       ) : null}
 
       {phaseWarning.hasWarning ? <div className="status-banner warn">{phaseWarning.message}</div> : null}
+      {coverageBlocked && initiative ? (
+        <div className="status-banner warn">
+          Resolve the coverage check before starting execution for this ticket.{" "}
+          <Link to={`/initiative/${initiative.id}?step=tickets`}>Open the tickets step</Link>
+        </div>
+      ) : null}
       {blockerTickets.length > 0 ? (
         <div className={hasUnfinishedBlockers ? "status-banner warn" : "status-banner"}>
           {hasUnfinishedBlockers ? "Blocked by: " : "Dependencies (all done): "}
@@ -189,6 +227,27 @@ export const TicketView = ({
           <WorkflowStepper currentPhase={workflowPhase} />
 
           <WorkflowSection title="Plan" badge={`${ticket.acceptanceCriteria.length} criteria`} defaultOpen>
+            {ticket.initiativeId ? (
+              <>
+                <h4>Covered spec items</h4>
+                {coveredItems.length === 0 ? (
+                  <p style={{ color: "var(--muted)" }}>
+                    No covered spec items are linked to this ticket yet.
+                  </p>
+                ) : (
+                  Object.entries(groupedCoveredItems).map(([step, items]) => (
+                    <div key={step}>
+                      <span className="qa-label">{step}</span>
+                      <ul>
+                        {items.map((item) => (
+                          <li key={item.id}>{item.text}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                )}
+              </>
+            ) : null}
             <h4>Acceptance Criteria</h4>
             <ul>
               {ticket.acceptanceCriteria.map((criterion) => (

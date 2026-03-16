@@ -46,7 +46,8 @@ export const registerRuntimeRoutes = (app: FastifyInstance, options: RegisterRun
       runs: Array.from(store.runs.values()),
       runAttempts: Array.from(store.runAttempts.entries()).map(([id, value]) => ({ id, ...value })),
       specs: Array.from(store.specs.values()),
-      planningReviews: Array.from(store.planningReviews.values())
+      planningReviews: Array.from(store.planningReviews.values()),
+      ticketCoverageArtifacts: Array.from(store.ticketCoverageArtifacts.values())
     });
   });
 };

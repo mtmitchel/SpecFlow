@@ -8,11 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm install                # install all workspaces
 npm run build              # build client (Vite) then server (tsc) -- order matters
 npm run check              # type-check both packages (tsc --noEmit); no build output
-npm test                   # run backend Vitest suite (packages/app only)
+npm test                   # run backend and client Vitest suites
 npm run ui                 # build + start local server with UI
 
 # Client dev server with hot-reload (does NOT start the backend)
 npm run -w @specflow/client dev
+
+# Client tests only
+npm run -w @specflow/client test
 
 # Single test file (run from packages/app/)
 npx vitest run test/artifact-store.test.ts
@@ -47,6 +50,7 @@ Monorepo with two npm workspaces:
 All data is flat YAML/JSON files on disk under `specflow/` (gitignored runtime directory). There is no database.
 
 - `ArtifactStore` (packages/app/src/store/artifact-store.ts) loads everything into memory at startup, serves reads from in-memory Maps, and writes atomically (tmp + rename). Concurrent `reloadFromDisk()` calls are serialized (coalesced) via a `reloadInFlight` guard to prevent interleaved map mutations.
+- Reload assembly is delegated to `packages/app/src/store/internal/reload.ts`, and planner-owned YAML artifacts are validated in `packages/app/src/store/internal/planning-artifact-validation.ts` before the in-memory maps are replaced.
 - Staged commit model: long operations write to `runs/<id>/_tmp/<op-id>/` first, then `commitRunOperation()` moves files to their final location. Write locks prevent concurrent ops on the same run. The file watcher is suppressed for the entire commit critical section (cp + manifest write + upsertRun + reload).
 - chokidar watches `specflow/` for external edits and triggers debounced `reloadFromDisk()`.
 
@@ -59,11 +63,13 @@ All data is flat YAML/JSON files on disk under `specflow/` (gitignored runtime d
 - `VerifierService` + `DiffEngine` -- acceptance verification against diffs
 - Route files in `src/server/routes/` (one file per domain; run routes are split into `run-query-routes.ts` and `run-audit-routes.ts`)
 
+Planning workflow metadata is shared between server and client via `packages/app/src/planner/workflow-contract.ts`. Initiative execution gating for coverage checks is centralized in `packages/app/src/planner/execution-gates.ts` and reused by ticket status transitions and bundle export.
+
 SSE streaming uses raw Fastify response hijacking (`reply.hijack()` + writing to `reply.raw`), not a plugin.
 
 ### Client structure
 
-Single state atom pattern: `AppInner` in App.tsx holds an `ArtifactsSnapshot` (config, initiatives, tickets, runs, runAttempts, specs). No Redux/Zustand. Mutations do targeted `setSnapshot` updates; `refreshArtifacts()` does a full reload.
+Single state atom pattern: `AppInner` in App.tsx holds an `ArtifactsSnapshot` (config, initiatives, tickets, runs, runAttempts, specs, planning reviews, traces, ticket coverage artifacts). No Redux/Zustand. Mutations do targeted `setSnapshot` updates; `refreshArtifacts()` does a full reload.
 
 API layer: thin wrappers over `fetch` in `src/api/`. `http.ts` provides `requestJson<T>()` and throws `ApiError` with status and structured message on non-2xx.
 
@@ -72,6 +78,8 @@ Pages use `useToast()` for error display. Root wraps: `<ErrorBoundary><ToastProv
 Reusable hooks in `src/app/hooks/`: `useDirtyForm` (unsaved changes warning via click-intercept + beforeunload; does NOT use `useBlocker` since the app uses `<BrowserRouter>`, not a data router), `useVerificationStream` (SSE EventSource with reconnection), `useCapturePreview` (diff preview with debounced refresh), `useExportWorkflow` (export/copy/fix-forward state), `useTreeNavigation` (keyboard nav for navigator tree).
 
 `TicketView` is decomposed into sub-components in `src/app/views/ticket/`: `ExportSection`, `CaptureVerifySection`, `VerificationResultsSection`, `OverridePanel`. Shared presentation components `WorkflowSection` and `WorkflowStepper` live in `src/app/components/`.
+
+`InitiativeView` delegates orchestration to `src/app/views/initiative/use-initiative-planning-workspace.ts` and renders extracted sections from `src/app/views/initiative/` (`artifact-reviews-section.tsx`, `refinement-section.tsx`, `tickets-step-section.tsx`, `planning-review-card.tsx`). There is no runtime Mermaid component in the client build.
 
 `CommandPalette` delegates to mode sub-components: `PaletteSearchMode`, `PaletteQuickTaskMode`, `PaletteGithubImportMode` in `src/app/layout/`. `SettingsModal` delegates model picking to `ModelCombobox` in `src/app/components/`.
 
@@ -85,7 +93,7 @@ Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by tick
 
 ### Store internals
 
-`ArtifactStore` delegates to extracted helpers in `store/internal/`: `artifact-writer.ts` handles writing staged operation artifacts, `spec-utils.ts` maps spec types to filenames, and `watcher.ts` encapsulates the chokidar watcher with debounced reload queue logic.
+`ArtifactStore` delegates to extracted helpers in `store/internal/`: `artifact-writer.ts` handles writing staged operation artifacts, `reload.ts` rebuilds typed in-memory snapshots from disk, `planning-artifact-validation.ts` validates planner-owned persisted YAML, `spec-utils.ts` maps spec types to filenames, and `watcher.ts` encapsulates the chokidar watcher with debounced reload queue logic.
 
 ## Key Conventions
 
@@ -99,7 +107,41 @@ Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by tick
 
 ## Test Infrastructure
 
-Tests live in `packages/app/test/`. The server test fixture (`test/helpers/server-fixture.ts`) creates a temp directory with the full `specflow/` layout, seeds entities, instantiates a real server with a mocked `fetchImpl`, and provides `cleanup()` for teardown. LLM streaming tests mock SSE with `ReadableStream` in the standard SSE wire format.
+Backend tests live in `packages/app/test/`. The server test fixture (`test/helpers/server-fixture.ts`) creates a temp directory with the full `specflow/` layout, seeds entities, instantiates a real server with a mocked `fetchImpl`, and provides `cleanup()` for teardown. LLM streaming tests mock SSE with `ReadableStream` in the standard SSE wire format.
+
+Client tests live under `packages/client/src/**/*.test.tsx` and use Vitest + React Testing Library with `packages/client/src/test/setup.ts`. Current coverage includes the tickets-step coverage review card and the ticket execution-gating banner.
+
+## GitHub Access
+
+Use the local wrapper as the only GitHub MCP entrypoint:
+
+- MCP server name: `github`
+- Backing command: `/home/mason/bin/mcp-github-server`
+
+Run this auth gate before any GitHub read or write:
+
+- `~/bin/mcp-github-server --auth-check`
+- Exit `0`: proceed
+- Non-zero: stop and read stderr. Do not continue with GitHub operations.
+
+Useful wrapper commands:
+
+- `~/bin/mcp-github-server --preflight`
+- `~/bin/mcp-github-server --health-check`
+- `~/bin/mcp-github-server --clear-cache`
+- `~/bin/mcp-github-server --force-refresh`
+
+Auth model:
+
+- Token source of truth: Bitwarden Secrets Manager (`bws`)
+- Runtime cache: kernel keyring (`keyctl`), key `github-mcp-token`, TTL 24h
+- The wrapper exports `GITHUB_PERSONAL_ACCESS_TOKEN` and `GITHUB_TOKEN` only for the launched MCP process
+
+Do not use:
+
+- Docker GitHub auth via MCP_DOCKER
+- `gh auth status` as the auth gate
+- Any GitHub path other than the wrapper above
 
 ## AGENTS.md
 

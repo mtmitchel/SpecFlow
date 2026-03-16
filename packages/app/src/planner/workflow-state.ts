@@ -7,9 +7,7 @@ import type {
   InitiativeWorkflow,
   InitiativeWorkflowStep
 } from "../types/entities.js";
-
-export const PLANNING_STEPS: InitiativePlanningStep[] = ["brief", "core-flows", "prd", "tech-spec", "tickets"];
-export const REFINEMENT_STEPS = ["brief", "core-flows", "prd", "tech-spec"] as const;
+import { PLANNING_STEPS, REFINEMENT_STEPS, getPrerequisitePlanningStep } from "./workflow-contract.js";
 
 type RefinementStep = (typeof REFINEMENT_STEPS)[number];
 
@@ -192,11 +190,7 @@ export const inferWorkflowFromArtifacts = (input: {
 };
 
 export const getPrerequisiteStep = (step: InitiativePlanningStep): InitiativePlanningStep | null => {
-  const index = PLANNING_STEPS.indexOf(step);
-  if (index <= 0) {
-    return null;
-  }
-  return PLANNING_STEPS[index - 1];
+  return getPrerequisitePlanningStep(step);
 };
 
 export const canEditStep = (workflow: InitiativeWorkflow, step: InitiativePlanningStep): boolean => {

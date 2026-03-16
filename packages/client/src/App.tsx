@@ -20,7 +20,8 @@ const AppInner = () => {
     runs: [],
     runAttempts: [],
     specs: [],
-    planningReviews: []
+    planningReviews: [],
+    ticketCoverageArtifacts: []
   });
   const [loading, setLoading] = useState(true);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);

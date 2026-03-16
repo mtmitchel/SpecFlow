@@ -19,10 +19,6 @@ export default defineConfig({
             return undefined;
           }
 
-          if (id.includes("/mermaid/") || id.includes("/katex/")) {
-            return "viz-vendor";
-          }
-
           if (id.includes("/react-markdown/") || id.includes("/remark-gfm/")) {
             return "markdown-vendor";
           }

@@ -160,6 +160,7 @@ export const registerRunAuditRoutes = (app: FastifyInstance, options: RegisterRu
       ],
       implementationPlan: "Use the linked finding and diff context to create a focused fix.",
       fileTargets: finding.file ? [finding.file] : [],
+      coverageItemIds: [],
       blockedBy: [],
       blocks: [],
       runId: null,

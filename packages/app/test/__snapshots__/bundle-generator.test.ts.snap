@@ -11,6 +11,9 @@ exports[`renderBundleForAgent golden renderers > matches golden output for claud
 ## Description
 Add login endpoint
 
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
+
 ## Acceptance Criteria
 - Endpoint exists
 
@@ -44,6 +47,9 @@ Always write tests.
 
 ## Description
 Add login endpoint
+
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
 
 ## Acceptance Criteria
 - Endpoint exists
@@ -94,6 +100,9 @@ Follow AGENTS.md conventions strictly.
 ## Description
 Add login endpoint
 
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
+
 ## Acceptance Criteria
 - Endpoint exists
 
@@ -126,6 +135,9 @@ Follow AGENTS.md conventions strictly.
 
 ## Description
 Add login endpoint
+
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
 
 ## Acceptance Criteria
 - Endpoint exists
@@ -171,6 +183,9 @@ exports[`renderBundleForAgent golden renderers > matches golden output for gener
 ## Description
 Add login endpoint
 
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
+
 ## Acceptance Criteria
 - Endpoint exists
 
@@ -200,6 +215,9 @@ Always write tests.
 
 ## Description
 Add login endpoint
+
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
 
 ## Acceptance Criteria
 - Endpoint exists
@@ -239,6 +257,9 @@ Load AGENTS.md first, then process PROMPT.md as the run objective.
 ## Description
 Add login endpoint
 
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
+
 ## Acceptance Criteria
 - Endpoint exists
 
@@ -270,6 +291,9 @@ Load AGENTS.md first, then process PROMPT.md as the run objective.
 
 ## Description
 Add login endpoint
+
+## Covered Spec Items
+- [prd · Requirements] Add the login endpoint.
 
 ## Acceptance Criteria
 - Endpoint exists

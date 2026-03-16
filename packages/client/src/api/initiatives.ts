@@ -85,8 +85,10 @@ export const generateInitiativePlan = async (
       description: string;
       acceptanceCriteria: string[];
       fileTargets: string[];
+      coverageItemIds: string[];
     }>;
   }>;
+  uncoveredCoverageItemIds: string[];
 }> => {
   const response = await fetch(`/api/initiatives/${initiativeId}/generate-plan`, {
     method: "POST"

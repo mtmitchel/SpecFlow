@@ -5,6 +5,7 @@ import {
   configPath,
   decisionsDir,
   initiativeDir,
+  initiativeTicketCoveragePath,
   initiativeReviewPath,
   initiativeTracePath,
   initiativeYamlPath,
@@ -15,9 +16,10 @@ import {
   verificationPath
 } from "../io/paths.js";
 import { normalizeInitiativeWorkflow } from "../planner/workflow-state.js";
-import { readYamlFile, writeYamlFile } from "../io/yaml.js";
+import { readYamlFile } from "../io/yaml.js";
+import { writeYamlFile } from "../io/yaml.js";
 import { pruneExpiredTempOperations as pruneExpiredTempOperationsInternal } from "./internal/cleanup.js";
-import { loadDecisions, loadInitiatives, loadRuns, loadTickets } from "./internal/loaders.js";
+import { loadStoreSnapshot, replaceMapContents } from "./internal/reload.js";
 import {
   commitRunOperation as commitRunOperationInternal,
   getOperationStatus as getOperationStatusInternal,
@@ -43,6 +45,7 @@ import type {
   Run,
   RunAttempt,
   SpecDocument,
+  TicketCoverageArtifact,
   Ticket
 } from "../types/entities.js";
 
@@ -85,6 +88,7 @@ export class ArtifactStore {
   public readonly runAttempts = new Map<string, RunAttempt>();
   public readonly specs = new Map<string, SpecDocument>();
   public readonly planningReviews = new Map<string, PlanningReviewArtifact>();
+  public readonly ticketCoverageArtifacts = new Map<string, TicketCoverageArtifact>();
   public readonly artifactTraces = new Map<string, ArtifactTraceOutline>();
 
   private readonly rootDir: string;
@@ -144,74 +148,22 @@ export class ArtifactStore {
   }
 
   private async doReloadFromDisk(): Promise<void> {
-    const nextConfig = await readYamlFile<Config>(configPath(this.rootDir));
+    const snapshot = await loadStoreSnapshot({
+      rootDir: this.rootDir,
+      runAttemptKey: (runId, attemptId) => this.runAttemptKey(runId, attemptId),
+      normalizeInitiative: (initiative, inferredCompletion) => this.normalizeInitiative(initiative, inferredCompletion)
+    });
 
-    const nextInitiatives = new Map<string, Initiative>();
-    const nextTickets = new Map<string, Ticket>();
-    const nextRuns = new Map<string, Run>();
-    const nextRunAttempts = new Map<string, RunAttempt>();
-    const nextSpecs = new Map<string, SpecDocument>();
-    const nextPlanningReviews = new Map<string, PlanningReviewArtifact>();
-    const nextArtifactTraces = new Map<string, ArtifactTraceOutline>();
+    this.config = snapshot.config;
 
-    await Promise.all([
-      loadInitiatives({
-        rootDir: this.rootDir,
-        initiatives: nextInitiatives,
-        planningReviews: nextPlanningReviews,
-        artifactTraces: nextArtifactTraces,
-        specs: nextSpecs
-      }),
-      loadTickets({
-        rootDir: this.rootDir,
-        tickets: nextTickets
-      }),
-      loadRuns({
-        rootDir: this.rootDir,
-        runs: nextRuns,
-        runAttempts: nextRunAttempts,
-        runAttemptKey: (runId, attemptId) => this.runAttemptKey(runId, attemptId)
-      }),
-      loadDecisions({
-        rootDir: this.rootDir,
-        specs: nextSpecs
-      })
-    ]);
-
-    for (const [initiativeId, initiative] of nextInitiatives) {
-      const relatedSpecs = Array.from(nextSpecs.values()).filter((spec) => spec.initiativeId === initiativeId);
-      const relatedTickets = Array.from(nextTickets.values()).filter((ticket) => ticket.initiativeId === initiativeId);
-      nextInitiatives.set(initiativeId, this.normalizeInitiative(initiative, {
-        hasBrief: relatedSpecs.some((spec) => spec.type === "brief" && spec.content.trim().length > 0),
-        hasCoreFlows: relatedSpecs.some((spec) => spec.type === "core-flows" && spec.content.trim().length > 0),
-        hasPrd: relatedSpecs.some((spec) => spec.type === "prd" && spec.content.trim().length > 0),
-        hasTechSpec: relatedSpecs.some((spec) => spec.type === "tech-spec" && spec.content.trim().length > 0),
-        hasTickets: relatedTickets.length > 0 || initiative.ticketIds.length > 0 || initiative.phases.length > 0
-      }));
-    }
-
-    this.config = nextConfig;
-
-    this.initiatives.clear();
-    for (const [k, v] of nextInitiatives) this.initiatives.set(k, v);
-
-    this.tickets.clear();
-    for (const [k, v] of nextTickets) this.tickets.set(k, v);
-
-    this.runs.clear();
-    for (const [k, v] of nextRuns) this.runs.set(k, v);
-
-    this.runAttempts.clear();
-    for (const [k, v] of nextRunAttempts) this.runAttempts.set(k, v);
-
-    this.specs.clear();
-    for (const [k, v] of nextSpecs) this.specs.set(k, v);
-
-    this.planningReviews.clear();
-    for (const [k, v] of nextPlanningReviews) this.planningReviews.set(k, v);
-
-    this.artifactTraces.clear();
-    for (const [k, v] of nextArtifactTraces) this.artifactTraces.set(k, v);
+    replaceMapContents(this.initiatives, snapshot.initiatives);
+    replaceMapContents(this.tickets, snapshot.tickets);
+    replaceMapContents(this.runs, snapshot.runs);
+    replaceMapContents(this.runAttempts, snapshot.runAttempts);
+    replaceMapContents(this.specs, snapshot.specs);
+    replaceMapContents(this.planningReviews, snapshot.planningReviews);
+    replaceMapContents(this.ticketCoverageArtifacts, snapshot.ticketCoverageArtifacts);
+    replaceMapContents(this.artifactTraces, snapshot.artifactTraces);
 
     this.rebuildOperationIndex();
   }
@@ -305,6 +257,9 @@ export class ArtifactStore {
     for (const [key, review] of this.planningReviews) {
       if (review.initiativeId === id) this.planningReviews.delete(key);
     }
+    for (const [key, coverage] of this.ticketCoverageArtifacts) {
+      if (coverage.initiativeId === id) this.ticketCoverageArtifacts.delete(key);
+    }
     for (const [key, trace] of this.artifactTraces) {
       if (trace.initiativeId === id) this.artifactTraces.delete(key);
     }
@@ -381,6 +336,12 @@ export class ArtifactStore {
     const filePath = initiativeReviewPath(this.rootDir, review.initiativeId, review.kind);
     await writeYamlFile(filePath, review);
     this.planningReviews.set(review.id, review);
+  }
+
+  public async upsertTicketCoverageArtifact(coverage: TicketCoverageArtifact): Promise<void> {
+    const filePath = initiativeTicketCoveragePath(this.rootDir, coverage.initiativeId);
+    await writeYamlFile(filePath, coverage);
+    this.ticketCoverageArtifacts.set(coverage.id, coverage);
   }
 
   public async upsertArtifactTrace(trace: ArtifactTraceOutline): Promise<void> {

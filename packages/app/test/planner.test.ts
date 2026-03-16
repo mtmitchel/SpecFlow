@@ -128,12 +128,20 @@ describe("PlannerService", () => {
                   title: "T1",
                   description: "Implement",
                   acceptanceCriteria: ["Done"],
-                  fileTargets: ["src/a.ts"]
+                  fileTargets: ["src/a.ts"],
+                  coverageItemIds: [
+                    "coverage-brief-summary-1",
+                    "coverage-core-flows-summary-1",
+                    "coverage-prd-summary-1",
+                    "coverage-tech-spec-summary-1"
+                  ]
                 }
               ]
             }
-          ]
+          ],
+          uncoveredCoverageItemIds: []
         }),
+        JSON.stringify(reviewResult("Coverage review")),
         JSON.stringify({
           decision: "ok",
           reason: "Scoped",
@@ -187,7 +195,8 @@ describe("PlannerService", () => {
       await planner.runPlanJob({ initiativeId: initiative.id });
       await planner.runTriageJob({ description: "Add one button" });
 
-      expect(mockClient.requests).toHaveLength(18);
+      expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
+      expect(mockClient.requests).toHaveLength(19);
       for (const req of mockClient.requests) {
         expect(req.systemPrompt).toContain("team-rules: always include tests");
         expect(req.provider).toBe("openrouter");
@@ -268,6 +277,229 @@ describe("PlannerService", () => {
       const ok = await planner.runTriageJob({ description: "Fix a typo" });
       expect(ok.decision).toBe("ok");
       expect(store.tickets.size).toBe(1);
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("persists ticket coverage artifacts and mapped ticket coverage ids during plan generation", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-coverage-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-3";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        apiKey: "",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const mockClient = new MockLlmClient([
+        JSON.stringify({
+          markdown: "# Brief",
+          traceOutline: {
+            sections: [
+              { key: "goals", label: "Goals", items: ["Support email login"] },
+              { key: "constraints", label: "Constraints", items: ["Keep auth local-first"] }
+            ]
+          }
+        }),
+        JSON.stringify(reviewResult("Brief review")),
+        JSON.stringify({
+          markdown: "# Core Flows",
+          traceOutline: {
+            sections: [
+              { key: "flows", label: "Flows", items: ["User signs in"] }
+            ]
+          }
+        }),
+        JSON.stringify(reviewResult("Core flows review")),
+        JSON.stringify(reviewResult("Brief/core flows cross-check")),
+        JSON.stringify({
+          markdown: "# PRD",
+          traceOutline: {
+            sections: [
+              { key: "requirements", label: "Requirements", items: ["Show login errors"] }
+            ]
+          }
+        }),
+        JSON.stringify(reviewResult("PRD review")),
+        JSON.stringify(reviewResult("Core flows/PRD cross-check")),
+        JSON.stringify({
+          markdown: "# Tech Spec",
+          traceOutline: {
+            sections: [
+              { key: "verification-hooks", label: "Verification hooks", items: ["Add auth route tests"] }
+            ]
+          }
+        }),
+        JSON.stringify(reviewResult("Tech spec review")),
+        JSON.stringify(reviewResult("PRD/tech spec cross-check")),
+        JSON.stringify(reviewResult("Spec set review")),
+        JSON.stringify({
+          phases: [
+            {
+              name: "Phase 1",
+              order: 1,
+              tickets: [
+                {
+                  title: "Implement email login",
+                  description: "Build the login flow",
+                  acceptanceCriteria: ["Email login works", "Errors are shown"],
+                  fileTargets: ["src/auth.ts"],
+                  coverageItemIds: [
+                    "coverage-brief-goals-1",
+                    "coverage-brief-constraints-1",
+                    "coverage-core-flows-flows-1",
+                    "coverage-prd-requirements-1",
+                    "coverage-tech-spec-verification-hooks-1"
+                  ]
+                }
+              ]
+            }
+          ],
+          uncoveredCoverageItemIds: []
+        }),
+        JSON.stringify(reviewResult("Coverage review"))
+      ]);
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: mockClient,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: (() => {
+          const ids = [
+            "initcov1",
+            "phasecov1",
+            "ticketcov1"
+          ];
+          let index = 0;
+          return () => ids[index++] ?? `cov${index}`;
+        })()
+      });
+
+      const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      await planner.runBriefJob({ initiativeId: initiative.id });
+      await planner.runCoreFlowsJob({ initiativeId: initiative.id });
+      await planner.runPrdJob({ initiativeId: initiative.id });
+      await planner.runTechSpecJob({ initiativeId: initiative.id });
+      await planner.runPlanJob({ initiativeId: initiative.id });
+
+      const coverageArtifact = store.ticketCoverageArtifacts.get(`${initiative.id}:ticket-coverage`);
+      expect(coverageArtifact?.items).toHaveLength(5);
+      expect(coverageArtifact?.uncoveredItemIds).toEqual([]);
+      expect(store.tickets.get("ticket-ticketcov1")?.coverageItemIds).toEqual([
+        "coverage-brief-goals-1",
+        "coverage-brief-constraints-1",
+        "coverage-core-flows-flows-1",
+        "coverage-prd-requirements-1",
+        "coverage-tech-spec-verification-hooks-1"
+      ]);
+      expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("rejects plan results that leave known coverage items unaccounted for", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-coverage-invalid-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-4";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        apiKey: "",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            markdown: "# Brief",
+            traceOutline: { sections: [{ key: "goals", label: "Goals", items: ["Support email login"] }] }
+          }),
+          JSON.stringify(reviewResult("Brief review")),
+          JSON.stringify({
+            markdown: "# Core Flows",
+            traceOutline: { sections: [{ key: "flows", label: "Flows", items: ["User signs in"] }] }
+          }),
+          JSON.stringify(reviewResult("Core flows review")),
+          JSON.stringify(reviewResult("Brief/core flows cross-check")),
+          JSON.stringify({
+            markdown: "# PRD",
+            traceOutline: { sections: [{ key: "requirements", label: "Requirements", items: ["Show login errors"] }] }
+          }),
+          JSON.stringify(reviewResult("PRD review")),
+          JSON.stringify(reviewResult("Core flows/PRD cross-check")),
+          JSON.stringify({
+            markdown: "# Tech Spec",
+            traceOutline: { sections: [{ key: "verification-hooks", label: "Verification hooks", items: ["Add auth route tests"] }] }
+          }),
+          JSON.stringify(reviewResult("Tech spec review")),
+          JSON.stringify(reviewResult("PRD/tech spec cross-check")),
+          JSON.stringify(reviewResult("Spec set review")),
+          JSON.stringify({
+            phases: [
+              {
+                name: "Phase 1",
+                order: 1,
+                tickets: [
+                  {
+                    title: "Implement email login",
+                    description: "Build the login flow",
+                    acceptanceCriteria: ["Email login works"],
+                    fileTargets: ["src/auth.ts"],
+                    coverageItemIds: ["coverage-brief-goals-1"]
+                  }
+                ]
+              }
+            ],
+            uncoveredCoverageItemIds: []
+          })
+        ]),
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "invalid01"
+      });
+
+      const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      await planner.runBriefJob({ initiativeId: initiative.id });
+      await planner.runCoreFlowsJob({ initiativeId: initiative.id });
+      await planner.runPrdJob({ initiativeId: initiative.id });
+      await planner.runTechSpecJob({ initiativeId: initiative.id });
+
+      await expect(planner.runPlanJob({ initiativeId: initiative.id })).rejects.toThrow(
+        'Coverage item "coverage-core-flows-flows-1" is missing from the generated plan'
+      );
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });

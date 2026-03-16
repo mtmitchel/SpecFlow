@@ -5,7 +5,13 @@ import { createSpecFlowServer } from "../../src/server/create-server.js";
 import { specflowDir } from "../../src/io/paths.js";
 import { createInitiativeWorkflow } from "../../src/planner/workflow-state.js";
 import { ArtifactStore } from "../../src/store/artifact-store.js";
-import type { Initiative, PlanningReviewArtifact, Run, Ticket } from "../../src/types/entities.js";
+import type {
+  Initiative,
+  PlanningReviewArtifact,
+  Run,
+  Ticket,
+  TicketCoverageArtifact
+} from "../../src/types/entities.js";
 
 export const now = "2026-02-27T20:00:00.000Z";
 
@@ -186,11 +192,43 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
       overrideReason: null,
       reviewedAt: now,
       updatedAt: now
+    },
+    {
+      id: `${initiative.id}:ticket-coverage-review`,
+      initiativeId: initiative.id,
+      kind: "ticket-coverage-review",
+      status: "passed",
+      summary: "Coverage check passes.",
+      findings: [],
+      sourceUpdatedAts: { brief: now, "core-flows": now, prd: now, "tech-spec": now, tickets: now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
     }
   ];
   for (const review of passedReviews) {
     await store.upsertPlanningReview(review);
   }
+
+  const coverage: TicketCoverageArtifact = {
+    id: `${initiative.id}:ticket-coverage`,
+    initiativeId: initiative.id,
+    items: [
+      {
+        id: "coverage-prd-requirements-1",
+        sourceStep: "prd",
+        sectionKey: "requirements",
+        sectionLabel: "Requirements",
+        kind: "requirement",
+        text: "Allow the user to export the ticket bundle."
+      }
+    ],
+    uncoveredItemIds: [],
+    sourceUpdatedAts: { brief: now, "core-flows": now, prd: now, "tech-spec": now, tickets: now },
+    generatedAt: now,
+    updatedAt: now
+  };
+  await store.upsertTicketCoverageArtifact(coverage);
 
   const ticket: Ticket = {
     id: "ticket-aabbccdd",
@@ -202,6 +240,9 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
     acceptanceCriteria: [{ id: "c1", text: "bundle created" }],
     implementationPlan: "",
     fileTargets: ["src/auth.ts"],
+    coverageItemIds: ["coverage-prd-requirements-1"],
+    blockedBy: [],
+    blocks: [],
     runId: null,
     createdAt: now,
     updatedAt: now

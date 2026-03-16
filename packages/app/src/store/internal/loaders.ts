@@ -2,6 +2,8 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   decisionsDir,
+  initiativeCoverageDir,
+  initiativeTicketCoveragePath,
   initiativeDir,
   initiativeReviewPath,
   initiativeReviewsDir,
@@ -23,15 +25,22 @@ import type {
   Run,
   RunAttempt,
   SpecDocument,
+  TicketCoverageArtifact,
   Ticket
 } from "../../types/entities.js";
 import { listDirectoryNames, listFileNames, pathExists } from "./fs-utils.js";
+import {
+  parseArtifactTraceOutline,
+  parsePlanningReviewArtifact,
+  parseTicketCoverageArtifact
+} from "./planning-artifact-validation.js";
 
 export const loadInitiatives = async (input: {
   rootDir: string;
   initiatives: Map<string, Initiative>;
   planningReviews: Map<string, PlanningReviewArtifact>;
   artifactTraces: Map<string, ArtifactTraceOutline>;
+  ticketCoverageArtifacts: Map<string, TicketCoverageArtifact>;
   specs: Map<string, SpecDocument>;
 }): Promise<void> => {
   const ids = await listDirectoryNames(initiativesDir(input.rootDir));
@@ -84,10 +93,23 @@ export const loadInitiatives = async (input: {
         initiativeReviewPath(input.rootDir, id, reviewKind)
       );
       if (review) {
-        input.planningReviews.set(review.id, review);
+        const filePath = initiativeReviewPath(input.rootDir, id, reviewKind);
+        const parsed = parsePlanningReviewArtifact(review, filePath);
+        input.planningReviews.set(parsed.id, parsed);
       }
     }
 
+    const coverageFileNames = await listFileNames(initiativeCoverageDir(input.rootDir, id));
+    if (coverageFileNames.some((fileName) => fileName === "tickets.yaml" || fileName === "tickets.yml")) {
+      const coverage = await readYamlFile<TicketCoverageArtifact>(
+        initiativeTicketCoveragePath(input.rootDir, id)
+      );
+      if (coverage) {
+        const filePath = initiativeTicketCoveragePath(input.rootDir, id);
+        const parsed = parseTicketCoverageArtifact(coverage, filePath);
+        input.ticketCoverageArtifacts.set(parsed.id, parsed);
+      }
+    }
     const traceFileNames = await listFileNames(initiativeTracesDir(input.rootDir, id));
     for (const fileName of traceFileNames) {
       if (!fileName.endsWith(".yaml") && !fileName.endsWith(".yml")) {
@@ -99,7 +121,9 @@ export const loadInitiatives = async (input: {
         initiativeTracePath(input.rootDir, id, step)
       );
       if (trace) {
-        input.artifactTraces.set(trace.id, trace);
+        const filePath = initiativeTracePath(input.rootDir, id, step);
+        const parsed = parseArtifactTraceOutline(trace, filePath);
+        input.artifactTraces.set(parsed.id, parsed);
       }
     }
   }
@@ -119,6 +143,7 @@ export const loadTickets = async (input: {
     const ticket = await readYamlFile<Ticket>(path.join(ticketsDir(input.rootDir), fileName));
     if (ticket) {
       // Normalize fields that were added after initial schema — absent in older YAML files.
+      ticket.coverageItemIds = Array.isArray(ticket.coverageItemIds) ? ticket.coverageItemIds : [];
       ticket.blockedBy = Array.isArray(ticket.blockedBy) ? ticket.blockedBy : [];
       ticket.blocks = Array.isArray(ticket.blocks) ? ticket.blocks : [];
       input.tickets.set(ticket.id, ticket);

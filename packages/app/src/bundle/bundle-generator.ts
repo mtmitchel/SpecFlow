@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { ArtifactStore } from "../store/artifact-store.js";
 import type { Ticket } from "../types/entities.js";
+import { getTicketExecutionGate } from "../planner/execution-gates.js";
 import { readAgentsMd } from "./internal/agents-md.js";
 import { collectContextFiles } from "./internal/context-files.js";
 import { buildBundleManifest } from "./internal/manifest.js";
@@ -9,6 +10,7 @@ import { ensureRunForTicket, resolveExistingOperation } from "./internal/operati
 import { captureSnapshotFiles } from "./internal/snapshot.js";
 import { renderBundleForAgent } from "./renderers.js";
 import type { ExportBundleRequest, ExportBundleResult } from "./types.js";
+import { getTicketCoverageArtifactId } from "../planner/ticket-coverage.js";
 
 const rendererVersion = "0.1.0";
 
@@ -49,6 +51,11 @@ export class BundleGenerator {
       throw new Error(`Ticket ${input.ticketId} not found`);
     }
 
+    const executionGate = getTicketExecutionGate(ticket, this.store.planningReviews);
+    if (!executionGate.allowed) {
+      throw new Error(executionGate.message);
+    }
+
     const run = await ensureRunForTicket({
       store: this.store,
       ticket,
@@ -65,10 +72,16 @@ export class BundleGenerator {
       initiativeId: ticket.initiativeId,
       specs: this.store.specs.values()
     });
+    const coveredItems = ticket.initiativeId
+      ? this.store.ticketCoverageArtifacts
+          .get(getTicketCoverageArtifactId(ticket.initiativeId))
+          ?.items.filter((item) => ticket.coverageItemIds.includes(item.id)) ?? []
+      : [];
 
     const rendered = renderBundleForAgent({
       agentTarget: input.agentTarget,
       ticket,
+      coveredItems,
       exportMode: input.exportMode,
       sourceRunId: input.sourceRunId ?? null,
       sourceFindingId: input.sourceFindingId ?? null,

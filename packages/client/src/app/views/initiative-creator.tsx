@@ -30,7 +30,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
     <section>
       <header className="section-header">
         <h2>New Initiative</h2>
-        <p>Describe what you want to build. SpecFlow will create a brief first, then guide the work through PRD, tech spec, and tickets.</p>
+        <p>Describe what you want to build. SpecFlow will create a brief, core flows, PRD, tech spec, and then tickets.</p>
       </header>
 
       <div className="panel">

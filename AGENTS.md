@@ -6,7 +6,7 @@ Core runtime and docs live together as an npm workspace:
 
 - `packages/app`: Fastify server, CLI, and all backend services
 - `packages/client`: React + Vite board UI
-- `docs/designing-specflow/`: product and technical planning artifacts
+- `docs/`: product and technical planning artifacts
 - `README.md` and `docs/README.md`: entry points for setup and docs index
 
 Runtime data is persisted under `specflow/` (`config.yaml`, `initiatives/`, `tickets/`, `runs/`, `decisions/`).
@@ -22,8 +22,8 @@ src/
   config/           env key resolution
   io/               file I/O: agents-md (secure loader), atomic-write, paths, yaml
   llm/              LLM provider client, error types, SSE stream parser
-  planner/          spec + plan generation service
-    internal/       helpers: agents-md, config, job-executor, ticket-factory, validators
+  planner/          spec + plan generation service, workflow contract, execution gates
+    internal/       helpers: context, error-shaping, plan-job, review-job, spec-artifacts, ticket-factory, validators
   server/           Fastify HTTP server
     audit/          drift audit logic (findings, report-store, types)
     routes/         one file per domain: import, initiative, operation, provider, run-query, run-audit, runtime, ticket
@@ -31,7 +31,7 @@ src/
     validation.ts   security validators (see Security section)
     zip/            bundle ZIP streaming
   store/            in-memory artifact store with staged commits
-    internal/       helpers: artifact-writer, cleanup, fs-utils, loaders, operations, recovery, spec-utils, watcher
+    internal/       helpers: artifact-writer, cleanup, fs-utils, loaders, operations, planning-artifact-validation, recovery, reload, spec-utils, watcher
     types.ts        PreparedOperationArtifacts interface (shared between store and operations)
   types/            core entity types (Initiative, Ticket, Run, Config, etc.)
   verify/           verification and diff engine
@@ -45,13 +45,14 @@ src/
 src/
   api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
   app/
-    components/     shared UI: audit-panel, diff-viewer, markdown-view, mermaid-view, model-combobox, workflow-section, workflow-stepper
+    components/     shared UI: audit-panel, diff-viewer, markdown-view, model-combobox, workflow-section, workflow-stepper
     constants/      status-columns (status transition rules, canTransition helper)
     context/        toast (error notification context and useToast hook)
     hooks/          use-capture-preview, use-dirty-form, use-export-workflow, use-sse-reconnect, use-tree-navigation, use-verification-stream
     layout/         workspace-shell, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal, status-bar
     utils/          phase-warning, scope-paths, specs
     views/          detail-workspace, overview-panel, initiative-view, initiative-creator, spec-view, ticket-view, run-view
+      initiative/   planning workspace sections, review cards, shared state/controller hook
       ticket/       export-section, capture-verify-section, verification-results-section, override-panel
   api.ts            consolidated re-export of all API modules
   App.tsx           root component, ArtifactsSnapshot state, refreshArtifacts callback
@@ -64,8 +65,9 @@ Use these canonical commands:
 
 - `npm install` - install workspaces
 - `npm run check` - type-check both packages (tsc --noEmit); no build output
-- `npm test` - run backend Vitest suite
+- `npm test` - run backend and client Vitest suites
 - `npm run build` - build client and backend
+- `npm run dev` - run the watched backend and Vite client together
 - `npm run ui` - build and start local server/UI
 - `git status -sb` - quick working tree check
 
@@ -106,6 +108,11 @@ Backend tests use Vitest under `packages/app/test`. Test files are split by doma
 - `server/runtime-status.test.ts` - server health/capability probes
 - `server/ticket-routes.test.ts` - ticket CRUD, export, capture, SSE
 
+Client tests use Vitest + React Testing Library under `packages/client/src/**/*.test.tsx`. Current high-value UI coverage includes:
+
+- `app/views/initiative/tickets-step-section.test.tsx` - coverage check card and override states in the Tickets step
+- `app/views/ticket-view.test.tsx` - ticket execution gating banner and covered spec items rendering
+
 Add or adjust tests when modifying server routes, verifier/diff logic, bundle generation, or artifact store semantics. Before pushing, run `npm run check`, `npm test`, and `npm run build`.
 
 ## Code Quality Policy
@@ -128,9 +135,10 @@ PRs should include:
 
 ## GitHub Issue Process (Required on this Machine)
 
-Use the local MCP wrapper only:
+Use the local MCP wrapper as the only GitHub MCP entrypoint:
 
-- Server command: `/home/mason/bin/mcp-github-server`
+- MCP server name: `github`
+- Backing command: `/home/mason/bin/mcp-github-server`
 
 Run this auth gate before any GitHub read/write:
 
@@ -142,6 +150,14 @@ Optional checks:
 
 - `~/bin/mcp-github-server --preflight`
 - `~/bin/mcp-github-server --health-check`
+- `~/bin/mcp-github-server --clear-cache`
+- `~/bin/mcp-github-server --force-refresh`
+
+Auth model:
+
+- Token source of truth: Bitwarden Secrets Manager (`bws`)
+- Runtime cache: kernel keyring (`keyctl`), key `github-mcp-token`, TTL 24h
+- The wrapper exports `GITHUB_PERSONAL_ACCESS_TOKEN` and `GITHUB_TOKEN` only for the launched MCP process
 
 Issue workflow:
 
@@ -155,6 +171,7 @@ Rules:
 
 - Do not use Docker GitHub MCP auth.
 - Do not use `gh auth status` as auth gate.
+- Do not use any GitHub path other than the wrapper above.
 - `--auth-check` is authoritative.
 
 ## Security & Configuration Tips

@@ -9,7 +9,12 @@ import { readYamlFile, writeYamlFile } from "../src/io/yaml.js";
 import { createInitiativeWorkflow } from "../src/planner/workflow-state.js";
 import { ArtifactStore } from "../src/store/artifact-store.js";
 import type { BundleManifest } from "../src/bundle/types.js";
-import type { Initiative, Ticket } from "../src/types/entities.js";
+import type {
+  Initiative,
+  PlanningReviewArtifact,
+  Ticket,
+  TicketCoverageArtifact
+} from "../src/types/entities.js";
 
 const now = "2026-02-27T20:00:00.000Z";
 
@@ -34,10 +39,23 @@ describe("renderBundleForAgent golden renderers", () => {
       acceptanceCriteria: [{ id: "c1", text: "Endpoint exists" }],
       implementationPlan: "1. Add route",
       fileTargets: ["src/auth.ts"],
+      coverageItemIds: ["coverage-prd-requirements-1"],
+      blockedBy: [],
+      blocks: [],
       runId: null,
       createdAt: now,
       updatedAt: now
     } satisfies Ticket,
+    coveredItems: [
+      {
+        id: "coverage-prd-requirements-1",
+        sourceStep: "prd",
+        sectionKey: "requirements",
+        sectionLabel: "Requirements",
+        kind: "requirement",
+        text: "Add the login endpoint."
+      }
+    ],
     exportMode: "standard" as const,
     sourceRunId: null,
     sourceFindingId: null,
@@ -104,8 +122,41 @@ describe("BundleGenerator", () => {
       acceptanceCriteria: [{ id: "c1", text: "Endpoint exists" }],
       implementationPlan: "1. Add route",
       fileTargets: ["src/auth.ts"],
+      coverageItemIds: ["coverage-prd-requirements-1"],
+      blockedBy: [],
+      blocks: [],
       runId: null,
       createdAt: now,
+      updatedAt: now
+    };
+    const coverageReview: PlanningReviewArtifact = {
+      id: `${initiative.id}:ticket-coverage-review`,
+      initiativeId: initiative.id,
+      kind: "ticket-coverage-review",
+      status: "passed",
+      summary: "Coverage check passes.",
+      findings: [],
+      sourceUpdatedAts: { brief: now, prd: now, "tech-spec": now, tickets: now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    };
+    const coverage: TicketCoverageArtifact = {
+      id: `${initiative.id}:ticket-coverage`,
+      initiativeId: initiative.id,
+      items: [
+        {
+          id: "coverage-prd-requirements-1",
+          sourceStep: "prd",
+          sectionKey: "requirements",
+          sectionLabel: "Requirements",
+          kind: "requirement",
+          text: "Add the login endpoint."
+        }
+      ],
+      uncoveredItemIds: [],
+      sourceUpdatedAts: { brief: now, prd: now, "tech-spec": now, tickets: now },
+      generatedAt: now,
       updatedAt: now
     };
 
@@ -114,6 +165,8 @@ describe("BundleGenerator", () => {
       prd: "# PRD\n",
       techSpec: "# Tech Spec\n"
     });
+    await store.upsertPlanningReview(coverageReview);
+    await store.upsertTicketCoverageArtifact(coverage);
     await store.upsertTicket(ticket);
 
     const generator = new BundleGenerator({
@@ -180,6 +233,9 @@ describe("BundleGenerator", () => {
       acceptanceCriteria: [{ id: "c1", text: "Issue patched" }],
       implementationPlan: "",
       fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
       runId: null,
       createdAt: now,
       updatedAt: now
@@ -231,6 +287,9 @@ describe("BundleGenerator", () => {
       acceptanceCriteria: [{ id: "c1", text: "bundle created" }],
       implementationPlan: "",
       fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
       runId: null,
       createdAt: now,
       updatedAt: now
