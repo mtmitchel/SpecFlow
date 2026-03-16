@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ArtifactsSnapshot, Initiative, PlanningReviewArtifact, Ticket } from "../../types.js";
 import { getInitiativeProgressModel } from "./initiative-progress.js";
+import { getInitiativeQueueActionLabel } from "./ui-language.js";
 
 const baseInitiative: Initiative = {
   id: "initiative-12345678",
@@ -55,7 +56,9 @@ describe("getInitiativeProgressModel", () => {
 
     expect(progress.currentKey).toBe("brief");
     expect(progress.nodes[0]?.state).toBe("active");
-    expect(progress.statusLabel).toBe("Continue to brief intake");
+    expect(progress.currentNodeState).toBe("active");
+    expect(progress.currentReviewKind).toBeNull();
+    expect(getInitiativeQueueActionLabel(baseInitiative, progress)).toBe("Answer a few questions");
   });
 
   it("shows a planning checkpoint when brief review is unresolved", () => {
@@ -94,7 +97,9 @@ describe("getInitiativeProgressModel", () => {
 
     expect(progress.currentKey).toBe("brief");
     expect(progress.nodes.find((node) => node.key === "brief")?.state).toBe("checkpoint");
-    expect(progress.statusLabel).toBe("Review brief");
+    expect(progress.currentNodeState).toBe("checkpoint");
+    expect(progress.currentReviewKind).toBe("brief-review");
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Review brief");
   });
 
   it("keeps the initiative at tickets when coverage is unresolved", () => {
@@ -155,7 +160,9 @@ describe("getInitiativeProgressModel", () => {
 
     expect(progress.currentKey).toBe("tickets");
     expect(progress.nodes.find((node) => node.key === "tickets")?.state).toBe("checkpoint");
-    expect(progress.statusLabel).toBe("Run coverage check");
+    expect(progress.currentNodeState).toBe("checkpoint");
+    expect(progress.currentReviewKind).toBe("ticket-coverage-review");
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Review coverage");
   });
 
   it("moves into execute and verify based on ticket state", () => {
@@ -225,7 +232,10 @@ describe("getInitiativeProgressModel", () => {
 
     expect(executeProgress.currentKey).toBe("execute");
     expect(verifyProgress.currentKey).toBe("verify");
-    expect(verifyProgress.statusLabel).toBe("Needs verification");
+    expect(executeProgress.currentNodeState).toBe("active");
+    expect(verifyProgress.currentNodeState).toBe("active");
+    expect(getInitiativeQueueActionLabel(initiative, executeProgress)).toBe("Continue ticket");
+    expect(getInitiativeQueueActionLabel(initiative, verifyProgress)).toBe("Verify ticket");
   });
 
   it("marks the initiative done once every ticket is complete", () => {
@@ -285,7 +295,7 @@ describe("getInitiativeProgressModel", () => {
 
     expect(progress.currentKey).toBe("done");
     expect(progress.nodes.find((node) => node.key === "done")?.state).toBe("complete");
-    expect(progress.statusLabel).toBe("Done");
+    expect(progress.currentNodeState).toBe("complete");
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Done");
   });
 });
-

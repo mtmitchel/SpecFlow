@@ -84,6 +84,7 @@ export const TicketsStepSection = ({
   onConfirmOverride,
   onCommitPhaseName
 }: TicketsStepSectionProps) => {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const firstTicket = initiativeTickets[0] ?? null;
   const grouped = groupReviewFindings(ticketCoverageReview?.findings ?? []);
   const blockers = grouped.blocker.length + grouped["traceability-gap"].length;
@@ -100,7 +101,7 @@ export const TicketsStepSection = ({
           <div>
             <h4 style={{ margin: 0 }}>Ticket plan</h4>
             <p style={{ margin: "0.25rem 0 0", color: "var(--muted)" }}>
-              Generate tickets once the planning set is stable enough to break into execution slices.
+              Generate tickets when the plan is ready to turn into work.
             </p>
           </div>
           <div className="button-row planning-view-toggle">
@@ -126,14 +127,14 @@ export const TicketsStepSection = ({
 
         {initiative.phases.length === 0 ? (
           <p style={{ color: "var(--muted)", margin: 0 }}>
-            No tickets yet. Generate the ticket plan after the tech spec is ready.
+            No tickets yet.
           </p>
         ) : null}
       </div>
 
       {ticketCoverageReview || ticketCoverageArtifact ? (
         <PlanningReviewCard
-          title="Coverage checkpoint"
+          title="Coverage"
           status={ticketCoverageReview?.status ?? "stale"}
           meta={
             <>
@@ -148,10 +149,12 @@ export const TicketsStepSection = ({
           summary={ticketCoverageReview?.summary}
           findings={grouped}
           reviewBusy={reviewBusy}
-          primaryActionLabel="Run coverage check"
+          primaryActionLabel="Check coverage"
           primaryActionBusyLabel="Checking..."
           onPrimaryAction={() => onRunReview(TICKET_COVERAGE_REVIEW_KIND)}
           primaryActionDisabled={initiative.phases.length === 0}
+          detailsOpen={detailsOpen}
+          onToggleDetails={() => setDetailsOpen((current) => !current)}
           showOverrideAction={ticketCoverageReview?.status === "blocked"}
           showOverrideForm={showOverrideForm}
           onToggleOverride={() => {
@@ -163,13 +166,13 @@ export const TicketsStepSection = ({
             onSetReviewOverride(TICKET_COVERAGE_REVIEW_KIND, ticketCoverageReview?.overrideReason ?? "");
           }}
           overrideReason={showOverrideForm ? reviewOverrideReason : ticketCoverageReview?.overrideReason}
-          overridePlaceholder="Document why you are accepting this coverage risk."
+          overridePlaceholder="Add a short reason for moving ahead anyway."
           onChangeOverrideReason={onChangeReviewOverrideReason}
           onConfirmOverride={() => onConfirmOverride(TICKET_COVERAGE_REVIEW_KIND)}
-          overrideActionLabel="Override coverage blockers"
-          cancelOverrideLabel="Cancel override"
-          overrideConfirmLabel="Confirm override"
-          overrideBusyLabel="Overriding..."
+          overrideActionLabel="Continue with risk"
+          cancelOverrideLabel="Keep blocking"
+          overrideConfirmLabel="Continue with risk"
+          overrideBusyLabel="Saving..."
           extraContent={
             uncoveredCoverageItems.length > 0 ? (
               <div>
@@ -186,7 +189,7 @@ export const TicketsStepSection = ({
           }
           footerMessage={
             ticketCoverageReview && !isResolvedReview(ticketCoverageReview)
-              ? "Resolve the coverage check before starting execution for these tickets."
+              ? "Fix these gaps before you run the tickets."
               : null
           }
         />
@@ -206,7 +209,7 @@ export const TicketsStepSection = ({
                 </span>
               </div>
               {phaseTickets.length === 0 ? (
-                <p style={{ color: "var(--muted)", margin: 0 }}>No tickets in this phase yet.</p>
+                <p style={{ color: "var(--muted)", margin: 0 }}>No tickets yet.</p>
               ) : (
                 <ul className="planning-ticket-list">
                   {phaseTickets.map((ticket) => (

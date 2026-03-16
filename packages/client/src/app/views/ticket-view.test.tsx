@@ -198,12 +198,12 @@ describe("TicketView", () => {
       ]
     });
 
-    expect(screen.getByText("Resolve the coverage check before starting execution for this ticket.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open the initiative tickets step" })).toHaveAttribute(
+    expect(screen.getByText("Review coverage before you run this ticket.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open tickets" })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=tickets`
     );
-    expect(screen.getByText("Covered spec items")).toBeInTheDocument();
+    expect(screen.getByText("Covered items")).toBeInTheDocument();
     expect(screen.getByText("brief")).toBeInTheDocument();
     expect(screen.getByText("prd")).toBeInTheDocument();
     expect(screen.getByText("Execution cannot start until coverage is reviewed.")).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe("TicketView", () => {
     });
 
     expect(
-      screen.queryByText("Resolve the coverage check before starting execution for this ticket.")
+      screen.queryByText("Review coverage before you run this ticket.")
     ).not.toBeInTheDocument();
   });
 });

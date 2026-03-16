@@ -18,7 +18,6 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const [form, setForm] = useState<Config | null>(config);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveConfirm, setSaveConfirm] = useState(false);
   const [modelsGeneration, setModelsGeneration] = useState(0);
   const [dirty, setDirty] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -89,17 +88,14 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                 ...(apiKeyInput ? { apiKey: apiKeyInput } : {})
               };
               setSaving(true);
-              setSaveConfirm(false);
               void onSave(payload)
                 .then(() => {
                   showSuccess("Settings saved");
-                  setSaveConfirm(true);
                   setDirty(false);
                   setApiKeyInput("");
                   if (hadKeyInput) {
                     setModelsGeneration((n) => n + 1);
                   }
-                  setTimeout(() => setSaveConfirm(false), 3000);
                 })
                 .catch((err) => {
                   showError((err as Error).message ?? "Failed to save settings");
@@ -135,34 +131,29 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
               />
               <span className="settings-readonly-hint">
                 {form.hasApiKey
-                  ? "A saved key is already on file. Leave this blank to keep it, or paste a new key to replace it."
-                  : "Paste a key to enable model lookup and planner requests."}
+                  ? "Leave this blank to keep the saved key, or paste a new one."
+                  : "Paste a key to load models and run planning."}
               </span>
             </label>
             <label>
-              Host <span className="settings-readonly-hint">(configured in CLI)</span>
+              Host <span className="settings-readonly-hint">(set in the CLI)</span>
               <div className="settings-readonly">
                 <span className="settings-readonly-value">{form.host}</span>
               </div>
             </label>
             <label>
-              Port <span className="settings-readonly-hint">(configured in CLI)</span>
+              Port <span className="settings-readonly-hint">(set in the CLI)</span>
               <div className="settings-readonly">
                 <span className="settings-readonly-value">{String(form.port)}</span>
               </div>
             </label>
             <div className="settings-button-row">
               <button type="submit" disabled={saving}>
-                {saving ? "Saving" : saveConfirm ? "Saved" : "Save Settings"}
+                {saving ? "Saving..." : "Save"}
               </button>
               <button type="button" className="settings-cancel" onClick={close}>
                 Close
               </button>
-              {saveConfirm && (
-                <span style={{ color: "var(--success)", fontSize: "0.85rem", alignSelf: "center" }}>
-                  Settings saved
-                </span>
-              )}
             </div>
           </form>
         </div>

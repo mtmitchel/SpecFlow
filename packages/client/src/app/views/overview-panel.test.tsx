@@ -88,10 +88,10 @@ describe("OverviewPanel", () => {
       `/initiative/${initiative.id}?step=brief`
     );
     expect(screen.getByText("Verify quick task")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Linux Notes.*Review brief/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}`
     );
-    expect(screen.getAllByText("Review brief").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Review brief")).toHaveLength(1);
   });
 });

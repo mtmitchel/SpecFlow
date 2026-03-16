@@ -156,17 +156,17 @@ describe("TicketsStepSection", () => {
       updatedAt: "2026-03-16T10:55:00.000Z"
     });
 
-    expect(screen.getByRole("button", { name: "Run coverage check" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check coverage" })).toBeInTheDocument();
     expect(screen.getByText("1 covered · 1 uncovered · 2 blockers · 1 warning")).toBeInTheDocument();
     expect(screen.getByText("One requirement is still uncovered.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open checkpoint" }));
+    fireEvent.click(screen.getByRole("button", { name: "See issues" }));
 
-    expect(screen.getByText("Override coverage blockers")).toBeInTheDocument();
+    expect(screen.getByText("Continue with risk")).toBeInTheDocument();
     expect(screen.getByText(/Explain the override path in the UI\./)).toBeInTheDocument();
     expect(screen.getByText("A required verification path is not assigned to any ticket.")).toBeInTheDocument();
     expect(screen.getByText("The PRD override guidance is not covered.")).toBeInTheDocument();
-    expect(screen.getByText("Resolve the coverage check before starting execution for these tickets.")).toBeInTheDocument();
+    expect(screen.getByText("Fix these gaps before you run the tickets.")).toBeInTheDocument();
   });
 
   it("shows override context without the unresolved execution banner", () => {
@@ -183,12 +183,12 @@ describe("TicketsStepSection", () => {
       updatedAt: "2026-03-16T11:05:00.000Z"
     });
 
-    expect(screen.getByText("Overridden")).toBeInTheDocument();
+    expect(screen.getByText("Accepted risk")).toBeInTheDocument();
     expect(
-      screen.getByText("Risk accepted: The remaining copy issue is intentionally deferred to a follow-up polish pass.")
+      screen.getByText("Moving ahead with risk: The remaining copy issue is intentionally deferred to a follow-up polish pass.")
     ).toBeInTheDocument();
     expect(
-      screen.queryByText("Resolve the coverage check before starting execution for these tickets.")
+      screen.queryByText("Fix these gaps before you run the tickets.")
     ).not.toBeInTheDocument();
   });
 });

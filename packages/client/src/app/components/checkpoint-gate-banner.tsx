@@ -1,6 +1,6 @@
 interface CheckpointGateBannerProps {
-  title: string;
-  body: string;
+  title?: string;
+  body?: string;
   actionLabel?: string;
   onAction?: () => void;
   disabled?: boolean;
@@ -15,8 +15,8 @@ export const CheckpointGateBanner = ({
 }: CheckpointGateBannerProps) => (
   <div className="checkpoint-gate-banner">
     <div className="checkpoint-gate-copy">
-      <strong>{title}</strong>
-      <span>{body}</span>
+      {title ? <strong>{title}</strong> : null}
+      {body ? <span>{body}</span> : null}
     </div>
     {actionLabel && onAction ? (
       <button type="button" onClick={onAction} disabled={disabled}>

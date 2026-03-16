@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { PlanningReviewArtifact, PlanningReviewFinding } from "../../../types.js";
 import {
   REVIEW_FINDING_SECTION_LABELS,
@@ -25,6 +25,11 @@ interface PlanningReviewCardProps {
   primaryActionBusyLabel: string;
   onPrimaryAction: () => void | Promise<void>;
   primaryActionDisabled?: boolean;
+  detailsOpen?: boolean;
+  showDetailsToggle?: boolean;
+  detailsOpenLabel?: string;
+  detailsCloseLabel?: string;
+  onToggleDetails?: () => void;
   showOverrideAction?: boolean;
   showOverrideForm?: boolean;
   overrideActionLabel?: string;
@@ -51,21 +56,25 @@ export const PlanningReviewCard = ({
   primaryActionBusyLabel,
   onPrimaryAction,
   primaryActionDisabled = false,
+  detailsOpen = false,
+  showDetailsToggle = true,
+  detailsOpenLabel = "See issues",
+  detailsCloseLabel = "Hide issues",
+  onToggleDetails,
   showOverrideAction = false,
   showOverrideForm = false,
-  overrideActionLabel = "Accept risk",
-  cancelOverrideLabel = "Cancel override",
+  overrideActionLabel = "Continue with risk",
+  cancelOverrideLabel = "Keep blocking",
   onToggleOverride,
   overrideReason = "",
-  overridePlaceholder = "Document why you are accepting this risk.",
+  overridePlaceholder = "Add a short reason for moving ahead anyway.",
   onChangeOverrideReason,
   onConfirmOverride,
-  overrideConfirmLabel = "Confirm override",
-  overrideBusyLabel = "Overriding...",
+  overrideConfirmLabel = "Continue with risk",
+  overrideBusyLabel = "Saving...",
   extraContent,
   footerMessage
 }: PlanningReviewCardProps) => {
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const canSubmitOverride = typeof overrideReason === "string" && overrideReason.trim().length > 0;
   const hasFindings = FINDING_ORDER.some((type) => findings[type].length > 0);
   const hasDetails = hasFindings || Boolean(extraContent) || Boolean(footerMessage) || Boolean(overrideReason) || showOverrideAction;
@@ -87,17 +96,17 @@ export const PlanningReviewCard = ({
           <button type="button" onClick={() => void onPrimaryAction()} disabled={reviewBusy || primaryActionDisabled}>
             {reviewBusy ? primaryActionBusyLabel : primaryActionLabel}
           </button>
-          {hasDetails ? (
+          {hasDetails && showDetailsToggle && onToggleDetails ? (
             <button
               type="button"
               onClick={() => {
                 if (showOverrideForm && onToggleOverride) {
                   onToggleOverride();
                 }
-                setDetailsOpen((current) => !current);
+                onToggleDetails();
               }}
             >
-              {showDetails ? "Hide checkpoint" : "Open checkpoint"}
+              {showDetails ? detailsCloseLabel : detailsOpenLabel}
             </button>
           ) : null}
         </div>
@@ -105,7 +114,7 @@ export const PlanningReviewCard = ({
 
       {summary ? <p className="planning-review-summary">{summary}</p> : null}
       {overrideReason && !showOverrideForm ? (
-        <p className="planning-review-note">Risk accepted: {overrideReason}</p>
+        <p className="planning-review-note">Moving ahead with risk: {overrideReason}</p>
       ) : null}
 
       {showDetails ? (

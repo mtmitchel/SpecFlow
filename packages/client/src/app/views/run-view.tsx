@@ -173,12 +173,8 @@ export const RunView = ({
               <span>{detail.run.id}</span>
             </div>
           ) : null}
-          <div className="planning-shell-kicker">Run report</div>
           <h2>{detail.run.id}</h2>
-          <p>
-            {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"} ·{" "}
-            {detail.run.agentType} · {detail.run.type}
-          </p>
+          <p>{detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"}</p>
         </div>
         {detail.ticket ? (
           <div className="button-row" style={{ marginBottom: 0 }}>
@@ -189,13 +185,6 @@ export const RunView = ({
 
       {initiative && progressModel ? (
         <div className="planning-pipeline-card">
-          <div className="planning-pipeline-meta">
-            <div>
-              <span className="planning-stage-chip">Run report</span>
-              <strong>{progressModel.statusLabel}</strong>
-            </div>
-            <span>{detail.run.status}</span>
-          </div>
           <Pipeline
             nodes={progressModel.nodes}
             selectedKey={verificationPass === null || verificationPass === false ? "verify" : progressModel.currentKey}
@@ -220,23 +209,6 @@ export const RunView = ({
 
       <div className="run-report-shell">
         <div className="run-report-main">
-          <div className="planning-phase-hero run-report-hero">
-            <div className="planning-phase-hero-main">
-              <div className="planning-stage-chip">Execution report</div>
-              <h3>Review the evidence from this run</h3>
-              <p className="planning-phase-hero-copy">
-                Runs are subordinate reports. Use this surface to inspect what the agent changed, what verification concluded, and whether drift or follow-up work remains.
-              </p>
-            </div>
-            <div className="planning-phase-hero-side">
-              <span className="planning-phase-summary-label">Verdict</span>
-              <p>{reportVerdict}</p>
-              <span className="planning-phase-summary-label">Operation state</span>
-              <p>{detail.operationState ?? detail.run.status}</p>
-              {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Back to ticket</Link> : null}
-            </div>
-          </div>
-
           {detail.operationState === "abandoned" ||
           detail.operationState === "superseded" ||
           detail.operationState === "failed" ? (
@@ -251,20 +223,19 @@ export const RunView = ({
             </div>
           ) : null}
 
-          <RunReportCard title="Report summary" badge={reportVerdict}>
+          <RunReportCard title="Summary" badge={reportVerdict}>
             <div className="button-row">
               <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-                {showAuditPanel ? "Hide drift review" : "Review drift"}
+                {showAuditPanel ? "Hide drift" : "Review drift"}
               </button>
             </div>
 
             {showAuditPanel ? <AuditPanel runId={detail.run.id} defaultScopePaths={detail.ticket?.fileTargets ?? []} /> : null}
 
-            <h4>Agent summary</h4>
             <MarkdownView content={detail.committed?.attempt?.agentSummary || "(no summary provided)"} />
           </RunReportCard>
 
-          <RunReportCard title="Captured changes" badge={detail.committed?.primaryDiff ? "Available" : "No diff"}>
+          <RunReportCard title="Changes" badge={detail.committed?.primaryDiff ? "Available" : "No diff"}>
             {detail.committed?.primaryDiff ? (
               <DiffViewer title="Changes" diff={detail.committed.primaryDiff} />
             ) : (
@@ -284,7 +255,7 @@ export const RunView = ({
           ) : null}
 
           <RunReportCard
-            title="Attempt history"
+            title="Attempts"
             badge={`${detail.attempts.length} attempt${detail.attempts.length === 1 ? "" : "s"}`}
           >
             <ul className="planning-ticket-list">
@@ -308,24 +279,25 @@ export const RunView = ({
         </div>
 
         <aside className="run-report-side">
-          <RunReportCard title="Report facts">
+          <RunReportCard title="Details">
             <div className="ticket-context-metrics">
               <div>
-                <span>Attempts</span>
-                <strong>{detail.attempts.length}</strong>
+                <span>Verdict</span>
+                <strong>{reportVerdict}</strong>
               </div>
               <div>
-                <span>Files</span>
-                <strong>{bundleFiles.length}</strong>
+                <span>State</span>
+                <strong>{detail.operationState ?? detail.run.status}</strong>
               </div>
               <div>
                 <span>Agent</span>
                 <strong>{detail.run.agentType}</strong>
               </div>
             </div>
+            {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Back to ticket</Link> : null}
           </RunReportCard>
 
-          <RunReportCard title="Included files">
+          <RunReportCard title="Files">
             <ul>
               {bundleFiles.length === 0 ? (
                 <li>No bundled files were recorded for the committed attempt.</li>

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot } from "../../types.js";
 import { Pipeline } from "../components/pipeline.js";
 import { getInitiativeProgressModel } from "../utils/initiative-progress.js";
-import { PhaseTransitionBanner } from "../components/phase-transition-banner.js";
 import { RefinementSection } from "./initiative/refinement-section.js";
 import { SAVE_STATE_LABELS } from "./initiative/shared.js";
 import { useInitiativePlanningWorkspace } from "./initiative/use-initiative-planning-workspace.js";
@@ -48,7 +47,6 @@ export const InitiativeHandoffView = ({
     isBusy,
     hasActiveContent,
     hasRefinementQuestions,
-    transitionNotice,
     handleCheckAndAdvance,
     handleGenerateSpec,
     handleRequestGuidance,
@@ -80,6 +78,14 @@ export const InitiativeHandoffView = ({
     void handleCheckAndAdvance("brief");
   }, [busyAction, handleCheckAndAdvance, refinementCheckedAt]);
 
+  useEffect(() => {
+    if (!hasActiveContent || isBusy) {
+      return;
+    }
+
+    navigateToStep("brief");
+  }, [hasActiveContent, isBusy, navigateToStep]);
+
   return (
     <section className="planning-shell planning-entry-shell">
       <div className="planning-topbar">
@@ -105,16 +111,12 @@ export const InitiativeHandoffView = ({
           <div className="planning-entry-card-header">
             <div>
               <h3>Brief intake</h3>
-              <p>Answer these to shape the brief. Skip any to use defaults.</p>
+              <p>Answer what matters. Skip the rest.</p>
             </div>
             <span className="planning-entry-counter">
               {resolvedQuestionCount}/{activeRefinement?.questions.length ?? 0}
             </span>
           </div>
-
-          {transitionNotice ? (
-            <PhaseTransitionBanner title={transitionNotice.heading} body={transitionNotice.body} />
-          ) : null}
 
           {!hasActiveContent ? (
             <>
@@ -138,7 +140,7 @@ export const InitiativeHandoffView = ({
                   onAnswerLater={deferRefinementQuestion}
                 />
               ) : busyAction === "check-brief" ? (
-                <p className="ticket-empty-note">Preparing the brief intake...</p>
+                <p className="ticket-empty-note">Getting the questions ready...</p>
               ) : null}
 
               {refinementCheckedAt ? (
@@ -154,14 +156,7 @@ export const InitiativeHandoffView = ({
                 </div>
               ) : null}
             </>
-          ) : (
-            <PhaseTransitionBanner
-              title="Brief ready"
-              body="The first artifact exists now. Open the planning workspace to review it and move forward."
-              actionLabel="Open planning workspace"
-              onAction={() => navigateToStep("brief")}
-            />
-          )}
+          ) : null}
         </div>
       </div>
     </section>

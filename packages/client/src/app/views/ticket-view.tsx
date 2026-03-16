@@ -23,7 +23,7 @@ import { ExportSection } from "./ticket/export-section.js";
 import { CaptureVerifySection } from "./ticket/capture-verify-section.js";
 import { VerificationResultsSection } from "./ticket/verification-results-section.js";
 
-const COVERAGE_GATE_MESSAGE = "Resolve the coverage check before starting execution for this ticket.";
+const COVERAGE_GATE_MESSAGE = "Review coverage before you run this ticket.";
 
 interface TicketPreflightIssue {
   tone: "warn";
@@ -66,24 +66,14 @@ const ExecutionTimelineStage = ({
   </section>
 );
 
-const getTicketStageBody = (ticket: Ticket): string => {
-  if (ticket.status === "verify") {
-    return "Execution finished. Review the captured work and confirm it matches the plan.";
+const getVerificationLabel = (
+  verificationResult: ReturnType<typeof useVerificationStream>["verificationResult"],
+): string => {
+  if (!verificationResult) {
+    return "Not run";
   }
 
-  if (ticket.status === "done") {
-    return "This ticket is complete. Review the verification result and execution history below.";
-  }
-
-  if (ticket.status === "in-progress") {
-    return "The bundle is out in the world. Bring the resulting changes back here and verify them against the ticket.";
-  }
-
-  if (ticket.status === "ready") {
-    return "The ticket is ready to execute once preflight is clear and the bundle is exported.";
-  }
-
-  return "Start with the preflight, export the bundle, then bring the work back here for verification.";
+  return verificationResult.overallPass ? "Passed" : "Needs work";
 };
 
 export const TicketView = ({
@@ -186,15 +176,15 @@ export const TicketView = ({
     coverageBlocked && initiative
       ? {
           tone: "warn" as const,
-          title: "Coverage gate",
+          title: "Coverage",
           body: COVERAGE_GATE_MESSAGE,
-          action: <Link to={`/initiative/${initiative.id}?step=tickets`}>Open the initiative tickets step</Link>
+          action: <Link to={`/initiative/${initiative.id}?step=tickets`}>Open tickets</Link>
         }
       : null,
     hasUnfinishedBlockers
       ? {
           tone: "warn" as const,
-          title: "Blocked by other tickets",
+          title: "Blocked by",
           body: blockerTickets.map((blocker) => `${blocker.title} (${blocker.status})`).join(", "),
           action: null
         }
@@ -210,7 +200,7 @@ export const TicketView = ({
     operationState === "abandoned" || operationState === "superseded" || operationState === "failed"
       ? {
           tone: "warn" as const,
-          title: "Previous run ended early",
+          title: "Last run ended early",
           body: `The last execution ended ${operationState}. Export a fresh bundle before you continue.`,
           action: null
         }
@@ -273,27 +263,13 @@ export const TicketView = ({
               <span>{ticket.title}</span>
             </div>
           ) : null}
-          <div className="planning-shell-kicker">Execution</div>
           <h2>{ticket.title}</h2>
-          <p>{ticket.description}</p>
-          <div className="ticket-journey-links">
-            {initiative ? <Link to={`/initiative/${initiative.id}?step=tickets`}>Back to initiative</Link> : null}
-            {run ? <Link to={`/run/${run.id}`}>Open run report</Link> : null}
-          </div>
+          {ticket.description ? <p>{ticket.description}</p> : null}
         </div>
       </header>
 
       {initiative && progressModel ? (
         <div className="planning-pipeline-card">
-          <div className="planning-pipeline-meta">
-            <div>
-              <span className="planning-stage-chip">Execution</span>
-              <strong>{progressModel.statusLabel}</strong>
-            </div>
-            <span>
-              {progressModel.ticketProgress.done}/{progressModel.ticketProgress.total} tickets done
-            </span>
-          </div>
           <Pipeline
             nodes={progressModel.nodes}
             selectedKey={selectedPipelineKey}
@@ -318,68 +294,15 @@ export const TicketView = ({
 
       <div className="ticket-journey-shell">
         <div className="ticket-journey-main">
-          <div className="planning-phase-hero ticket-phase-hero">
-            <div className="planning-phase-hero-main">
-              <div className="planning-stage-chip">Ticket execution</div>
-              <h3>Run this ticket through one execution flow</h3>
-              <p className="planning-phase-hero-copy">{getTicketStageBody(ticket)}</p>
-              <div className="ticket-journey-links">
-                {initiative ? <Link to={`/initiative/${initiative.id}?step=tickets`}>Back to initiative</Link> : null}
-                {run ? <Link to={`/run/${run.id}`}>Open run report</Link> : null}
-              </div>
-            </div>
-            <div className="planning-phase-hero-side">
-              <span className="planning-phase-summary-label">Status</span>
-              <p>{ticket.status}</p>
-              <span className="planning-phase-summary-label">Verification</span>
-              <p>
-                {verify.verificationResult
-                  ? verify.verificationResult.overallPass
-                    ? "Passed"
-                    : "Needs work"
-                  : "Not run yet"}
-              </p>
-              {validTransitions.length > 0 ? (
-                <div className="ticket-status-form">
-                  <select value={moveToStatus} onChange={(e) => setMoveToStatus(e.target.value as TicketStatus)}>
-                    <option value="" disabled>
-                      Change status
-                    </option>
-                    {validTransitions.map((col) => (
-                      <option key={col.key} value={col.key}>
-                        {col.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!moveToStatus}
-                    onClick={async () => {
-                      if (!moveToStatus) return;
-                      try {
-                        await onMoveTicket(ticket.id, moveToStatus);
-                        setMoveToStatus("");
-                      } catch (err) {
-                        showError((err as Error).message ?? "Failed to move ticket");
-                      }
-                    }}
-                  >
-                    Update status
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
           <div className="ticket-preflight-card">
             <div className="ticket-preflight-top">
               <div>
-                <div className="planning-stage-chip">Preflight</div>
-                <h3>Check blockers before you run</h3>
+                <h3>Before you start</h3>
+                <p className="ticket-empty-note">
+                  {visiblePreflightIssues.length > 0 ? "Clear what is blocking this ticket." : "Nothing is blocking this ticket."}
+                </p>
               </div>
-              <div className="ticket-preflight-next">
-                {visiblePreflightIssues.length > 0 ? "Next action required" : "Ready to execute"}
-              </div>
+              {initiative ? <Link to={`/initiative/${initiative.id}?step=tickets`}>Back to tickets</Link> : null}
             </div>
 
             {visiblePreflightIssues.length > 0 ? (
@@ -394,7 +317,7 @@ export const TicketView = ({
               </div>
             ) : (
               <p className="ticket-preflight-ready">
-                This ticket has no execution blockers. Export the bundle, capture the work, then verify the result in the stages below.
+                Export the bundle, do the work, then verify the result below.
               </p>
             )}
           </div>
@@ -483,17 +406,13 @@ export const TicketView = ({
           <section className="ticket-history-card">
             <div className="ticket-history-header">
               <div>
-                <div className="planning-focus-kicker">Run history</div>
-                <h3>{run ? "This ticket has execution history" : "No run linked yet"}</h3>
-                <p className="planning-focus-copy">
-                  Runs stay subordinate to the ticket. Use the report when you need the detailed execution record.
-                </p>
+                <h3>{run ? "Run history" : "No runs yet"}</h3>
               </div>
               {run ? (
                 <div className="button-row" style={{ marginBottom: 0 }}>
-                  <Link to={`/run/${run.id}`}>Open run report</Link>
+                  <Link to={`/run/${run.id}`}>Open run</Link>
                   <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-                    {showAuditPanel ? "Hide drift review" : "Review drift"}
+                    {showAuditPanel ? "Hide drift" : "Review drift"}
                   </button>
                 </div>
               ) : null}
@@ -523,28 +442,57 @@ export const TicketView = ({
 
         <aside className="ticket-journey-side">
           <section className="ticket-context-card">
-            <div className="planning-focus-kicker">Context</div>
-            <h3>Delivery context</h3>
+            <h3>Ticket</h3>
             <div className="ticket-context-metrics">
               <div>
-                <span>Criteria</span>
-                <strong>{ticket.acceptanceCriteria.length}</strong>
+                <span>Status</span>
+                <strong>{ticket.status}</strong>
               </div>
               <div>
-                <span>Covered items</span>
-                <strong>{coveredItems.length}</strong>
+                <span>Check</span>
+                <strong>{getVerificationLabel(verify.verificationResult)}</strong>
               </div>
               <div>
                 <span>Files</span>
                 <strong>{ticket.fileTargets.length}</strong>
               </div>
             </div>
+            {validTransitions.length > 0 ? (
+              <div className="ticket-status-form">
+                <select value={moveToStatus} onChange={(e) => setMoveToStatus(e.target.value as TicketStatus)}>
+                  <option value="" disabled>
+                    Move to
+                  </option>
+                  {validTransitions.map((col) => (
+                    <option key={col.key} value={col.key}>
+                      {col.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!moveToStatus}
+                  onClick={async () => {
+                    if (!moveToStatus) return;
+                    try {
+                      await onMoveTicket(ticket.id, moveToStatus);
+                      setMoveToStatus("");
+                    } catch (err) {
+                      showError((err as Error).message ?? "Failed to move ticket");
+                    }
+                  }}
+                >
+                  Update status
+                </button>
+              </div>
+            ) : null}
+            {run ? <Link to={`/run/${run.id}`}>Open run</Link> : null}
           </section>
 
           <section className="ticket-context-card">
-            <h3>Covered spec items</h3>
+            <h3>Covered items</h3>
             {coveredItems.length === 0 ? (
-              <p className="ticket-empty-note">No covered spec items are linked to this ticket yet.</p>
+              <p className="ticket-empty-note">No spec items are linked yet.</p>
             ) : (
               Object.entries(groupedCoveredItems).map(([step, items]) => (
                 <div key={step} className="ticket-context-group">
@@ -569,7 +517,7 @@ export const TicketView = ({
           </section>
 
           <section className="ticket-context-card">
-            <h3>Implementation plan</h3>
+            <h3>Plan</h3>
             <pre>{ticket.implementationPlan || "No implementation plan generated yet."}</pre>
             <h4>File targets</h4>
             <ul>

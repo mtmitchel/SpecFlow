@@ -71,7 +71,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
             className="multiline"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Describe the problem, who it is for, and any hard constraints"
+            placeholder="What are you building? Who is it for? Any hard limits?"
             style={{ minHeight: 140 }}
             autoFocus
           />
@@ -82,7 +82,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
               onClick={() => void handleCreate()}
               disabled={busy || description.trim().length === 0}
             >
-              {busy ? "Creating initiative..." : "Continue to brief intake"}
+              {busy ? "Creating..." : "Continue"}
             </button>
           </div>
         </div>

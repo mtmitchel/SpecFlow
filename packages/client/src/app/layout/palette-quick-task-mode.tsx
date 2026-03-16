@@ -41,10 +41,10 @@ export const PaletteQuickTaskMode = ({ inputRef, onClose, onRefresh, onBack }: P
         <button type="button" className="palette-back" onClick={onBack}>
           ← Back
         </button>
-        <span>Quick Task</span>
+        <span>Quick task</span>
       </div>
       <div className="palette-context">
-        Describe a task. AI will analyze it and create a ticket, or suggest a full initiative if the scope is large.
+        Describe the work. If it grows, SpecFlow will turn it into an initiative.
       </div>
       <textarea
         ref={inputRef as React.RefObject<HTMLTextAreaElement>}
@@ -66,9 +66,9 @@ export const PaletteQuickTaskMode = ({ inputRef, onClose, onRefresh, onBack }: P
           disabled={busy || !quickTaskText.trim()}
           onClick={() => void runQuickTask()}
         >
-          {busy ? "Creating..." : "Create Task"}
+          {busy ? "Starting..." : "Start task"}
         </button>
-        <span className="palette-hint">Cmd+Enter to submit</span>
+        <span className="palette-hint">Cmd+Enter</span>
       </div>
     </>
   );

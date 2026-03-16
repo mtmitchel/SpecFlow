@@ -41,22 +41,22 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
   const staticActions: ResultItem[] = [
     {
       id: "action-new-initiative",
-      label: "New Initiative",
-      sublabel: "Start a multi-step planning flow",
+      label: "New initiative",
+      sublabel: "Start an initiative",
       isAction: true,
       action: () => { go("/new-initiative"); }
     },
     {
       id: "action-quick-task",
-      label: "Quick Task",
-      sublabel: "Triage a single task with AI",
+      label: "Quick task",
+      sublabel: "Start a quick task",
       isAction: true,
       action: () => onSwitchMode("quick-task")
     },
     {
       id: "action-github-import",
-      label: "Import GitHub Issue",
-      sublabel: "Convert a GitHub issue to a ticket",
+      label: "Import GitHub issue",
+      sublabel: "Import an issue",
       isAction: true,
       action: () => onSwitchMode("github-import")
     },
@@ -69,22 +69,22 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
     },
     {
       id: "action-all-tickets",
-      label: "All Tickets",
-      sublabel: "Browse and filter all tickets",
+      label: "All tickets",
+      sublabel: "Browse tickets",
       isAction: true,
       action: () => go("/tickets")
     },
     {
       id: "action-all-runs",
-      label: "All Runs",
-      sublabel: "Browse and filter all runs",
+      label: "All runs",
+      sublabel: "Browse runs",
       isAction: true,
       action: () => go("/runs")
     },
     {
       id: "action-all-specs",
       label: "Specs",
-      sublabel: "Browse all spec documents",
+      sublabel: "Browse specs",
       isAction: true,
       action: () => go("/specs")
     }
@@ -150,13 +150,13 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
         value={query}
         onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
         onKeyDown={handleKeyDown}
-        placeholder="Search or type a command"
+        placeholder="Search"
         autoComplete="off"
         spellCheck={false}
       />
       <div className="palette-results" role="listbox">
         {displayItems.length === 0 ? (
-          <div className="palette-empty">No results</div>
+          <div className="palette-empty">No matches</div>
         ) : (
           displayItems.map((item, idx) => (
             <div

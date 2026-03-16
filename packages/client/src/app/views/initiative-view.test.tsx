@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { ArtifactsSnapshot, Initiative } from "../../types.js";
@@ -63,6 +63,61 @@ const snapshot: ArtifactsSnapshot = {
   ticketCoverageArtifacts: []
 };
 
+const reviewSnapshot: ArtifactsSnapshot = {
+  ...snapshot,
+  initiatives: [
+    {
+      ...initiative,
+      workflow: {
+        activeStep: "brief",
+        steps: {
+          brief: { status: "stale", updatedAt: "2026-03-16T12:10:00.000Z" },
+          "core-flows": { status: "locked", updatedAt: null },
+          prd: { status: "locked", updatedAt: null },
+          "tech-spec": { status: "locked", updatedAt: null },
+          tickets: { status: "locked", updatedAt: null }
+        },
+        refinements: initiative.workflow.refinements
+      }
+    }
+  ],
+  specs: [
+    {
+      id: "spec-brief",
+      initiativeId: initiative.id,
+      type: "brief",
+      title: "Brief",
+      content: "# Brief\n\nA short summary.\n\n## Goals\n\n- Keep capture fast.\n- Support richer notes.",
+      sourcePath: "specflow/initiatives/initiative-12345678/brief.md",
+      createdAt: "2026-03-16T12:10:00.000Z",
+      updatedAt: "2026-03-16T12:10:00.000Z"
+    }
+  ],
+  planningReviews: [
+    {
+      id: `${initiative.id}:brief-review`,
+      initiativeId: initiative.id,
+      kind: "brief-review",
+      status: "blocked",
+      summary: "The brief still needs one clearer scope decision.",
+      findings: [
+        {
+          id: "finding-1",
+          type: "blocker",
+          message: "The scope is still too broad for a first release.",
+          relatedArtifacts: ["brief"]
+        }
+      ],
+      sourceUpdatedAts: {
+        brief: "2026-03-16T12:10:00.000Z"
+      },
+      overrideReason: null,
+      reviewedAt: "2026-03-16T12:12:00.000Z",
+      updatedAt: "2026-03-16T12:12:00.000Z"
+    }
+  ]
+};
+
 const WorkspaceWithLocation = () => {
   const location = useLocation();
 
@@ -92,5 +147,31 @@ describe("InitiativeView", () => {
     await waitFor(() => {
       expect(screen.getByText("?step=brief&handoff=created")).toBeInTheDocument();
     });
+  });
+
+  it("keeps review detail out of the page body until the drawer is opened", async () => {
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={<InitiativeRouteView snapshot={reviewSnapshot} onRefresh={vi.fn(async () => undefined)} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { name: "Brief" })).toBeInTheDocument();
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Summary" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Document" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "See issues" }));
+
+    expect(screen.getByRole("dialog", { name: "Brief review" })).toBeInTheDocument();
+    expect(screen.getByText("The scope is still too broad for a first release.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue with risk" })).toBeInTheDocument();
   });
 });

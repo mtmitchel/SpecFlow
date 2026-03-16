@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import type { ArtifactsSnapshot, Ticket } from "../../types.js";
+import type { ArtifactsSnapshot } from "../../types.js";
 import { Pipeline } from "../components/pipeline.js";
 import { getInitiativeProgressModel } from "../utils/initiative-progress.js";
+import { getInitiativeQueueActionLabel, getStandaloneTicketActionLabel } from "../utils/ui-language.js";
 
 const modKey =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
@@ -25,22 +26,6 @@ const ACTION_TONE_LABELS: Record<QueueAction["tone"], string> = {
   execution: "Execute",
   verify: "Verify",
   audit: "Audit",
-};
-
-const getTicketLabel = (ticket: Ticket): string => {
-  if (ticket.status === "verify") {
-    return "Verify ticket";
-  }
-
-  if (ticket.status === "in-progress") {
-    return "Continue execution";
-  }
-
-  if (ticket.status === "ready") {
-    return "Start execution";
-  }
-
-  return "Open ticket";
 };
 
 export const OverviewPanel = ({
@@ -75,7 +60,7 @@ export const OverviewPanel = ({
             id: `${initiative.id}:${progress.nextTicket.id}`,
             href: `/ticket/${progress.nextTicket.id}`,
             initiativeName: initiative.title,
-            label: getTicketLabel(progress.nextTicket),
+            label: getInitiativeQueueActionLabel(initiative, progress),
             priority: progress.currentKey === "verify" ? 3 : 4,
             updatedAt: progress.nextTicket.updatedAt,
             tone: progress.currentKey === "verify" ? "verify" : "execution",
@@ -89,7 +74,7 @@ export const OverviewPanel = ({
         id: initiative.id,
         href: `/initiative/${initiative.id}?step=${progress.currentKey}`,
         initiativeName: initiative.title,
-        label: progress.statusLabel,
+        label: getInitiativeQueueActionLabel(initiative, progress),
         priority: currentNode?.state === "checkpoint" ? 1 : 2,
         updatedAt: initiative.updatedAt,
         tone: currentNode?.state === "checkpoint" ? "review" : "planning",
@@ -101,7 +86,7 @@ export const OverviewPanel = ({
         id: `quick-verify:${ticket.id}`,
         href: `/ticket/${ticket.id}`,
         initiativeName: "Quick task",
-        label: "Verify quick task",
+        label: getStandaloneTicketActionLabel(ticket),
         priority: 3,
         updatedAt: ticket.updatedAt,
         tone: "verify",
@@ -163,10 +148,8 @@ export const OverviewPanel = ({
         </div>
       ) : (
         <div className="journey-queue-empty-state">
-          <p className="journey-queue-empty-lead">No work is in motion yet.</p>
-          <p className="journey-queue-empty-copy">
-            Start planning for multi-step work, use a quick task for something small, or open <kbd className="dash-kbd">{modKey}+K</kbd> to import an issue.
-          </p>
+          <p className="journey-queue-empty-lead">Nothing is moving yet.</p>
+          <p className="journey-queue-empty-copy">Start an initiative, open a quick task, or press <kbd className="dash-kbd">{modKey}+K</kbd>.</p>
         </div>
       )}
 
@@ -178,7 +161,6 @@ export const OverviewPanel = ({
                 <h3>{initiative.title}</h3>
                 <p>{initiative.description}</p>
               </div>
-              <span className="initiative-card-status">{progress.statusLabel}</span>
             </div>
 
             <Pipeline nodes={progress.nodes} />

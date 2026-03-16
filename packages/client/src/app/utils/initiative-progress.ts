@@ -11,7 +11,6 @@ import type {
 } from "../../types.js";
 import {
   INITIATIVE_WORKFLOW_LABELS,
-  REVIEW_KIND_LABELS,
   REVIEWS_BY_STEP,
   getInitiativeResumeStep,
 } from "./initiative-workflow.js";
@@ -29,8 +28,9 @@ export interface PipelineNodeModel {
 
 export interface InitiativeProgressModel {
   currentKey: PipelineNodeKey;
+  currentNodeState: PipelineNodeState;
+  currentReviewKind: PlanningReviewKind | null;
   nodes: PipelineNodeModel[];
-  statusLabel: string;
   ticketProgress: {
     done: number;
     total: number;
@@ -93,22 +93,15 @@ const getOwnedReviews = (
     .map((kind) => reviews.find((review) => review.id === `${initiativeId}:${kind}`))
     .filter((review): review is PlanningReviewArtifact => Boolean(review));
 
-const getCheckpointLabel = (
+const getCheckpointReviewKind = (
   step: InitiativePlanningStep,
   reviews: PlanningReviewArtifact[],
   initiativeId: string,
-): string => {
-  const blockedReview = getOwnedReviewKinds(step).find((kind) => {
+): PlanningReviewKind | null =>
+  getOwnedReviewKinds(step).find((kind) => {
     const review = reviews.find((candidate) => candidate.id === `${initiativeId}:${kind}`);
     return review && !isResolvedReview(review);
-  });
-
-  if (blockedReview) {
-    return REVIEW_KIND_LABELS[blockedReview];
-  }
-
-  return step === "tickets" ? "Run coverage check" : `Review ${INITIATIVE_WORKFLOW_LABELS[step].toLowerCase()}`;
-};
+  }) ?? null;
 
 const sortTickets = (tickets: Ticket[]): Ticket[] =>
   [...tickets].sort((left, right) => {
@@ -242,33 +235,18 @@ export const getInitiativeProgressModel = (
     total: initiativeTickets.length,
   };
 
-  let statusLabel = "Continue planning";
-  if (currentKey === "done") {
-    statusLabel = "Done";
-  } else if (currentKey === "execute") {
-    statusLabel =
-      nextTicket?.status === "in-progress"
-        ? "Continue execution"
-        : nextTicket?.status === "ready"
-          ? "Ready to run"
-          : "Open next ticket";
-  } else if (currentKey === "verify") {
-    statusLabel = "Needs verification";
-  } else {
-    const currentNode = nodes.find((node) => node.key === currentKey);
-    if (currentNode?.state === "checkpoint") {
-      statusLabel = getCheckpointLabel(currentKey as InitiativePlanningStep, planningReviews, initiative.id);
-    } else if (currentKey === "brief" && !initiative.workflow.refinements.brief.checkedAt) {
-      statusLabel = "Continue to brief intake";
-    } else if (currentNode?.state === "active") {
-      statusLabel = `Continue to ${INITIATIVE_WORKFLOW_LABELS[currentKey as InitiativePlanningStep].toLowerCase()}`;
-    }
-  }
+  const currentNode = nodes.find((node) => node.key === currentKey);
+  const currentNodeState = currentNode?.state ?? "future";
+  const currentReviewKind =
+    currentKey === "execute" || currentKey === "verify" || currentKey === "done"
+      ? null
+      : getCheckpointReviewKind(currentKey, planningReviews, initiative.id);
 
   return {
     currentKey,
+    currentNodeState,
+    currentReviewKind,
     nodes,
-    statusLabel,
     ticketProgress,
     initiativeTickets,
     initiativeRuns,

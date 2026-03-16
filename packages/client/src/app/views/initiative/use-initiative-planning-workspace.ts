@@ -34,8 +34,8 @@ import {
   REVIEWS_BY_STEP
 } from "../../utils/initiative-workflow.js";
 import {
+  type PlanningDrawerState,
   type PlanningJourneyStage,
-  PHASE_TRANSITIONS,
   TICKET_COVERAGE_REVIEW_KIND,
   isQuestionResolved,
   isResolvedReview,
@@ -77,9 +77,9 @@ export const useInitiativePlanningWorkspace = (
   const [refinementSaveState, setRefinementSaveState] = useState<SaveState>("idle");
   const [guidanceQuestionId, setGuidanceQuestionId] = useState<string | null>(null);
   const [guidanceText, setGuidanceText] = useState<string | null>(null);
-  const [transitionNotice, setTransitionNotice] = useState<{ heading: string; body: string } | null>(null);
   const [reviewOverrideKind, setReviewOverrideKind] = useState<PlanningReviewKind | null>(null);
   const [reviewOverrideReason, setReviewOverrideReason] = useState("");
+  const [drawerState, setDrawerState] = useState<PlanningDrawerState>(null);
 
   const savedDrafts = useMemo<Record<SpecStep, string>>(() => {
     if (!initiative) {
@@ -190,7 +190,6 @@ export const useInitiativePlanningWorkspace = (
       ? snapshot.runs.filter((run) => run.ticketId && initiativeTickets.some((ticket) => ticket.id === run.ticketId))
       : [];
   const headerTitle = initiative ? getInitiativeDisplayTitle(initiative.title, initiative.description) : "";
-  const showHeaderDescription = initiative ? headerTitle !== initiative.description : false;
   const stepStatus = initiative?.workflow.steps[activeStep].status ?? "locked";
   const isBusy = busyAction !== null;
   const hasActiveContent = activeSpecStep ? savedDrafts[activeSpecStep].trim().length > 0 : false;
@@ -226,9 +225,29 @@ export const useInitiativePlanningWorkspace = (
           : "complete";
 
   useEffect(() => {
+    if (!drawerState) {
+      return;
+    }
+
+    if (drawerState.step === activeSpecStep) {
+      return;
+    }
+
+    setDrawerState(null);
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+
+    if (editingStep && editingStep !== activeSpecStep) {
+      setEditingStep(null);
+    }
+  }, [activeSpecStep, drawerState, editingStep]);
+
+  useEffect(() => {
     if (!initiative || !activeSpecStep || editingStep !== activeSpecStep) {
       return;
     }
+
+    const drawerIsEditingCurrentStep = drawerState?.type === "edit" && drawerState.step === activeSpecStep;
 
     if (drafts[activeSpecStep] === savedDrafts[activeSpecStep]) {
       return;
@@ -240,6 +259,9 @@ export const useInitiativePlanningWorkspace = (
         await saveInitiativeSpecs(initiative.id, activeSpecStep, drafts[activeSpecStep]);
         await onRefresh();
         setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "saved" }));
+        if (!drawerIsEditingCurrentStep) {
+          setEditingStep(null);
+        }
       } catch (error) {
         showError((error as Error).message ?? `Failed to save ${INITIATIVE_WORKFLOW_LABELS[activeSpecStep]}`);
         setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "error" }));
@@ -247,7 +269,7 @@ export const useInitiativePlanningWorkspace = (
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [activeSpecStep, drafts, editingStep, initiative, onRefresh, savedDrafts, showError]);
+  }, [activeSpecStep, drafts, drawerState, editingStep, initiative, onRefresh, savedDrafts, showError]);
 
   const serverRefinementSignature = activeRefinement
     ? JSON.stringify({
@@ -312,7 +334,6 @@ export const useInitiativePlanningWorkspace = (
   };
 
   const navigateToStep = (step: InitiativePlanningStep): void => {
-    setTransitionNotice(null);
     setSearchParams({ step });
   };
 
@@ -333,7 +354,6 @@ export const useInitiativePlanningWorkspace = (
     await onRefresh();
     setEditingStep(null);
     setDraftSaveState((current) => ({ ...current, [step]: "saved" }));
-    setTransitionNotice(PHASE_TRANSITIONS[step]);
     const followingStep = getNextInitiativeStep(step);
     const reviewsResolved = result.reviews.every((review) => review.status === "passed" || review.status === "overridden");
     if (followingStep && reviewsResolved) {
@@ -356,17 +376,6 @@ export const useInitiativePlanningWorkspace = (
       const result = await checkInitiativePhase(initiative.id, step);
       await onRefresh();
       setRefinementAssumptions(result.assumptions);
-      setTransitionNotice(
-        result.decision === "ask"
-          ? {
-              heading: `${INITIATIVE_WORKFLOW_LABELS[step]} intake ready`,
-              body: `Answer the questions below before you generate the ${INITIATIVE_WORKFLOW_LABELS[step].toLowerCase()}.`
-            }
-          : {
-              heading: `${INITIATIVE_WORKFLOW_LABELS[step]} intake complete`,
-              body: `The decisions for this step are in place. Generate the ${INITIATIVE_WORKFLOW_LABELS[step].toLowerCase()} when you are ready.`
-            }
-      );
     });
   };
 
@@ -378,7 +387,6 @@ export const useInitiativePlanningWorkspace = (
     await withBusyAction("generate-tickets", async () => {
       await generateInitiativePlan(initiative.id);
       await onRefresh();
-      setTransitionNotice(PHASE_TRANSITIONS.tickets);
     });
   };
 
@@ -411,7 +419,6 @@ export const useInitiativePlanningWorkspace = (
       ) {
         const followingStep = getNextInitiativeStep(activeSpecStep);
         if (followingStep) {
-          setTransitionNotice(PHASE_TRANSITIONS[activeSpecStep]);
           navigateToStep(followingStep);
         }
       }
@@ -465,12 +472,43 @@ export const useInitiativePlanningWorkspace = (
     setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "idle" }));
   };
 
-  const toggleEditingStep = () => {
-    if (!activeSpecStep) {
-      return;
-    }
+  const openReviewDrawer = (step: SpecStep, reviewKind: PlanningReviewKind) => {
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+    setDrawerState({ type: "review", step, reviewKind });
+  };
 
-    setEditingStep((current) => (current === activeSpecStep ? null : activeSpecStep));
+  const selectReviewInDrawer = (reviewKind: PlanningReviewKind) => {
+    setDrawerState((current) =>
+      current?.type === "review"
+        ? {
+            ...current,
+            reviewKind
+          }
+        : current
+    );
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+  };
+
+  const openDocumentDrawer = (step: SpecStep) => {
+    setEditingStep(null);
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+    setDrawerState({ type: "document", step });
+  };
+
+  const openEditDrawer = (step: SpecStep) => {
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+    setEditingStep(step);
+    setDrawerState({ type: "edit", step });
+  };
+
+  const closeDrawer = () => {
+    setDrawerState(null);
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
   };
 
   const updateRefinementAnswer = (questionId: string, nextValue: string | string[] | boolean) => {
@@ -545,11 +583,10 @@ export const useInitiativePlanningWorkspace = (
     refinementSaveState,
     guidanceQuestionId,
     guidanceText,
-    transitionNotice,
     reviewOverrideKind,
     reviewOverrideReason,
+    drawerState,
     headerTitle,
-    showHeaderDescription,
     activeStep,
     activeSpecStep,
     activeRefinement,
@@ -573,12 +610,16 @@ export const useInitiativePlanningWorkspace = (
     handleOverrideReview,
     handlePhaseRename,
     openTicket,
-    toggleEditingStep,
     updateDraft,
     updateRefinementAnswer,
     deferRefinementQuestion,
     setReviewOverride,
     clearReviewOverride,
-    setReviewOverrideReason
+    setReviewOverrideReason,
+    openReviewDrawer,
+    selectReviewInDrawer,
+    openDocumentDrawer,
+    openEditDrawer,
+    closeDrawer
   };
 };

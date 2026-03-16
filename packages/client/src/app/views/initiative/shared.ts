@@ -12,12 +12,17 @@ export type SaveState = "idle" | "saving" | "saved" | "error";
 export type RefinementAnswer = string | string[] | boolean | undefined;
 export type ReviewFindingGroups = Record<PlanningReviewFinding["type"], PlanningReviewFinding[]>;
 export type PlanningJourneyStage = "consult" | "draft" | "checkpoint" | "complete";
+export type PlanningDrawerState =
+  | { type: "review"; step: SpecStep; reviewKind: PlanningReviewKind }
+  | { type: "document"; step: SpecStep }
+  | { type: "edit"; step: SpecStep }
+  | null;
 export const REVIEW_FINDING_SECTION_LABELS: Record<PlanningReviewFinding["type"], string> = {
-  blocker: "Blockers",
-  warning: "Warnings",
-  "traceability-gap": "Traceability gaps",
-  assumption: "Assumptions",
-  "recommended-fix": "Recommended fixes"
+  blocker: "Must fix",
+  warning: "Suggestions",
+  "traceability-gap": "Missing links",
+  assumption: "Notes",
+  "recommended-fix": "Suggested fixes"
 };
 
 export const PHASE_DESCRIPTIONS: Record<InitiativePlanningStep, string> = {
@@ -31,23 +36,23 @@ export const PHASE_DESCRIPTIONS: Record<InitiativePlanningStep, string> = {
 export const PHASE_TRANSITIONS: Record<SpecStep | "tickets", { heading: string; body: string }> = {
   brief: {
     heading: "Brief ready",
-    body: "The brief now defines the problem, audience, goals, and scope."
+    body: "The problem, audience, goals, and scope are in place."
   },
   "core-flows": {
     heading: "Core flows ready",
-    body: "The primary user journeys and states are ready for product requirements."
+    body: "The main journeys are clear enough to write the PRD."
   },
   prd: {
     heading: "PRD ready",
-    body: "The product requirements are ready for implementation planning."
+    body: "The product behavior is clear enough to plan the build."
   },
   "tech-spec": {
     heading: "Tech spec ready",
-    body: "The implementation approach is ready to break into tickets."
+    body: "The build plan is ready to break into tickets."
   },
   tickets: {
     heading: "Tickets ready",
-    body: "This initiative is ready for execution."
+    body: "Planning is done. Execution can start."
   }
 };
 
@@ -59,24 +64,24 @@ export const SAVE_STATE_LABELS: Record<SaveState, string | null> = {
 };
 
 export const REVIEW_STATUS_LABELS: Record<PlanningReviewArtifact["status"], string> = {
-  passed: "Passed",
-  blocked: "Blocked",
-  overridden: "Overridden",
+  passed: "Looks good",
+  blocked: "Needs attention",
+  overridden: "Accepted risk",
   stale: "Needs review"
 };
 
 export const JOURNEY_STAGE_LABELS: Record<PlanningJourneyStage, string> = {
   consult: "Consult",
   draft: "Draft",
-  checkpoint: "Checkpoint",
+  checkpoint: "Needs review",
   complete: "Complete"
 };
 
 export const JOURNEY_STAGE_GUIDANCE: Record<PlanningJourneyStage, string> = {
-  consult: "Lock the decisions that shape this step before you generate anything.",
-  draft: "Generate or refresh the artifact once the decisions are clear.",
-  checkpoint: "Resolve the review blockers before you move to the next step.",
-  complete: "This step is in good shape. Move forward when you are ready."
+  consult: "Answer the questions that matter before you generate anything.",
+  draft: "Generate or refresh the artifact once the answers look right.",
+  checkpoint: "Review the issues before you move on.",
+  complete: "This step is in good shape. Move on when you are ready."
 };
 
 export const TICKET_COVERAGE_REVIEW_KIND: PlanningReviewKind = "ticket-coverage-review";

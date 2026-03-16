@@ -33,12 +33,12 @@ describe("InitiativeCreator", () => {
 
     expect(screen.getByText("New initiative")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What do you want to build?" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue to brief intake" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "Plan a Linux note app with fast capture and richer note editing." }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Continue to brief intake" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect(createInitiativeMock).toHaveBeenCalledWith(

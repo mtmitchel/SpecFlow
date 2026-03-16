@@ -41,8 +41,9 @@ export const PaletteGithubImportMode = ({ inputRef, onClose, onRefresh, onBack }
         <button type="button" className="palette-back" onClick={onBack}>
           ← Back
         </button>
-        <span>Import GitHub Issue</span>
+        <span>GitHub issue</span>
       </div>
+      <div className="palette-context">Paste an issue URL. SpecFlow will turn it into a task or initiative.</div>
       <input
         ref={inputRef as React.RefObject<HTMLInputElement>}
         className="palette-input"
@@ -61,7 +62,7 @@ export const PaletteGithubImportMode = ({ inputRef, onClose, onRefresh, onBack }
           disabled={busy || !githubUrl.trim()}
           onClick={() => void runGithubImport()}
         >
-          {busy ? "Importing..." : "Import"}
+          {busy ? "Importing..." : "Import issue"}
         </button>
       </div>
     </>

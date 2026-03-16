@@ -31,6 +31,13 @@
   background: linear-gradient(180deg, rgba(16, 24, 38, 0.84), rgba(16, 24, 38, 0.7));
 }
 
+.planning-topbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  backdrop-filter: blur(18px);
+}
+
 .planning-topbar-row {
   display: flex;
   justify-content: space-between;
@@ -82,6 +89,10 @@
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   background: rgba(16, 24, 38, 0.82);
+}
+
+.planning-step-card-quiet {
+  background: rgba(14, 21, 33, 0.84);
 }
 
 .planning-entry-card h3,
@@ -194,6 +205,150 @@
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
+}
+
+.action-menu {
+  position: relative;
+}
+
+.action-menu summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+  cursor: pointer;
+  user-select: none;
+}
+
+.action-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.action-menu summary::after {
+  content: "▾";
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.action-menu[open] summary {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.action-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 3;
+  min-width: 190px;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-dropdown);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28);
+}
+
+.action-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-md) - 0.2rem);
+  padding: 0.55rem 0.65rem;
+  color: var(--text);
+  font: inherit;
+}
+
+.action-menu-item:hover:not(:disabled) {
+  background: rgba(72, 203, 255, 0.12);
+}
+
+.action-menu-item-danger {
+  color: var(--danger-text);
+}
+
+.side-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(3, 7, 12, 0.62);
+  backdrop-filter: blur(10px);
+}
+
+.side-drawer-panel {
+  width: min(100%, 520px);
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-left: 1px solid rgba(152, 188, 220, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(72, 203, 255, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(12, 19, 29, 0.98), rgba(10, 16, 25, 0.99));
+  box-shadow: -22px 0 42px rgba(0, 0, 0, 0.3);
+}
+
+.side-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem 1rem 0.9rem;
+  border-bottom: 1px solid rgba(152, 188, 220, 0.08);
+}
+
+.side-drawer-heading {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.side-drawer-heading h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.side-drawer-heading p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.side-drawer-header-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.side-drawer-close {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.side-drawer-body {
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.planning-drawer-document {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: rgba(8, 12, 20, 0.36);
+  padding: 1rem;
+}
+
+.planning-drawer-textarea {
+  width: 100%;
 }
 
 .pipeline {
@@ -809,6 +964,108 @@ button.planning-rail-item:hover:not(:disabled) {
   color: var(--accent-text-light);
 }
 
+.planning-review-drawer-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.planning-review-switcher {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.planning-review-switcher-item {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(152, 188, 220, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.3);
+  padding: 0.8rem 0.9rem;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.planning-review-switcher-item.active {
+  border-color: var(--accent-border);
+  background: rgba(20, 35, 55, 0.55);
+}
+
+.planning-review-switcher-title {
+  font-weight: 600;
+}
+
+.planning-review-switcher-meta,
+.planning-review-empty {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.planning-review-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.planning-review-detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.planning-review-detail-header h3 {
+  margin: 0;
+}
+
+.planning-review-detail-header p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.planning-review-detail-actions {
+  margin-top: 0;
+}
+
+.planning-review-detail-stats {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.planning-review-detail-stats span {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(152, 188, 220, 0.08);
+  border-radius: var(--radius-pill);
+  background: rgba(8, 12, 20, 0.28);
+}
+
+.planning-review-detail-section {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.planning-review-detail-section ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.planning-review-override-panel {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: rgba(243, 187, 82, 0.08);
+}
+
+.planning-review-override-label {
+  font-weight: 600;
+}
+
 .planning-phase-count {
   color: var(--muted);
   font-size: 0.85rem;
@@ -1404,6 +1661,17 @@ button.planning-rail-item:hover:not(:disabled) {
   gap: 1rem;
 }
 
+.planning-pipeline-card {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at top right, rgba(72, 203, 255, 0.06), transparent 20%),
+    linear-gradient(180deg, rgba(18, 27, 40, 0.95), rgba(13, 20, 31, 0.97));
+  padding: 0.95rem 1rem;
+}
+
 .ticket-journey-shell,
 .run-report-shell {
   display: grid;
@@ -1677,6 +1945,8 @@ button.planning-rail-item:hover:not(:disabled) {
   .planning-step-header,
   .planning-step-secondary-actions,
   .planning-review-header,
+  .side-drawer-header,
+  .planning-review-detail-header,
   .planning-pipeline-meta,
   .planning-intake-header,
   .execution-stage-header,
@@ -1707,7 +1977,8 @@ button.planning-rail-item:hover:not(:disabled) {
   .planning-step-actions,
   .execution-stage,
   .action-queue-row,
-  .journey-queue-row {
+  .journey-queue-row,
+  .planning-review-detail-stats {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -1738,5 +2009,10 @@ button.planning-rail-item:hover:not(:disabled) {
 
   .pipeline-label {
     font-size: 0.68rem;
+  }
+
+  .side-drawer-panel {
+    width: 100%;
+    border-left: none;
   }
 }
