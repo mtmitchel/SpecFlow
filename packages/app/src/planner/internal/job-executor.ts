@@ -1,13 +1,29 @@
 import type { LlmClient, LlmTokenHandler } from "../../llm/client.js";
 import { parseJsonEnvelope } from "../json-parser.js";
 import { buildPlannerPrompt, type PlannerJob } from "../prompt-builder.js";
-import type { ClarifyInput, PlanInput, SpecGenInput, TriageInput } from "../types.js";
+import type {
+  ClarifyHelpInput,
+  PhaseCheckInput,
+  PlanInput,
+  ReviewRunInput,
+  SpecGenInput,
+  TriageInput
+} from "../types.js";
 import type { ResolvedPlannerConfig } from "./config.js";
 
 const MAX_TOKENS_BY_JOB: Record<PlannerJob, number> = {
   plan: 8192,
-  "spec-gen": 8192,
-  clarify: 4096,
+  "brief-gen": 8192,
+  "core-flows-gen": 8192,
+  "prd-gen": 8192,
+  "tech-spec-gen": 8192,
+  "trace-outline": 4096,
+  review: 6144,
+  "brief-check": 4096,
+  "core-flows-check": 4096,
+  "prd-check": 4096,
+  "tech-spec-check": 4096,
+  "clarify-help": 3072,
   triage: 4096
 };
 
@@ -15,7 +31,7 @@ export const executePlannerJob = async <T>(input: {
   llmClient: LlmClient;
   config: ResolvedPlannerConfig;
   job: PlannerJob;
-  payload: ClarifyInput | SpecGenInput | PlanInput | TriageInput;
+  payload: ClarifyHelpInput | PhaseCheckInput | ReviewRunInput | SpecGenInput | PlanInput | TriageInput;
   agentsMd: string;
   onToken?: LlmTokenHandler;
 }): Promise<T> => {
@@ -29,7 +45,14 @@ export const executePlannerJob = async <T>(input: {
       systemPrompt: prompts.systemPrompt,
       userPrompt: prompts.userPrompt,
       maxTokens: MAX_TOKENS_BY_JOB[input.job],
-      timeoutMs: input.job === "plan" || input.job === "spec-gen" ? 180_000 : 90_000
+      timeoutMs:
+        input.job === "plan" ||
+        input.job === "brief-gen" ||
+        input.job === "core-flows-gen" ||
+        input.job === "prd-gen" ||
+        input.job === "tech-spec-gen"
+          ? 180_000
+          : 90_000
     },
     input.onToken
   );

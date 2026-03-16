@@ -6,6 +6,7 @@ import { BundleGenerator } from "../src/bundle/bundle-generator.js";
 import { renderBundleForAgent } from "../src/bundle/renderers.js";
 import { runYamlPath, specflowDir, verificationPath } from "../src/io/paths.js";
 import { readYamlFile, writeYamlFile } from "../src/io/yaml.js";
+import { createInitiativeWorkflow } from "../src/planner/workflow-state.js";
 import { ArtifactStore } from "../src/store/artifact-store.js";
 import type { BundleManifest } from "../src/bundle/types.js";
 import type { Initiative, Ticket } from "../src/types/entities.js";
@@ -88,6 +89,7 @@ describe("BundleGenerator", () => {
       phases: [],
       specIds: [],
       ticketIds: ["ticket-1"],
+      workflow: createInitiativeWorkflow(),
       createdAt: now,
       updatedAt: now
     };

@@ -7,8 +7,10 @@ Documentation for SpecFlow.
 | File | What it covers |
 |---|---|
 | [`product-brief.md`](product-brief.md) | Problem statement, goals, success criteria, non-goals |
+| [`product-language-spec.md`](product-language-spec.md) | Canonical product vocabulary, phase language, status labels, CTA rules, empty states, and transition messaging |
 | [`workflows.md`](workflows.md) | Four user workflows (Groundwork, Milestone Run, Quick Build, Drift Audit) with step-by-step flows and state diagrams |
 | [`architecture.md`](architecture.md) | Technical architecture: package structure, data model, component responsibilities, API surface, sequence diagrams |
+| [`review-prompts/`](review-prompts/) | Structured repo-review prompts for data integrity, security, client state, and product-value audits |
 
 For setup and quick-start instructions, see the root [`README.md`](../README.md).
 For coding conventions, testing guidelines, and commit rules, see [`AGENTS.md`](../AGENTS.md).
@@ -23,12 +25,15 @@ SpecFlow is fully implemented. The repository includes a working app/client work
 
 All four workflows are functional: Groundwork, Milestone Run, Quick Build, and Drift Audit.
 
-Key capabilities in the current version (0.3.0):
+Key capabilities in the current version (0.1.0):
 
-- Master-detail layout: navigator tree sidebar (initiatives > specs/phases > tickets) + detail workspace
+- Master-detail layout: navigator tree sidebar (aggregate views, initiatives, phases, tickets, quick tasks) + detail workspace
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
-- Spec-driven planning with repo context scanning (grounded file targets)
-- Mermaid phase-dependency diagrams on initiative detail pages
+- Progressive planning: Brief -> Core flows -> PRD -> Tech spec -> Tickets
+- Persisted review gates and cross-checks across planning artifacts
+- Traceability-backed planning with artifact sidecar trace outlines
+- Spec-driven ticket planning with repo context scanning (grounded file targets)
+- Optional Mermaid dependency diagrams on initiative detail pages (collapsed by default; textual phases remain canonical)
 - Verification with per-criterion severity (Critical/Major/Minor/Outdated) and remediation hints
 - Fix-forward loop: quick-fix export mode chains failed verification to enriched re-export to re-verify
 - LLM-powered drift audit with Bug/Performance/Security/Clarity finding categories

@@ -19,6 +19,14 @@ export const initiativeDir = (rootDir: string, initiativeId: string): string =>
   path.join(initiativesDir(rootDir), initiativeId);
 export const initiativeYamlPath = (rootDir: string, initiativeId: string): string =>
   path.join(initiativeDir(rootDir, initiativeId), "initiative.yaml");
+export const initiativeReviewsDir = (rootDir: string, initiativeId: string): string =>
+  path.join(initiativeDir(rootDir, initiativeId), "reviews");
+export const initiativeReviewPath = (rootDir: string, initiativeId: string, reviewKind: string): string =>
+  path.join(initiativeReviewsDir(rootDir, initiativeId), `${reviewKind}.yaml`);
+export const initiativeTracesDir = (rootDir: string, initiativeId: string): string =>
+  path.join(initiativeDir(rootDir, initiativeId), "traces");
+export const initiativeTracePath = (rootDir: string, initiativeId: string, artifactStep: string): string =>
+  path.join(initiativeTracesDir(rootDir, initiativeId), `${artifactStep}.yaml`);
 
 export const ticketsDir = (rootDir: string): string => path.join(specflowDir(rootDir), "tickets");
 export const ticketPath = (rootDir: string, ticketId: string): string =>

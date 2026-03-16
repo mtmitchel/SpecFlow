@@ -4,6 +4,8 @@ export const specTypeToFileName = (type: SpecDocument["type"]): string => {
   switch (type) {
     case "brief":
       return "brief.md";
+    case "core-flows":
+      return "core-flows.md";
     case "prd":
       return "prd.md";
     case "tech-spec":

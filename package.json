@@ -8,7 +8,14 @@
   "scripts": {
     "build": "npm run -w @specflow/client build && npm run -w @specflow/app build",
     "check": "tsc -p packages/app/tsconfig.json --noEmit && tsc -p packages/client/tsconfig.json --noEmit",
+    "dev": "concurrently -k -n server,client \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "tsx watch packages/app/src/cli.ts ui --no-open --port 3142",
+    "dev:client": "npm run -w @specflow/client dev",
     "test": "npm run -w @specflow/app test",
     "ui": "npm run build && node packages/app/dist/cli.js ui"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6"
   }
 }

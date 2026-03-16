@@ -30,7 +30,7 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
   <Routes>
     {/* Canonical views */}
     <Route path="/initiative/:id" element={<InitiativeView snapshot={snapshot} onRefresh={onRefresh} />} />
-    <Route path="/initiative/:id/spec/:type" element={<SpecView snapshot={snapshot} onRefresh={onRefresh} />} />
+    <Route path="/initiative/:id/spec/:type" element={<SpecView />} />
     <Route
       path="/ticket/:id"
       element={

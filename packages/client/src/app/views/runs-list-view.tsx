@@ -32,7 +32,7 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
   useEffect(() => {
     setLoading(true);
     void loadRuns();
-  }, [loadRuns]);
+  }, [loadRuns, snapshot.runs]);
 
   const ticketMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -47,7 +47,7 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
   return (
     <section>
       <header className="section-header">
-        <h2>All Runs</h2>
+        <h2>Runs</h2>
         {!loading && <p>{runs.length} run{runs.length !== 1 ? "s" : ""}</p>}
       </header>
 
@@ -67,14 +67,14 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
 
       {loading ? (
         <div className="aggregate-empty">
-          <p>Loading runs</p>
+          <p>Loading runs...</p>
 
         </div>
       ) : runs.length === 0 ? (
         <div className="aggregate-empty">
           <p>{isFiltered ? "No runs match the current filters" : "No runs yet"}</p>
           {!isFiltered && (
-            <p className="aggregate-empty-hint">Runs are created when you export a ticket bundle to an agent</p>
+            <p className="aggregate-empty-hint">Runs appear after you create a bundle and execute a ticket.</p>
           )}
         </div>
       ) : (

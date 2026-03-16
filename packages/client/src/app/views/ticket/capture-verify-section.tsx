@@ -80,16 +80,16 @@ export const CaptureVerifySection = ({
 
   return (
     <WorkflowSection
-      title="Capture and Verify"
+      title="Review changes and verify"
       defaultOpen={workflowPhase === "agent" || workflowPhase === "verify"}
     >
       <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-        After your agent completes work, capture the changes and run verification against acceptance criteria.
-        <HelpTip text="Compares the code changes your agent made against the acceptance criteria defined in the plan." />
+        After execution finishes, review the captured changes and check them against the plan.
+        <HelpTip text="Compares the captured changes against the acceptance criteria defined in the ticket plan." />
       </p>
       <div className="button-row">
         <button type="button" onClick={() => void refreshCapturePreview()}>
-          Refresh Diff Preview
+          Refresh change preview
         </button>
         {capturePreviewData ? <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Source: {capturePreviewData.source}</span> : null}
       </div>
@@ -102,13 +102,13 @@ export const CaptureVerifySection = ({
             onChange={(event) => setCaptureScopeInput(event.target.value)}
             placeholder="src/a.ts, src/b.ts"
           />
-          <h4>Git diff preview</h4>
+          <h4>Change preview</h4>
           <pre>{capturePreviewData.primaryDiff || "(no changes in selected scope)"}</pre>
         </>
       ) : null}
       {capturePreviewData?.source === "snapshot" ? (
         <div className="panel">
-          <h4>No-git scope picker</h4>
+          <h4>Scope picker</h4>
           <input
             type="file"
             multiple
@@ -139,7 +139,7 @@ export const CaptureVerifySection = ({
         className="multiline"
         value={captureSummary}
         onChange={(event) => setCaptureSummary(event.target.value)}
-        placeholder="Optional agent summary"
+        placeholder="Optional notes about what changed"
       />
       <input
         className="phase-name-input"
@@ -157,20 +157,20 @@ export const CaptureVerifySection = ({
           className="btn-primary"
           onClick={() => void handleCaptureAndVerify()}
         >
-          Capture and Verify
+          Verify work
         </button>
       </div>
 
       {verifyState === "running" ? (
         <div className="verify-progress">
           <span className="verify-spinner" />
-          Evaluating acceptance criteria
+          Checking acceptance criteria
         </div>
       ) : null}
 
       {verifyStreamEvents.length > 0 ? (
         <details className="verify-stream-toggle">
-          <summary>Verifier output ({verifyStreamEvents.length} tokens)</summary>
+          <summary>Verification log ({verifyStreamEvents.length} tokens)</summary>
           <pre>{verifyStreamEvents.join("")}</pre>
         </details>
       ) : null}

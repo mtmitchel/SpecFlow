@@ -29,9 +29,18 @@ npm run ui
 
 Open `http://127.0.0.1:3141`.
 
+For iterative development:
+
+```bash
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. The Vite client proxies `/api` requests to the watched app server on `http://127.0.0.1:3142`.
+
 ## Workspace Commands
 
 ```bash
+npm run dev
 npm test
 npm run build
 npm run ui
@@ -60,9 +69,11 @@ The Settings modal (open via Cmd+K or navigator) lets you change provider, model
 
 ## Key Features
 
-- **Spec-driven planning**: describe a feature; the planner generates a Brief, PRD, Tech Spec, phased plan, and per-ticket acceptance criteria grounded in your actual repo file tree.
-- **Mermaid phase diagrams**: each initiative plan includes a dependency diagram rendered on the initiative detail page.
-- **Master-detail layout**: navigator tree sidebar (initiatives > specs/phases > tickets) + detail workspace; no page navigation required.
+- **Progressive planning workflow**: describe a feature, then move through Brief, Core flows, PRD, Tech spec, and Tickets with targeted blocker questions only when ambiguity would materially affect the next artifact.
+- **Review gates and cross-checks**: every major artifact can be reviewed for gaps and cross-checked against adjacent artifacts before the next planning step opens.
+- **Traceability-backed planning**: generated artifacts persist lightweight trace outlines so review and cross-check jobs stay grounded in structured facts, not only freeform markdown.
+- **Optional dependency diagrams**: Mermaid diagrams are secondary, human-facing visual aids. The textual phase and ticket structure remains the source of truth.
+- **Master-detail layout**: navigator tree sidebar (initiatives > phases > tickets, plus aggregate views) + detail workspace; no page navigation required.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Bundle export**: packages a ticket's full context (specs, criteria, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
@@ -75,5 +86,5 @@ The Settings modal (open via Cmd+K or navigator) lets you change provider, model
 
 - `packages/app`: Fastify API server, CLI, bundle/export/verify services
 - `packages/client`: React board UI
-- `docs/`: product flows, technical plan, and ticket artifacts
-- `specflow/`: runtime artifacts (tickets, runs, initiatives, decisions, config)
+- `docs/`: product docs, workflow docs, technical architecture, and review prompts
+- `specflow/`: runtime artifacts (`config.yaml`, initiatives, reviews, traces, tickets, runs, decisions)

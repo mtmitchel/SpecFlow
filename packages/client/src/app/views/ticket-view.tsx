@@ -96,9 +96,9 @@ export const TicketView = ({
         <p>{ticket.description}</p>
         {run ? (
           <div className="button-row">
-            <Link to={`/run/${run.id}`}>Open Run</Link>
+            <Link to={`/run/${run.id}`}>Review run</Link>
             <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-              {showAuditPanel ? "Hide Audit" : "Run Audit"}
+              {showAuditPanel ? "Hide drift review" : "Review drift"}
             </button>
           </div>
         ) : null}
@@ -108,7 +108,7 @@ export const TicketView = ({
               value={moveToStatus}
               onChange={(e) => setMoveToStatus(e.target.value as TicketStatus)}
             >
-              <option value="" disabled>Move to</option>
+              <option value="" disabled>Change status</option>
               {validTransitions.map((col) => (
                 <option key={col.key} value={col.key}>{col.label}</option>
               ))}
@@ -126,7 +126,7 @@ export const TicketView = ({
                 }
               }}
             >
-              Move
+              Update status
             </button>
           </div>
         ) : null}
@@ -134,11 +134,11 @@ export const TicketView = ({
 
       {operationState === "abandoned" || operationState === "superseded" || operationState === "failed" ? (
         <div className="status-banner">
-          The previous export or verification did not complete. You can start a new one below.
+          The previous execution did not complete. Start a new run from the plan tab.
           <span>
             {" "}
             <button type="button" onClick={() => setActiveTab("plan")}>
-              Go to Plan
+              Return to plan
             </button>
           </span>
         </div>
@@ -158,7 +158,7 @@ export const TicketView = ({
         </div>
       ) : null}
       {verify.verifyState === "reconnecting" ? (
-        <div className="status-banner warn">Reconnecting -- results will refresh automatically</div>
+        <div className="status-banner warn">Reconnecting. Results will refresh automatically.</div>
       ) : null}
 
       {showAuditPanel && run ? <AuditPanel runId={run.id} defaultScopePaths={ticket.fileTargets} /> : null}
@@ -255,18 +255,18 @@ export const TicketView = ({
               onRefresh={onRefresh}
             />
           ) : (
-            <WorkflowSection title="Verification Results">
+            <WorkflowSection title="Verification">
               <p style={{ color: "var(--muted)" }}>
-                No results submitted yet. Export a bundle, run your agent, then capture results above.
+                No verification result yet. Create a bundle, run the work, then verify it above.
               </p>
             </WorkflowSection>
           )}
         </div>
       ) : (
         <div className="panel">
-          <h3>Run Attempts</h3>
+          <h3>Attempts</h3>
           {attempts.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>No verification attempts yet</p>
+            <p style={{ color: "var(--muted)" }}>No verification attempts yet.</p>
           ) : (
             <ul>
               {attempts.map((attempt) => (

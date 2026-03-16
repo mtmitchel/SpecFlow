@@ -3,6 +3,10 @@ import path from "node:path";
 import {
   decisionsDir,
   initiativeDir,
+  initiativeReviewPath,
+  initiativeReviewsDir,
+  initiativeTracePath,
+  initiativeTracesDir,
   initiativeYamlPath,
   initiativesDir,
   runDir,
@@ -12,12 +16,22 @@ import {
   verificationPath
 } from "../../io/paths.js";
 import { readYamlFile } from "../../io/yaml.js";
-import type { Initiative, Run, RunAttempt, SpecDocument, Ticket } from "../../types/entities.js";
+import type {
+  ArtifactTraceOutline,
+  Initiative,
+  PlanningReviewArtifact,
+  Run,
+  RunAttempt,
+  SpecDocument,
+  Ticket
+} from "../../types/entities.js";
 import { listDirectoryNames, listFileNames, pathExists } from "./fs-utils.js";
 
 export const loadInitiatives = async (input: {
   rootDir: string;
   initiatives: Map<string, Initiative>;
+  planningReviews: Map<string, PlanningReviewArtifact>;
+  artifactTraces: Map<string, ArtifactTraceOutline>;
   specs: Map<string, SpecDocument>;
 }): Promise<void> => {
   const ids = await listDirectoryNames(initiativesDir(input.rootDir));
@@ -32,6 +46,7 @@ export const loadInitiatives = async (input: {
 
     const docTuples: Array<{ fileName: string; type: SpecDocument["type"]; title: string }> = [
       { fileName: "brief.md", type: "brief", title: "Brief" },
+      { fileName: "core-flows.md", type: "core-flows", title: "Core Flows" },
       { fileName: "prd.md", type: "prd", title: "PRD" },
       { fileName: "tech-spec.md", type: "tech-spec", title: "Tech Spec" }
     ];
@@ -56,6 +71,36 @@ export const loadInitiatives = async (input: {
         createdAt: fileStat.birthtime.toISOString(),
         updatedAt: fileStat.mtime.toISOString()
       });
+    }
+
+    const reviewFileNames = await listFileNames(initiativeReviewsDir(input.rootDir, id));
+    for (const fileName of reviewFileNames) {
+      if (!fileName.endsWith(".yaml") && !fileName.endsWith(".yml")) {
+        continue;
+      }
+
+      const reviewKind = path.basename(fileName, path.extname(fileName));
+      const review = await readYamlFile<PlanningReviewArtifact>(
+        initiativeReviewPath(input.rootDir, id, reviewKind)
+      );
+      if (review) {
+        input.planningReviews.set(review.id, review);
+      }
+    }
+
+    const traceFileNames = await listFileNames(initiativeTracesDir(input.rootDir, id));
+    for (const fileName of traceFileNames) {
+      if (!fileName.endsWith(".yaml") && !fileName.endsWith(".yml")) {
+        continue;
+      }
+
+      const step = path.basename(fileName, path.extname(fileName));
+      const trace = await readYamlFile<ArtifactTraceOutline>(
+        initiativeTracePath(input.rootDir, id, step)
+      );
+      if (trace) {
+        input.artifactTraces.set(trace.id, trace);
+      }
     }
   }
 };

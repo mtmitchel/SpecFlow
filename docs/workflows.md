@@ -13,24 +13,26 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 ## Workflow 1 - Groundwork
 
-**Purpose:** Decompose a big idea into a structured initiative: specs, decisions, and an ordered, phase-grouped ticket backlog.
+**Purpose:** Decompose a big idea into a structured initiative: specs, review gates, decisions, and an ordered, phase-grouped ticket backlog.
 
 **Entry point:** Press **Cmd+K** and select "New Initiative", or click the **+ New** button at the bottom of the navigator sidebar.
 
 **Steps:**
 
 1. User lands on a blank Initiative page. A large free-text area prompts: *"Describe what you want to build."*
-2. User types a free-form description and clicks **Analyze**.
-3. The Planner processes the description and renders a set of structured follow-up questions below the description (e.g., *"Who is the primary user?"*, *"What does success look like?"*, *"Are there constraints or non-goals?"*). Each question is a labeled input field.
-4. User fills in the structured questions and clicks **Generate Specs**.
-5. The Planner generates three documents, shown as tabs on the initiative page: **Brief**, **PRD**, and **Tech Spec**. Each is rendered as editable Markdown.
-6. User reviews and edits any section inline. Changes are saved automatically.
-7. User clicks **Generate Plan**. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases (e.g., *Phase 1 - Foundation*, *Phase 2 - Core Features*). A Mermaid phase-dependency diagram is included.
-8. User reviews the phase/ticket list: can rename phases, reorder tickets within a phase, edit ticket titles and descriptions, or delete tickets.
-9. User clicks **Create All Tickets**. Tickets are created in **Backlog** status, linked to the initiative. Inter-phase ticket dependencies are wired automatically (Phase N tickets are blocked by Phase N-1 tickets).
-10. Initiative page now shows: Brief + specs tabs + Diagram tab + phase-grouped ticket list + empty Runs section.
+2. User types a free-form description and clicks **Create brief**.
+3. If the idea is ambiguous enough to block a solid brief, the planner asks at most a few targeted blocker questions. Otherwise it generates the Brief immediately.
+4. After the Brief is generated, SpecFlow runs a **Brief review** for gaps before the user can continue.
+5. User moves into **Core flows**. If needed, the planner asks a few phase-specific questions about journeys, screens, or states. Then it generates the Core flows artifact.
+6. After Core flows is generated, SpecFlow runs **Review core flows** and **Cross-check brief and core flows**.
+7. User moves into **PRD**. If needed, the planner asks a few product-behavior blocker questions, then generates the PRD.
+8. After PRD is generated, SpecFlow runs **Review PRD** and **Cross-check core flows and PRD**.
+9. User moves into **Tech spec**. If needed, the planner asks a few implementation blocker questions, then generates the Tech spec.
+10. After Tech spec is generated, SpecFlow runs **Review tech spec**, **Cross-check PRD and tech spec**, and a **full spec-set review** across Brief + Core flows + PRD + Tech spec.
+11. User reviews or overrides any remaining blockers, then clicks **Create tickets**. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases.
+12. Initiative page now shows: Brief + Core flows + PRD + Tech spec + ticket plan + review findings + empty Runs section.
 
-**Exit:** Initiative is live. All tickets are in Backlog. User proceeds to Milestone Run.
+**Exit:** Initiative is ready for execution. All tickets are in Backlog. User proceeds to Milestone Run.
 
 ---
 
@@ -150,7 +152,7 @@ graph TD
     CmdK --> GH[GitHub Import flow]
     CmdK --> Search[Fuzzy search: entities by name]
 
-    Initiatives --> InitiativeView[Initiative View: Brief + PRD + Tech Spec + Diagram tabs + phase/ticket list]
+    Initiatives --> InitiativeView[Initiative View: Brief + Core Flows + PRD + Tech Spec + review gates + phase/ticket list]
     Initiatives --> SpecView[Spec View: /initiative/:id/spec/:type]
     Initiatives --> TicketView
     QuickTasks --> TicketView[Ticket View: status dropdown + export + capture + verify + audit]

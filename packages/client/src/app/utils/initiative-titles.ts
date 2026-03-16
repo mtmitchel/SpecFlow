@@ -1,10 +1,3 @@
-import type { Ticket } from "../../types/entities.js";
-import type { TriageTicketDraft } from "../types.js";
-
-export type PlannerTicketDraft =
-  | TriageTicketDraft
-  | { title: string; description: string; acceptanceCriteria: string[]; fileTargets: string[] };
-
 const TITLE_STOP_WORDS = new Set([
   "a",
   "an",
@@ -70,7 +63,7 @@ const toTitleCase = (input: string): string => {
     .join(" ");
 };
 
-export const deriveInitiativeTitle = (description: string): string => {
+export const deriveReadableInitiativeTitle = (description: string): string => {
   const compact = description.trim().replace(/\s+/g, " ");
   if (!compact) {
     return "Untitled Initiative";
@@ -100,43 +93,13 @@ export const deriveInitiativeTitle = (description: string): string => {
   return formatted.length > 64 ? `${formatted.slice(0, 61).trimEnd()}...` : formatted;
 };
 
-const hasImplementationPlan = (draft: PlannerTicketDraft): draft is TriageTicketDraft => {
-  return "implementationPlan" in draft && typeof draft.implementationPlan === "string";
-};
+export const getInitiativeDisplayTitle = (title: string, description: string): string => {
+  const derived = deriveReadableInitiativeTitle(description);
+  const legacy = deriveLegacyInitiativeTitle(description);
 
-export const createTicketFromDraft = (input: {
-  initiativeId: string | null;
-  phaseId: string | null;
-  status: Ticket["status"];
-  draft?: PlannerTicketDraft;
-  nowIso: string;
-  idGenerator: () => string;
-}): Ticket => {
-  const title = input.draft?.title?.trim() || "Quick Task";
-  const description = input.draft?.description?.trim() || title;
-  const acceptanceCriteria =
-    input.draft?.acceptanceCriteria?.map((text, index) => ({
-      id: `criterion-${index + 1}`,
-      text
-    })) ?? [];
+  if (!title.trim() || title === legacy || title === description.trim()) {
+    return derived;
+  }
 
-  const implementationPlan =
-    input.draft && hasImplementationPlan(input.draft) ? input.draft.implementationPlan : "";
-
-  return {
-    id: `ticket-${input.idGenerator()}`,
-    initiativeId: input.initiativeId,
-    phaseId: input.phaseId,
-    title,
-    description,
-    status: input.status,
-    acceptanceCriteria,
-    implementationPlan,
-    fileTargets: input.draft?.fileTargets ?? [],
-    blockedBy: [],
-    blocks: [],
-    runId: null,
-    createdAt: input.nowIso,
-    updatedAt: input.nowIso
-  };
+  return title;
 };

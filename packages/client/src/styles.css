@@ -1525,6 +1525,89 @@ select:focus-visible,
   opacity: 0.5;
 }
 
+.clarification-progress {
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.clarification-card,
+.clarification-review {
+  display: grid;
+  gap: 1rem;
+}
+
+.clarification-help-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.clarification-guidance {
+  border-top: 1px solid var(--panel-border);
+  padding-top: 0.75rem;
+}
+
+.clarification-option-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.clarification-option-card {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  padding: 0.7rem 0.8rem;
+}
+
+.clarification-option-button {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+}
+
+.clarification-option-button.selected,
+.clarification-option-checkbox:has(input:checked) {
+  border-color: var(--accent-border);
+  background: var(--accent-bg-subtle);
+}
+
+.clarification-option-checkbox {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.clarification-option-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.clarification-option-card p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.clarification-option-badge {
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg-subtle);
+  color: var(--accent-text);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
 /* Override confirmation panel (C2) */
 .override-panel {
   border: 1px solid var(--danger-border);

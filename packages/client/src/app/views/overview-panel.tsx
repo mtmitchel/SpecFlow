@@ -264,9 +264,9 @@ export const OverviewPanel = ({
         </>
       ) : (
         <div className="dash-empty-state">
-          <p className="dash-empty-lead">No activity yet</p>
+          <p className="dash-empty-lead">No work yet</p>
           <p className="dash-empty-hint">
-            Press <kbd className="dash-kbd">{modKey}+K</kbd> to create an initiative or import a ticket
+            Create an initiative to start planning, or import a ticket to jump into execution. Press <kbd className="dash-kbd">{modKey}+K</kbd> for quick actions.
           </p>
         </div>
       )}

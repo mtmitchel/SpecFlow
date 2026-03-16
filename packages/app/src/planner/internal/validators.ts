@@ -1,15 +1,95 @@
-import type { ClarifyResult, PlanResult, SpecGenResult, TriageResult } from "../types.js";
+import type {
+  ClarifyHelpResult,
+  PhaseCheckResult,
+  PhaseMarkdownResult,
+  PlanResult,
+  ReviewRunResult,
+  TriageResult
+} from "../types.js";
 
-export const validateClarifyResult = (result: ClarifyResult): void => {
-  if (!Array.isArray(result.questions)) {
-    throw new Error("Clarify result missing questions array");
+const validateQuestions = (
+  questions: PhaseCheckResult["questions"],
+  maxQuestions: number
+): void => {
+  if (!Array.isArray(questions)) {
+    throw new Error("Phase-check result missing questions array");
+  }
+
+  if (questions.length > maxQuestions) {
+    throw new Error(`Phase-check result exceeded max question budget (${maxQuestions})`);
+  }
+
+  for (const question of questions) {
+    const options = Array.isArray(question.options) ? question.options : [];
+    if ((question.type === "select" || question.type === "multi-select") && options.length === 0) {
+      throw new Error(`Refinement question ${question.id} is missing options`);
+    }
+
+    if (!question.whyThisBlocks?.trim()) {
+      throw new Error(`Refinement question ${question.id} is missing whyThisBlocks`);
+    }
+
+    if (!question.assumptionIfUnanswered?.trim()) {
+      throw new Error(`Refinement question ${question.id} is missing assumptionIfUnanswered`);
+    }
+
+    if (question.optionHelp && typeof question.optionHelp !== "object") {
+      throw new Error(`Refinement question ${question.id} has invalid optionHelp`);
+    }
+
+    if (question.recommendedOption && options.length > 0 && !options.includes(question.recommendedOption)) {
+      throw new Error(`Refinement question ${question.id} recommendedOption must match one of the provided options`);
+    }
   }
 };
 
-export const validateSpecGenResult = (result: SpecGenResult): void => {
-  if (!result.briefMarkdown || !result.prdMarkdown || !result.techSpecMarkdown) {
-    throw new Error("Spec-gen result must include brief, PRD, and tech spec markdown");
+export const validatePhaseCheckResult = (
+  result: PhaseCheckResult,
+  maxQuestions: number
+): void => {
+  if (result.decision !== "proceed" && result.decision !== "ask") {
+    throw new Error(`Phase-check decision must be "proceed" or "ask", received "${String(result.decision)}"`);
   }
+
+  validateQuestions(result.questions, maxQuestions);
+
+  if (!Array.isArray(result.assumptions)) {
+    throw new Error("Phase-check result missing assumptions array");
+  }
+}
+
+export const validateClarifyHelpResult = (result: ClarifyHelpResult): void => {
+  if (!result.guidance?.trim()) {
+    throw new Error("Clarify-help result must include guidance");
+  }
+};
+
+export const validatePhaseMarkdownResult = (result: PhaseMarkdownResult): void => {
+  if (!result.markdown?.trim()) {
+    throw new Error("Phase generation result must include markdown");
+  }
+
+  if (!result.traceOutline || !Array.isArray(result.traceOutline.sections)) {
+    throw new Error("Phase generation result must include traceOutline.sections");
+  }
+};
+
+const validateStringArray = (value: unknown, fieldName: string): void => {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`${fieldName} must be an array of strings`);
+  }
+};
+
+export const validateReviewRunResult = (result: ReviewRunResult): void => {
+  if (!result.summary?.trim()) {
+    throw new Error("Review result must include summary");
+  }
+
+  validateStringArray(result.blockers, "Review blockers");
+  validateStringArray(result.warnings, "Review warnings");
+  validateStringArray(result.traceabilityGaps, "Review traceabilityGaps");
+  validateStringArray(result.assumptions, "Review assumptions");
+  validateStringArray(result.recommendedFixes, "Review recommendedFixes");
 };
 
 export const validatePlanResult = (result: PlanResult): void => {

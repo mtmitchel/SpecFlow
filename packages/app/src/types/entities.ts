@@ -1,5 +1,50 @@
 export type InitiativeStatus = "draft" | "active" | "done";
 export type PhaseStatus = "active" | "complete";
+export type InitiativePlanningQuestionType = "text" | "select" | "multi-select" | "boolean";
+export type InitiativePlanningStep = "brief" | "core-flows" | "prd" | "tech-spec" | "tickets";
+export type InitiativeArtifactStep = Exclude<InitiativePlanningStep, "tickets">;
+export type InitiativePlanningStepStatus = "locked" | "ready" | "complete" | "stale";
+export type InitiativePlanningDecisionType =
+  | "scope"
+  | "user"
+  | "workflow"
+  | "platform"
+  | "data"
+  | "security"
+  | "integration"
+  | "success-metric";
+
+export interface InitiativePlanningQuestion {
+  id: string;
+  label: string;
+  type: InitiativePlanningQuestionType;
+  whyThisBlocks: string;
+  affectedArtifact: InitiativeArtifactStep;
+  decisionType: InitiativePlanningDecisionType;
+  assumptionIfUnanswered: string;
+  options?: string[];
+  optionHelp?: Record<string, string>;
+  recommendedOption?: string | null;
+}
+
+export interface InitiativeWorkflowStep {
+  status: InitiativePlanningStepStatus;
+  updatedAt: string | null;
+}
+
+export interface InitiativeRefinementState {
+  questions: InitiativePlanningQuestion[];
+  answers: Record<string, string | string[] | boolean>;
+  defaultAnswerQuestionIds: string[];
+  baseAssumptions: string[];
+  checkedAt: string | null;
+}
+
+export interface InitiativeWorkflow {
+  activeStep: InitiativePlanningStep;
+  steps: Record<InitiativePlanningStep, InitiativeWorkflowStep>;
+  refinements: Record<InitiativeArtifactStep, InitiativeRefinementState>;
+}
 
 export interface InitiativePhase {
   id: string;
@@ -16,6 +61,7 @@ export interface Initiative {
   phases: InitiativePhase[];
   specIds: string[];
   ticketIds: string[];
+  workflow: InitiativeWorkflow;
   mermaidDiagram?: string;
   createdAt: string;
   updatedAt: string;
@@ -96,7 +142,7 @@ export interface RunAttempt {
   createdAt: string;
 }
 
-export type SpecType = "brief" | "prd" | "tech-spec" | "decision";
+export type SpecType = InitiativeArtifactStep | "decision";
 
 export interface SpecDocument {
   id: string;
@@ -106,6 +152,61 @@ export interface SpecDocument {
   content: string;
   sourcePath: string;
   createdAt: string;
+  updatedAt: string;
+}
+
+export type PlanningReviewKind =
+  | "brief-review"
+  | "brief-core-flows-crosscheck"
+  | "core-flows-review"
+  | "core-flows-prd-crosscheck"
+  | "prd-review"
+  | "prd-tech-spec-crosscheck"
+  | "tech-spec-review"
+  | "spec-set-review";
+
+export type PlanningReviewStatus = "passed" | "blocked" | "overridden" | "stale";
+
+export type PlanningReviewFindingType =
+  | "blocker"
+  | "warning"
+  | "traceability-gap"
+  | "assumption"
+  | "recommended-fix";
+
+export interface PlanningReviewFinding {
+  id: string;
+  type: PlanningReviewFindingType;
+  message: string;
+  relatedArtifacts: InitiativeArtifactStep[];
+}
+
+export interface PlanningReviewArtifact {
+  id: string;
+  initiativeId: string;
+  kind: PlanningReviewKind;
+  status: PlanningReviewStatus;
+  summary: string;
+  findings: PlanningReviewFinding[];
+  sourceUpdatedAts: Partial<Record<InitiativeArtifactStep, string>>;
+  overrideReason: string | null;
+  reviewedAt: string;
+  updatedAt: string;
+}
+
+export interface ArtifactTraceOutlineSection {
+  key: string;
+  label: string;
+  items: string[];
+}
+
+export interface ArtifactTraceOutline {
+  id: string;
+  initiativeId: string;
+  step: InitiativeArtifactStep;
+  sections: ArtifactTraceOutlineSection[];
+  sourceUpdatedAt: string;
+  generatedAt: string;
   updatedAt: string;
 }
 

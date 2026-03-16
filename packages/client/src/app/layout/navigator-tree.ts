@@ -1,9 +1,10 @@
 import type { ArtifactsSnapshot, Initiative, Ticket, TicketStatus } from "../../types.js";
+import { getInitiativeDisplayTitle } from "../utils/initiative-titles.js";
 
 export type NavigatorNodeType =
+  | "section-header"
   | "initiative"
   | "phase"
-  | "spec"
   | "ticket"
   | "quick-tasks-header"
   | "quick-task"
@@ -19,12 +20,6 @@ export interface NavigatorNode {
   children?: NavigatorNode[];
 }
 
-const SPEC_TYPES = [
-  { type: "brief" as const, label: "Brief" },
-  { type: "prd" as const, label: "PRD" },
-  { type: "tech-spec" as const, label: "Tech Spec" }
-];
-
 const statusDotClass = (status: Initiative["status"]): string => {
   if (status === "active") return "active";
   if (status === "done") return "done";
@@ -32,33 +27,29 @@ const statusDotClass = (status: Initiative["status"]): string => {
 };
 
 export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[] => {
-  const { initiatives, tickets, specs } = snapshot;
+  const { initiatives, tickets } = snapshot;
   const nodes: NavigatorNode[] = [];
 
   // Aggregate view links
   nodes.push(
     { id: "agg-tickets", type: "aggregate-link", label: "All Tickets", path: "/tickets" },
     { id: "agg-runs", type: "aggregate-link", label: "All Runs", path: "/runs" },
-    { id: "agg-specs", type: "aggregate-link", label: "All Specs", path: "/specs" }
+    { id: "agg-specs", type: "aggregate-link", label: "Specs", path: "/specs" }
   );
+
+  if (initiatives.length > 0) {
+    nodes.push({
+      id: "initiatives-header",
+      type: "section-header",
+      label: "Initiatives",
+      path: "/"
+    });
+  }
 
   for (const initiative of initiatives) {
     const initiativeTickets = tickets.filter((t) => t.initiativeId === initiative.id);
 
     const children: NavigatorNode[] = [];
-
-    // Spec children (only types that have content)
-    for (const { type, label } of SPEC_TYPES) {
-      const exists = specs.some((s) => s.initiativeId === initiative.id && s.type === type);
-      if (exists) {
-        children.push({
-          id: `spec-${initiative.id}-${type}`,
-          type: "spec",
-          label,
-          path: `/initiative/${initiative.id}/spec/${type}`
-        });
-      }
-    }
 
     if (initiative.phases.length > 0) {
       // Group tickets by phase
@@ -92,7 +83,7 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
     nodes.push({
       id: `initiative-${initiative.id}`,
       type: "initiative",
-      label: initiative.title,
+      label: getInitiativeDisplayTitle(initiative.title, initiative.description),
       path: `/initiative/${initiative.id}`,
       status: statusDotClass(initiative.status),
       children

@@ -64,12 +64,12 @@ export const VerificationResultsSection = ({
 
   return (
     <WorkflowSection
-      title="Verification Results"
+      title="Verification"
       badge={verificationResult.overallPass ? "pass" : "fail"}
       defaultOpen
     >
       <p>
-        Overall: {verificationResult.overallPass ? "pass" : "fail"}
+        Overall: {verificationResult.overallPass ? "Passed" : "Needs work"}
         {attempts.length > 0 ? ` · Attempt ${attempts.length}` : ""}
       </p>
       <ul>
@@ -86,7 +86,7 @@ export const VerificationResultsSection = ({
         ))}
       </ul>
 
-      <h4>Primary drift flags</h4>
+      <h4>Primary drift</h4>
       <ul>
         {primaryDrift.length === 0
           ? <li style={{ color: "var(--muted)" }}>None</li>
@@ -101,7 +101,7 @@ export const VerificationResultsSection = ({
       </ul>
 
       <h4>
-        Widened-scope drift
+        Wider-scope drift
         <HelpTip text="Files in widened scope are checked for unintended changes but are not evaluated against acceptance criteria." />
       </h4>
       <ul>
@@ -112,16 +112,16 @@ export const VerificationResultsSection = ({
 
       {!verificationResult.overallPass ? (
         <div>
-          <h4>Fix-Forward</h4>
+          <h4>Fix and retry</h4>
           <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-            Re-export a bundle that includes failure context for your agent, then re-verify after the agent addresses the issues.
+            Create a follow-up bundle with the failed criteria, then run verification again after the fixes land.
           </p>
           <div className="button-row">
             <button
               type="button"
               onClick={() => void handleReExportWithFindings(verificationResult.criteriaResults)}
             >
-              Step 1: Re-export with Findings
+              Create follow-up bundle
             </button>
             <button
               type="button"
@@ -129,12 +129,12 @@ export const VerificationResultsSection = ({
               disabled={!fixForwardReady}
               onClick={() => void handleReVerify()}
             >
-              Step 2: Re-verify
+              Run verification again
             </button>
           </div>
           {!fixForwardReady && (
             <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginTop: "0.3rem" }}>
-              Re-verify is available after re-exporting with findings.
+              Run verification again after the follow-up bundle is ready.
             </p>
           )}
         </div>

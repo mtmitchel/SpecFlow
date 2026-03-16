@@ -133,6 +133,11 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                 value={apiKeyInput}
                 onChange={(event) => { setDirty(true); setApiKeyInput(event.target.value); }}
               />
+              <span className="settings-readonly-hint">
+                {form.hasApiKey
+                  ? "A saved key is already on file. Leave this blank to keep it, or paste a new key to replace it."
+                  : "Paste a key to enable model lookup and planner requests."}
+              </span>
             </label>
             <label>
               Host <span className="settings-readonly-hint">(configured in CLI)</span>

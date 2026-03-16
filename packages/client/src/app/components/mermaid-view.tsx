@@ -1,8 +1,5 @@
 import DOMPurify from "dompurify";
-import mermaid from "mermaid";
 import { useEffect, useId, useRef } from "react";
-
-mermaid.initialize({ startOnLoad: false, theme: "neutral" });
 
 export const MermaidView = ({ chart }: { chart: string }) => {
   const id = useId().replace(/:/g, "");
@@ -13,19 +10,30 @@ export const MermaidView = ({ chart }: { chart: string }) => {
       return;
     }
 
+    let cancelled = false;
     const elementId = `mermaid-${id}`;
-    mermaid
-      .render(elementId, chart)
-      .then(({ svg }) => {
-        if (containerRef.current) {
+
+    void import("mermaid")
+      .then(async ({ default: mermaid }) => {
+        if (cancelled) {
+          return;
+        }
+
+        mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+        const { svg } = await mermaid.render(elementId, chart);
+        if (containerRef.current && !cancelled) {
           containerRef.current.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
         }
       })
       .catch(() => {
-        if (containerRef.current) {
+        if (containerRef.current && !cancelled) {
           containerRef.current.textContent = chart;
         }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [chart, id]);
 
   return <div className="mermaid-view" ref={containerRef} />;

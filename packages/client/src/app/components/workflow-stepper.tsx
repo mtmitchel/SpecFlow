@@ -2,8 +2,8 @@ export type WorkflowPhase = "export" | "agent" | "verify" | "done";
 
 export const WorkflowStepper = ({ currentPhase }: { currentPhase: WorkflowPhase }) => {
   const steps = [
-    { key: "export", label: "Export" },
-    { key: "agent", label: "Agent Work" },
+    { key: "export", label: "Plan" },
+    { key: "agent", label: "Execute" },
     { key: "verify", label: "Verify" },
     { key: "done", label: "Done" }
   ];

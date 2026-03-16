@@ -8,6 +8,7 @@ interface SpecsListViewProps {
 
 const SPEC_TYPE_LABELS: Record<string, string> = {
   brief: "Brief",
+  "core-flows": "Core flows",
   prd: "PRD",
   "tech-spec": "Tech Spec",
   decision: "Decision"
@@ -43,7 +44,7 @@ export const SpecsListView = ({ snapshot }: SpecsListViewProps) => {
   return (
     <section>
       <header className="section-header">
-        <h2>All Specs</h2>
+        <h2>Specs</h2>
         {hasAnySpecs && (
           <p>
             {isFiltered
@@ -71,9 +72,9 @@ export const SpecsListView = ({ snapshot }: SpecsListViewProps) => {
 
       {filtered.length === 0 ? (
         <div className="aggregate-empty">
-          <p>{hasAnySpecs ? "No specs match the current filters" : "No specs yet"}</p>
+          <p>{hasAnySpecs ? "No specs match the current filters" : "No planning docs yet"}</p>
           {!hasAnySpecs && (
-            <p className="aggregate-empty-hint">Specs are generated when you plan an initiative</p>
+            <p className="aggregate-empty-hint">Create a brief, core flows, PRD, or tech spec from an initiative to populate this library.</p>
           )}
         </div>
       ) : (

@@ -2,9 +2,9 @@
 
 ## Summary
 
-SpecFlow is a local-first, board-first spec-driven development orchestrator for solo builders and small teams who use AI coding agents. It sits above agents like Claude Code, Codex CLI, and OpenCode -- turning raw intent into structured specs, ordered task breakdowns, and agent-ready handoff bundles, then verifying that the agent's output actually matches the plan.
+SpecFlow is a local-first, board-first spec-driven development orchestrator for solo builders and small teams who use AI coding agents. It sits above agents like Claude Code, Codex CLI, and OpenCode -- turning raw intent into structured planning artifacts, ordered task breakdowns, and agent-ready handoff bundles, then verifying that the agent's output actually matches the plan.
 
-The primary interface is a web board running on `localhost`. The CLI handles server control, bundle export, and verification. An internal LLM-powered Planner/Verifier drives spec generation, clarification, and outcome checking. All artifacts (specs, tickets, plans, decisions) live as Markdown/YAML files under a `specflow/` directory in the repo, making them git-friendly and human-readable without any cloud dependency.
+The primary interface is a web board running on `localhost`. The CLI handles server control, bundle export, and verification. An internal LLM-powered Planner/Verifier drives progressive artifact generation, targeted blocker questions, review gates, and outcome checking. All artifacts (specs, tickets, plans, decisions, review results) live as Markdown/YAML files under a `specflow/` directory in the repo, making them git-friendly and human-readable without any cloud dependency.
 
 ## Problem
 
@@ -22,12 +22,14 @@ The primary interface is a web board running on `localhost`. The CLI handles ser
 ## Goals
 
 - A working local web board where a user can go from a raw idea to a verified, agent-executed change without leaving the tool.
-- The end-to-end loop: intent -> specs/tickets -> export bundle -> (manual agent run) -> capture results -> verify -> visible in board.
+- The end-to-end loop: intent -> Brief -> Core flows -> PRD -> Tech spec -> review gates -> tickets -> export bundle -> (manual agent run) -> capture results -> verify -> visible in board.
+- Groundwork should catch meaningful planning gaps before ticket generation, not after implementation has started.
 - Local-only, file-based, dependency-light -- works in any repo without accounts or infrastructure.
 
 ## Success Criteria
 
 - A user can complete all four workflows end-to-end: Groundwork, Milestone Run, Quick Build, and Drift Audit.
+- Groundwork produces a coherent Brief, Core flows, PRD, and Tech spec set, and surfaces review blockers before tickets are created.
 - Verification outputs are consistent and auditable: acceptance-criteria pass/fail is explicit with severity and remediation hints, drift flags are visible, manual override-to-Done uses a two-step confirmation (reason + explicit risk acceptance), and actions are persisted in run history.
 - Verification works with git diff when available, and also works without git via user-selected folder/file snapshot scope.
 - First-run setup is low-friction: users can initialize a repo and reach a usable board quickly, with clear next actions and no hidden setup blockers.

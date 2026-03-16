@@ -34,6 +34,7 @@ interface TreeItemProps {
   depth: number;
   isExpanded: boolean;
   isActive: boolean;
+  activeNodeId: string | null;
   onToggle: (id: string) => void;
   onNavigate: (path: string) => void;
   focusedId: string | null;
@@ -48,6 +49,7 @@ const TreeItem = ({
   depth,
   isExpanded,
   isActive,
+  activeNodeId,
   onToggle,
   onNavigate,
   focusedId,
@@ -76,9 +78,10 @@ const TreeItem = ({
     { isExpanded, hasChildren: !!hasChildren, children: node.children, path: node.path }
   );
 
-  const isHeader = node.type === "quick-tasks-header";
+  const isHeader = node.type === "quick-tasks-header" || node.type === "section-header";
   const isAggregateLink = node.type === "aggregate-link";
   const indentPx = depth * 14;
+  const isClickable = !isHeader;
 
   return (
     <>
@@ -93,7 +96,9 @@ const TreeItem = ({
         onClick={() => {
           setFocusedId(node.id);
           if (hasChildren) onToggle(node.id);
-          onNavigate(node.path);
+          if (isClickable) {
+            onNavigate(node.path);
+          }
         }}
         onKeyDown={handleKeyDown}
       >
@@ -119,7 +124,8 @@ const TreeItem = ({
                 node={child}
                 depth={depth + 1}
                 isExpanded={childExpanded}
-                isActive={false}
+                isActive={activeNodeId === child.id}
+                activeNodeId={activeNodeId}
                 onToggle={onToggle}
                 onNavigate={onNavigate}
                 focusedId={focusedId}
@@ -224,6 +230,7 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
         depth={0}
         isExpanded={expanded}
         isActive={isActive}
+        activeNodeId={activeNodeId}
         onToggle={handleToggle}
         onNavigate={handleNavigate}
         focusedId={focusedId}

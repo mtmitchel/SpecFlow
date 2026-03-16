@@ -2,8 +2,16 @@ export { fetchArtifacts } from "./api/artifacts";
 
 export {
   createInitiative,
+  checkInitiativePhase,
   generateInitiativePlan,
-  generateInitiativeSpecs,
+  generateInitiativeBrief,
+  generateInitiativeCoreFlows,
+  generateInitiativePrd,
+  generateInitiativeTechSpec,
+  overrideInitiativeReview,
+  requestInitiativeClarificationHelp,
+  runInitiativeReview,
+  saveInitiativeRefinement,
   saveInitiativeSpecs,
   updateInitiativePhases
 } from "./api/initiatives";

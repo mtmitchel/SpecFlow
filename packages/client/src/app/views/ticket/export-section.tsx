@@ -30,13 +30,13 @@ export const ExportSection = ({
   handleCopyBundle
 }: ExportSectionProps) => (
   <WorkflowSection
-    title="Export Bundle"
-    badge={exportResult ? "exported" : undefined}
+    title="Start execution"
+    badge={exportResult ? "ready" : undefined}
     defaultOpen={workflowPhase === "export"}
   >
     <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-      Export this as a prompt for your coding agent. Run the agent yourself, then return here to verify.
-      <HelpTip text="Generates a prompt file containing your ticket's requirements and codebase context. Hand this to your AI coding agent." />
+      Create a bundle for your coding agent. Run the agent, then return here to review and verify the work.
+      <HelpTip text="Creates a prompt bundle with the ticket plan and codebase context for your coding agent." />
     </p>
     <div className="button-row">
       <select value={agentTarget} onChange={(event) => setAgentTarget(event.target.value as AgentTarget)}>
@@ -50,7 +50,7 @@ export const ExportSection = ({
         className="btn-primary"
         onClick={() => void handleExport()}
       >
-        Export Bundle
+        Create bundle
       </button>
       {exportResult ? (
         <button
@@ -58,12 +58,12 @@ export const ExportSection = ({
           className={copyFeedback ? "btn-copied" : ""}
           onClick={handleCopyBundle}
         >
-          {copyFeedback ? "Copied" : "Copy"}
+          {copyFeedback ? "Copied" : "Copy bundle"}
         </button>
       ) : null}
       {downloadUrl ? (
         <a href={downloadUrl} download={`${ticket.id}-bundle-flat.md`} className="inline-action">
-          Download Flat Bundle
+          Download flat bundle
         </a>
       ) : null}
       {exportResult ? (
@@ -71,7 +71,7 @@ export const ExportSection = ({
           href={`/api/runs/${exportResult.runId}/attempts/${exportResult.attemptId}/bundle.zip`}
           className="inline-action"
         >
-          Download Bundle Zip
+          Download ZIP bundle
         </a>
       ) : null}
     </div>

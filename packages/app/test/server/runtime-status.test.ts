@@ -26,6 +26,14 @@ describe("server runtime routes", () => {
       const artifactsResponse = await fixture.server.app.inject({ method: "GET", url: "/api/artifacts" });
       expect(artifactsResponse.statusCode).toBe(200);
       expect(artifactsResponse.json().runs).toHaveLength(1);
+      expect(artifactsResponse.json().config).toMatchObject({
+        provider: "openrouter",
+        model: "openrouter/auto",
+        host: "127.0.0.1",
+        port: 3141,
+        repoInstructionFile: "specflow/AGENTS.md",
+        hasApiKey: false
+      });
 
       const runStateResponse = await fixture.server.app.inject({ method: "GET", url: "/api/runs/run-aabb1122/state" });
       expect(runStateResponse.statusCode).toBe(200);

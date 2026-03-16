@@ -3,11 +3,23 @@ import { PROTOCOL_VERSION, SERVER_VERSION, runtimeCapabilities } from "../runtim
 import type { ArtifactStore } from "../../store/artifact-store.js";
 import type { Config } from "../../types/entities.js";
 
-const redactConfig = (config: Config | null): (Omit<Config, "apiKey"> & { hasApiKey: boolean }) | null => {
-  if (!config) {
-    return null;
+const getRuntimeConfig = (config: Config | null): Config => {
+  if (config) {
+    return config;
   }
-  const { apiKey, ...rest } = config;
+
+  return {
+    provider: "openrouter",
+    model: "openrouter/auto",
+    apiKey: "",
+    port: 3141,
+    host: "127.0.0.1",
+    repoInstructionFile: "specflow/AGENTS.md"
+  };
+};
+
+const redactConfig = (config: Config | null): (Omit<Config, "apiKey"> & { hasApiKey: boolean }) | null => {
+  const { apiKey, ...rest } = getRuntimeConfig(config);
   return { ...rest, hasApiKey: Boolean(apiKey) };
 };
 
@@ -33,7 +45,8 @@ export const registerRuntimeRoutes = (app: FastifyInstance, options: RegisterRun
       tickets: Array.from(store.tickets.values()),
       runs: Array.from(store.runs.values()),
       runAttempts: Array.from(store.runAttempts.entries()).map(([id, value]) => ({ id, ...value })),
-      specs: Array.from(store.specs.values())
+      specs: Array.from(store.specs.values()),
+      planningReviews: Array.from(store.planningReviews.values())
     });
   });
 };

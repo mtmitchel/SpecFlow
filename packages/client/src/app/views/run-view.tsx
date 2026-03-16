@@ -50,6 +50,33 @@ export const RunView = () => {
     };
   }, [params.id]);
 
+  useEffect(() => {
+    if (!params.id || !detail || detail.run.status !== "pending") {
+      return;
+    }
+
+    let cancelled = false;
+    const interval = window.setInterval(() => {
+      void fetchRunDetail(params.id!)
+        .then((payload) => {
+          if (!cancelled) {
+            setDetail(payload);
+            setError(null);
+          }
+        })
+        .catch((loadError) => {
+          if (!cancelled) {
+            setError((loadError as Error).message);
+          }
+        });
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [detail, params.id]);
+
   if (loading) {
     return (
       <section>
@@ -87,12 +114,12 @@ export const RunView = () => {
       detail.operationState === "superseded" ||
       detail.operationState === "failed" ? (
         <div className="status-banner warn">
-          Operation {detail.operationState}. Retry from{" "}
+          This run ended {detail.operationState}. Start a new run from{" "}
           {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>ticket actions</Link> : "the linked ticket"}.
           {detail.ticket ? (
             <span>
               {" "}
-              <Link to={`/ticket/${detail.ticket.id}`}>Retry Now</Link>
+              <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link>
             </span>
           ) : null}
         </div>
@@ -101,34 +128,34 @@ export const RunView = () => {
       <div className="panel">
         <div className="button-row">
           <strong>Verification:</strong>{" "}
-          {verificationPass === null ? "not captured" : verificationPass ? "pass" : "fail"}
-          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open Ticket Verification Panel</Link> : null}
+          {verificationPass === null ? "Not run yet" : verificationPass ? "Passed" : "Failed"}
+          {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link> : null}
           <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-            {showAuditPanel ? "Hide Audit" : "Run Audit"}
+            {showAuditPanel ? "Hide drift review" : "Review drift"}
           </button>
         </div>
 
         {showAuditPanel ? <AuditPanel runId={detail.run.id} defaultScopePaths={detail.ticket?.fileTargets ?? []} /> : null}
 
-        <h3>Context Bundle Contents</h3>
+        <h3>Included files</h3>
         <ul>
-          {bundleFiles.length === 0 ? <li>No bundle manifest on committed attempt.</li> : bundleFiles.map((entry) => <li key={entry}>{entry}</li>)}
+          {bundleFiles.length === 0 ? <li>No bundled files were recorded for the committed attempt.</li> : bundleFiles.map((entry) => <li key={entry}>{entry}</li>)}
         </ul>
 
-        <h3>Agent Summary</h3>
+        <h3>Run summary</h3>
         <MarkdownView content={detail.committed?.attempt?.agentSummary || "(no summary provided)"} />
 
-        {detail.committed?.primaryDiff ? <DiffViewer title="Primary Diff" diff={detail.committed.primaryDiff} /> : <p>No primary diff captured.</p>}
+        {detail.committed?.primaryDiff ? <DiffViewer title="Changes" diff={detail.committed.primaryDiff} /> : <p>No captured changes for this run.</p>}
 
         {detail.committed?.driftDiff ? (
           <div className="panel">
             <div className="button-row">
-              <strong>Drift Diff Warning</strong>
+              <strong>Out-of-scope changes</strong>
               <button type="button" onClick={() => setShowDrift((current) => !current)}>
-                {showDrift ? "Hide drift diff" : "Show drift diff"}
+                {showDrift ? "Hide diff" : "Show diff"}
               </button>
             </div>
-            {showDrift ? <DiffViewer title="Drift Diff" diff={detail.committed.driftDiff} /> : null}
+            {showDrift ? <DiffViewer title="Drift diff" diff={detail.committed.driftDiff} /> : null}
           </div>
         ) : null}
 

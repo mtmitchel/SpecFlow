@@ -5,12 +5,16 @@ import {
   configPath,
   decisionsDir,
   initiativeDir,
+  initiativeReviewPath,
+  initiativeTracePath,
   initiativeYamlPath,
   operationManifestPath,
+  runDir,
   runYamlPath,
   ticketPath,
   verificationPath
 } from "../io/paths.js";
+import { normalizeInitiativeWorkflow } from "../planner/workflow-state.js";
 import { readYamlFile, writeYamlFile } from "../io/yaml.js";
 import { pruneExpiredTempOperations as pruneExpiredTempOperationsInternal } from "./internal/cleanup.js";
 import { loadDecisions, loadInitiatives, loadRuns, loadTickets } from "./internal/loaders.js";
@@ -30,10 +34,12 @@ import { type SpecflowWatcher, createSpecflowWatcher } from "./internal/watcher.
 import { NotFoundError, RetryableConflictError } from "./errors.js";
 import type { PreparedOperationArtifacts } from "./types.js";
 import type {
+  ArtifactTraceOutline,
   Config,
   Initiative,
   OperationManifest,
   OperationState,
+  PlanningReviewArtifact,
   Run,
   RunAttempt,
   SpecDocument,
@@ -78,6 +84,8 @@ export class ArtifactStore {
   public readonly runs = new Map<string, Run>();
   public readonly runAttempts = new Map<string, RunAttempt>();
   public readonly specs = new Map<string, SpecDocument>();
+  public readonly planningReviews = new Map<string, PlanningReviewArtifact>();
+  public readonly artifactTraces = new Map<string, ArtifactTraceOutline>();
 
   private readonly rootDir: string;
   private readonly cleanupTtlMs: number;
@@ -143,11 +151,15 @@ export class ArtifactStore {
     const nextRuns = new Map<string, Run>();
     const nextRunAttempts = new Map<string, RunAttempt>();
     const nextSpecs = new Map<string, SpecDocument>();
+    const nextPlanningReviews = new Map<string, PlanningReviewArtifact>();
+    const nextArtifactTraces = new Map<string, ArtifactTraceOutline>();
 
     await Promise.all([
       loadInitiatives({
         rootDir: this.rootDir,
         initiatives: nextInitiatives,
+        planningReviews: nextPlanningReviews,
+        artifactTraces: nextArtifactTraces,
         specs: nextSpecs
       }),
       loadTickets({
@@ -166,6 +178,18 @@ export class ArtifactStore {
       })
     ]);
 
+    for (const [initiativeId, initiative] of nextInitiatives) {
+      const relatedSpecs = Array.from(nextSpecs.values()).filter((spec) => spec.initiativeId === initiativeId);
+      const relatedTickets = Array.from(nextTickets.values()).filter((ticket) => ticket.initiativeId === initiativeId);
+      nextInitiatives.set(initiativeId, this.normalizeInitiative(initiative, {
+        hasBrief: relatedSpecs.some((spec) => spec.type === "brief" && spec.content.trim().length > 0),
+        hasCoreFlows: relatedSpecs.some((spec) => spec.type === "core-flows" && spec.content.trim().length > 0),
+        hasPrd: relatedSpecs.some((spec) => spec.type === "prd" && spec.content.trim().length > 0),
+        hasTechSpec: relatedSpecs.some((spec) => spec.type === "tech-spec" && spec.content.trim().length > 0),
+        hasTickets: relatedTickets.length > 0 || initiative.ticketIds.length > 0 || initiative.phases.length > 0
+      }));
+    }
+
     this.config = nextConfig;
 
     this.initiatives.clear();
@@ -183,6 +207,12 @@ export class ArtifactStore {
     this.specs.clear();
     for (const [k, v] of nextSpecs) this.specs.set(k, v);
 
+    this.planningReviews.clear();
+    for (const [k, v] of nextPlanningReviews) this.planningReviews.set(k, v);
+
+    this.artifactTraces.clear();
+    for (const [k, v] of nextArtifactTraces) this.artifactTraces.set(k, v);
+
     this.rebuildOperationIndex();
   }
 
@@ -193,16 +223,47 @@ export class ArtifactStore {
 
   public async upsertInitiative(
     initiative: Initiative,
-    docs: { brief?: string; prd?: string; techSpec?: string } = {}
+    docs: { brief?: string; coreFlows?: string; prd?: string; techSpec?: string } = {}
   ): Promise<void> {
-    const dir = initiativeDir(this.rootDir, initiative.id);
-    await mkdir(dir, { recursive: true });
-    await writeYamlFile(initiativeYamlPath(this.rootDir, initiative.id), initiative);
+    const normalized = this.normalizeInitiative(initiative, {
+      hasBrief:
+        docs.brief !== undefined
+          ? docs.brief.trim().length > 0
+          : (this.specs.get(`${initiative.id}:brief`)?.content ?? "").trim().length > 0,
+      hasCoreFlows:
+        docs.coreFlows !== undefined
+          ? docs.coreFlows.trim().length > 0
+          : (this.specs.get(`${initiative.id}:core-flows`)?.content ?? "").trim().length > 0,
+      hasPrd:
+        docs.prd !== undefined
+          ? docs.prd.trim().length > 0
+          : (this.specs.get(`${initiative.id}:prd`)?.content ?? "").trim().length > 0,
+      hasTechSpec:
+        docs.techSpec !== undefined
+          ? docs.techSpec.trim().length > 0
+          : (this.specs.get(`${initiative.id}:tech-spec`)?.content ?? "").trim().length > 0,
+      hasTickets:
+        initiative.ticketIds.length > 0 ||
+        initiative.phases.length > 0 ||
+        Array.from(this.tickets.values()).some((ticket) => ticket.initiativeId === initiative.id)
+    });
 
-    const hasDocChanges = docs.brief !== undefined || docs.prd !== undefined || docs.techSpec !== undefined;
+    const dir = initiativeDir(this.rootDir, normalized.id);
+    await mkdir(dir, { recursive: true });
+    await writeYamlFile(initiativeYamlPath(this.rootDir, normalized.id), normalized);
+
+    const hasDocChanges =
+      docs.brief !== undefined ||
+      docs.coreFlows !== undefined ||
+      docs.prd !== undefined ||
+      docs.techSpec !== undefined;
 
     if (docs.brief !== undefined) {
       await writeFileAtomic(path.join(dir, "brief.md"), docs.brief);
+    }
+
+    if (docs.coreFlows !== undefined) {
+      await writeFileAtomic(path.join(dir, "core-flows.md"), docs.coreFlows);
     }
 
     if (docs.prd !== undefined) {
@@ -216,18 +277,36 @@ export class ArtifactStore {
     if (hasDocChanges) {
       await this.reloadFromDisk();
     } else {
-      this.initiatives.set(initiative.id, initiative);
+      this.initiatives.set(normalized.id, normalized);
     }
   }
 
   public async deleteInitiative(id: string): Promise<void> {
     const dir = initiativeDir(this.rootDir, id);
     const { rm } = await import("node:fs/promises");
+    const relatedTickets = Array.from(this.tickets.values()).filter((ticket) => ticket.initiativeId === id);
+    const relatedTicketIds = new Set(relatedTickets.map((ticket) => ticket.id));
+    const relatedRuns = Array.from(this.runs.values()).filter((run) => run.ticketId && relatedTicketIds.has(run.ticketId));
+
+    for (const run of relatedRuns) {
+      await this.deleteRun(run.id);
+    }
+
+    for (const ticket of relatedTickets) {
+      await this.deleteTicket(ticket.id);
+    }
+
     await rm(dir, { recursive: true, force: true });
     this.initiatives.delete(id);
     // Remove associated specs from memory
     for (const [key, spec] of this.specs) {
       if (spec.initiativeId === id) this.specs.delete(key);
+    }
+    for (const [key, review] of this.planningReviews) {
+      if (review.initiativeId === id) this.planningReviews.delete(key);
+    }
+    for (const [key, trace] of this.artifactTraces) {
+      if (trace.initiativeId === id) this.artifactTraces.delete(key);
     }
   }
 
@@ -236,9 +315,42 @@ export class ArtifactStore {
     this.tickets.set(ticket.id, ticket);
   }
 
+  public async deleteTicket(id: string): Promise<void> {
+    const { rm } = await import("node:fs/promises");
+    await rm(ticketPath(this.rootDir, id), { force: true });
+    this.tickets.delete(id);
+  }
+
+  public async deleteRun(id: string): Promise<void> {
+    const { rm } = await import("node:fs/promises");
+    await rm(runDir(this.rootDir, id), { recursive: true, force: true });
+    this.runs.delete(id);
+    for (const key of Array.from(this.runAttempts.keys())) {
+      if (key.startsWith(`${id}:`)) {
+        this.runAttempts.delete(key);
+      }
+    }
+  }
+
   public async upsertRun(run: Run): Promise<void> {
     await writeYamlFile(runYamlPath(this.rootDir, run.id), run);
     this.runs.set(run.id, run);
+  }
+
+  private normalizeInitiative(
+    initiative: Initiative,
+    inferredCompletion: {
+      hasBrief: boolean;
+      hasCoreFlows: boolean;
+      hasPrd: boolean;
+      hasTechSpec: boolean;
+      hasTickets: boolean;
+    }
+  ): Initiative {
+    return {
+      ...initiative,
+      workflow: normalizeInitiativeWorkflow(initiative.workflow, inferredCompletion)
+    };
   }
 
   public async upsertRunAttempt(runId: string, attempt: RunAttempt): Promise<void> {
@@ -263,6 +375,18 @@ export class ArtifactStore {
     }
 
     await this.reloadFromDisk();
+  }
+
+  public async upsertPlanningReview(review: PlanningReviewArtifact): Promise<void> {
+    const filePath = initiativeReviewPath(this.rootDir, review.initiativeId, review.kind);
+    await writeYamlFile(filePath, review);
+    this.planningReviews.set(review.id, review);
+  }
+
+  public async upsertArtifactTrace(trace: ArtifactTraceOutline): Promise<void> {
+    const filePath = initiativeTracePath(this.rootDir, trace.initiativeId, trace.step);
+    await writeYamlFile(filePath, trace);
+    this.artifactTraces.set(trace.id, trace);
   }
 
   public async prepareRunOperation(input: PrepareOperationInput): Promise<OperationManifest> {

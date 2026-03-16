@@ -9,7 +9,7 @@ Two packages sharing a single npm workspace root:
 | `packages/app` | Fastify server, CLI entry points, all core services | Node.js |
 | `packages/client` | React + Vite SPA | Browser |
 
-The server builds the client SPA and serves it as static files. There is no separate deployment step -- `specflow ui` starts one process that serves everything. Shared TypeScript types (entity schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
+In production mode, the server builds the client SPA and serves it as static files. There is no separate deployment step -- `specflow ui` starts one process that serves everything. In development mode, `npm run dev` starts a watched app server on `127.0.0.1:3142` and a Vite client on `127.0.0.1:5173`; the Vite client proxies `/api` requests to the watched backend. Shared TypeScript types (entity schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
 
 ---
 
@@ -88,10 +88,25 @@ specflow/
   AGENTS.md                          # repo instruction file (conventions)
   initiatives/
     <id>/
-      initiative.yaml                # metadata, status, phase list, mermaidDiagram
+      initiative.yaml                # metadata, workflow state, phase list, mermaidDiagram
       brief.md
+      core-flows.md
       prd.md
       tech-spec.md
+      reviews/
+        brief-review.yaml
+        brief-core-flows-crosscheck.yaml
+        core-flows-review.yaml
+        core-flows-prd-crosscheck.yaml
+        prd-review.yaml
+        prd-tech-spec-crosscheck.yaml
+        tech-spec-review.yaml
+        spec-set-review.yaml
+      traces/
+        brief.yaml
+        core-flows.yaml
+        prd.yaml
+        tech-spec.yaml
   tickets/
     <id>.yaml                        # all ticket fields including blockedBy/blocks
   runs/
@@ -132,7 +147,32 @@ phases:
     status: active | complete
 specIds: string[]
 ticketIds: string[]
-mermaidDiagram: string | null  # Mermaid graph LR diagram of phase dependencies
+workflow:
+  activeStep: brief | core-flows | prd | tech-spec | tickets
+  steps:
+    brief:
+      status: locked | ready | complete | stale
+      updatedAt: ISO8601 | null
+    core-flows:
+      status: locked | ready | complete | stale
+      updatedAt: ISO8601 | null
+    prd:
+      status: locked | ready | complete | stale
+      updatedAt: ISO8601 | null
+    tech-spec:
+      status: locked | ready | complete | stale
+      updatedAt: ISO8601 | null
+    tickets:
+      status: locked | ready | complete | stale
+      updatedAt: ISO8601 | null
+  refinements:
+    brief | core-flows | prd | tech-spec:
+      questions: PlannerQuestion[]
+      answers: Record<string, string | string[] | boolean>
+      defaultAnswerQuestionIds: string[]
+      baseAssumptions: string[]
+      checkedAt: ISO8601 | null
+mermaidDiagram: string | null  # Optional Mermaid dependency view; textual plan is canonical
 createdAt: ISO8601
 updatedAt: ISO8601
 ```
@@ -154,6 +194,42 @@ blockedBy: string[]          # ticket IDs that must be done before this one star
 blocks: string[]             # ticket IDs that this one blocks
 runId: string | null         # current active run
 createdAt: ISO8601
+updatedAt: ISO8601
+```
+
+**PlanningReviewArtifact**
+```yaml
+id: string                    # initiativeId:kind
+initiativeId: string
+kind: brief-review | brief-core-flows-crosscheck | core-flows-review | core-flows-prd-crosscheck | prd-review | prd-tech-spec-crosscheck | tech-spec-review | spec-set-review
+status: passed | blocked | overridden | stale
+summary: string
+findings:
+  - id: string
+    type: blocker | warning | traceability-gap | assumption | recommended-fix
+    message: string
+    relatedArtifacts: [brief | core-flows | prd | tech-spec]
+sourceUpdatedAts:
+  brief?: ISO8601
+  core-flows?: ISO8601
+  prd?: ISO8601
+  tech-spec?: ISO8601
+overrideReason: string | null
+reviewedAt: ISO8601
+updatedAt: ISO8601
+```
+
+**ArtifactTraceOutline**
+```yaml
+id: string                    # initiativeId:step
+initiativeId: string
+step: brief | core-flows | prd | tech-spec
+sections:
+  - key: string
+    label: string
+    items: string[]
+sourceUpdatedAt: ISO8601
+generatedAt: ISO8601
 updatedAt: ISO8601
 ```
 
@@ -257,6 +333,8 @@ updatedAt: ISO8601
 graph TD
     Initiative --> Phase
     Initiative --> Spec
+    Initiative --> PlanningReview
+    Initiative --> TraceOutline
     Initiative --> Ticket
     Phase --> Ticket
     Ticket --> Ticket2[Ticket blockedBy/blocks]
@@ -264,6 +342,8 @@ graph TD
     Run --> RunAttempt
     RunAttempt --> VerificationResult
     RunAttempt --> AuditFinding
+    Spec --> TraceOutline
+    PlanningReview --> TraceOutline
     Config --> LLMClient
 ```
 
@@ -316,7 +396,7 @@ graph TD
 | **API Routes** | REST endpoints for all CRUD + action operations; streams SSE for LLM jobs |
 | **Artifact Store** | Typed in-memory maps; staged commit orchestrator; delegates artifact writing to `artifact-writer.ts`, spec filename mapping to `spec-utils.ts`, and chokidar file watching with debounced reload to `watcher.ts` |
 | **Artifact IO** | Reads/writes YAML + Markdown; enforces `specflow/` directory layout; atomic writes via temp-rename |
-| **Planner Service** | Assembles prompts per job type (clarify, spec-gen, plan, triage); injects repo context from Repo Scanner; parses structured LLM responses |
+| **Planner Service** | Assembles prompts per job type (phase-check, artifact generation, review, trace outline, plan, triage); injects repo context from Repo Scanner; parses structured LLM responses; persists review and trace artifacts |
 | **Repo Scanner** | Runs `git ls-files` + reads key config files; produces a condensed file tree for plan prompt grounding |
 | **Verifier Service** | Assembles primary diff + drift diff + criteria + AGENTS.md; parses per-criterion results including severity and remediation hints |
 | **Diff Engine** | Git diff via `simple-git`; file snapshot diff via `diff` library; snapshot capture at export time |
@@ -330,12 +410,26 @@ graph TD
 | `GET` | `/api/runtime/status` | Server health + capability probe (used by CLI for prefer-server delegation) |
 | `GET` | `/api/operations/:id` | Operation state probe for idempotent retry after timeout |
 | `GET` | `/api/artifacts` | Full in-memory state dump for initial board load |
-| `GET` | `/api/providers` | List available LLM providers and models |
+| `PUT` | `/api/config` | Save provider/model/API key settings (responses redact raw API keys) |
+| `GET` | `/api/providers/:provider/models` | List models for one configured provider |
+| `GET` | `/api/initiatives` | List initiatives |
 | `POST` | `/api/initiatives` | Create initiative |
+| `DELETE` | `/api/initiatives/:id` | Delete initiative and related planning artifacts |
 | `PATCH` | `/api/initiatives/:id` | Update initiative metadata |
-| `POST` | `/api/initiatives/:id/generate-specs` | Generate Brief/PRD/Tech Spec |
+| `PATCH` | `/api/initiatives/:id/refinement/:step` | Autosave blocker-question answers/default assumptions for a planning step |
+| `POST` | `/api/initiatives/:id/refinement/help` | Return focused guidance for one blocker question |
+| `POST` | `/api/initiatives/:id/brief-check` | Decide whether Brief can be created now or needs blocker questions |
+| `POST` | `/api/initiatives/:id/core-flows-check` | Decide whether Core flows can be created now or needs blocker questions |
+| `POST` | `/api/initiatives/:id/prd-check` | Decide whether PRD can be created now or needs blocker questions |
+| `POST` | `/api/initiatives/:id/tech-spec-check` | Decide whether Tech spec can be created now or needs blocker questions |
+| `POST` | `/api/initiatives/:id/generate-brief` | Generate Brief + auto-run required review gates |
+| `POST` | `/api/initiatives/:id/generate-core-flows` | Generate Core flows + auto-run required review gates |
+| `POST` | `/api/initiatives/:id/generate-prd` | Generate PRD + auto-run required review gates |
+| `POST` | `/api/initiatives/:id/generate-tech-spec` | Generate Tech spec + auto-run required review gates |
+| `PUT` | `/api/initiatives/:id/specs/:type` | Save artifact markdown (`brief`, `core-flows`, `prd`, `tech-spec`) |
+| `POST` | `/api/initiatives/:id/reviews/:kind/run` | Run or rerun a planning review/cross-check |
+| `POST` | `/api/initiatives/:id/reviews/:kind/override` | Override a blocked review with a required reason |
 | `POST` | `/api/initiatives/:id/generate-plan` | Generate phase + ticket breakdown with repo context |
-| `GET` | `/api/planner/stream` | SSE stream for Planner LLM output |
 | `GET` | `/api/tickets` | List all tickets |
 | `POST` | `/api/tickets` | Create ticket via triage (Quick Build or Groundwork) |
 | `PATCH` | `/api/tickets/:id` | Update ticket status, title, or description |
@@ -369,18 +463,18 @@ graph TD
     WorkspaceShell --> DetailWorkspace[Detail Workspace - route switch]
     WorkspaceShell --> StatusBar[Status Bar - initiative progress]
 
-    Navigator --> NavTree[initiatives > specs/phases > tickets]
+    Navigator --> NavTree[aggregate links > initiatives > phases > tickets > quick tasks]
 
     CommandPalette --> QuickTask[Quick Task inline flow]
     CommandPalette --> GitHubImport[GitHub Import inline flow]
     CommandPalette --> NewInitiative[Navigate to /new-initiative]
     CommandPalette --> FuzzySearch[Fuzzy search: initiatives / tickets / runs]
 
-    DetailWorkspace --> InitiativeView[Initiative View - tabs: Brief / PRD / Tech Spec / Diagram]
-    DetailWorkspace --> SpecView[Spec View - /initiative/:id/spec/:type]
-    DetailWorkspace --> TicketView[Ticket View - status dropdown + export + capture + verify]
-    DetailWorkspace --> RunView[Run View - diff viewer + verification]
-    DetailWorkspace --> InitiativeCreator[Initiative Creator - multi-step flow at /new-initiative]
+    DetailWorkspace --> InitiativeView[Initiative View - Brief / Core flows / PRD / Tech spec / Tickets + review gates]
+    DetailWorkspace --> SpecView[Spec View - legacy /initiative/:id/spec/:type redirect surface]
+    DetailWorkspace --> TicketView[Ticket View - Plan / Execute / Verify / Done]
+    DetailWorkspace --> RunView[Run View - summary + changes + verification + history]
+    DetailWorkspace --> InitiativeCreator[Initiative Creator - describe idea, create draft initiative, hand off to workflow]
     DetailWorkspace --> OverviewPanel[Overview Panel - empty state with Cmd+K hint]
 
     TicketView --> BlockersBanner[Blockers Banner]
@@ -399,17 +493,17 @@ graph TD
 | Component | Responsibility |
 |---|---|
 | **WorkspaceShell** | Two-column grid (`280px 1fr`); slots: navigator, detail workspace, status bar, command palette |
-| **Navigator** | WAI-ARIA TreeView sidebar; hierarchy: initiatives > specs/phases > tickets + Quick Tasks; filter input; keyboard navigation via `useTreeNavigation` hook; auto-expands to reveal active route |
+| **Navigator** | WAI-ARIA TreeView sidebar; hierarchy: aggregate views + initiatives > phases > tickets + Quick Tasks; filter input; keyboard navigation via `useTreeNavigation` hook; auto-expands to reveal active route and highlights nested active items |
 | **CommandPalette** | Cmd+K modal overlay; delegates to mode sub-components (`PaletteSearchMode`, `PaletteQuickTaskMode`, `PaletteGithubImportMode`); parent owns mode state and overlay |
 | **StatusBar** | Bottom bar showing per-initiative progress: done count, blocked count, in-verify count |
 | **SettingsModal** | Overlay triggered by `pathname === "/settings"`; provider/API-key form; delegates model picker to `ModelCombobox` component; `navigate(-1)` to close |
-| **DetailWorkspace** | React Router `<Routes>` switch for `/initiative/:id`, `/initiative/:id/spec/:type`, `/ticket/:id`, `/run/:id`, `/new-initiative`; backward-compat redirects from old plural paths |
+| **DetailWorkspace** | React Router `<Routes>` switch for `/initiative/:id`, `/initiative/:id/spec/:type`, `/ticket/:id`, `/run/:id`, `/new-initiative`, aggregate list routes, and backward-compat redirects from old plural paths |
 | **OverviewPanel** | Welcome/empty state; initiative + ticket counts; Cmd+K hint |
-| **InitiativeView** | Initiative metadata, tabs (Brief/PRD/Tech Spec/Diagram), phase + ticket list, inline spec editing, plan generation |
-| **SpecView** | Single spec document at `/initiative/:id/spec/:type`; inline Markdown editing and save; unsaved changes warning via `useDirtyForm` hook |
+| **InitiativeView** | Canonical planning workspace: step tabs (Brief/Core flows/PRD/Tech spec/Tickets), blocker-question panels, autosaved artifact editing, review cards, next-step handoff, and optional dependency diagram toggle |
+| **SpecView** | Legacy single-artifact route that redirects back into the initiative workflow step |
 | **TicketView** | Full ticket detail; status dropdown using `canTransition()`; state decomposed into hooks (`useVerificationStream`, `useCapturePreview`, `useExportWorkflow`) and sub-components (`ExportSection`, `CaptureVerifySection`, `VerificationResultsSection`, `OverridePanel`); blockers banner |
-| **InitiativeCreator** | Multi-step flow at `/new-initiative`: describe → analyze → answer questions → generate specs → navigate to initiative |
-| **RunView** | Run detail with diff viewer, verification panel, and contextual audit panel |
+| **InitiativeCreator** | Single-screen draft-initiative creation flow at `/new-initiative`; sends the user directly into the planning workspace |
+| **RunView** | Run detail with summary, diff viewer, verification state, history, and contextual audit panel |
 | **Root Error Boundary** | Catches rendering crashes; presents a recovery UI instead of a blank screen |
 | **Toast Context** | Surfaces API errors (rate limits, conflicts, auth failures) that would otherwise be silent |
 | **SSE Client** | Maintains SSE connections; on disconnect performs snapshot refresh via REST and resumes from latest persisted state |
@@ -419,7 +513,7 @@ graph TD
 | **OverridePanel** | Two-step Override to Done flow with required reason |
 | **Audit Panel** | Diff source selector; two-panel findings list + diff viewer with gutter markers; per-finding actions |
 | **Blockers Banner** | Shows unfinished and finished blocker tickets on ticket detail; warns when ticket cannot be started |
-| **MermaidView** | Renders Mermaid syntax to sanitized SVG (DOMPurify); used on initiative Diagram tab |
+| **MermaidView** | Renders Mermaid syntax to sanitized SVG (DOMPurify); used only for optional dependency visualization when a textual plan needs a supplemental diagram |
 
 ---
 

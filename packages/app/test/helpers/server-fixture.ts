@@ -3,8 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { createSpecFlowServer } from "../../src/server/create-server.js";
 import { specflowDir } from "../../src/io/paths.js";
+import { createInitiativeWorkflow } from "../../src/planner/workflow-state.js";
 import { ArtifactStore } from "../../src/store/artifact-store.js";
-import type { Initiative, Run, Ticket } from "../../src/types/entities.js";
+import type { Initiative, PlanningReviewArtifact, Run, Ticket } from "../../src/types/entities.js";
 
 export const now = "2026-02-27T20:00:00.000Z";
 
@@ -62,16 +63,134 @@ export const createServerFixture = async (): Promise<ServerFixture> => {
     description: "Build workflow",
     status: "active",
     phases: [{ id: "phase-1", name: "Phase 1", order: 1, status: "active" }],
-    specIds: [],
+    specIds: [
+      "initiative-11223344:brief",
+      "initiative-11223344:core-flows",
+      "initiative-11223344:prd",
+      "initiative-11223344:tech-spec"
+    ],
     ticketIds: ["ticket-aabbccdd"],
+    workflow: {
+      ...createInitiativeWorkflow(),
+      steps: {
+        brief: { status: "complete", updatedAt: now },
+        "core-flows": { status: "complete", updatedAt: now },
+        prd: { status: "complete", updatedAt: now },
+        "tech-spec": { status: "complete", updatedAt: now },
+        tickets: { status: "complete", updatedAt: now }
+      },
+      activeStep: "tickets"
+    },
     createdAt: now,
     updatedAt: now
   };
   await store.upsertInitiative(initiative, {
     brief: "# Brief",
+    coreFlows: "# Core Flows",
     prd: "# PRD",
     techSpec: "# Tech"
   });
+  const passedReviews: PlanningReviewArtifact[] = [
+    {
+      id: `${initiative.id}:brief-review`,
+      initiativeId: initiative.id,
+      kind: "brief-review",
+      status: "passed",
+      summary: "Brief passes review.",
+      findings: [],
+      sourceUpdatedAts: { brief: now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    },
+    {
+      id: `${initiative.id}:core-flows-review`,
+      initiativeId: initiative.id,
+      kind: "core-flows-review",
+      status: "passed",
+      summary: "Core flows pass review.",
+      findings: [],
+      sourceUpdatedAts: { "core-flows": now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    },
+    {
+      id: `${initiative.id}:brief-core-flows-crosscheck`,
+      initiativeId: initiative.id,
+      kind: "brief-core-flows-crosscheck",
+      status: "passed",
+      summary: "Brief and core flows align.",
+      findings: [],
+      sourceUpdatedAts: { brief: now, "core-flows": now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    },
+    {
+      id: `${initiative.id}:prd-review`,
+      initiativeId: initiative.id,
+      kind: "prd-review",
+      status: "passed",
+      summary: "PRD passes review.",
+      findings: [],
+      sourceUpdatedAts: { prd: now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    },
+    {
+      id: `${initiative.id}:core-flows-prd-crosscheck`,
+      initiativeId: initiative.id,
+      kind: "core-flows-prd-crosscheck",
+      status: "passed",
+      summary: "Core flows and PRD align.",
+      findings: [],
+      sourceUpdatedAts: { "core-flows": now, prd: now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    },
+    {
+      id: `${initiative.id}:tech-spec-review`,
+      initiativeId: initiative.id,
+      kind: "tech-spec-review",
+      status: "passed",
+      summary: "Tech spec passes review.",
+      findings: [],
+      sourceUpdatedAts: { "tech-spec": now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    },
+    {
+      id: `${initiative.id}:prd-tech-spec-crosscheck`,
+      initiativeId: initiative.id,
+      kind: "prd-tech-spec-crosscheck",
+      status: "passed",
+      summary: "PRD and tech spec align.",
+      findings: [],
+      sourceUpdatedAts: { prd: now, "tech-spec": now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    },
+    {
+      id: `${initiative.id}:spec-set-review`,
+      initiativeId: initiative.id,
+      kind: "spec-set-review",
+      status: "passed",
+      summary: "Spec set passes review.",
+      findings: [],
+      sourceUpdatedAts: { brief: now, "core-flows": now, prd: now, "tech-spec": now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    }
+  ];
+  for (const review of passedReviews) {
+    await store.upsertPlanningReview(review);
+  }
 
   const ticket: Ticket = {
     id: "ticket-aabbccdd",

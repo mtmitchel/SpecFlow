@@ -16,10 +16,13 @@ import {
 } from "../src/io/paths.js";
 import { ArtifactStore } from "../src/store/artifact-store.js";
 import { RetryableConflictError } from "../src/store/errors.js";
+import { createInitiativeWorkflow } from "../src/planner/workflow-state.js";
 import type {
+  ArtifactTraceOutline,
   Config,
   Initiative,
   OperationManifest,
+  PlanningReviewArtifact,
   Run,
   RunAttempt,
   Ticket
@@ -107,8 +110,19 @@ describe("ArtifactStore", () => {
       description: "Build authentication",
       status: "active",
       phases: [{ id: "phase-1", name: "Foundation", order: 1, status: "active" }],
-      specIds: ["initiative-1:brief", "initiative-1:prd", "initiative-1:tech-spec"],
+      specIds: ["initiative-1:brief", "initiative-1:core-flows", "initiative-1:prd", "initiative-1:tech-spec"],
       ticketIds: ["ticket-1"],
+      workflow: {
+        ...createInitiativeWorkflow(),
+        steps: {
+          brief: { status: "complete", updatedAt: now },
+          "core-flows": { status: "complete", updatedAt: now },
+          prd: { status: "complete", updatedAt: now },
+          "tech-spec": { status: "complete", updatedAt: now },
+          tickets: { status: "complete", updatedAt: now }
+        },
+        activeStep: "tickets"
+      },
       createdAt: now,
       updatedAt: now
     };
@@ -132,15 +146,39 @@ describe("ArtifactStore", () => {
 
     const run = makeRun();
     const attempt = makeAttempt();
+    const review: PlanningReviewArtifact = {
+      id: "initiative-1:brief-review",
+      initiativeId: initiative.id,
+      kind: "brief-review",
+      status: "passed",
+      summary: "The brief is coherent.",
+      findings: [],
+      sourceUpdatedAts: { brief: now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    };
+    const trace: ArtifactTraceOutline = {
+      id: "initiative-1:brief",
+      initiativeId: initiative.id,
+      step: "brief",
+      sections: [{ key: "goals", label: "Goals", items: ["Ship auth"] }],
+      sourceUpdatedAt: now,
+      generatedAt: now,
+      updatedAt: now
+    };
 
     const store = makeStore(rootDir);
     await store.initialize();
     await store.upsertConfig(config);
     await store.upsertInitiative(initiative, {
       brief: "# Brief\n",
+      coreFlows: "# Core Flows\n",
       prd: "# PRD\n",
       techSpec: "# Tech Spec\n"
     });
+    await store.upsertPlanningReview(review);
+    await store.upsertArtifactTrace(trace);
     await store.upsertTicket(ticket);
     await store.upsertRun(run);
     await store.upsertRunAttempt(run.id, attempt);
@@ -162,6 +200,8 @@ describe("ArtifactStore", () => {
 
     expect(reloaded.config).toEqual(config);
     expect(reloaded.initiatives.get(initiative.id)).toEqual(initiative);
+    expect(reloaded.planningReviews.get(review.id)).toEqual(review);
+    expect(reloaded.artifactTraces.get(trace.id)).toEqual(trace);
     expect(reloaded.tickets.get(ticket.id)).toEqual(ticket);
     expect(reloaded.runs.get(run.id)).toEqual(run);
     expect(reloaded.runAttempts.get("run-1:attempt-1")).toEqual(attempt);

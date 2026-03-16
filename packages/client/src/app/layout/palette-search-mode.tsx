@@ -83,7 +83,7 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
     },
     {
       id: "action-all-specs",
-      label: "All Specs",
+      label: "Specs",
       sublabel: "Browse all spec documents",
       isAction: true,
       action: () => go("/specs")

@@ -45,7 +45,7 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
     <section className="quick-task-page">
       <h2 className="quick-task-heading">Quick Task</h2>
       <p className="quick-task-desc">
-        Describe a task. AI will analyze it and create a ticket, or suggest a full initiative if the scope is large.
+        Describe the work. SpecFlow will create a ticket if it is small enough, or turn it into an initiative when it needs planning.
       </p>
       <textarea
         ref={textareaRef}
@@ -67,7 +67,7 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
           disabled={busy || !text.trim()}
           onClick={() => void submit()}
         >
-          {busy ? "Creating" : "Create Task"}
+          {busy ? "Creating..." : "Create work item"}
         </button>
         <span className="quick-task-hint">{modKey}+Enter to submit</span>
       </div>
