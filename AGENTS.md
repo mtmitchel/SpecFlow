@@ -46,13 +46,13 @@ src/
   api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
   styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, journey-redesign)
   app/
-    components/     shared UI: audit-panel, diff-viewer, markdown-view, model-combobox, workflow-section, workflow-stepper
+    components/     shared UI: audit-panel, checkpoint-gate-banner, diff-viewer, markdown-view, model-combobox, phase-transition-banner, pipeline, workflow-section, workflow-stepper
     constants/      status-columns (status transition rules, canTransition helper)
     context/        toast (error notification context and useToast hook)
     hooks/          use-capture-preview, use-dirty-form, use-export-workflow, use-sse-reconnect, use-tree-navigation, use-verification-stream
-    layout/         workspace-shell, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal, status-bar
-    utils/          phase-warning, scope-paths, specs
-    views/          detail-workspace, overview-panel, initiative-view, initiative-creator, spec-view, ticket-view, run-view
+    layout/         workspace-shell, icon-rail, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal, status-bar
+    utils/          initiative-progress, phase-warning, scope-paths, specs
+    views/          detail-workspace, overview-panel, initiative-view, initiative-route-view, initiative-creator, initiative-handoff-view, spec-view, ticket-view, run-view
       initiative/   planning workspace sections, review cards, shared state/controller hook
       ticket/       export-section, capture-verify-section, verification-results-section, override-panel
   api.ts            consolidated re-export of all API modules
@@ -113,8 +113,10 @@ Client tests use Vitest + React Testing Library under `packages/client/src/**/*.
 
 - `app/views/initiative-creator.test.tsx` - new-initiative handoff into brief intake
 - `app/views/initiative-view.test.tsx` - contained brief-intake stage after initiative creation
+- `app/views/overview-panel.test.tsx` - Up next queue and initiative-card progress rendering
 - `app/views/initiative/tickets-step-section.test.tsx` - coverage check card and override states in the Tickets step
 - `app/views/ticket-view.test.tsx` - ticket execution gating banner and covered spec items rendering
+- `app/views/run-view.test.tsx` - run report shell and contextual execution-report framing
 
 Add or adjust tests when modifying server routes, verifier/diff logic, bundle generation, or artifact store semantics. Before pushing, run `npm run check`, `npm test`, and `npm run build`.
 

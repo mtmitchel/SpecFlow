@@ -130,7 +130,6 @@ export const useInitiativePlanningWorkspace = (
     }) ??
       null);
   const requestedStep = searchParams.get("step");
-  const handoff = searchParams.get("handoff");
   const resumeStep = initiative ? reviewBlockedStep ?? getInitiativeResumeStep(initiative.workflow) : "brief";
   const activeStep: InitiativePlanningStep =
     initiative && canOpenInitiativeStep(initiative.workflow, initiativeReviews, initiative.id, requestedStep)
@@ -142,14 +141,6 @@ export const useInitiativePlanningWorkspace = (
       setSearchParams({ step: activeStep }, { replace: true });
     }
   }, [activeStep, initiative, requestedStep, setSearchParams]);
-
-  useEffect(() => {
-    if (!initiative || !handoff) {
-      return;
-    }
-
-    setSearchParams({ step: activeStep }, { replace: true });
-  }, [activeStep, handoff, initiative, setSearchParams]);
 
   const activeSpecStep: SpecStep | null = activeStep === "tickets" ? null : activeStep;
   const activeRefinement = initiative && activeSpecStep ? initiative.workflow.refinements[activeSpecStep] : null;

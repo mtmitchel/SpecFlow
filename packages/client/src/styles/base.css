@@ -7,6 +7,7 @@
   --text: #e8f1ff;
   --muted: #8ea7c3;
   --accent: #48cbff;
+  --execution: #b89cff;
   --success: #50d493;
   --warning: #f3bb52;
   --danger: #ff7f78;
@@ -26,6 +27,12 @@
   --accent-border: rgba(72, 203, 255, 0.55);
   --accent-text: #d6f4ff;
   --accent-text-light: #bdefff;
+
+  /* Execution variants */
+  --execution-bg-subtle: rgba(184, 156, 255, 0.1);
+  --execution-bg: rgba(184, 156, 255, 0.16);
+  --execution-border: rgba(184, 156, 255, 0.5);
+  --execution-text: #eee4ff;
 
   /* Warning variants */
   --warning-bg: rgba(243, 187, 82, 0.12);
@@ -102,4 +109,3 @@ a {
   color: var(--muted);
   font-size: 0.92rem;
 }
-

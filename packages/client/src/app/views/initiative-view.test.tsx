@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { ArtifactsSnapshot, Initiative } from "../../types.js";
-import { InitiativeView } from "./initiative-view.js";
+import { InitiativeRouteView } from "./initiative-route-view.js";
 
 vi.mock("../context/toast.js", () => ({
   useToast: () => ({ showError: vi.fn() })
@@ -26,7 +26,23 @@ const initiative: Initiative = {
       tickets: { status: "locked", updatedAt: null }
     },
     refinements: {
-      brief: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
+      brief: {
+        questions: [
+          {
+            id: "brief-problem",
+            label: "What problem should the first release solve?",
+            type: "text",
+            whyThisBlocks: "One focused problem — not a feature list.",
+            affectedArtifact: "brief",
+            decisionType: "scope",
+            assumptionIfUnanswered: "Focus on the user's primary note-taking problem.",
+          },
+        ],
+        answers: {},
+        defaultAnswerQuestionIds: [],
+        baseAssumptions: [],
+        checkedAt: "2026-03-16T12:05:00.000Z",
+      },
       "core-flows": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
       prd: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
       "tech-spec": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null }
@@ -53,7 +69,7 @@ const WorkspaceWithLocation = () => {
   return (
     <>
       <div>{location.search || "(no search)"}</div>
-      <InitiativeView snapshot={snapshot} onRefresh={vi.fn(async () => undefined)} />
+      <InitiativeRouteView snapshot={snapshot} onRefresh={vi.fn(async () => undefined)} />
     </>
   );
 };
@@ -68,14 +84,13 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("heading", { name: "Start with brief intake" })).toBeInTheDocument();
-    expect(
-      screen.getByText("Answer a short intake before SpecFlow writes the first brief. The brief should never appear fully formed from a raw idea.")
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start brief intake" })).toBeInTheDocument();
+    expect(screen.getByText("New initiative")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Brief intake" })).toBeInTheDocument();
+    expect(screen.getByText("What problem should the first release solve?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText("?step=brief")).toBeInTheDocument();
+      expect(screen.getByText("?step=brief&handoff=created")).toBeInTheDocument();
     });
   });
 });

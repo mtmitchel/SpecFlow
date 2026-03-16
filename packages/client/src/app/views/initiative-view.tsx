@@ -1,21 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot, InitiativePlanningStep } from "../../types.js";
+import { CheckpointGateBanner } from "../components/checkpoint-gate-banner.js";
 import { MarkdownView } from "../components/markdown-view.js";
+import { PhaseTransitionBanner } from "../components/phase-transition-banner.js";
+import { Pipeline } from "../components/pipeline.js";
 import {
   canOpenInitiativeStep,
   INITIATIVE_WORKFLOW_LABELS,
-  INITIATIVE_WORKFLOW_STATUS_LABELS,
   INITIATIVE_WORKFLOW_STEPS,
-  REQUIRED_REVIEWS_BEFORE_STEP,
   REVIEW_KIND_LABELS
 } from "../utils/initiative-workflow.js";
+import { getInitiativeProgressModel, type PipelineNodeKey } from "../utils/initiative-progress.js";
 import { ArtifactReviewsSection } from "./initiative/artifact-reviews-section.js";
 import { RefinementSection } from "./initiative/refinement-section.js";
 import {
   PHASE_DESCRIPTIONS,
   SAVE_STATE_LABELS,
-  JOURNEY_STAGE_GUIDANCE,
-  JOURNEY_STAGE_LABELS,
+  PHASE_TRANSITIONS,
   buildArtifactPreview,
   type PlanningJourneyStage,
   type SaveState
@@ -23,42 +25,24 @@ import {
 import { TicketsStepSection } from "./initiative/tickets-step-section.js";
 import { useInitiativePlanningWorkspace } from "./initiative/use-initiative-planning-workspace.js";
 
-const getStageTitle = (step: InitiativePlanningStep, stage: PlanningJourneyStage): string => {
-  const label = INITIATIVE_WORKFLOW_LABELS[step];
-
-  if (stage === "consult") {
-    return step === "brief" ? "Start with brief intake" : `Shape the decisions for ${label.toLowerCase()}`;
-  }
-
-  if (stage === "draft") {
-    return step === "tickets" ? "Break the plan into tickets" : `Generate the ${label.toLowerCase()}`;
-  }
-
-  if (stage === "checkpoint") {
-    return `Resolve the ${label.toLowerCase()} checkpoint`;
-  }
-
-  return `${label} is ready`;
-};
-
 const getStageBody = (step: InitiativePlanningStep, stage: PlanningJourneyStage): string => {
   if (stage === "consult") {
     return step === "brief"
-      ? "Answer a short intake before SpecFlow writes the first brief. The brief should never appear fully formed from a raw idea."
-      : "Use this step to lock the decisions that materially change the next artifact before you generate it.";
+      ? "Answer these questions to shape the first brief before anything is generated."
+      : `${PHASE_DESCRIPTIONS[step]} SpecFlow needs this context before it can generate the artifact.`;
   }
 
   if (stage === "draft") {
     return step === "tickets"
-      ? "Turn the planning set into execution-ready tickets with explicit coverage and sequencing."
-      : "The decisions for this step are in place. Generate the artifact once the intake looks right.";
+      ? "Break the planning set into execution-ready tickets with clear coverage and sequencing."
+      : `The intake for ${INITIATIVE_WORKFLOW_LABELS[step].toLowerCase()} is ready. Generate the artifact when you are ready.`;
   }
 
   if (stage === "checkpoint") {
-    return "The artifact exists, but the checkpoint is still carrying unresolved blockers, stale work, or traceability gaps.";
+    return `Review the ${INITIATIVE_WORKFLOW_LABELS[step].toLowerCase()} and clear the remaining blockers before moving forward.`;
   }
 
-  return "This step is in shape. Review the summary, then continue when you are ready.";
+  return PHASE_TRANSITIONS[step].body;
 };
 
 const getCheckActionLabel = (step: InitiativePlanningStep, checkedAt: string | null): string => {
@@ -74,19 +58,31 @@ const getCheckActionLabel = (step: InitiativePlanningStep, checkedAt: string | n
 const getGenerateActionLabel = (step: InitiativePlanningStep, hasContent: boolean): string =>
   hasContent ? `Refresh ${INITIATIVE_WORKFLOW_LABELS[step]}` : `Generate ${INITIATIVE_WORKFLOW_LABELS[step]}`;
 
-const getTicketStageSummary = (
-  hasTickets: boolean,
-  coveredCoverageCount: number,
-  uncoveredCoverageCount: number,
-  linkedRunsCount: number
-): string => {
-  if (!hasTickets) {
-    return "No tickets exist yet. Generate the ticket set once the tech spec is ready.";
+const getNextStepActionLabel = (step: InitiativePlanningStep): string =>
+  step === "tickets" ? "Continue to tickets" : `Continue to ${INITIATIVE_WORKFLOW_LABELS[step]}`;
+
+const getStageBadgeLabel = (stage: PlanningJourneyStage): string => {
+  if (stage === "complete") {
+    return "Done";
   }
 
-  const runSummary =
-    linkedRunsCount > 0 ? ` ${linkedRunsCount} linked run${linkedRunsCount === 1 ? "" : "s"} already exist.` : "";
-  return `${coveredCoverageCount} covered spec item${coveredCoverageCount === 1 ? "" : "s"}, ${uncoveredCoverageCount} uncovered.${runSummary}`;
+  if (stage === "checkpoint") {
+    return "Checkpoint";
+  }
+
+  return "Up next";
+};
+
+const getStageBadgeClassName = (stage: PlanningJourneyStage): string => {
+  if (stage === "complete") {
+    return "planning-step-status planning-step-status-complete";
+  }
+
+  if (stage === "checkpoint") {
+    return "planning-step-status planning-step-status-checkpoint";
+  }
+
+  return "planning-step-status planning-step-status-active";
 };
 
 export const InitiativeView = ({
@@ -125,7 +121,6 @@ export const InitiativeView = ({
     initiativeReviews,
     getReview,
     headerTitle,
-    showHeaderDescription,
     activeStep,
     activeSpecStep,
     activeRefinement,
@@ -186,7 +181,20 @@ export const InitiativeView = ({
     () => (activeSpecStep ? buildArtifactPreview(savedDrafts[activeSpecStep]) : null),
     [activeSpecStep, savedDrafts]
   );
-  const stepIndex = INITIATIVE_WORKFLOW_STEPS.indexOf(activeStep) + 1;
+  const generatingKey = useMemo<PipelineNodeKey | null>(() => {
+    if (!busyAction?.startsWith("generate-")) {
+      return null;
+    }
+
+    return busyAction.replace("generate-", "") as PipelineNodeKey;
+  }, [busyAction]);
+  const progressModel = useMemo(
+    () =>
+      getInitiativeProgressModel(initiative, snapshot, {
+        generatingKey,
+      }),
+    [generatingKey, initiative, snapshot]
+  );
 
   const openSummaryView = () => {
     if (activeSpecStep && editingStep === activeSpecStep) {
@@ -264,183 +272,193 @@ export const InitiativeView = ({
 
     const refinementCheckedAt = activeRefinement?.checkedAt ?? null;
     const canGenerate = !hasRefinementQuestions || unresolvedQuestionCount === 0;
+    const checkpointReviewKind = unresolvedReviewsForActiveStep[0] ?? null;
+    const showReviewCards = activeStage === "checkpoint" || unresolvedReviewsForActiveStep.length > 0;
+    const checkpointBody =
+      stepStatus === "stale"
+        ? `Earlier planning decisions changed. Revisit the ${INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()} before you move on.`
+        : `Review the ${INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()} before moving to ${
+            nextStep ? INITIATIVE_WORKFLOW_LABELS[nextStep].toLowerCase() : "execution"
+          }.`;
+    const needsIntakeStart = activeStage === "consult" && !refinementCheckedAt && !hasRefinementQuestions;
 
     return (
-      <div className="planning-main-column">
+      <div className={`planning-step-column${hasActiveContent ? " planning-step-column-wide" : " planning-step-column-narrow"}`}>
         {!hasActiveContent ? (
-          <div className="planning-section-card">
-            <div className="button-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <h4 style={{ margin: 0 }}>Intake</h4>
-                <p style={{ margin: "0.25rem 0 0", color: "var(--muted)" }}>
-                  Clarify the decisions that shape the {INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()} before you generate it.
-                </p>
+          <>
+            <div className="planning-step-header">
+              <div className="planning-step-title-row">
+                <h2>{INITIATIVE_WORKFLOW_LABELS[activeSpecStep]}</h2>
+                <span className={getStageBadgeClassName(activeStage)}>{getStageBadgeLabel(activeStage)}</span>
               </div>
               {renderSaveState(refinementSaveState)}
             </div>
+            <p className="planning-step-copy">{getStageBody(activeSpecStep, activeStage)}</p>
 
-            {activeStage === "consult" ? (
-              <div className="button-row">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => void handleCheckAndAdvance(activeSpecStep)}
-                  disabled={isBusy}
-                >
-                  {busyAction === `check-${activeSpecStep}`
-                    ? "Checking..."
-                    : getCheckActionLabel(activeSpecStep, refinementCheckedAt)}
-                </button>
-                {refinementCheckedAt ? (
-                  <button
-                    type="button"
-                    onClick={() => void handleGenerateSpec(activeSpecStep)}
-                    disabled={isBusy || !canGenerate}
-                  >
-                    {busyAction === `generate-${activeSpecStep}`
-                      ? "Generating..."
-                      : getGenerateActionLabel(activeSpecStep, hasActiveContent)}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-
-            {activeRefinement && hasRefinementQuestions ? (
-              <RefinementSection
-                activeSpecStep={activeSpecStep}
-                activeRefinement={activeRefinement}
-                refinementAnswers={refinementAnswers}
-                defaultAnswerQuestionIds={defaultAnswerQuestionIds}
-                refinementAssumptions={refinementAssumptions}
-                refinementSaveState={refinementSaveState}
-                unresolvedQuestionCount={unresolvedQuestionCount}
-                guidanceQuestionId={guidanceQuestionId}
-                guidanceText={guidanceText}
-                busyAction={busyAction}
-                isBusy={isBusy}
-                saveStateIndicator={renderSaveState(refinementSaveState)}
-                onRequestGuidance={handleRequestGuidance}
-                onAnswerChange={updateRefinementAnswer}
-                onAnswerLater={deferRefinementQuestion}
-              />
-            ) : null}
-
-            {activeStage === "draft" || (refinementCheckedAt && !hasRefinementQuestions) ? (
-              <div className="planning-inline-note">
-                <span>{refinementAssumptions.length > 0 ? "Intake complete." : "No additional questions are required."}</span>
-                <div className="button-row" style={{ marginBottom: 0 }}>
+            {needsIntakeStart ? (
+              <div className="planning-step-card">
+                <div className="planning-step-actions planning-step-actions-centered">
                   <button
                     type="button"
                     className="btn-primary"
-                    onClick={() => void handleGenerateSpec(activeSpecStep)}
-                    disabled={isBusy || !canGenerate}
-                  >
-                    {busyAction === `generate-${activeSpecStep}`
-                      ? "Generating..."
-                      : getGenerateActionLabel(activeSpecStep, hasActiveContent)}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <>
-            <div className="planning-section-card">
-              <div className="planning-section-header">
-                <div>
-                  <h4 style={{ margin: 0 }}>{INITIATIVE_WORKFLOW_LABELS[activeSpecStep]}</h4>
-                  <p style={{ margin: "0.25rem 0 0", color: "var(--muted)" }}>
-                    Summary first. Open the full document only when you need the long-form source.
-                  </p>
-                </div>
-                <div className="button-row planning-view-toggle">
-                  <button
-                    type="button"
-                    className={artifactViewMode === "summary" && editingStep !== activeSpecStep ? "btn-primary" : undefined}
-                    onClick={openSummaryView}
-                  >
-                    Summary
-                  </button>
-                  <button
-                    type="button"
-                    className={artifactViewMode === "document" && editingStep !== activeSpecStep ? "btn-primary" : undefined}
-                    onClick={openDocumentView}
-                  >
-                    Document
-                  </button>
-                  <button
-                    type="button"
-                    className={editingStep === activeSpecStep ? "btn-primary" : undefined}
-                    onClick={editingStep === activeSpecStep ? closeEditView : openEditView}
-                  >
-                    {editingStep === activeSpecStep ? "Done editing" : "Edit"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="button-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                <div className="button-row" style={{ marginBottom: 0 }}>
-                  <button
-                    type="button"
                     onClick={() => void handleCheckAndAdvance(activeSpecStep)}
                     disabled={isBusy}
                   >
                     {busyAction === `check-${activeSpecStep}`
                       ? "Checking..."
-                      : getCheckActionLabel(activeSpecStep, activeRefinement?.checkedAt ?? null)}
+                      : getCheckActionLabel(activeSpecStep, refinementCheckedAt)}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleGenerateSpec(activeSpecStep)}
-                    disabled={isBusy}
-                  >
-                    {busyAction === `generate-${activeSpecStep}`
-                      ? "Refreshing..."
-                      : getGenerateActionLabel(activeSpecStep, hasActiveContent)}
-                  </button>
-                  {nextStep ? (
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => navigateToStep(nextStep)}
-                      disabled={unresolvedReviewsForActiveStep.length > 0}
-                    >
-                      {nextStep === "tickets" ? "Continue to tickets" : `Continue to ${INITIATIVE_WORKFLOW_LABELS[nextStep]}`}
-                    </button>
-                  ) : null}
                 </div>
-                {editingStep === activeSpecStep ? renderSaveState(draftSaveState[activeSpecStep]) : null}
               </div>
+            ) : null}
 
-              {editingStep === activeSpecStep ? (
-                <textarea
-                  className="multiline"
-                  value={activeContent}
-                  onChange={(event) => updateDraft(event.target.value)}
-                  style={{ minHeight: 360 }}
+            {busyAction === `check-${activeSpecStep}` && !activeRefinement && !hasRefinementQuestions ? (
+              <div className="planning-step-card">
+                <p className="ticket-empty-note">Preparing the {INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()} intake...</p>
+              </div>
+            ) : null}
+
+            {activeRefinement && hasRefinementQuestions ? (
+              <div className="planning-step-card">
+                <RefinementSection
+                  activeSpecStep={activeSpecStep}
+                  activeRefinement={activeRefinement}
+                  refinementAnswers={refinementAnswers}
+                  defaultAnswerQuestionIds={defaultAnswerQuestionIds}
+                  refinementAssumptions={refinementAssumptions}
+                  refinementSaveState={refinementSaveState}
+                  unresolvedQuestionCount={unresolvedQuestionCount}
+                  guidanceQuestionId={guidanceQuestionId}
+                  guidanceText={guidanceText}
+                  busyAction={busyAction}
+                  isBusy={isBusy}
+                  saveStateIndicator={renderSaveState(refinementSaveState)}
+                  variant="compact"
+                  onRequestGuidance={handleRequestGuidance}
+                  onAnswerChange={updateRefinementAnswer}
+                  onAnswerLater={deferRefinementQuestion}
                 />
-              ) : artifactViewMode === "document" ? (
-                <div className="planning-document-view">
-                  <MarkdownView content={savedDrafts[activeSpecStep]} />
-                </div>
-              ) : (
-                renderArtifactSummary()
-              )}
+              </div>
+            ) : null}
+
+            {activeStage === "draft" || (refinementCheckedAt && !hasRefinementQuestions) ? (
+              <div className="planning-step-actions planning-step-actions-centered">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void handleGenerateSpec(activeSpecStep)}
+                  disabled={isBusy || !canGenerate}
+                >
+                  {busyAction === `generate-${activeSpecStep}` ? "Generating..." : getGenerateActionLabel(activeSpecStep, hasActiveContent)}
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="planning-main-column">
+            <div className="planning-step-header">
+              <div className="planning-step-title-row">
+                <h2>{INITIATIVE_WORKFLOW_LABELS[activeSpecStep]}</h2>
+                <span className={getStageBadgeClassName(activeStage)}>{getStageBadgeLabel(activeStage)}</span>
+              </div>
+              <div className="planning-view-toggle-group">
+                <button
+                  type="button"
+                  className={artifactViewMode === "summary" && editingStep !== activeSpecStep ? "btn-primary" : undefined}
+                  onClick={openSummaryView}
+                >
+                  Summary
+                </button>
+                <button
+                  type="button"
+                  className={artifactViewMode === "document" && editingStep !== activeSpecStep ? "btn-primary" : undefined}
+                  onClick={openDocumentView}
+                >
+                  Document
+                </button>
+                <button
+                  type="button"
+                  className={editingStep === activeSpecStep ? "btn-primary" : undefined}
+                  onClick={editingStep === activeSpecStep ? closeEditView : openEditView}
+                >
+                  {editingStep === activeSpecStep ? "Done editing" : "Edit"}
+                </button>
+              </div>
             </div>
 
-            <ArtifactReviewsSection
-              activeSpecStep={activeSpecStep}
-              busyAction={busyAction}
-              reviewOverrideKind={reviewOverrideKind}
-              reviewOverrideReason={reviewOverrideReason}
-              getReview={getReview}
-              onRunReview={handleRunReview}
-              onSetReviewOverride={setReviewOverride}
-              onClearReviewOverride={clearReviewOverride}
-              onChangeReviewOverrideReason={setReviewOverrideReason}
-              onConfirmOverride={handleOverrideReview}
-            />
-          </>
+            {activeStage !== "complete" ? <p className="planning-step-copy">{getStageBody(activeSpecStep, activeStage)}</p> : null}
+
+            {activeStage === "checkpoint" || stepStatus === "stale" ? (
+              <CheckpointGateBanner
+                title={`${INITIATIVE_WORKFLOW_LABELS[activeSpecStep]} checkpoint`}
+                body={checkpointBody}
+                actionLabel={
+                  checkpointReviewKind
+                    ? busyAction === `review-${checkpointReviewKind}`
+                      ? "Reviewing..."
+                      : "Run review"
+                    : undefined
+                }
+                onAction={checkpointReviewKind ? () => void handleRunReview(checkpointReviewKind) : undefined}
+                disabled={isBusy || !checkpointReviewKind}
+              />
+            ) : null}
+
+            <div className="planning-step-secondary-actions">
+              <div className="button-row" style={{ marginBottom: 0 }}>
+                <button type="button" onClick={() => void handleCheckAndAdvance(activeSpecStep)} disabled={isBusy}>
+                  {busyAction === `check-${activeSpecStep}`
+                    ? "Checking..."
+                    : getCheckActionLabel(activeSpecStep, activeRefinement?.checkedAt ?? null)}
+                </button>
+                <button type="button" onClick={() => void handleGenerateSpec(activeSpecStep)} disabled={isBusy}>
+                  {busyAction === `generate-${activeSpecStep}`
+                    ? "Refreshing..."
+                    : getGenerateActionLabel(activeSpecStep, hasActiveContent)}
+                </button>
+              </div>
+              {editingStep === activeSpecStep ? renderSaveState(draftSaveState[activeSpecStep]) : null}
+            </div>
+
+            {editingStep === activeSpecStep ? (
+              <textarea
+                className="multiline"
+                value={activeContent}
+                onChange={(event) => updateDraft(event.target.value)}
+                style={{ minHeight: 360 }}
+              />
+            ) : artifactViewMode === "document" ? (
+              <div className="planning-document-view">
+                <MarkdownView content={savedDrafts[activeSpecStep]} />
+              </div>
+            ) : (
+              renderArtifactSummary()
+            )}
+
+            {nextStep && unresolvedReviewsForActiveStep.length === 0 ? (
+              <PhaseTransitionBanner
+                title={`${INITIATIVE_WORKFLOW_LABELS[activeSpecStep]} ready`}
+                body={PHASE_TRANSITIONS[activeSpecStep].body}
+                actionLabel={getNextStepActionLabel(nextStep)}
+                onAction={() => navigateToStep(nextStep)}
+              />
+            ) : null}
+
+            {showReviewCards ? (
+              <ArtifactReviewsSection
+                activeSpecStep={activeSpecStep}
+                busyAction={busyAction}
+                reviewOverrideKind={reviewOverrideKind}
+                reviewOverrideReason={reviewOverrideReason}
+                getReview={getReview}
+                onRunReview={handleRunReview}
+                onSetReviewOverride={setReviewOverride}
+                onClearReviewOverride={clearReviewOverride}
+                onChangeReviewOverrideReason={setReviewOverrideReason}
+                onConfirmOverride={handleOverrideReview}
+              />
+            ) : null}
+          </div>
         )}
       </div>
     );
@@ -448,130 +466,88 @@ export const InitiativeView = ({
 
   return (
     <section className="planning-shell">
-      <header className="section-header planning-shell-header">
-        <div className="planning-shell-header-main">
-          <div className="planning-shell-kicker">Planning spectrum</div>
-          <h2>{headerTitle}</h2>
-          {showHeaderDescription ? <p>{initiative.description}</p> : null}
+      <div className="planning-topbar">
+        <div className="planning-topbar-row">
+          <div className="planning-breadcrumb">
+            <Link to="/">Home</Link>
+            <span>/</span>
+            <span>{headerTitle}</span>
+          </div>
+          <button type="button" className="btn-danger-subtle" onClick={() => void handleDeleteInitiative()}>
+            Delete initiative
+          </button>
         </div>
-        <button type="button" className="btn-danger-subtle" onClick={() => void handleDeleteInitiative()}>
-          Delete initiative
-        </button>
-      </header>
+        <div className="planning-topbar-pipeline">
+          <Pipeline
+            nodes={progressModel.nodes}
+            selectedKey={activeStep}
+            onNodeClick={(key) => {
+              if (INITIATIVE_WORKFLOW_STEPS.includes(key as InitiativePlanningStep)) {
+                const step = key as InitiativePlanningStep;
+                if (canOpenInitiativeStep(initiative.workflow, initiativeReviews, initiative.id, step)) {
+                  navigateToStep(step);
+                }
+                return;
+              }
 
-      <div className="planning-shell-grid">
-        <aside className="planning-rail">
-          <div className="planning-rail-header">
-            <span className="planning-rail-step-count">Step {stepIndex} of {INITIATIVE_WORKFLOW_STEPS.length}</span>
-            <span className="planning-rail-step-label">{INITIATIVE_WORKFLOW_LABELS[activeStep]}</span>
-          </div>
+              if ((key === "execute" || key === "verify") && progressModel.nextTicket) {
+                openTicket(progressModel.nextTicket.id);
+                return;
+              }
 
-          <div className="planning-rail-list" role="tablist" aria-label="Initiative workflow">
-            {INITIATIVE_WORKFLOW_STEPS.map((step) => {
-              const status = initiative.workflow.steps[step].status;
-              const isActive = step === activeStep;
-              const stepAccessible = canOpenInitiativeStep(initiative.workflow, initiativeReviews, initiative.id, step);
-              const hasReviewGate = REQUIRED_REVIEWS_BEFORE_STEP(step).some((kind) => {
-                const review = getReview(kind);
-                return !review || (review.status !== "passed" && review.status !== "overridden");
-              });
-
-              return (
-                <button
-                  key={step}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`planning-rail-item${isActive ? " active" : ""}`}
-                  disabled={!stepAccessible}
-                  onClick={() => navigateToStep(step)}
-                >
-                  <span className="planning-rail-item-title">{INITIATIVE_WORKFLOW_LABELS[step]}</span>
-                  <span className="planning-rail-item-meta">
-                    {hasReviewGate && status !== "complete"
-                      ? "Checkpoint pending"
-                      : INITIATIVE_WORKFLOW_STATUS_LABELS[status]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
-
-        <div className="planning-workspace">
-          <div className="planning-stage-card">
-            <div className="planning-stage-card-top">
-              <div>
-                <div className="planning-stage-chip">{JOURNEY_STAGE_LABELS[activeStage]}</div>
-                <h3>{getStageTitle(activeStep, activeStage)}</h3>
-              </div>
-              <div className="planning-stage-step-copy">{PHASE_DESCRIPTIONS[activeStep]}</div>
-            </div>
-            <p className="planning-stage-body">{getStageBody(activeStep, activeStage)}</p>
-            <p className="planning-stage-guidance">{JOURNEY_STAGE_GUIDANCE[activeStage]}</p>
-
-            {transitionNotice ? (
-              <div className="planning-inline-note planning-inline-note-success">
-                <strong>{transitionNotice.heading}</strong>
-                <span>{transitionNotice.body}</span>
-              </div>
-            ) : null}
-
-            {stepStatus === "stale" ? (
-              <div className="planning-inline-note planning-inline-note-warn">
-                <span>Earlier planning decisions changed. Revisit this step before moving on.</span>
-              </div>
-            ) : null}
-
-            {blockingReviewBeforeActiveStep ? (
-              <div className="planning-inline-note planning-inline-note-warn">
-                <span>
-                  This step stays locked until "{REVIEW_KIND_LABELS[blockingReviewBeforeActiveStep]}" is resolved.
-                </span>
-              </div>
-            ) : null}
-
-            {activeStep === "tickets" ? (
-              <div className="planning-inline-note">
-                <span>
-                  {getTicketStageSummary(
-                    initiativeTickets.length > 0,
-                    coveredCoverageCount,
-                    uncoveredCoverageItems.length,
-                    linkedRuns.length
-                  )}
-                </span>
-              </div>
-            ) : null}
-          </div>
-
-          {activeSpecStep ? (
-            renderSpecWorkspace()
-          ) : (
-            <div className="planning-main-column">
-              <TicketsStepSection
-                initiative={initiative}
-                initiativeTickets={initiativeTickets}
-                linkedRuns={linkedRuns}
-                ticketCoverageArtifact={ticketCoverageArtifact}
-                ticketCoverageReview={ticketCoverageReview}
-                uncoveredCoverageItems={uncoveredCoverageItems}
-                coveredCoverageCount={coveredCoverageCount}
-                busyAction={busyAction}
-                reviewOverrideKind={reviewOverrideKind}
-                reviewOverrideReason={reviewOverrideReason}
-                onGenerateTickets={handleGenerateTickets}
-                onOpenFirstTicket={openTicket}
-                onRunReview={handleRunReview}
-                onSetReviewOverride={setReviewOverride}
-                onClearReviewOverride={clearReviewOverride}
-                onChangeReviewOverrideReason={setReviewOverrideReason}
-                onConfirmOverride={handleOverrideReview}
-                onCommitPhaseName={handlePhaseRename}
-              />
-            </div>
-          )}
+              if (key === "done" && progressModel.initiativeTickets[0]) {
+                openTicket(progressModel.initiativeTickets[0].id);
+              }
+            }}
+          />
         </div>
+      </div>
+
+      <div className="planning-content-area">
+        {transitionNotice ? (
+          <PhaseTransitionBanner title={transitionNotice.heading} body={transitionNotice.body} />
+        ) : null}
+
+        {blockingReviewBeforeActiveStep ? (
+          <CheckpointGateBanner
+            title="Earlier checkpoint still blocks this step"
+            body={`Resolve "${REVIEW_KIND_LABELS[blockingReviewBeforeActiveStep]}" before moving further into ${INITIATIVE_WORKFLOW_LABELS[activeStep].toLowerCase()}.`}
+          />
+        ) : null}
+
+        {activeSpecStep ? (
+          renderSpecWorkspace()
+        ) : (
+          <div className="planning-step-column planning-step-column-wide">
+            <div className="planning-step-header">
+              <div className="planning-step-title-row">
+                <h2>Tickets</h2>
+                <span className={getStageBadgeClassName(activeStage)}>{getStageBadgeLabel(activeStage)}</span>
+              </div>
+            </div>
+            <p className="planning-step-copy">{getStageBody("tickets", activeStage)}</p>
+            <TicketsStepSection
+              initiative={initiative}
+              initiativeTickets={initiativeTickets}
+              linkedRuns={linkedRuns}
+              ticketCoverageArtifact={ticketCoverageArtifact}
+              ticketCoverageReview={ticketCoverageReview}
+              uncoveredCoverageItems={uncoveredCoverageItems}
+              coveredCoverageCount={coveredCoverageCount}
+              busyAction={busyAction}
+              reviewOverrideKind={reviewOverrideKind}
+              reviewOverrideReason={reviewOverrideReason}
+              onGenerateTickets={handleGenerateTickets}
+              onOpenFirstTicket={openTicket}
+              onRunReview={handleRunReview}
+              onSetReviewOverride={setReviewOverride}
+              onClearReviewOverride={clearReviewOverride}
+              onChangeReviewOverrideReason={setReviewOverrideReason}
+              onConfirmOverride={handleOverrideReview}
+              onCommitPhaseName={handlePhaseRename}
+            />
+          </div>
+        )}
       </div>
     </section>
   );

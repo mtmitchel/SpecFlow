@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { fetchArtifacts, saveConfig, updateTicketStatus } from "./api";
 import type { ArtifactsSnapshot, ConfigSavePayload, TicketStatus } from "./types";
 import { ErrorBoundary } from "./app/components/error-boundary";
 import { useSseReconnect } from "./app/hooks/use-sse-reconnect";
 import { Navigator } from "./app/layout/navigator";
+import { IconRail } from "./app/layout/icon-rail";
 import { WorkspaceShell } from "./app/layout/workspace-shell";
 import { ToastProvider, useToast } from "./app/context/toast";
 import { DetailWorkspace } from "./app/views/detail-workspace";
 import { CommandPalette } from "./app/layout/command-palette";
 import { SettingsModal } from "./app/layout/settings-modal";
-import { StatusBar } from "./app/layout/status-bar";
 
 const AppInner = () => {
   const { showError } = useToast();
+  const location = useLocation();
   const [snapshot, setSnapshot] = useState<ArtifactsSnapshot>({
     config: null,
     initiatives: [],
@@ -25,6 +27,7 @@ const AppInner = () => {
   });
   const [loading, setLoading] = useState(true);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [navigatorOpen, setNavigatorOpen] = useState(false);
 
   const refreshArtifacts = useCallback(async (): Promise<void> => {
     try {
@@ -52,6 +55,10 @@ const AppInner = () => {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  useEffect(() => {
+    setNavigatorOpen(false);
+  }, [location.pathname, location.search]);
 
   const handleMoveTicket = useCallback(async (ticketId: string, status: TicketStatus): Promise<void> => {
     try {
@@ -86,10 +93,18 @@ const AppInner = () => {
   return (
     <>
       <WorkspaceShell
+        iconRail={
+          <IconRail
+            snapshot={snapshot}
+            onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+            onToggleNavigator={() => setNavigatorOpen((current) => !current)}
+          />
+        }
         navigator={
           <Navigator snapshot={snapshot} />
         }
-        statusBar={<StatusBar snapshot={snapshot} />}
+        navigatorOpen={navigatorOpen}
+        onCloseNavigator={() => setNavigatorOpen(false)}
         commandPalette={
           <CommandPalette
             open={commandPaletteOpen}

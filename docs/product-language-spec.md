@@ -63,6 +63,27 @@ The user-facing workflow is:
 6. Tickets
 7. Runs
 
+### Pipeline model
+
+The UI may render a wider initiative pipeline than the canonical noun sequence when that helps orientation.
+
+The current initiative pipeline is:
+
+1. Brief
+2. Core flows
+3. PRD
+4. Tech spec
+5. Tickets
+6. Execute
+7. Verify
+8. Done
+
+Rules:
+
+- `Execute`, `Verify`, and `Done` are UI progress zones derived from ticket and run state.
+- `Run` remains the canonical object name for execution reports.
+- The pipeline is navigation and orientation chrome, not a second workflow contract.
+
 ### Clarification model
 
 Clarification is not a named top-level phase.
@@ -236,7 +257,7 @@ The primary action should answer:
 - `Override coverage blockers`
 - `Accept risk`
 - `Get guidance`
-- `Answer later`
+- `Skip`
 
 ### Destructive CTAs
 
@@ -290,9 +311,9 @@ Avoid empty states that only state absence.
 
 #### Home
 
-- Title: `Start planning`
+- Title: `No work is in motion yet`
 - Body: `Start planning for multi-step work, use a quick task for something small, or import an issue.`
-- Primary action: `Start planning`
+- Primary action: `Start new initiative`
 - Secondary action: `Quick task`
 
 #### Initiative without a brief
@@ -397,7 +418,7 @@ Avoid:
 
 Use:
 
-- `Answer later`
+- `Skip`
 
 Avoid:
 
@@ -421,11 +442,12 @@ The ticket page should read like an execution workflow, not an internal tool pan
 
 Preferred section names:
 
-- `Plan`
+- `Preflight`
+- `Execution timeline`
 - `Covered spec items`
-- `Included files`
-- `Verify work`
-- `Review findings`
+- `Acceptance criteria`
+- `Implementation plan`
+- `File targets`
 - `Run history`
 
 Avoid:
@@ -458,13 +480,17 @@ Avoid backend-state phrasing in the main message when a simpler user meaning exi
 
 The home view should be action-oriented, not just archival.
 
-Use section names that support forward movement:
+Preferred section names:
 
-- `Continue planning`
-- `Needs review`
+- `Up next`
+- `Initiatives`
+
+Home cards and queue items should use short status labels that point toward action, for example:
+
+- `Review brief`
+- `Generating tech spec`
+- `Verify ticket`
 - `Ready to run`
-- `Needs verification`
-- `Recent audit activity`
 
 ### Aggregate pages
 
@@ -512,16 +538,16 @@ If a term is introduced in one major screen, use the same term everywhere else u
 
 The app should not rename the same concept from screen to screen.
 
-## Immediate rewrite priorities
+## High-sensitivity surfaces
 
-These screens should be updated first.
+These screens carry the most product-language risk and should stay aligned first when the UI changes.
 
 1. [initiative-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative-view.tsx)
-2. [initiative-creator.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative-creator.tsx)
-3. [quick-task-page.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/quick-task-page.tsx)
-4. [ticket-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/ticket-view.tsx)
-5. [run-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/run-view.tsx)
-6. [overview-panel.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/overview-panel.tsx)
+2. [initiative-handoff-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative-handoff-view.tsx)
+3. [initiative-creator.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative-creator.tsx)
+4. [overview-panel.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/overview-panel.tsx)
+5. [ticket-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/ticket-view.tsx)
+6. [run-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/run-view.tsx)
 
 ## Non-goals
 

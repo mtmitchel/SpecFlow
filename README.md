@@ -67,18 +67,19 @@ node packages/app/dist/cli.js verify --ticket <ticket-id> --summary "Implemented
 - Keep `specflow/config.yaml` non-secret (`provider`, `model`, `host`, `port`, `repoInstructionFile`).
 - `.env` is ignored by git; `.env.example` is safe to commit.
 
-The Settings modal (open via Cmd+K or navigator) lets you change provider, model, and API key at runtime. For OpenRouter, a searchable model picker loads all available models. The server never returns your API key in API responses -- the UI only shows whether a key is currently set.
+The Settings modal (open via Cmd+K or the rail settings button) lets you change provider, model, and API key at runtime. For OpenRouter, a searchable model picker loads all available models. The server never returns your API key in API responses -- the UI only shows whether a key is currently set.
 
 ## Key Features
 
-- **Contained planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, and Tickets without route-level mental-model breaks.
+- **Pipeline-centered planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, and Tickets with one persistent initiative pipeline visible across Home, creation, planning, ticket, and run views.
 - **Mandatory brief intake**: fresh initiatives always begin with a short consultation before the first brief is generated, so the product does not hallucinate scope, users, or success criteria from a single paragraph.
 - **Review gates and cross-checks**: every major artifact can be reviewed for gaps and cross-checked against adjacent artifacts before the next planning step opens.
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
 - **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved coverage checks block export and execution until the user reruns or overrides the check.
-- **Action-oriented home**: the landing view is a queue of what needs attention next across planning, execution, verification, and audit activity.
-- **Master-detail layout**: navigator tree sidebar (initiatives > phases > tickets, plus aggregate views) + detail workspace keeps planning, execution, and audit work in one workspace.
+- **Action-oriented home**: the landing view is an Up next queue plus initiative cards with inline progress, so the first screen answers what needs attention now instead of showing aggregate counts.
+- **Rail + drawer workspace**: a slim icon rail handles primary navigation, while the hierarchical navigator remains available as a secondary drawer for browse-heavy use.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
+- **Inline initiative handoff**: `/new-initiative` flows directly into required brief intake in the same screen instead of bouncing through separate creation and planning views.
 - **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
 - **Fix-forward loop**: failed verification auto-enriches the re-export bundle with failure context; one-click re-export and re-verify.

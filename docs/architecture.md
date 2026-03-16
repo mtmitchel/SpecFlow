@@ -497,9 +497,9 @@ graph TD
     App --> SettingsModal[Settings Modal - pathname /settings]
     App --> CommandPalette[Command Palette - Cmd+K]
 
-    WorkspaceShell --> Navigator[Navigator - WAI-ARIA TreeView]
+    WorkspaceShell --> IconRail[Icon rail - primary navigation]
+    WorkspaceShell --> Navigator[Navigator drawer - structural hierarchy]
     WorkspaceShell --> DetailWorkspace[Detail Workspace - route switch]
-    WorkspaceShell --> StatusBar[Status Bar - initiative progress]
 
     Navigator --> NavTree[aggregate links > initiatives > phases > tickets > quick tasks]
 
@@ -508,12 +508,13 @@ graph TD
     CommandPalette --> NewInitiative[Navigate to /new-initiative]
     CommandPalette --> FuzzySearch[Fuzzy search: initiatives / tickets / runs]
 
-    DetailWorkspace --> InitiativeView[Initiative View - contained planning shell with Consult / Draft / Checkpoint / Complete]
+    DetailWorkspace --> InitiativeView[Initiative View - breadcrumb + pipeline + stage-switched planning content]
     DetailWorkspace --> SpecView[Spec View - legacy /initiative/:id/spec/:type redirect surface]
     DetailWorkspace --> TicketView[Ticket View - preflight + execution timeline + run history]
     DetailWorkspace --> RunView[Run View - secondary execution report]
-    DetailWorkspace --> InitiativeCreator[Initiative Creator - same planning shell, raw idea entry, hand off to brief intake]
-    DetailWorkspace --> OverviewPanel[Home action queue]
+    DetailWorkspace --> InitiativeCreator[Initiative Creator - raw idea entry + inline handoff into brief intake]
+    DetailWorkspace --> InitiativeHandoffView[Initiative Handoff View - inline brief intake]
+    DetailWorkspace --> OverviewPanel[Home - Up next queue + initiative cards]
 
     TicketView --> PreflightCard[Preflight Card]
     TicketView --> ExportPanel[Export Bundle Panel]
@@ -530,18 +531,20 @@ graph TD
 
 | Component | Responsibility |
 |---|---|
-| **WorkspaceShell** | Two-column grid (`280px 1fr`); slots: navigator, detail workspace, status bar, command palette |
-| **Navigator** | WAI-ARIA TreeView sidebar; hierarchy: aggregate views + initiatives > phases > tickets + Quick Tasks; filter input; keyboard navigation via `useTreeNavigation` hook; auto-expands to reveal active route and highlights nested active items |
+| **WorkspaceShell** | Two-column grid (`56px 1fr`); slots: icon rail, detail workspace, navigation drawer overlay, command palette |
+| **IconRail** | Primary navigation chrome: Home, aggregate views, initiative shortcuts, search, settings |
+| **Navigator** | Secondary structural drawer; WAI-ARIA TreeView hierarchy for aggregate views + initiatives > phases > tickets + Quick Tasks; keyboard navigation via `useTreeNavigation` hook |
 | **CommandPalette** | Cmd+K modal overlay; delegates to mode sub-components (`PaletteSearchMode`, `PaletteQuickTaskMode`, `PaletteGithubImportMode`); parent owns mode state and overlay |
-| **StatusBar** | Bottom bar showing per-initiative progress: done count, blocked count, in-verify count |
 | **SettingsModal** | Overlay triggered by `pathname === "/settings"`; provider/API-key form; delegates model picker to `ModelCombobox` component; `navigate(-1)` to close |
 | **DetailWorkspace** | React Router `<Routes>` switch for `/initiative/:id`, `/initiative/:id/spec/:type`, `/ticket/:id`, `/run/:id`, `/new`, `/new-initiative`, `/new-quick-task`, aggregate list routes, and backward-compat redirects from old plural paths |
-| **OverviewPanel** | Action-oriented home queue: continue planning, needs review, ready to run, needs verification, recent audit activity |
-| **InitiativeView** | Canonical planning shell: sticky step rail, one active stage (Consult/Draft/Checkpoint/Complete), summary-first artifact view, autosaved editing, collapsed review checkpoints, and ticket coverage checkpoint driven by a dedicated workspace hook |
+| **OverviewPanel** | Action-oriented home surface: ranked Up next queue plus initiative cards with inline pipeline progress |
+| **Pipeline** | Shared initiative progress component used across Home, initiative, ticket, and run surfaces |
+| **InitiativeView** | Canonical planning shell: breadcrumb + sticky pipeline header, one active stage (Consult/Draft/Checkpoint/Complete), summary-first artifact view, autosaved editing, collapsed review checkpoints, and ticket coverage checkpoint driven by a dedicated workspace hook |
 | **SpecView** | Legacy single-artifact route that redirects back into the initiative workflow step |
 | **TicketView** | Ticket execution workspace; status dropdown using `canTransition()`; single preflight card for coverage/blockers/phase warnings; covered spec items context; execution sections driven by `useVerificationStream`, `useCapturePreview`, and `useExportWorkflow`; run history kept subordinate to the ticket |
 | **InitiativeCreator** | Entry into the same planning shell used by the initiative workspace; captures a raw idea and routes directly into required brief intake |
-| **RunView** | Secondary execution report with summary, diff viewer, attempt history, and contextual audit panel; links back to the ticket as the primary recovery path |
+| **InitiativeHandoffView** | Inline brief-intake surface used immediately after initiative creation or quick-task promotion |
+| **RunView** | Secondary execution report with summary, diff viewer, attempt history, contextual audit panel, and initiative pipeline context; links back to the ticket as the primary recovery path |
 | **Root Error Boundary** | Catches rendering crashes; presents a recovery UI instead of a blank screen |
 | **Toast Context** | Surfaces API errors (rate limits, conflicts, auth failures) that would otherwise be silent |
 | **SSE Client** | Maintains SSE connections; on disconnect performs snapshot refresh via REST and resumes from latest persisted state |

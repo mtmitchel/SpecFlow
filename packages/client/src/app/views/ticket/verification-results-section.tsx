@@ -23,6 +23,7 @@ interface VerificationResultsSectionProps {
   setVerifyStreamEvents: (fn: (prev: string[]) => string[]) => void;
   setVerificationResult: (result: VerificationResult | null) => void;
   onRefresh: () => Promise<void>;
+  chrome?: "section" | "plain";
 }
 
 export const VerificationResultsSection = ({
@@ -38,7 +39,8 @@ export const VerificationResultsSection = ({
   setVerifyState,
   setVerifyStreamEvents,
   setVerificationResult,
-  onRefresh
+  onRefresh,
+  chrome = "section"
 }: VerificationResultsSectionProps) => {
   const { showError } = useToast();
 
@@ -62,12 +64,8 @@ export const VerificationResultsSection = ({
     }
   };
 
-  return (
-    <WorkflowSection
-      title="Verification"
-      badge={verificationResult.overallPass ? "pass" : "fail"}
-      defaultOpen
-    >
+  const content = (
+    <>
       <p>
         Overall: {verificationResult.overallPass ? "Passed" : "Needs work"}
         {attempts.length > 0 ? ` · Attempt ${attempts.length}` : ""}
@@ -141,6 +139,20 @@ export const VerificationResultsSection = ({
       ) : null}
 
       <OverridePanel ticketId={ticketId} onRefresh={onRefresh} />
+    </>
+  );
+
+  if (chrome === "plain") {
+    return content;
+  }
+
+  return (
+    <WorkflowSection
+      title="Verification"
+      badge={verificationResult.overallPass ? "pass" : "fail"}
+      defaultOpen
+    >
+      {content}
     </WorkflowSection>
   );
 };

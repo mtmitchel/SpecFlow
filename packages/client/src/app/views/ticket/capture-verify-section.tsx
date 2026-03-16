@@ -34,6 +34,7 @@ interface CaptureVerifySectionProps {
   setVerifyState: (state: "idle" | "running" | "reconnecting") => void;
   setVerificationResult: (result: VerificationResult | null) => void;
   onRefresh: () => Promise<void>;
+  chrome?: "section" | "plain";
 }
 
 export const CaptureVerifySection = ({
@@ -54,7 +55,8 @@ export const CaptureVerifySection = ({
   setVerifyStreamEvents,
   setVerifyState,
   setVerificationResult,
-  onRefresh
+  onRefresh,
+  chrome = "section"
 }: CaptureVerifySectionProps) => {
   const { showError } = useToast();
 
@@ -78,11 +80,8 @@ export const CaptureVerifySection = ({
     }
   };
 
-  return (
-    <WorkflowSection
-      title="Review changes and verify"
-      defaultOpen={workflowPhase === "agent" || workflowPhase === "verify"}
-    >
+  const content = (
+    <>
       <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
         After execution finishes, review the captured changes and check them against the plan.
         <HelpTip text="Compares the captured changes against the acceptance criteria defined in the ticket plan." />
@@ -174,6 +173,19 @@ export const CaptureVerifySection = ({
           <pre>{verifyStreamEvents.join("")}</pre>
         </details>
       ) : null}
+    </>
+  );
+
+  if (chrome === "plain") {
+    return content;
+  }
+
+  return (
+    <WorkflowSection
+      title="Review changes and verify"
+      defaultOpen={workflowPhase === "agent" || workflowPhase === "verify"}
+    >
+      {content}
     </WorkflowSection>
   );
 };

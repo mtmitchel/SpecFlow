@@ -1,9 +1,59 @@
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { InitiativePlanningQuestion, InitiativeRefinementState } from "../../../types.js";
 import { MarkdownView } from "../../components/markdown-view.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
 import type { RefinementAnswer, SaveState, SpecStep } from "./shared.js";
 import { isQuestionAnswered } from "./shared.js";
+
+const QUESTION_DECISION_LABELS: Record<InitiativePlanningQuestion["decisionType"], string> = {
+  scope: "Scope",
+  user: "User",
+  workflow: "Workflow",
+  platform: "Platform",
+  data: "Data",
+  security: "Security",
+  integration: "Integration",
+  "success-metric": "Success metric",
+};
+
+const getAnswerPreview = (
+  question: InitiativePlanningQuestion,
+  value: RefinementAnswer,
+  usingDefault: boolean,
+): string | null => {
+  if (usingDefault) {
+    return question.assumptionIfUnanswered;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (Array.isArray(value)) {
+    const resolvedValues = value.map((item) => item.trim()).filter(Boolean);
+    return resolvedValues.length > 0 ? resolvedValues.join(", ") : null;
+  }
+
+  return null;
+};
+
+const getFirstOpenQuestionId = (
+  activeRefinement: InitiativeRefinementState,
+  refinementAnswers: Record<string, string | string[] | boolean>,
+  defaultAnswerQuestionIds: string[],
+): string | null => {
+  const firstUnresolved = activeRefinement.questions.find(
+    (question) =>
+      !isQuestionAnswered(refinementAnswers[question.id]) && !defaultAnswerQuestionIds.includes(question.id),
+  );
+
+  return firstUnresolved?.id ?? activeRefinement.questions[0]?.id ?? null;
+};
 
 const SelectChoiceCards = ({
   question,
@@ -198,6 +248,7 @@ interface RefinementSectionProps {
   busyAction: string | null;
   isBusy: boolean;
   saveStateIndicator: ReactNode;
+  variant?: "full" | "compact";
   onRequestGuidance: (questionId: string) => void | Promise<void>;
   onAnswerChange: (questionId: string, nextValue: string | string[] | boolean) => void;
   onAnswerLater: (questionId: string) => void;
@@ -215,75 +266,172 @@ export const RefinementSection = ({
   busyAction,
   isBusy,
   saveStateIndicator,
+  variant = "full",
   onRequestGuidance,
   onAnswerChange,
   onAnswerLater
-}: RefinementSectionProps) => (
-  <div className="clarification-review">
-    <div className="clarification-progress">
-      {activeRefinement.questions.length} question{activeRefinement.questions.length === 1 ? "" : "s"} before the{" "}
-      {INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()}
-    </div>
-    <div className="button-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-      {saveStateIndicator}
-      {unresolvedQuestionCount > 0 ? (
-        <span style={{ color: "var(--warning)", fontSize: "0.82rem" }}>
-          Answer {unresolvedQuestionCount} more question{unresolvedQuestionCount === 1 ? "" : "s"} or use a default assumption.
-        </span>
+}: RefinementSectionProps) => {
+  const [openQuestionId, setOpenQuestionId] = useState<string | null>(() =>
+    getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds),
+  );
+  const compact = variant === "compact";
+
+  const resolvedQuestionCount = activeRefinement.questions.length - unresolvedQuestionCount;
+  const completionPercent =
+    activeRefinement.questions.length === 0
+      ? 0
+      : Math.round((resolvedQuestionCount / activeRefinement.questions.length) * 100);
+
+  useEffect(() => {
+    if (openQuestionId === null) {
+      return;
+    }
+
+    const hasOpenQuestion = activeRefinement.questions.some((question) => question.id === openQuestionId);
+    if (hasOpenQuestion) {
+      return;
+    }
+
+    setOpenQuestionId(getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
+  }, [activeRefinement, defaultAnswerQuestionIds, openQuestionId, refinementAnswers]);
+
+  const questionIds = useMemo(
+    () => activeRefinement.questions.map((question) => question.id),
+    [activeRefinement.questions],
+  );
+
+  return (
+    <div className={`planning-intake-flow${compact ? " planning-intake-flow-compact" : ""}`}>
+      {!compact ? (
+        <div className="planning-intake-header">
+          <div>
+            <div className="planning-intake-title">
+              {activeRefinement.questions.length} question{activeRefinement.questions.length === 1 ? "" : "s"} before the{" "}
+              {INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()}
+            </div>
+            <p className="planning-intake-copy">
+              Answer what matters, use a default assumption when it does not, and keep the artifact grounded before generation.
+            </p>
+          </div>
+          <div className="planning-intake-meta">
+            <span>
+              {resolvedQuestionCount}/{activeRefinement.questions.length} resolved
+            </span>
+            {saveStateIndicator}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="planning-intake-progress" aria-hidden="true">
+        <div className="planning-intake-progress-fill" style={{ width: `${completionPercent}%` }} />
+      </div>
+
+      {!compact && unresolvedQuestionCount > 0 ? (
+        <div className="planning-inline-note planning-inline-note-warn">
+          <span>
+            Answer {unresolvedQuestionCount} more question{unresolvedQuestionCount === 1 ? "" : "s"} or use a default assumption before generation.
+          </span>
+        </div>
+      ) : null}
+
+      <div className="planning-intake-question-list">
+        {activeRefinement.questions.map((question, index) => {
+          const usingDefault =
+            defaultAnswerQuestionIds.includes(question.id) && !isQuestionAnswered(refinementAnswers[question.id]);
+          const preview = getAnswerPreview(question, refinementAnswers[question.id], usingDefault);
+          const resolved = Boolean(preview);
+          const open = openQuestionId === question.id;
+          const questionIndex = questionIds.indexOf(question.id);
+          const nextQuestionId = questionIds[questionIndex + 1] ?? null;
+
+          return (
+            <div
+              key={question.id}
+              className={`planning-intake-question${open ? " active" : ""}${resolved ? " resolved" : ""}${
+                usingDefault ? " defaulted" : ""
+              }`}
+            >
+              <button
+                type="button"
+                className="planning-intake-question-toggle"
+                onClick={() => setOpenQuestionId((current) => (current === question.id ? null : question.id))}
+              >
+                <span className="planning-intake-question-index" aria-hidden="true">
+                  {resolved ? "✓" : index + 1}
+                </span>
+                <span className="planning-intake-question-body-copy">
+                  <span className="planning-intake-question-label">{question.label}</span>
+                  <span className="planning-intake-question-hint">
+                    {usingDefault ? "Using default assumption" : question.whyThisBlocks}
+                  </span>
+                </span>
+                {preview && !open ? <span className="planning-intake-question-preview">{preview}</span> : null}
+                {!compact ? (
+                  <span className="planning-intake-question-pill">{QUESTION_DECISION_LABELS[question.decisionType]}</span>
+                ) : null}
+              </button>
+
+              {open ? (
+                <div className="planning-intake-question-panel">
+                  <p className="planning-intake-question-support">{question.whyThisBlocks}</p>
+                  <RefinementField
+                    question={question}
+                    value={refinementAnswers[question.id]}
+                    onChange={(nextValue) => onAnswerChange(question.id, nextValue)}
+                  />
+
+                  <div className="button-row planning-intake-question-actions">
+                    {!compact ? (
+                      <button type="button" onClick={() => void onRequestGuidance(question.id)} disabled={isBusy}>
+                        {busyAction === "refinement-help" && guidanceQuestionId === question.id ? "Thinking..." : "Get guidance"}
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={() => onAnswerLater(question.id)}>
+                      {usingDefault ? (compact ? "Using default" : "Using default assumption") : compact ? "Skip" : "Use default assumption"}
+                    </button>
+                    {nextQuestionId ? (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => setOpenQuestionId(nextQuestionId)}
+                      >
+                        {compact ? "Next" : "Next question"}
+                      </button>
+                    ) : (
+                      <button type="button" className="btn-primary" onClick={() => setOpenQuestionId(null)}>
+                        Done
+                      </button>
+                    )}
+                  </div>
+
+                  {!compact && guidanceQuestionId === question.id && guidanceText ? (
+                    <div className="clarification-guidance">
+                      <MarkdownView content={guidanceText} />
+                    </div>
+                  ) : null}
+
+                  {!compact && usingDefault ? (
+                    <div className="status-banner warn" style={{ marginBottom: 0 }}>
+                      Default assumption: {question.assumptionIfUnanswered}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {!compact && refinementAssumptions.length > 0 ? (
+        <div className="clarification-help-panel">
+          <span className="qa-label">Current assumptions</span>
+          <ul style={{ margin: 0 }}>
+            {refinementAssumptions.map((assumption) => (
+              <li key={assumption}>{assumption}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
-    {activeRefinement.questions.map((question) => {
-      const usingDefault =
-        defaultAnswerQuestionIds.includes(question.id) && !isQuestionAnswered(refinementAnswers[question.id]);
-
-      return (
-        <div key={question.id} className="clarification-card">
-          <div>
-            <div className="clarification-option-header" style={{ marginBottom: "0.35rem" }}>
-              <span>{question.label}</span>
-              <span className="clarification-option-badge">{question.decisionType}</span>
-            </div>
-            <p className="qa-label" style={{ margin: 0 }}>{question.whyThisBlocks}</p>
-          </div>
-          <RefinementField
-            question={question}
-            value={refinementAnswers[question.id]}
-            onChange={(nextValue) => onAnswerChange(question.id, nextValue)}
-          />
-          <div className="button-row">
-            <button
-              type="button"
-              onClick={() => void onRequestGuidance(question.id)}
-              disabled={isBusy}
-            >
-              {busyAction === "refinement-help" && guidanceQuestionId === question.id ? "Thinking..." : "Get guidance"}
-            </button>
-            <button type="button" onClick={() => onAnswerLater(question.id)}>
-              {usingDefault ? "Using default assumption" : "Answer later"}
-            </button>
-          </div>
-          {guidanceQuestionId === question.id && guidanceText ? (
-            <div className="clarification-guidance">
-              <MarkdownView content={guidanceText} />
-            </div>
-          ) : null}
-          {usingDefault ? (
-            <div className="status-banner warn" style={{ marginBottom: 0 }}>
-              Default assumption: {question.assumptionIfUnanswered}
-            </div>
-          ) : null}
-        </div>
-      );
-    })}
-    {refinementAssumptions.length > 0 ? (
-      <div className="clarification-help-panel">
-        <span className="qa-label">Current assumptions</span>
-        <ul style={{ margin: 0 }}>
-          {refinementAssumptions.map((assumption) => (
-            <li key={assumption}>{assumption}</li>
-          ))}
-        </ul>
-      </div>
-    ) : null}
-  </div>
-);
+  );
+};

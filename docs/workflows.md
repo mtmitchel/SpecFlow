@@ -15,12 +15,12 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 **Purpose:** Decompose a big idea into a structured initiative: specs, review gates, decisions, and an ordered, phase-grouped ticket backlog.
 
-**Entry point:** Press **Cmd+K** and select "New Initiative", or click the **+ New** button at the bottom of the navigator sidebar.
+**Entry point:** Press **Cmd+K** and select **New Initiative**, or click **Start new initiative** from Home.
 
 **Steps:**
 
-1. User lands in the same planning shell they will use for the full journey. The left rail shows **Brief**, **Core flows**, **PRD**, **Tech spec**, and **Tickets** as one contained spectrum.
-2. User types a free-form idea and continues directly into **Brief** inside that same shell.
+1. User lands in the same planning shell they will use for the full journey. A persistent initiative pipeline stays visible across Home, creation, planning, ticket, and run surfaces.
+2. User types a free-form idea and continues directly into **Brief intake** in the same screen. The idea card stays visible above the intake so the user does not lose context during the handoff.
 3. Fresh initiatives always begin with **Brief intake**. SpecFlow asks a required four-question consultation before the first brief can be generated. The questions lock the primary problem, primary user, success criteria, and hard constraints or platform assumptions.
 4. Once the intake is answered or explicitly deferred, the user generates the Brief. SpecFlow then runs a **Brief review** checkpoint.
 5. User moves into **Core flows**. If needed, the planner asks a few phase-specific blocker questions about journeys, screens, or states. The user then generates the Core flows artifact and resolves the **Review core flows** plus **Cross-check brief and core flows** checkpoint.
@@ -29,6 +29,7 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 8. User moves into **Tickets** and generates the ticket plan. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger.
 9. After ticket generation, SpecFlow runs a **Coverage checkpoint**. If the ticket plan leaves important flows, requirements, or decisions uncovered, the user must rerun or override that check before execution starts.
 10. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page.
+11. The top-level workspace stays light by default: icon rail for primary navigation, Up next on Home, and a secondary drawer for browse-heavy hierarchy.
 
 **Exit:** Initiative is ready for execution once the coverage checkpoint is passed or overridden. All tickets are in Backlog. User proceeds to Milestone Run.
 
@@ -38,11 +39,11 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 **Purpose:** Execute an initiative's tickets phase-by-phase, with a verify gate after each ticket before moving to the next.
 
-**Entry point:** Initiative page (after Groundwork) or the navigator tree -- user clicks a ticket to open it in the detail workspace.
+**Entry point:** Initiative page (after Groundwork), Home's Up next queue, or the navigation drawer.
 
 **Steps:**
 
-1. User opens a ticket from the navigator tree or the initiative's ticket list. The ticket view opens as a single execution workspace with a **Preflight** card first, then execution sections below.
+1. User opens a ticket from an initiative, the Home queue, or the navigation drawer. The ticket view opens as a single execution workspace with a **Preflight** card first, then one execution timeline below.
 2. If the ticket is still in **Backlog**, the user can move it to **Ready** via the status dropdown. When they try to move it into **In Progress**, the server rejects the change with a 409 error if the ticket still has unfinished blockers or the initiative's **Coverage check** is blocked or stale.
 3. User clicks **Export Bundle**. A panel slides in asking: *"Which agent?"* -- options are Claude Code, Codex CLI, OpenCode, Generic. User selects one. For initiative-linked tickets, unresolved coverage checks also block export until the user resolves or overrides the check in the initiative view.
 4. The bundle is generated and displayed: a copy-to-clipboard button and a download link. The ticket moves to **In Progress**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
@@ -59,7 +60,7 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 12. **If any fail:** ticket stays in **Verify** status. User gets two actions:
     - **Re-export with Findings** -- generates a new bundle pre-loaded with failure context and remediation hints (quick-fix mode). A "Re-verify Now" button appears after the fix bundle is ready.
     - **Override to Done** -- two-step safeguard: user enters a required reason, then confirms *"I accept risk"*; reason + confirmation are logged in run history.
-13. Run history is grouped by ticket with expandable attempts, so retries remain auditable without clutter.
+13. Run history is grouped by ticket with expandable attempts, so retries remain auditable without clutter. The ticket page keeps the initiative pipeline visible as orientation chrome, but the ticket remains the primary object.
 14. If an operation is recovered as `abandoned`, `superseded`, or `failed`, Runs and Ticket detail show a status badge with guided retry actions.
 15. Phase guidance is soft. Users can start next-phase tickets early, but SpecFlow shows the warning in the ticket preflight instead of scattering it across multiple banners.
 16. When all tickets in a phase are Done, the phase collapses with a complete indicator.
@@ -72,23 +73,23 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 **Purpose:** Plan and execute a single focused task without going through a full initiative decomposition.
 
-**Entry point:** Press **Cmd+K** and select **Quick Task**, or click the **+ New** button at the bottom of the navigator and choose Quick Task.
+**Entry point:** Press **Cmd+K** and select **Quick Task**, or open the new-work chooser and select **Quick Task**.
 
 **Steps:**
 
-1. The user opens Quick Task from Cmd+K or the new-work chooser. The UI uses the same contained shell pattern as planning, but with a shorter step rail.
+1. The user opens Quick Task from Cmd+K or the new-work chooser. The UI uses the same contained shell language as planning, but with a shorter path.
 2. User types a brief description (1-3 sentences) and clicks **Continue**.
 3. The Planner triages task size/clarity:
    - If focused and bounded, it continues Quick Build.
    - If too large or ambiguous, SpecFlow auto-converts it into a **draft initiative** and routes the user into Groundwork with the original input prefilled.
 4. For focused tasks, the Planner generates: acceptance criteria, a short implementation plan, and suggested file targets.
-5. A ticket is created in **Ready** status (skips Backlog -- it's already scoped). The command palette closes and the navigator navigates to the new ticket.
+5. A ticket is created in **Ready** status (skips Backlog -- it's already scoped). The command palette closes and the workspace navigates directly to the new ticket.
 6. User opens the ticket and clicks **Export Bundle** -- selects agent, bundle is generated.
 7. User runs the agent manually, returns, and clicks **Capture Results** (same capture flow as Milestone Run).
 9. Verification runs automatically. Ticket moves to Done or stays in Verify with findings.
 
 **Notes:**
-- Quick Tasks appear under a "Quick Tasks" section in the navigator tree (no initiative).
+- Quick Tasks remain outside initiatives and are still browseable from the secondary navigation drawer and aggregate ticket views.
 - A Quick Task can be linked to an existing initiative later via the ticket's detail page.
 - Quick Tasks are exempt from initiative coverage gating until they are linked to an initiative.
 
@@ -143,19 +144,24 @@ stateDiagram
 
 ```mermaid
 graph TD
-    Nav[Navigator Sidebar - WAI-ARIA TreeView] --> Initiatives
-    Nav --> QuickTasks[Quick Tasks section]
-    Nav --> NewBtn[+ New button]
+    Rail[Icon rail] --> Home[Home - Up next + initiative cards]
+    Rail --> Tickets[All Tickets]
+    Rail --> Runs[All Runs]
+    Rail --> Drawer[Navigation drawer]
+    Drawer --> Initiatives
+    Drawer --> QuickTasks[Quick Tasks section]
     CmdK[Cmd+K Command Palette] --> QT[Quick Task flow]
     CmdK --> NI[New Initiative flow]
     CmdK --> GH[GitHub Import flow]
     CmdK --> Search[Fuzzy search: entities by name]
 
-    Initiatives --> InitiativeView[Initiative View: Brief + Core Flows + PRD + Tech Spec + review gates + phase/ticket list]
+    Home --> InitiativeView[Initiative View: breadcrumb + pipeline + stage-switched planning content]
+    Initiatives --> InitiativeView
     Initiatives --> SpecView[Spec View: /initiative/:id/spec/:type]
     Initiatives --> TicketView
+    Home --> TicketView
     QuickTasks --> TicketView[Ticket View: status dropdown + export + capture + verify + audit]
-    TicketView --> RunView[Run View: diff viewer + verification + audit]
+    TicketView --> RunView[Run View: secondary execution report + audit]
 
-    Settings[Settings - Cmd+K or navigator] --> SettingsModal[Settings Modal: provider + model + API key]
+    Settings[Settings - Cmd+K or rail button] --> SettingsModal[Settings Modal: provider + model + API key]
 ```

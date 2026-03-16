@@ -27,10 +27,12 @@ All four workflows are functional: Groundwork, Milestone Run, Quick Build, and D
 
 Key capabilities in the current version (0.1.0):
 
-- Action-oriented home plus a master-detail workspace: navigator tree sidebar (aggregate views, initiatives, phases, tickets, quick tasks) + detail workspace
+- Action-oriented home: an Up next queue plus initiative cards with inline progress instead of a counts dashboard
+- Rail + drawer workspace: slim icon rail for primary navigation, with the structural navigator preserved as a secondary drawer
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
-- Contained planning spectrum: Brief -> Core flows -> PRD -> Tech spec -> Tickets inside one shared shell
+- Shared initiative pipeline: Brief -> Core flows -> PRD -> Tech spec -> Tickets -> Execute -> Verify -> Done as one continuous visual model
 - Mandatory brief intake before the first brief is generated
+- Inline creator handoff: `/new-initiative` flows directly into required brief intake in the same screen
 - Persisted review gates and cross-checks across planning artifacts
 - Traceability-backed planning with artifact sidecar trace outlines
 - Spec-driven ticket planning with repo context scanning (grounded file targets)
