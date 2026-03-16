@@ -191,7 +191,7 @@
   border: 1px solid var(--danger-border);
   color: var(--danger-text-muted);
   padding: 0.3rem 0.6rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-family: inherit;
   font-size: 0.8rem;
   cursor: pointer;
