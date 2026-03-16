@@ -99,8 +99,8 @@ export const TicketsStepSection = ({
       <div className="planning-section-card">
         <div className="planning-section-header">
           <div>
-            <h4 style={{ margin: 0 }}>Ticket plan</h4>
-            <p style={{ margin: "0.25rem 0 0", color: "var(--muted)" }}>
+            <h4 className="heading-reset">Ticket plan</h4>
+            <p className="text-muted-sm" style={{ margin: "0.25rem 0 0" }}>
               Generate tickets when the plan is ready to turn into work.
             </p>
           </div>
@@ -126,7 +126,7 @@ export const TicketsStepSection = ({
         </div>
 
         {initiative.phases.length === 0 ? (
-          <p style={{ color: "var(--muted)", margin: 0 }}>
+          <p className="text-muted-sm" style={{ margin: 0 }}>
             No tickets yet.
           </p>
         ) : null}
@@ -209,7 +209,7 @@ export const TicketsStepSection = ({
                 </span>
               </div>
               {phaseTickets.length === 0 ? (
-                <p style={{ color: "var(--muted)", margin: 0 }}>No tickets yet.</p>
+                <p className="text-muted-sm" style={{ margin: 0 }}>No tickets yet.</p>
               ) : (
                 <ul className="planning-ticket-list">
                   {phaseTickets.map((ticket) => (
@@ -229,7 +229,7 @@ export const TicketsStepSection = ({
 
       {linkedRuns.length > 0 ? (
         <div className="planning-section-card">
-          <h4 style={{ marginTop: 0 }}>Linked runs</h4>
+          <h4 className="heading-reset">Linked runs</h4>
           <ul className="planning-ticket-list">
             {linkedRuns.map((run) => (
               <li key={run.id}>

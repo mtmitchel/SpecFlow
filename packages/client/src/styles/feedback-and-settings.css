@@ -39,7 +39,7 @@
   padding: 0.4rem 0.6rem;
   background: var(--warning-bg);
   border-left: 2px solid var(--warning);
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   color: var(--muted);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }

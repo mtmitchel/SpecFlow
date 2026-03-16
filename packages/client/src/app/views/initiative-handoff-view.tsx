@@ -19,7 +19,7 @@ export const InitiativeHandoffView = ({
 
   const renderSaveState = (label: string | null) =>
     label ? (
-      <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+      <span className="text-muted-sm">
         {label}
       </span>
     ) : null;

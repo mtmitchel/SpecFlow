@@ -91,6 +91,20 @@ Direct CLI examples (after build):
 - Use `ConfigSavePayload` (from `types.ts`) when sending config to the server via `PUT /api/config`. Use `Config` for reading. The server returns `hasApiKey: boolean` instead of the raw API key -- never expose the key through API reads.
 - `AgentTarget` is the shared type for agent selection (`"claude-code" | "codex-cli" | "opencode" | "generic"`). Import from `../types` rather than re-declaring locally.
 
+### CSS design system
+
+All visual tokens live in `packages/client/src/styles/base.css`. Use tokens instead of hardcoded values:
+
+- **Border radius**: `--radius-xs` (6px), `--radius-sm` (4px), `--radius-md` (8px), `--radius-lg` (12px), `--radius-pill` (999px).
+- **Typography scale** (small text): `--font-caption` (0.75rem), `--font-sm` (0.82rem), `--font-body-sm` (0.88rem).
+- **Shadows**: `--shadow-md`, `--shadow-lg`, `--shadow-drawer`.
+- **Disabled states**: opacity `0.5`, `cursor: not-allowed`, `pointer-events: none`. Shared rule in `shared-ui.css` covers `.inline-action`, `.btn-primary`, `.btn-destructive`, `.btn-danger-subtle`, `.btn-success`, `.settings-form button`.
+- **Hover opacity**: always `0.85`.
+- **Button padding**: compact tier `0.3rem 0.6rem` (inline/pill), standard tier `0.45rem 0.75rem` (primary/form).
+- **Input padding**: `0.4rem 0.6rem` for all form inputs.
+- **Transitions**: list explicit properties (`background`, `border-color`, `opacity`). Never use `transition: all`.
+- **Utility classes** (`shared-ui.css`): `.text-muted-sm`, `.text-muted-caption`, `.heading-reset`, `.textarea-sm/md/lg`. Prefer these over inline `style` props.
+
 ## Testing Guidelines
 
 Backend tests use Vitest under `packages/app/test`. Test files are split by domain:

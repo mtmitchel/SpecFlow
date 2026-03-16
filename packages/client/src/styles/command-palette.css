@@ -44,6 +44,10 @@
   outline: none;
 }
 
+.palette-input:focus-visible {
+  border-color: var(--accent-border);
+}
+
 .palette-textarea {
   width: 100%;
   min-height: 120px;
@@ -58,6 +62,10 @@
   resize: vertical;
 }
 
+.palette-textarea:focus-visible {
+  border-color: var(--accent-border);
+}
+
 .palette-results {
   max-height: 420px;
   overflow-y: auto;
@@ -67,7 +75,7 @@
 .palette-empty {
   padding: 0.75rem 1rem;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
 }
 
 .palette-item {
@@ -98,7 +106,7 @@
 }
 
 .palette-item-sub {
-  font-size: 0.78rem;
+  font-size: var(--font-caption);
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -111,7 +119,7 @@
   gap: 0.7rem;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--panel-border);
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
   color: var(--muted);
 }
 
@@ -120,13 +128,13 @@
   border: none;
   color: var(--accent);
   cursor: pointer;
-  font-size: 0.82rem;
+  font-size: var(--font-sm);
   padding: 0;
   font-family: inherit;
   transition: opacity var(--transition-fast);
 }
 
-.palette-back:hover { opacity: 0.75; }
+.palette-back:hover { opacity: 0.85; }
 
 .palette-actions {
   display: flex;
@@ -140,21 +148,21 @@
   border: 1px solid var(--accent-border);
   background: var(--accent-bg-active);
   color: var(--accent-text);
-  padding: 0.38rem 0.75rem;
+  padding: 0.45rem 0.75rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
   transition: opacity var(--transition-fast);
 }
 
 .palette-submit:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .palette-hint {
-  font-size: 0.75rem;
+  font-size: var(--font-caption);
   color: var(--muted);
 }
 
@@ -176,7 +184,7 @@
 
 .error-boundary-hint {
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
   margin-top: 0.5rem;
 }
 
@@ -237,7 +245,7 @@ select:focus-visible,
 
 .workflow-section-badge {
   margin-left: auto;
-  font-size: 0.75rem;
+  font-size: var(--font-caption);
   color: var(--muted);
   font-weight: 400;
 }
@@ -253,7 +261,7 @@ select:focus-visible,
   align-items: center;
   gap: 0;
   margin: 0.8rem 0;
-  font-size: 0.82rem;
+  font-size: var(--font-sm);
 }
 
 .workflow-step {
@@ -284,7 +292,7 @@ select:focus-visible,
 .clarification-progress {
   margin-bottom: 0.75rem;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--font-sm);
 }
 
 .clarification-card,
@@ -375,7 +383,7 @@ select:focus-visible,
 
 .override-panel p {
   margin: 0 0 0.6rem;
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
   color: var(--danger-text);
   line-height: 1.5;
 }
@@ -391,7 +399,7 @@ select:focus-visible,
   border-radius: var(--radius-md);
   margin: 0.5rem 0;
   color: var(--accent-text);
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
 }
 
 @keyframes spinner-rotate {
@@ -414,7 +422,7 @@ select:focus-visible,
 
 .verify-stream-toggle summary {
   cursor: pointer;
-  font-size: 0.82rem;
+  font-size: var(--font-sm);
   color: var(--muted);
   user-select: none;
 }

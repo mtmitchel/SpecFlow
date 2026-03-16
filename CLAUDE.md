@@ -103,6 +103,15 @@ Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by tick
 - **React components**: do NOT annotate return types with `: JSX.Element` (removed in `@types/react@19`). Use `ConfigSavePayload` for writes, `Config` for reads. `AgentTarget` is the shared agent selection type.
 - **File names**: kebab-case.
 - **Ellipsis in UI copy**: never use `...` (ellipsis) in static copy such as placeholders, labels, or empty-state messages. Ellipsis is reserved exclusively for loading/progress states (e.g. "Creating", "Importing"). Placeholder text should read naturally without trailing dots (e.g. `"Search tickets"` not `"Search tickets..."`).
+- **CSS design tokens**: all visual values must use tokens from `base.css`. Never hardcode `border-radius`, `font-size` (for small text), `box-shadow`, or disabled/hover opacity.
+  - **Border radius**: `--radius-xs` (6px), `--radius-sm` (4px), `--radius-md` (8px), `--radius-lg` (12px), `--radius-pill` (999px).
+  - **Typography**: `--font-caption` (0.75rem), `--font-sm` (0.82rem), `--font-body-sm` (0.88rem). Larger sizes (0.9rem+) remain explicit.
+  - **Shadows**: `--shadow-md`, `--shadow-lg`, `--shadow-drawer`.
+  - **Disabled opacity**: always `0.5`. **Hover opacity**: always `0.85`.
+  - **Button padding**: compact tier (`0.3rem 0.6rem`) for inline/pill buttons, standard tier (`0.45rem 0.75rem`) for primary/form buttons.
+  - **Input padding**: `0.4rem 0.6rem` for all form inputs.
+  - **Transitions**: never use `transition: all`; list explicit properties.
+- **CSS utility classes** (in `shared-ui.css`): `.text-muted-sm`, `.text-muted-caption`, `.heading-reset`, `.textarea-sm` (140px), `.textarea-md` (220px), `.textarea-lg` (420px). Use these instead of inline `style` props for common patterns.
 - **Code quality**: if you encounter errors or failing tests in areas you touch, fix them even if you didn't introduce them. Run `npm run check`, `npm test`, and `npm run build` before considering work complete.
 
 ## Test Infrastructure

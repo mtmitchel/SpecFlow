@@ -69,7 +69,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
     >
       <div className="settings-modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-modal-header">
-          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Settings</h2>
+          <h2 className="heading-reset" style={{ fontSize: "1.1rem" }}>Settings</h2>
           <button type="button" className="settings-modal-close" onClick={close} aria-label="Close">
             ×
           </button>

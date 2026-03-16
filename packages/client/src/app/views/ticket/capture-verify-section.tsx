@@ -82,7 +82,7 @@ export const CaptureVerifySection = ({
 
   const content = (
     <>
-      <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+      <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
         After execution finishes, review the captured changes and check them against the plan.
         <HelpTip text="Compares the captured changes against the acceptance criteria defined in the ticket plan." />
       </p>
@@ -90,7 +90,7 @@ export const CaptureVerifySection = ({
         <button type="button" onClick={() => void refreshCapturePreview()}>
           Refresh change preview
         </button>
-        {capturePreviewData ? <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Source: {capturePreviewData.source}</span> : null}
+        {capturePreviewData ? <span className="text-muted-sm">Source: {capturePreviewData.source}</span> : null}
       </div>
       {capturePreviewData ? (
         <>

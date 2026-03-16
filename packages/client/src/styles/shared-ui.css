@@ -10,9 +10,9 @@
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--panel-border);
-  border-radius: 0.55rem;
-  padding: 0.45rem 0.55rem;
-  font-size: 0.85rem;
+  border-radius: var(--radius-xs);
+  padding: 0.4rem 0.6rem;
+  font-size: var(--font-body-sm);
   font-family: inherit;
   flex-shrink: 0;
 }
@@ -21,9 +21,9 @@
   background: var(--surface-deep);
   color: var(--text);
   border: 1px solid var(--panel-border);
-  border-radius: 0.55rem;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.85rem;
+  border-radius: var(--radius-xs);
+  padding: 0.4rem 0.6rem;
+  font-size: var(--font-body-sm);
   font-family: inherit;
   flex: 1;
   min-width: 0;
@@ -49,21 +49,21 @@
 
 .aggregate-empty-hint {
   margin-top: 0.4rem !important;
-  font-size: 0.82rem !important;
+  font-size: var(--font-sm) !important;
   opacity: 0.7;
 }
 
 .aggregate-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
 }
 
 .aggregate-table th {
   padding: 0.45rem 0.6rem;
   color: var(--muted);
   font-weight: 500;
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   text-align: left;
@@ -95,7 +95,7 @@
 
 .aggregate-table-muted {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
 }
 
 .aggregate-table-link-muted {
@@ -109,15 +109,15 @@
 
 .aggregate-table-mono {
   font-family: "IBM Plex Mono", monospace;
-  font-size: 0.82rem;
+  font-size: var(--font-sm);
 }
 
 .inline-action {
   border: 1px solid var(--accent-border);
   background: var(--accent-bg-active);
   color: var(--accent-text);
-  padding: 0.48rem 0.74rem;
-  border-radius: 0.55rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   margin-bottom: 0.8rem;
   transition: opacity var(--transition-fast), background var(--transition-fast);
@@ -148,11 +148,11 @@
   border: 1px solid var(--panel-border);
   background: var(--surface-button);
   color: var(--text);
-  border-radius: 0.55rem;
-  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-xs);
+  padding: 0.45rem 0.75rem;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
   transition: opacity var(--transition-fast), background var(--transition-fast);
 }
 
@@ -162,7 +162,7 @@
 
 .button-row button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
 /* Button hierarchy: primary, secondary (default), destructive */
@@ -190,12 +190,12 @@
   background: none;
   border: 1px solid var(--danger-border);
   color: var(--danger-text-muted);
-  padding: 0.25rem 0.65rem;
+  padding: 0.3rem 0.6rem;
   border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .btn-danger-subtle:hover {
@@ -207,6 +207,7 @@
   border-color: var(--success-border) !important;
   color: var(--success-text) !important;
   background: var(--success-bg) !important;
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .button-row select,
@@ -214,8 +215,8 @@
   background: var(--surface-deep);
   color: var(--text);
   border: 1px solid var(--panel-border);
-  border-radius: 0.55rem;
-  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-xs);
+  padding: 0.4rem 0.6rem;
 }
 
 .qa-grid {
@@ -230,7 +231,7 @@
 
 .qa-label {
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
 }
 
 .qa-grid input[type="text"],
@@ -240,9 +241,9 @@
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-sm);
-  padding: 0.45rem 0.55rem;
+  padding: 0.4rem 0.6rem;
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
 }
 
 .qa-grid select {
@@ -261,7 +262,7 @@
   align-items: center;
   gap: 0.35rem;
   color: var(--text);
-  font-size: 0.86rem;
+  font-size: var(--font-body-sm);
   cursor: pointer;
 }
 
@@ -276,15 +277,15 @@
 }
 
 .qa-bool-btn {
-  padding: 0.3rem 0.9rem;
+  padding: 0.3rem 0.6rem;
   background: var(--surface-button);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-sm);
   color: var(--muted);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .qa-bool-btn:hover {
@@ -483,7 +484,7 @@
 }
 
 .markdown-view a:hover {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .markdown-view hr {
@@ -532,8 +533,8 @@
   border: 1px solid var(--success-border);
   color: var(--success-text);
   background: var(--success-bg);
-  padding: 0.48rem 0.72rem;
-  border-radius: 0.55rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -546,7 +547,7 @@
 
 .settings-model-current {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--font-sm);
 }
 
 .settings-model-list {
@@ -562,8 +563,8 @@
   list-style: none;
   background: var(--surface-dropdown);
   border: 1px solid var(--panel-border);
-  border-radius: 0.55rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-md);
 }
 
 .settings-model-item {
@@ -573,7 +574,7 @@
   gap: 0.6rem;
   padding: 0.42rem 0.65rem;
   cursor: pointer;
-  font-size: 0.88rem;
+  font-size: var(--font-body-sm);
   transition: background var(--transition-fast);
 }
 
@@ -600,12 +601,33 @@
 .settings-model-ctx {
   flex-shrink: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--font-caption);
 }
 
 .settings-error {
   color: var(--danger-text-muted);
 }
+
+/* Shared disabled state for interactive elements */
+.inline-action:disabled,
+.btn-primary:disabled,
+.btn-destructive:disabled,
+.btn-danger-subtle:disabled,
+.btn-success:disabled,
+.settings-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Utility classes */
+.text-muted-sm { color: var(--muted); font-size: var(--font-sm); }
+.text-muted-caption { color: var(--muted); font-size: var(--font-caption); }
+.heading-reset { margin: 0; }
+
+.textarea-sm { min-height: 140px; }
+.textarea-md { min-height: 220px; }
+.textarea-lg { min-height: 420px; }
 
 @media (max-width: 760px) {
   .audit-layout {

@@ -72,7 +72,7 @@ export const InitiativeView = ({
     }
 
     return (
-      <span style={{ color: state === "error" ? "var(--danger-text)" : "var(--muted)", fontSize: "0.82rem" }}>
+      <span className="text-muted-sm" style={state === "error" ? { color: "var(--danger-text)" } : undefined}>
         {label}
       </span>
     );
@@ -179,7 +179,7 @@ export const InitiativeView = ({
       return (
         <div className="planning-summary-card">
           <h4>Overview</h4>
-          <p style={{ margin: 0, color: "var(--muted)" }}>
+          <p className="text-muted-sm" style={{ margin: 0 }}>
             The full document exists, but the summary view could not pull out a cleaner preview.
           </p>
         </div>
@@ -239,10 +239,9 @@ export const InitiativeView = ({
           onClose={closeDrawer}
         >
           <textarea
-            className="multiline planning-drawer-textarea"
+            className="multiline planning-drawer-textarea textarea-lg"
             value={drafts[drawerState.step]}
             onChange={(event) => updateDraft(event.target.value)}
-            style={{ minHeight: 420 }}
           />
         </SideDrawer>
       );

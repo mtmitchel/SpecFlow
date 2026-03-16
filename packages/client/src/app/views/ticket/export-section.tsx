@@ -33,7 +33,7 @@ export const ExportSection = ({
 }: ExportSectionProps) => {
   const content = (
     <>
-      <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+      <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
         Create a bundle for your coding agent. Run the agent, then return here to review and verify the work.
         <HelpTip text="Creates a prompt bundle with the ticket plan and codebase context for your coding agent." />
       </p>

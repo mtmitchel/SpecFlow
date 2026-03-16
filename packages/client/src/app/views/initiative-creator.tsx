@@ -72,7 +72,6 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder="What are you building? Who is it for? Any hard limits?"
-            style={{ minHeight: 140 }}
             autoFocus
           />
           <div className="planning-entry-card-footer">

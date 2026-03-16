@@ -260,7 +260,6 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
             onChange={(e) => setFilterText(e.target.value)}
             className="navigator-filter-input"
             aria-label="Search navigator"
-            style={filterText ? { paddingRight: "1.8rem" } : undefined}
           />
           {filterText && (
             <button

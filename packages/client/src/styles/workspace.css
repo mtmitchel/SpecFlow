@@ -156,8 +156,8 @@
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--panel-border);
-  border-radius: 0.55rem;
-  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-xs);
+  padding: 0.4rem 0.6rem;
 }
 
 .badge {
@@ -184,7 +184,7 @@
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 0.7rem;
+  border-radius: var(--radius-lg);
   padding: 0.95rem;
 }
 

@@ -68,11 +68,10 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
 
           <textarea
             ref={textareaRef}
-            className="multiline"
+            className="multiline textarea-md"
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder="Describe the work and any hard limits."
-            style={{ minHeight: 220 }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();

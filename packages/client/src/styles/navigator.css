@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  padding: 1rem 0.9rem 0.8rem;
+  padding: 1rem 0.85rem;
   border-bottom: 1px solid var(--panel-border);
   flex-shrink: 0;
 }
@@ -41,8 +41,9 @@
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-sm);
-  padding: 0.35rem 0.6rem;
-  font-size: 0.82rem;
+  padding: 0.4rem 0.6rem;
+  padding-right: 1.8rem;
+  font-size: var(--font-sm);
   font-family: inherit;
   outline: none;
   transition: border-color var(--transition-fast);
@@ -60,7 +61,7 @@
 
 .navigator-new-button {
   width: 100%;
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   padding: 0.35rem 0;
 }
 
@@ -74,9 +75,9 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.32rem 0.7rem;
+  padding: 0.35rem 0.7rem;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   color: var(--muted);
   border-radius: 0;
   outline: none;
@@ -105,7 +106,7 @@
 }
 
 .nav-tree-aggregate {
-  font-size: 0.82rem;
+  font-size: var(--font-sm);
   font-weight: 500;
 }
 
@@ -164,5 +165,12 @@
 .navigator-settings-button:hover {
   color: var(--text);
   border-color: var(--accent-border);
+}
+
+.navigator-new-button:disabled,
+.navigator-settings-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 

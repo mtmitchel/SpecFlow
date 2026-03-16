@@ -19,7 +19,7 @@ export const CheckpointGateBanner = ({
       {body ? <span>{body}</span> : null}
     </div>
     {actionLabel && onAction ? (
-      <button type="button" onClick={onAction} disabled={disabled}>
+      <button type="button" className="btn-primary" onClick={onAction} disabled={disabled}>
         {actionLabel}
       </button>
     ) : null}
