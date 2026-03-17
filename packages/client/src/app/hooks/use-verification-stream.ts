@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { fetchRunState } from "../../api.js";
 import type { VerificationResult } from "../../types.js";
+import { isDesktopRuntime } from "../../api/transport.js";
 
 const syncVerificationFromRunState = (
   attemptData: Array<{
@@ -64,6 +65,10 @@ export const useVerificationStream = (
   }, [ticketId, runId]);
 
   useEffect(() => {
+    if (isDesktopRuntime()) {
+      return;
+    }
+
     if (!ticketId) {
       return;
     }
@@ -72,12 +77,15 @@ export const useVerificationStream = (
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnectAttempt = 0;
     let source: EventSource | null = null;
+    let latestConnectionId = 0;
 
     const connect = (): void => {
       if (!isMounted) {
         return;
       }
 
+      latestConnectionId += 1;
+      const connectionId = latestConnectionId;
       source = new EventSource(`/api/tickets/${ticketId}/verify/stream`);
 
       source.onopen = () => {
@@ -97,11 +105,15 @@ export const useVerificationStream = (
       });
 
       source.addEventListener("verify-complete", () => {
-        if (!runId || verifyStateRef.current === "running") {
+        if (!runId || !isMounted || connectionId !== latestConnectionId || verifyStateRef.current === "running") {
           return;
         }
 
         void fetchRunState(runId).then((snapshot) => {
+          if (!isMounted || connectionId !== latestConnectionId) {
+            return;
+          }
+
           syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
         });
       });
@@ -112,15 +124,29 @@ export const useVerificationStream = (
         reconnectAttempt += 1;
 
         reconnectTimer = setTimeout(() => {
+          if (!isMounted || connectionId !== latestConnectionId) {
+            return;
+          }
+
           if (verifyStateRef.current !== "running") {
             setVerifyState("reconnecting");
           }
           if (runId) {
             void fetchRunState(runId)
-              .then((snapshot) => syncVerificationFromRunState(snapshot.attempts, setVerificationResult))
+              .then((snapshot) => {
+                if (!isMounted || connectionId !== latestConnectionId) {
+                  return;
+                }
+
+                syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
+              })
               .catch(() => {});
           }
           void onRefresh().finally(() => {
+            if (!isMounted || connectionId !== latestConnectionId) {
+              return;
+            }
+
             if (verifyStateRef.current === "reconnecting") {
               setVerifyState("idle");
             }

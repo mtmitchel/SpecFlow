@@ -16,6 +16,8 @@ interface ExportSectionProps {
   copyFeedback: boolean;
   handleExport: () => Promise<void>;
   handleCopyBundle: () => void;
+  handleSaveZipBundle: () => Promise<void>;
+  desktopRuntime: boolean;
   chrome?: "section" | "plain";
 }
 
@@ -29,6 +31,8 @@ export const ExportSection = ({
   copyFeedback,
   handleExport,
   handleCopyBundle,
+  handleSaveZipBundle,
+  desktopRuntime,
   chrome = "section"
 }: ExportSectionProps) => {
   const content = (
@@ -66,12 +70,18 @@ export const ExportSection = ({
           </a>
         ) : null}
         {exportResult ? (
-          <a
-            href={`/api/runs/${exportResult.runId}/attempts/${exportResult.attemptId}/bundle.zip`}
-            className="inline-action"
-          >
-            Download ZIP bundle
-          </a>
+          desktopRuntime ? (
+            <button type="button" className="inline-action" onClick={() => void handleSaveZipBundle()}>
+              Save ZIP bundle
+            </button>
+          ) : (
+            <a
+              href={`/api/runs/${exportResult.runId}/attempts/${exportResult.attemptId}/bundle.zip`}
+              className="inline-action"
+            >
+              Download ZIP bundle
+            </a>
+          )
         ) : null}
       </div>
       {exportResult ? <pre>{exportResult.flatString}</pre> : null}

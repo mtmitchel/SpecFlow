@@ -2,9 +2,9 @@
 
 ## Summary
 
-SpecFlow is a local-first, board-first spec-driven development orchestrator for solo builders and small teams who use AI coding agents. It sits above agents like Claude Code, Codex CLI, and OpenCode -- turning raw intent into structured planning artifacts, ordered task breakdowns, and agent-ready handoff bundles, then verifying that the agent's output actually matches the plan.
+SpecFlow is a local-first, desktop-first spec-driven development orchestrator for solo builders and small teams who use AI coding agents. It sits above agents like Claude Code, Codex CLI, and OpenCode -- turning raw intent into structured planning artifacts, ordered task breakdowns, and agent-ready handoff bundles, then verifying that the agent's output actually matches the plan.
 
-The primary interface is a web board running on `localhost`. The CLI handles server control, bundle export, and verification. An internal LLM-powered Planner/Verifier drives progressive artifact generation, targeted blocker questions, review gates, and outcome checking. All artifacts (specs, tickets, plans, decisions, review results) live as Markdown/YAML files under a `specflow/` directory in the repo, making them git-friendly and human-readable without any cloud dependency.
+The primary interface is a desktop workspace built with Tauri, backed by a persistent Node sidecar. A legacy Fastify + browser runtime remains available as a fallback. The CLI handles desktop launch fallback, bundle export, and verification. An internal LLM-powered Planner/Verifier drives progressive artifact generation, targeted blocker questions, review gates, and outcome checking. All artifacts (specs, tickets, plans, decisions, review results) live as Markdown/YAML files under a `specflow/` directory in the repo, making them git-friendly and human-readable without any cloud dependency.
 
 ## Problem
 
@@ -21,10 +21,10 @@ The primary interface is a web board running on `localhost`. The CLI handles ser
 
 ## Goals
 
-- A working local web board where a user can go from a raw idea to a verified, agent-executed change without leaving the tool.
+- A working local desktop workspace where a user can go from a raw idea to a verified, agent-executed change without leaving the tool.
 - The end-to-end loop: intent -> Brief -> Core flows -> PRD -> Tech spec -> review gates -> tickets -> export bundle -> (manual agent run) -> capture results -> verify -> visible in board.
 - Groundwork should catch meaningful planning gaps before ticket generation, not after implementation has started.
-- Local-only, file-based, dependency-light -- works in any repo without accounts or infrastructure.
+- Local-only, file-based, dependency-light -- works in any repo without accounts or infrastructure, and should not require an HTTP port during normal desktop use.
 
 ## Success Criteria
 

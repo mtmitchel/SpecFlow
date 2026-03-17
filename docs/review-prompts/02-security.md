@@ -1,10 +1,10 @@
 # Prompt 2: Security & Input Validation Review
 
-You have access to the repository at https://github.com/mtmitchel/SpecFlow (main branch, commit 6dfc3ae).
+You are reviewing the current repository checkout for SpecFlow.
 
-You are performing a security review of a local-first Node.js web application (Fastify v5). It runs on localhost:3141 and serves a React SPA. It makes outbound calls to LLM APIs (Anthropic, OpenAI, OpenRouter) and GitHub's API.
+You are performing a security review of a local-first desktop-first application. SpecFlow now runs primarily through a Tauri shell and a persistent Node sidecar, with a retained Fastify fallback runtime for legacy web mode and compatible CLI delegation. It makes outbound calls to LLM APIs (Anthropic, OpenAI, OpenRouter) and GitHub's API.
 
-## Server configuration facts
+## Runtime configuration facts
 
 - Fastify with `{ logger: false, bodyLimit: 1_048_576 }` (1 MB)
 - `@fastify/static` serves the client build
@@ -12,8 +12,9 @@ You are performing a security review of a local-first Node.js web application (F
 - **No Helmet** -- no security headers (CSP, X-Frame-Options, etc.)
 - **No rate limiting** -- no `@fastify/rate-limit`
 - **No authentication or session management**
-- Listens on `127.0.0.1:3141` by default (host is configurable)
-- See `packages/app/src/server/create-server.ts` for full server setup
+- The legacy Fastify fallback listens on `127.0.0.1:3141` by default (host is configurable)
+- Desktop mode routes UI requests through Tauri IPC to the Node sidecar and does not require an HTTP port for normal usage
+- See `packages/app/src/server/create-server.ts`, `packages/app/src/sidecar.ts`, and `packages/tauri/src-tauri/src/lib.rs`
 
 ## Key files to read from the repo
 
@@ -158,9 +159,9 @@ private async requestAnthropic(request: LlmRequest, signal: AbortSignal, onToken
 
 3. **Command injection via git**: The diff engine delegates to `git-strategy.ts`. Read that file. If `scopePaths` or git refs contain shell metacharacters, could they escape into a command? Note that `isValidGitRef` allows slashes, dots, and hyphens. What about `scopePaths` -- are those validated anywhere before being passed to git?
 
-4. **Missing security headers**: No Helmet, no CSP, no X-Frame-Options. Given this runs on localhost, what is the realistic attack surface? Consider: can a malicious website in the user's browser make requests to `localhost:3141`? (DNS rebinding, CSRF via form POST, `fetch` with `no-cors` mode). Enumerate specific attack scenarios, not generic risks.
+4. **Missing security headers**: No Helmet, no CSP, no X-Frame-Options on the retained Fastify fallback. Given that legacy web mode still runs on localhost when explicitly used, what is the realistic attack surface? Consider: can a malicious website in the user's browser make requests to `localhost:3141`? (DNS rebinding, CSRF via form POST, `fetch` with `no-cors` mode). Enumerate specific attack scenarios, not generic risks.
 
-5. **Localhost assumption**: The server binds to `127.0.0.1` by default but the host is configurable via `config.yaml`. If a user sets host to `0.0.0.0`, what additional attack surface opens up? Is there anything in the code that assumes localhost-only access?
+5. **Localhost assumption**: The legacy server binds to `127.0.0.1` by default but the host is configurable via `config.yaml`. If a user sets host to `0.0.0.0`, what additional attack surface opens up? Is there anything in the code that assumes localhost-only access?
 
 6. **API key handling**: The LLM client receives API keys from the server config. Trace the key from `config.yaml` / `.env` through to the outbound request. Are there any code paths where the key could leak into logs, error messages, or client responses? Check `classifyProviderError` -- does it include the raw response text (which might echo the key back)?
 

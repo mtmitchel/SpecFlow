@@ -1,0 +1,417 @@
+import {
+  BRIEF_CONSULTATION_REQUIRED_MESSAGE,
+  requiresInitialBriefConsultation
+} from "../../planner/brief-consultation.js";
+import { canEditStep, completeWorkflowStep, getRefinementAssumptions, invalidateWorkflowFromStep, updateRefinementState } from "../../planner/workflow-state.js";
+import type {
+  Initiative,
+  InitiativeArtifactStep,
+  InitiativePlanningStep,
+  PlanningReviewArtifact,
+  PlanningReviewKind
+} from "../../types/entities.js";
+import type { ProgressSink, SpecFlowRuntime } from "../types.js";
+import { badRequest, conflict } from "../errors.js";
+import {
+  readInitiative,
+  requirePlanningReviewKind,
+  requireResolvedReviews,
+  stepLabel,
+  structuredPlannerError
+} from "./shared.js";
+
+type ArtifactStep = InitiativeArtifactStep;
+
+const SPEC_STEP_TYPES: ArtifactStep[] = ["brief", "core-flows", "prd", "tech-spec"];
+
+const uniqueIds = (values: string[]): string[] => Array.from(new Set(values));
+
+const hasResolvedRefinementQuestions = (initiative: Initiative, step: ArtifactStep): boolean => {
+  const refinement = initiative.workflow.refinements[step];
+  return refinement.questions.every((question) => {
+    const answer = refinement.answers[question.id];
+    const hasAnswer =
+      typeof answer === "boolean" ||
+      (typeof answer === "string" && answer.trim().length > 0) ||
+      (Array.isArray(answer) && answer.some((value) => value.trim().length > 0));
+
+    return hasAnswer || refinement.defaultAnswerQuestionIds.includes(question.id);
+  });
+};
+
+const hasCheckedPhase = (initiative: Initiative, step: ArtifactStep): boolean =>
+  initiative.workflow.refinements[step].checkedAt !== null ||
+  Boolean(initiative.specIds.includes(`${initiative.id}:${step}`));
+
+const blocksInitialBriefGeneration = (runtime: SpecFlowRuntime, initiative: Initiative): boolean =>
+  requiresInitialBriefConsultation({
+    initiative,
+    briefMarkdown: runtime.store.specs.get(`${initiative.id}:brief`)?.content ?? ""
+  });
+
+const canReplacePlanningTickets = (runtime: SpecFlowRuntime, initiative: Initiative): boolean => {
+  const initiativeTickets = Array.from(runtime.store.tickets.values()).filter((ticket) => ticket.initiativeId === initiative.id);
+  return initiativeTickets.every(
+    (ticket) => (ticket.status === "backlog" || ticket.status === "ready") && ticket.runId === null
+  );
+};
+
+const replacePlanningTickets = async (runtime: SpecFlowRuntime, initiative: Initiative): Promise<void> => {
+  const initiativeTickets = Array.from(runtime.store.tickets.values()).filter((ticket) => ticket.initiativeId === initiative.id);
+  for (const ticket of initiativeTickets) {
+    await runtime.store.deleteTicket(ticket.id);
+  }
+};
+
+export const listInitiatives = (runtime: SpecFlowRuntime) => ({
+  initiatives: Array.from(runtime.store.initiatives.values())
+});
+
+export const deleteInitiative = async (runtime: SpecFlowRuntime, initiativeId: string) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  await runtime.store.deleteInitiative(initiative.id);
+};
+
+export const updateInitiative = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  body: Partial<{
+    title: string;
+    description: string;
+    phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>;
+  }>
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  const nextDescription = body.description ?? initiative.description;
+  const descriptionChanged = nextDescription !== initiative.description;
+  const nowIso = new Date().toISOString();
+
+  const updated = {
+    ...initiative,
+    title: body.title ?? initiative.title,
+    description: nextDescription,
+    phases: body.phases ?? initiative.phases,
+    workflow: descriptionChanged ? invalidateWorkflowFromStep(initiative.workflow, "brief") : initiative.workflow,
+    updatedAt: nowIso
+  };
+
+  await runtime.store.upsertInitiative(updated);
+  if (descriptionChanged) {
+    await runtime.plannerService.markPlanningArtifactsStale(initiative.id, "brief");
+  }
+
+  return {
+    initiative: updated
+  };
+};
+
+export const saveInitiativeRefinement = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  step: string,
+  body: {
+    answers?: Record<string, string | string[] | boolean>;
+    defaultAnswerQuestionIds?: string[];
+  }
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  if (!SPEC_STEP_TYPES.includes(step as ArtifactStep)) {
+    throw badRequest("Unsupported refinement step");
+  }
+
+  const artifactStep = step as ArtifactStep;
+  const nowIso = new Date().toISOString();
+  const updated = {
+    ...initiative,
+    workflow: updateRefinementState(initiative.workflow, artifactStep, {
+      answers: body.answers && typeof body.answers === "object" ? body.answers : {},
+      defaultAnswerQuestionIds: Array.isArray(body.defaultAnswerQuestionIds) ? body.defaultAnswerQuestionIds : [],
+      checkedAt: initiative.workflow.refinements[artifactStep].checkedAt ?? nowIso
+    }),
+    updatedAt: nowIso
+  };
+
+  await runtime.store.upsertInitiative(updated);
+
+  return {
+    initiative: updated,
+    assumptions: getRefinementAssumptions(updated.workflow, artifactStep)
+  };
+};
+
+export const requestInitiativeClarificationHelp = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  body: { questionId?: string; note?: string }
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  if (!body.questionId?.trim()) {
+    throw badRequest("questionId is required");
+  }
+
+  try {
+    return await runtime.plannerService.runClarificationHelpJob({
+      initiativeId: initiative.id,
+      questionId: body.questionId.trim(),
+      note: body.note
+    });
+  } catch (error) {
+    throw structuredPlannerError(runtime, error);
+  }
+};
+
+export const saveInitiativeSpec = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  type: string,
+  body: { content?: string }
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  if (!SPEC_STEP_TYPES.includes(type as ArtifactStep)) {
+    throw badRequest("Unsupported spec type");
+  }
+
+  const step = type as ArtifactStep;
+  if (!canEditStep(initiative.workflow, step)) {
+    throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
+  }
+  requireResolvedReviews(runtime, initiative, step);
+
+  const content = body.content?.trim() ?? "";
+  if (!content) {
+    throw badRequest("content is required");
+  }
+
+  const nowIso = new Date().toISOString();
+  const updated = {
+    ...initiative,
+    status: "active" as const,
+    specIds: uniqueIds([...initiative.specIds, `${initiative.id}:${step}`]),
+    workflow: completeWorkflowStep(initiative.workflow, step, nowIso),
+    updatedAt: nowIso
+  };
+
+  await runtime.store.upsertInitiative(updated, {
+    brief: step === "brief" ? content : undefined,
+    coreFlows: step === "core-flows" ? content : undefined,
+    prd: step === "prd" ? content : undefined,
+    techSpec: step === "tech-spec" ? content : undefined
+  });
+  await runtime.plannerService.markPlanningArtifactsStale(initiative.id, step);
+
+  return {
+    initiative: updated,
+    spec: {
+      type: step,
+      content
+    }
+  };
+};
+
+export const createDraftInitiative = async (runtime: SpecFlowRuntime, body: { description?: string }) => {
+  if (!body.description?.trim()) {
+    throw badRequest("description is required");
+  }
+
+  const initiative = await runtime.plannerService.createDraftInitiative({ description: body.description.trim() });
+  return {
+    initiativeId: initiative.id
+  };
+};
+
+export const runInitiativePhaseCheck = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  step: ArtifactStep
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  if (!canEditStep(initiative.workflow, step)) {
+    throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
+  }
+  requireResolvedReviews(runtime, initiative, step);
+
+  try {
+    return await runtime.plannerService.runPhaseCheckJob({ initiativeId, step });
+  } catch (error) {
+    throw structuredPlannerError(runtime, error);
+  }
+};
+
+const runGenerator = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  step: ArtifactStep,
+  onToken: ProgressSink | undefined,
+  run: (
+    initiativeId: string,
+    onToken?: ProgressSink
+  ) => Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }>
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  if (!canEditStep(initiative.workflow, step)) {
+    throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
+  }
+  requireResolvedReviews(runtime, initiative, step);
+
+  if (!hasCheckedPhase(initiative, step)) {
+    throw conflict(`Run ${stepLabel(step)} checks before creating this artifact`);
+  }
+  if (step === "brief" && blocksInitialBriefGeneration(runtime, initiative)) {
+    const hasPendingBriefQuestions = initiative.workflow.refinements.brief.questions.length > 0;
+    throw conflict(
+      hasPendingBriefQuestions
+        ? `Answer or defer all ${stepLabel(step)} questions before continuing`
+        : BRIEF_CONSULTATION_REQUIRED_MESSAGE
+    );
+  }
+  if (!hasResolvedRefinementQuestions(initiative, step)) {
+    throw conflict(`Answer or defer all ${stepLabel(step)} questions before continuing`);
+  }
+
+  try {
+    return await run(initiativeId, onToken);
+  } catch (error) {
+    throw structuredPlannerError(runtime, error);
+  }
+};
+
+export const validateInitiativeArtifactGeneration = (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  step: ArtifactStep
+): void => {
+  const initiative = readInitiative(runtime, initiativeId);
+  if (!canEditStep(initiative.workflow, step)) {
+    throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
+  }
+  requireResolvedReviews(runtime, initiative, step);
+
+  if (!hasCheckedPhase(initiative, step)) {
+    throw conflict(`Run ${stepLabel(step)} checks before creating this artifact`);
+  }
+  if (step === "brief" && blocksInitialBriefGeneration(runtime, initiative)) {
+    const hasPendingBriefQuestions = initiative.workflow.refinements.brief.questions.length > 0;
+    throw conflict(
+      hasPendingBriefQuestions
+        ? `Answer or defer all ${stepLabel(step)} questions before continuing`
+        : BRIEF_CONSULTATION_REQUIRED_MESSAGE
+    );
+  }
+  if (!hasResolvedRefinementQuestions(initiative, step)) {
+    throw conflict(`Answer or defer all ${stepLabel(step)} questions before continuing`);
+  }
+};
+
+export const generateInitiativeArtifact = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  step: ArtifactStep,
+  onToken?: ProgressSink
+) => {
+  validateInitiativeArtifactGeneration(runtime, initiativeId, step);
+
+  if (step === "brief") {
+    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) => runtime.plannerService.runBriefJob({ initiativeId: id }, sink));
+  }
+  if (step === "core-flows") {
+    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) => runtime.plannerService.runCoreFlowsJob({ initiativeId: id }, sink));
+  }
+  if (step === "prd") {
+    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) => runtime.plannerService.runPrdJob({ initiativeId: id }, sink));
+  }
+
+  return runGenerator(runtime, initiativeId, step, onToken, (id, sink) =>
+    runtime.plannerService.runTechSpecJob({ initiativeId: id }, sink)
+  );
+};
+
+export const runInitiativeReview = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  kind: string,
+  onToken?: ProgressSink
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  const reviewKind = requirePlanningReviewKind(kind);
+
+  try {
+    return await runtime.plannerService.runPlanningReviewJob(
+      { initiativeId: initiative.id, kind: reviewKind },
+      onToken
+    );
+  } catch (error) {
+    throw structuredPlannerError(runtime, error);
+  }
+};
+
+export const validateInitiativePlanGeneration = (
+  runtime: SpecFlowRuntime,
+  initiativeId: string
+): void => {
+  const initiative = readInitiative(runtime, initiativeId);
+  if (!canEditStep(initiative.workflow, "tickets")) {
+    throw conflict("Tickets are not ready until the tech spec is done");
+  }
+  requireResolvedReviews(runtime, initiative, "tickets");
+
+  const ticketsStatus = initiative.workflow.steps.tickets.status;
+  if (ticketsStatus === "complete") {
+    throw conflict("Tickets already exist for this initiative");
+  }
+
+  if (ticketsStatus === "stale" && !canReplacePlanningTickets(runtime, initiative)) {
+    throw conflict("This initiative needs review before tickets can be replanned because work has already started");
+  }
+};
+
+export const overrideInitiativeReview = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  kind: string,
+  body: { reason?: string }
+) => {
+  const initiative = readInitiative(runtime, initiativeId);
+  const reviewKind = requirePlanningReviewKind(kind);
+  const reason = body.reason?.trim() ?? "";
+  if (!reason) {
+    throw badRequest("reason is required");
+  }
+
+  try {
+    return {
+      review: await runtime.plannerService.overridePlanningReview({
+        initiativeId: initiative.id,
+        kind: reviewKind,
+        reason
+      })
+    };
+  } catch (error) {
+    throw structuredPlannerError(runtime, error);
+  }
+};
+
+export const generateInitiativePlan = async (
+  runtime: SpecFlowRuntime,
+  initiativeId: string,
+  onToken?: ProgressSink
+) => {
+  validateInitiativePlanGeneration(runtime, initiativeId);
+  const initiative = readInitiative(runtime, initiativeId);
+  const ticketsStatus = initiative.workflow.steps.tickets.status;
+
+  if (ticketsStatus === "stale") {
+    await replacePlanningTickets(runtime, initiative);
+    await runtime.store.upsertInitiative({
+      ...initiative,
+      phases: [],
+      ticketIds: [],
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  try {
+    return await runtime.plannerService.runPlanJob({ initiativeId }, onToken);
+  } catch (error) {
+    throw structuredPlannerError(runtime, error);
+  }
+};

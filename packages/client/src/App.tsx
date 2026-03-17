@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { fetchArtifacts, saveConfig, updateTicketStatus } from "./api";
 import type { ArtifactsSnapshot, ConfigSavePayload, TicketStatus } from "./types";
 import { ErrorBoundary } from "./app/components/error-boundary";
-import { useSseReconnect } from "./app/hooks/use-sse-reconnect";
 import { Navigator } from "./app/layout/navigator";
 import { IconRail } from "./app/layout/icon-rail";
 import { WorkspaceShell } from "./app/layout/workspace-shell";
@@ -11,6 +10,7 @@ import { ToastProvider, useToast } from "./app/context/toast";
 import { DetailWorkspace } from "./app/views/detail-workspace";
 import { CommandPalette } from "./app/layout/command-palette";
 import { SettingsModal } from "./app/layout/settings-modal";
+import { subscribeArtifactsChanged } from "./api/transport";
 
 const AppInner = () => {
   const { showError } = useToast();
@@ -42,7 +42,24 @@ const AppInner = () => {
     void refreshArtifacts().finally(() => setLoading(false));
   }, []);
 
-  useSseReconnect("/api/planner/stream", refreshArtifacts);
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    void subscribeArtifactsChanged(refreshArtifacts).then((cleanup) => {
+      if (cancelled) {
+        cleanup();
+        return;
+      }
+
+      unsubscribe = cleanup;
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [refreshArtifacts]);
 
   // Cmd+K / Ctrl+K opens the command palette
   useEffect(() => {

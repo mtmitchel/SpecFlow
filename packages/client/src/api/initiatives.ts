@@ -1,5 +1,6 @@
 import { parse, requestJson } from "./http";
 import { parseSseResult } from "./sse";
+import { transportRequest } from "./transport";
 import type {
   InitiativePlanningQuestion,
   InitiativePlanningStep,
@@ -18,13 +19,18 @@ export interface InitiativePhaseCheckResult {
 export const createInitiative = async (
   description: string
 ): Promise<{ initiativeId: string }> =>
-  requestJson("/api/initiatives", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ description })
-  });
+  transportRequest(
+    "initiatives.create",
+    { body: { description } },
+    () =>
+      requestJson("/api/initiatives", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ description })
+      })
+  );
 
 export const updateInitiative = async (
   initiativeId: string,
@@ -34,14 +40,19 @@ export const updateInitiative = async (
     phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>;
   }>
 ): Promise<void> => {
-  await parse(
-    await fetch(`/api/initiatives/${initiativeId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    })
+  await transportRequest(
+    "initiatives.update",
+    { id: initiativeId, body: payload },
+    async () =>
+      parse(
+        await fetch(`/api/initiatives/${initiativeId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        })
+      )
   );
 };
 
@@ -49,48 +60,77 @@ export const checkInitiativePhase = async (
   initiativeId: string,
   step: RefinementStep
 ): Promise<InitiativePhaseCheckResult> =>
-  requestJson(`/api/initiatives/${initiativeId}/${step}-check`, {
-    method: "POST"
-  });
+  transportRequest(
+    "initiatives.phaseCheck",
+    { id: initiativeId, step },
+    () =>
+      requestJson(`/api/initiatives/${initiativeId}/${step}-check`, {
+        method: "POST"
+      })
+  );
 
 export const generateInitiativeBrief = async (
   initiativeId: string
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  const response = await fetch(`/api/initiatives/${initiativeId}/generate-brief`, {
-    method: "POST"
-  });
+  return transportRequest(
+    "initiatives.generate.brief",
+    { id: initiativeId },
+    async () => {
+      const response = await fetch(`/api/initiatives/${initiativeId}/generate-brief`, {
+        method: "POST"
+      });
 
-  return parseSseResult(response);
+      return parseSseResult(response);
+    }
+  );
 };
 
 export const generateInitiativeCoreFlows = async (
   initiativeId: string
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  const response = await fetch(`/api/initiatives/${initiativeId}/generate-core-flows`, {
-    method: "POST"
-  });
+  return transportRequest(
+    "initiatives.generate.coreFlows",
+    { id: initiativeId },
+    async () => {
+      const response = await fetch(`/api/initiatives/${initiativeId}/generate-core-flows`, {
+        method: "POST"
+      });
 
-  return parseSseResult(response);
+      return parseSseResult(response);
+    }
+  );
 };
 
 export const generateInitiativePrd = async (
   initiativeId: string
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  const response = await fetch(`/api/initiatives/${initiativeId}/generate-prd`, {
-    method: "POST"
-  });
+  return transportRequest(
+    "initiatives.generate.prd",
+    { id: initiativeId },
+    async () => {
+      const response = await fetch(`/api/initiatives/${initiativeId}/generate-prd`, {
+        method: "POST"
+      });
 
-  return parseSseResult(response);
+      return parseSseResult(response);
+    }
+  );
 };
 
 export const generateInitiativeTechSpec = async (
   initiativeId: string
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  const response = await fetch(`/api/initiatives/${initiativeId}/generate-tech-spec`, {
-    method: "POST"
-  });
+  return transportRequest(
+    "initiatives.generate.techSpec",
+    { id: initiativeId },
+    async () => {
+      const response = await fetch(`/api/initiatives/${initiativeId}/generate-tech-spec`, {
+        method: "POST"
+      });
 
-  return parseSseResult(response);
+      return parseSseResult(response);
+    }
+  );
 };
 
 export const generateInitiativePlan = async (
@@ -109,25 +149,36 @@ export const generateInitiativePlan = async (
   }>;
   uncoveredCoverageItemIds: string[];
 }> => {
-  const response = await fetch(`/api/initiatives/${initiativeId}/generate-plan`, {
-    method: "POST"
-  });
+  return transportRequest(
+    "initiatives.generatePlan",
+    { id: initiativeId },
+    async () => {
+      const response = await fetch(`/api/initiatives/${initiativeId}/generate-plan`, {
+        method: "POST"
+      });
 
-  return parseSseResult(response);
+      return parseSseResult(response);
+    }
+  );
 };
 
 export const updateInitiativePhases = async (
   initiativeId: string,
   phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>
 ): Promise<void> => {
-  await parse(
-    await fetch(`/api/initiatives/${initiativeId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ phases })
-    })
+  await transportRequest(
+    "initiatives.update",
+    { id: initiativeId, body: { phases } },
+    async () =>
+      parse(
+        await fetch(`/api/initiatives/${initiativeId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ phases })
+        })
+      )
   );
 };
 
@@ -137,44 +188,66 @@ export const saveInitiativeRefinement = async (
   answers: Record<string, string | string[] | boolean>,
   defaultAnswerQuestionIds: string[]
 ): Promise<{ assumptions: string[] }> =>
-  requestJson(`/api/initiatives/${initiativeId}/refinement/${step}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ answers, defaultAnswerQuestionIds })
-  });
+  transportRequest(
+    "initiatives.refinement.save",
+    { id: initiativeId, step, body: { answers, defaultAnswerQuestionIds } },
+    () =>
+      requestJson(`/api/initiatives/${initiativeId}/refinement/${step}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ answers, defaultAnswerQuestionIds })
+      })
+  );
 
 export const requestInitiativeClarificationHelp = async (
   initiativeId: string,
   questionId: string,
   note: string
 ): Promise<{ guidance: string }> =>
-  requestJson(`/api/initiatives/${initiativeId}/refinement/help`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ questionId, note })
-  });
+  transportRequest(
+    "initiatives.refinement.help",
+    { id: initiativeId, body: { questionId, note } },
+    () =>
+      requestJson(`/api/initiatives/${initiativeId}/refinement/help`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ questionId, note })
+      })
+  );
 
 export const deleteInitiative = async (initiativeId: string): Promise<void> => {
-  const response = await fetch(`/api/initiatives/${initiativeId}`, { method: "DELETE" });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message ?? "Failed to delete initiative");
-  }
+  await transportRequest(
+    "initiatives.delete",
+    { id: initiativeId },
+    async () => {
+      const response = await fetch(`/api/initiatives/${initiativeId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error((body as { message?: string }).message ?? "Failed to delete initiative");
+      }
+    }
+  );
 };
 
 export const runInitiativeReview = async (
   initiativeId: string,
   kind: PlanningReviewKind
 ): Promise<PlanningReviewArtifact> => {
-  const response = await fetch(`/api/initiatives/${initiativeId}/reviews/${kind}/run`, {
-    method: "POST"
-  });
+  return transportRequest(
+    "initiatives.review.run",
+    { id: initiativeId, kind },
+    async () => {
+      const response = await fetch(`/api/initiatives/${initiativeId}/reviews/${kind}/run`, {
+        method: "POST"
+      });
 
-  return parseSseResult(response);
+      return parseSseResult(response);
+    }
+  );
 };
 
 export const overrideInitiativeReview = async (
@@ -182,26 +255,36 @@ export const overrideInitiativeReview = async (
   kind: PlanningReviewKind,
   reason: string
 ): Promise<{ review: PlanningReviewArtifact }> =>
-  requestJson(`/api/initiatives/${initiativeId}/reviews/${kind}/override`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ reason })
-  });
+  transportRequest(
+    "initiatives.review.override",
+    { id: initiativeId, kind, body: { reason } },
+    () =>
+      requestJson(`/api/initiatives/${initiativeId}/reviews/${kind}/override`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ reason })
+      })
+  );
 
 export const saveInitiativeSpecs = async (
   initiativeId: string,
   step: RefinementStep,
   content: string
 ): Promise<void> => {
-  await parse(
-    await fetch(`/api/initiatives/${initiativeId}/specs/${step}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ content })
-    })
+  await transportRequest(
+    "initiatives.spec.save",
+    { id: initiativeId, type: step, body: { content } },
+    async () =>
+      parse(
+        await fetch(`/api/initiatives/${initiativeId}/specs/${step}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ content })
+        })
+      )
   );
 };

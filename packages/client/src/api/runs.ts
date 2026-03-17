@@ -1,5 +1,6 @@
 import type { AgentTarget, RunDetail, RunListItem } from "../types";
 import { parse } from "./http";
+import { transportRequest } from "./transport";
 
 export const fetchRunState = async (
   runId: string
@@ -12,19 +13,31 @@ export const fetchRunState = async (
     driftFlags: Array<{ type: string; file: string; description: string }>;
   }>;
 }> => {
-  const response = await fetch(`/api/runs/${runId}/state`);
-  return parse(response);
+  return transportRequest(
+    "runs.state",
+    { id: runId },
+    async () => {
+      const response = await fetch(`/api/runs/${runId}/state`);
+      return parse(response);
+    }
+  );
 };
 
 export const fetchOperationStatus = async (
   operationId: string
 ): Promise<{ state: "prepared" | "committed" | "abandoned" | "superseded" | "failed" } | null> => {
-  const response = await fetch(`/api/operations/${operationId}`);
-  if (response.status === 404) {
-    return null;
-  }
+  return transportRequest(
+    "operations.status",
+    { id: operationId },
+    async () => {
+      const response = await fetch(`/api/operations/${operationId}`);
+      if (response.status === 404) {
+        return null;
+      }
 
-  return parse<{ state: "prepared" | "committed" | "abandoned" | "superseded" | "failed" }>(response);
+      return parse<{ state: "prepared" | "committed" | "abandoned" | "superseded" | "failed" }>(response);
+    }
+  );
 };
 
 export const fetchRuns = async (filters: {
@@ -56,12 +69,24 @@ export const fetchRuns = async (filters: {
   }
 
   const query = params.toString();
-  const response = await fetch(query ? `/api/runs?${query}` : "/api/runs");
-  const payload = await parse<{ runs: RunListItem[] }>(response);
+  const payload = await transportRequest<{ runs: RunListItem[] }>(
+    "runs.list",
+    filters,
+    async () => {
+      const response = await fetch(query ? `/api/runs?${query}` : "/api/runs");
+      return parse<{ runs: RunListItem[] }>(response);
+    }
+  );
   return payload.runs;
 };
 
 export const fetchRunDetail = async (runId: string): Promise<RunDetail> => {
-  const response = await fetch(`/api/runs/${runId}`);
-  return parse<RunDetail>(response);
+  return transportRequest(
+    "runs.detail",
+    { id: runId },
+    async () => {
+      const response = await fetch(`/api/runs/${runId}`);
+      return parse<RunDetail>(response);
+    }
+  );
 };

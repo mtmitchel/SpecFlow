@@ -4,6 +4,7 @@ import type { WorkflowPhase } from "./workflow.js";
 import { parseScopeCsv } from "../../utils/scope-paths.js";
 import { captureResults } from "../../../api.js";
 import { useToast } from "../../context/toast.js";
+import type { TransportEvent } from "../../../api/transport.js";
 
 const HelpTip = ({ text }: { text: string }) => (
   <span className="help-tip" data-tip={text}>?</span>
@@ -70,7 +71,20 @@ export const CaptureVerifySection = ({
           ? selectedNoGitPaths
           : parseScopeCsv(captureScopeInput);
 
-      const result = await captureResults(ticketId, captureSummary, scopePaths, widenedScopePaths);
+      const result = await captureResults(
+        ticketId,
+        captureSummary,
+        scopePaths,
+        widenedScopePaths,
+        (event: TransportEvent) => {
+          if (event.event === "verify-token") {
+            const chunk = (event.payload as { chunk?: string }).chunk;
+            if (chunk) {
+              setVerifyStreamEvents((current) => [...current, chunk].slice(-200));
+            }
+          }
+        }
+      );
       setVerificationResult(result);
       await onRefresh();
     } catch (err) {

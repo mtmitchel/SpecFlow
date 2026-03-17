@@ -1,53 +1,19 @@
 import type { FastifyInstance } from "fastify";
-import { PROTOCOL_VERSION, SERVER_VERSION, runtimeCapabilities } from "../runtime-status.js";
-import type { ArtifactStore } from "../../store/artifact-store.js";
-import type { Config } from "../../types/entities.js";
-
-const getRuntimeConfig = (config: Config | null): Config => {
-  if (config) {
-    return config;
-  }
-
-  return {
-    provider: "openrouter",
-    model: "openrouter/auto",
-    apiKey: "",
-    port: 3141,
-    host: "127.0.0.1",
-    repoInstructionFile: "specflow/AGENTS.md"
-  };
-};
-
-const redactConfig = (config: Config | null): (Omit<Config, "apiKey"> & { hasApiKey: boolean }) | null => {
-  const { apiKey, ...rest } = getRuntimeConfig(config);
-  return { ...rest, hasApiKey: Boolean(apiKey) };
-};
+import { getArtifactsSnapshot, getRuntimeStatus } from "../../runtime/handlers/runtime-handlers.js";
+import type { SpecFlowRuntime } from "../../runtime/types.js";
 
 export interface RegisterRuntimeRoutesOptions {
-  store: ArtifactStore;
+  runtime: SpecFlowRuntime;
 }
 
 export const registerRuntimeRoutes = (app: FastifyInstance, options: RegisterRuntimeRoutesOptions): void => {
-  const { store } = options;
+  const { runtime } = options;
 
   app.get("/api/runtime/status", async (_request, reply) => {
-    await reply.send({
-      serverVersion: SERVER_VERSION,
-      protocolVersion: PROTOCOL_VERSION,
-      capabilities: runtimeCapabilities
-    });
+    await reply.send(getRuntimeStatus());
   });
 
   app.get("/api/artifacts", async (_request, reply) => {
-    await reply.send({
-      config: redactConfig(store.config),
-      initiatives: Array.from(store.initiatives.values()),
-      tickets: Array.from(store.tickets.values()),
-      runs: Array.from(store.runs.values()),
-      runAttempts: Array.from(store.runAttempts.entries()).map(([id, value]) => ({ id, ...value })),
-      specs: Array.from(store.specs.values()),
-      planningReviews: Array.from(store.planningReviews.values()),
-      ticketCoverageArtifacts: Array.from(store.ticketCoverageArtifacts.values())
-    });
+    await reply.send(getArtifactsSnapshot(runtime));
   });
 };

@@ -1,16 +1,23 @@
 import type { Config, ConfigSavePayload, ProviderModel } from "../types";
 import { parse } from "./http";
+import { transportRequest } from "./transport";
 
 export const saveConfig = async (config: ConfigSavePayload): Promise<Config> => {
-  const response = await fetch("/api/config", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(config)
-  });
+  const payload = await transportRequest<{ config: Config }>(
+    "config.save",
+    config,
+    async () => {
+      const response = await fetch("/api/config", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(config)
+      });
 
-  const payload = await parse<{ config: Config }>(response);
+      return parse<{ config: Config }>(response);
+    }
+  );
   return payload.config;
 };
 
@@ -23,14 +30,22 @@ export const fetchProviderModels = async (
     params.set("q", query.trim());
   }
 
-  const response = await fetch(
-    params.toString()
-      ? `/api/providers/${provider}/models?${params.toString()}`
-      : `/api/providers/${provider}/models`
-  );
-  const payload = await parse<{
+  const payload = await transportRequest<{
     models: ProviderModel[];
-  }>(response);
+  }>(
+    "providers.models",
+    { provider, q: query },
+    async () => {
+      const response = await fetch(
+        params.toString()
+          ? `/api/providers/${provider}/models?${params.toString()}`
+          : `/api/providers/${provider}/models`
+      );
+      return parse<{
+        models: ProviderModel[];
+      }>(response);
+    }
+  );
 
   return payload.models;
 };

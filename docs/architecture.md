@@ -2,14 +2,35 @@
 
 ## Package Structure
 
-Two packages sharing a single npm workspace root:
+Three packages share a single npm workspace root:
 
 | Package | Contents | Runtime |
 |---|---|---|
-| `packages/app` | Fastify server, CLI entry points, all core services | Node.js |
-| `packages/client` | React + Vite SPA | Browser |
+| `packages/app` | Node business logic, CLI entry points, Fastify fallback server, sidecar runtime | Node.js |
+| `packages/client` | React + Vite SPA | Browser / Tauri webview |
+| `packages/tauri` | Tauri v2 desktop shell and Rust bridge | Rust + Tauri |
 
-In production mode, the server builds the client SPA and serves it as static files. There is no separate deployment step -- `specflow ui` starts one process that serves everything. In development mode, `npm run dev` starts a watched app server on `127.0.0.1:3142` and a Vite client on `127.0.0.1:5173`; the Vite client proxies `/api` requests to the watched backend. Shared TypeScript types (entity schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
+Desktop is the primary runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack starts an initial `packages/app` build, then runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell. In desktop mode, the UI does not talk to Fastify and normal usage does not bind an HTTP port.
+
+Legacy Fastify + browser mode is still supported for fallback and compatibility. `npm run dev:web` starts the watched app server on `127.0.0.1:3142` plus the Vite client with `/api` proxying, and `specflow ui --legacy-web` serves the built UI from Fastify.
+
+Shared TypeScript types (entity schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
+
+---
+
+## Runtime Topology
+
+The desktop runtime is split into three layers:
+
+1. The React UI in `packages/client`
+2. The Tauri bridge in `packages/tauri`
+3. A persistent Node sidecar in `packages/app/src/sidecar.ts`
+
+The UI talks to Tauri through `invoke`, `Channel`, native dialog APIs, and Tauri events. Tauri spawns and manages the Node sidecar, forwards request/response traffic over line-delimited JSON, and forwards streamed sidecar notifications back to the webview.
+
+The sidecar owns planning, verification, bundle export, store access, config updates, and GitHub issue import. Planner, verifier, bundle, store, and config logic remain in Node; Rust only owns desktop process management and transport bridging.
+
+Fastify remains as a fallback adapter over the same shared runtime handlers. Route modules are intentionally thin adapters that translate HTTP requests and SSE streams into transport-agnostic handler calls.
 
 ---
 
@@ -24,6 +45,8 @@ On server startup, the store scans `specflow/` and loads all artifacts into type
 
 A file watcher (chokidar) detects external edits and reloads affected artifacts into memory.
 A dedicated reload helper validates planner-owned YAML on load, including planning reviews, trace outlines, and ticket coverage artifacts, before replacing the in-memory maps.
+
+The sidecar emits `artifacts.changed` notifications after mutating operations. The desktop bridge converts those into Tauri events so the UI can refresh from the latest persisted snapshot instead of relying on long-lived global HTTP streams.
 
 **Failure mode handling:** single-file writes use `.tmp` + atomic rename. Multi-file operations are never considered committed until the final pointer/manifest update succeeds. On startup, orphan temp attempt directories are detected and marked as recoverable leftovers.
 
@@ -40,7 +63,9 @@ Staged-commit edge-case rules:
 
 ## CLI as Thin Wrapper
 
-`specflow ui` starts the Fastify server and opens the browser. `specflow verify` and `specflow export-bundle` use a **prefer-server** execution strategy:
+`specflow ui` is desktop-first. It launches the desktop binary when available and only falls back to the legacy Fastify + browser runtime with a deprecation warning when the desktop runtime is unavailable or explicitly bypassed with `--legacy-web`.
+
+`specflow verify` and `specflow export-bundle` keep the existing **prefer-server** execution strategy:
 
 - If the server is running, the CLI delegates mutating operations to server APIs.
 - If the server is not running, the CLI executes locally in-process using the same service layer.
@@ -49,11 +74,18 @@ The CLI probes `/api/runtime/status` and checks capability + protocol version be
 
 ---
 
-## LLM Calls Through Server Only
+## Shared Runtime and Transport
 
-The browser never calls the LLM API directly. All AI operations (Planner, Verifier, Audit) go through Fastify API routes. The server reads provider API keys from `.env` and keeps those keys out of client payloads. Responses stream back to the client via Server-Sent Events (SSE) using real provider streaming APIs (not simulated).
+Core backend behavior is extracted into transport-agnostic runtime handlers under `packages/app/src/runtime/handlers/`. These handlers accept validated typed input plus optional progress and notification sinks, and they return plain typed results or structured handler errors.
 
-SSE reconnection is non-resumable with snapshot refresh: on disconnect, the client reconnects and immediately fetches latest state via REST. UI resumes from current persisted state (no event replay buffer).
+Two transports adapt those handlers:
+
+- Fastify route modules for the legacy web runtime
+- The sidecar JSON-RPC dispatcher for the desktop runtime
+
+The shared sidecar contract uses correlated request/response envelopes plus request-scoped notifications. Mutating methods also trigger global artifact change notifications so the UI can refresh snapshot state after writes.
+
+The browser never calls provider APIs directly. In legacy web mode, AI operations stream through Fastify SSE adapters. In desktop mode, AI operations stream through request-scoped Tauri channels backed by sidecar notifications. The UI refresh model stays snapshot-based: on disconnect or completion, it fetches the latest committed state rather than attempting event replay.
 
 ---
 
@@ -68,6 +100,8 @@ Initiative-linked execution gating is centralized in `packages/app/src/planner/e
 ## Bundle Duality
 
 `specflow export-bundle` writes a **directory bundle** to `specflow/runs/<run-id>/attempts/<attempt-id>/bundle/`. The board's Export Bundle panel calls an API endpoint that returns the same content as a **flattened clipboard string**. Both are generated by the same Bundle Generator service.
+
+Desktop mode replaces the legacy HTTP ZIP download anchor with a native save flow. The client asks the user for a destination path through the Tauri dialog plugin, then Tauri forwards a `runs.saveBundleZip` sidecar request that writes the ZIP to the chosen filesystem path without exposing a temporary HTTP download endpoint.
 
 Bundle contracts are versioned: every bundle includes a manifest with `bundleSchemaVersion`, `agentTarget`, and `exportMode` (standard vs quick-fix). Quick-fix exports include source linkage metadata (`sourceRunId`, `sourceFindingId`) for audit traceability. For initiative-linked tickets, `PROMPT.md` also surfaces the ticket's covered spec items before the acceptance criteria so the agent sees the originating requirement and flow context, not only the ticket summary. Coverage-gated initiative tickets cannot export until the shared execution-gate helper reports that the initiative's coverage review is resolved. Agent renderers are validated by golden tests against fixed fixtures.
 
@@ -389,224 +423,128 @@ graph TD
 
 ## Component Architecture
 
-### packages/app - Server + CLI
-
-```mermaid
-graph TD
-    CLI[CLI Entry - Commander.js] --> ServerCmd[specflow ui]
-    CLI --> VerifyCmd[specflow verify]
-    CLI --> ExportCmd[specflow export-bundle]
-
-    ServerCmd --> HTTPServer[Fastify HTTP Server]
-    HTTPServer --> APIRoutes[API Routes]
-    HTTPServer --> StaticFiles[Static Client Build]
-    HTTPServer --> SSEEndpoint[SSE Endpoint]
-
-    APIRoutes --> ArtifactStore
-    APIRoutes --> PlannerService
-    APIRoutes --> VerifierService
-    APIRoutes --> BundleGenerator
-
-    VerifyCmd --> CLIRouter[CLI Runtime Router]
-    ExportCmd --> CLIRouter
-    CLIRouter --> APIRoutes
-    CLIRouter --> VerifierService
-    CLIRouter --> BundleGenerator
-
-    ArtifactStore[Artifact Store - In-Memory] --> ArtifactIO
-    ArtifactStore --> FileWatcher[File Watcher - chokidar]
-
-    PlannerService --> RepoScanner[Repo Scanner]
-    PlannerService --> LLMClient
-    VerifierService --> LLMClient
-    VerifierService --> DiffEngine
-
-    BundleGenerator --> ArtifactStore
-    DiffEngine --> ArtifactStore
-```
-
-**Component responsibilities:**
+### packages/app - Backend and CLI
 
 | Component | Responsibility |
 |---|---|
-| **CLI Entry** | Parses commands; delegates mutating commands to running server when available; fail-closed on protocol mismatch; local fallback only when server absent |
-| **Fastify Server** | HTTP + SSE, serves static client build, mounts API routes |
-| **API Routes** | REST endpoints for all CRUD + action operations; streams SSE for LLM jobs |
-| **Artifact Store** | Typed in-memory maps; staged commit orchestrator; delegates artifact writing to `artifact-writer.ts`, spec filename mapping to `spec-utils.ts`, reload assembly to `reload.ts`, planner artifact validation to `planning-artifact-validation.ts`, and chokidar file watching with debounced reload to `watcher.ts` |
-| **Artifact IO** | Reads/writes YAML + Markdown; enforces `specflow/` directory layout; atomic writes via temp-rename |
-| **Planner Service** | Thin orchestration layer that delegates spec generation, review execution, plan generation, coverage handling, and structured error shaping to focused planner modules; injects repo context from Repo Scanner; persists review, trace, and coverage artifacts |
-| **Repo Scanner** | Runs `git ls-files` + reads key config files; produces a condensed file tree for plan prompt grounding |
-| **Verifier Service** | Assembles primary diff + drift diff + criteria + AGENTS.md; parses per-criterion results including severity and remediation hints |
-| **Diff Engine** | Git diff via `simple-git`; file snapshot diff via `diff` library; snapshot capture at export time |
-| **Bundle Generator** | Assembles context; renders per-agent formats; emits versioned bundle manifest; enforces centralized initiative execution gates before export; supports quick-fix export linkage metadata; validated by golden tests |
-| **LLM Client** | Single provider adapter (Anthropic/OpenAI/OpenRouter); real SSE token streaming via shared `parseStreamingSse()` parser with per-provider config objects; configurable `max_tokens` per job type; resolves API keys from `.env` |
+| **CLI entry (`src/cli.ts`)** | Parses `ui`, `export-bundle`, and `verify`; keeps `export-bundle` and `verify` on the prefer-server delegation path; launches desktop first for `ui` and falls back to legacy web only when needed |
+| **Shared runtime factory (`src/runtime/create-runtime.ts`)** | Composes `ArtifactStore`, planner, verifier, bundle generator, diff engine, and config/runtime dependencies once for sidecar or Fastify usage |
+| **Runtime handlers (`src/runtime/handlers/*`)** | Transport-agnostic application operations grouped by domain; return plain typed results or structured handler errors |
+| **Sidecar dispatcher (`src/sidecar/dispatcher.ts`)** | Maps JSON-RPC method names to shared runtime handlers; emits request-scoped progress plus `artifacts.changed` notifications |
+| **Sidecar entrypoint (`src/sidecar.ts`)** | Long-lived line-delimited JSON process that powers desktop mode |
+| **Fastify server (`src/server/create-server.ts`)** | Legacy web composition root; mounts HTTP and SSE adapters over the shared runtime handlers |
+| **Route adapters (`src/server/routes/*`)** | Parse HTTP input, validate IDs/paths, set up legacy SSE where needed, and shape HTTP responses |
+| **Artifact store (`src/store/*`)** | In-memory read model plus staged-commit persistence layer for `specflow/` |
+| **Planner / verifier / bundle / audit modules** | Own planning workflow, verification semantics, bundle rendering, and drift-audit behavior without transport coupling |
 
-**API surface:**
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/runtime/status` | Server health + capability probe (used by CLI for prefer-server delegation) |
-| `GET` | `/api/operations/:id` | Operation state probe for idempotent retry after timeout |
-| `GET` | `/api/artifacts` | Full in-memory state dump for initial board load, including planning reviews, trace outlines, and ticket coverage artifacts |
-| `PUT` | `/api/config` | Save provider/model/API key settings (responses redact raw API keys) |
-| `GET` | `/api/providers/:provider/models` | List models for one configured provider |
-| `GET` | `/api/initiatives` | List initiatives |
-| `POST` | `/api/initiatives` | Create initiative |
-| `DELETE` | `/api/initiatives/:id` | Delete initiative and related planning artifacts |
-| `PATCH` | `/api/initiatives/:id` | Update initiative metadata |
-| `PATCH` | `/api/initiatives/:id/refinement/:step` | Autosave blocker-question answers/default assumptions for a planning step |
-| `POST` | `/api/initiatives/:id/refinement/help` | Return focused guidance for one blocker question |
-| `POST` | `/api/initiatives/:id/brief-check` | Return the required first brief intake for fresh initiatives, otherwise decide whether Brief can be created now or needs blocker questions |
-| `POST` | `/api/initiatives/:id/core-flows-check` | Decide whether Core flows can be created now or needs blocker questions |
-| `POST` | `/api/initiatives/:id/prd-check` | Decide whether PRD can be created now or needs blocker questions |
-| `POST` | `/api/initiatives/:id/tech-spec-check` | Decide whether Tech spec can be created now or needs blocker questions |
-| `POST` | `/api/initiatives/:id/generate-brief` | Generate Brief after intake is resolved + auto-run required review gates |
-| `POST` | `/api/initiatives/:id/generate-core-flows` | Generate Core flows + auto-run required review gates |
-| `POST` | `/api/initiatives/:id/generate-prd` | Generate PRD + auto-run required review gates |
-| `POST` | `/api/initiatives/:id/generate-tech-spec` | Generate Tech spec + auto-run required review gates |
-| `PUT` | `/api/initiatives/:id/specs/:type` | Save artifact markdown (`brief`, `core-flows`, `prd`, `tech-spec`) |
-| `POST` | `/api/initiatives/:id/reviews/:kind/run` | Run or rerun a planning review/cross-check |
-| `POST` | `/api/initiatives/:id/reviews/:kind/override` | Override a blocked review with a required reason |
-| `POST` | `/api/initiatives/:id/generate-plan` | Generate phase + ticket breakdown with repo context |
-| `GET` | `/api/tickets` | List all tickets |
-| `POST` | `/api/tickets` | Create ticket via triage (Quick Build or Groundwork) |
-| `PATCH` | `/api/tickets/:id` | Update ticket status, title, or description; moving to `in-progress` enforces dependency and initiative coverage gates |
-| `POST` | `/api/tickets/:id/export-bundle` | Generate bundle; `exportMode` standard or quick-fix; initiative-linked tickets are blocked while the coverage check is unresolved |
-| `POST` | `/api/tickets/:id/capture-results` | Submit diff/summary; triggers verification |
-| `POST` | `/api/tickets/:id/capture-preview` | Preview verification diff/scope before capture |
-| `POST` | `/api/tickets/:id/override-done` | Override ticket to Done with required reason |
-| `GET` | `/api/tickets/:id/verify/stream` | SSE stream for verification progress |
-| `GET` | `/api/runs` | List runs with ticket/status/agent/date filters |
-| `GET` | `/api/runs/:id` | Get run detail with committed artifacts and diffs |
-| `GET` | `/api/runs/:id/state` | Snapshot endpoint for SSE reconnect recovery |
-| `POST` | `/api/runs/:id/audit` | Run Drift Audit on a diff source |
-| `POST` | `/api/runs/:id/findings/:findingId/create-ticket` | Create a follow-up ticket from an audit finding |
-| `POST` | `/api/runs/:id/findings/:findingId/export-fix-bundle` | Generate quick-fix bundle with source linkage metadata |
-| `POST` | `/api/runs/:id/findings/:findingId/dismiss` | Dismiss finding with required note |
-| `GET` | `/api/runs/:runId/attempts/:attemptId/bundle.zip` | Download run attempt bundle as zip |
-| `POST` | `/api/import/github-issue` | Fetch a GitHub Issue and feed it through the triage pipeline |
-
-### packages/client - React SPA
-
-```mermaid
-graph TD
-    App[App.tsx - ArtifactsSnapshot state] --> WorkspaceShell
-    App --> ErrorBoundary[Root Error Boundary]
-    App --> ToastContext[Toast Context]
-    App --> SSEClient[SSE Client]
-    App --> SettingsModal[Settings Modal - pathname /settings]
-    App --> CommandPalette[Command Palette - Cmd+K]
-
-    WorkspaceShell --> IconRail[Icon rail - primary navigation]
-    WorkspaceShell --> Navigator[Navigator drawer - structural hierarchy]
-    WorkspaceShell --> DetailWorkspace[Detail Workspace - route switch]
-
-    Navigator --> NavTree[aggregate links > initiatives > phases > tickets > quick tasks]
-
-    CommandPalette --> QuickTask[Quick Task short-shell flow]
-    CommandPalette --> GitHubImport[GitHub Import inline flow]
-    CommandPalette --> NewInitiative[Navigate to /new-initiative]
-    CommandPalette --> FuzzySearch[Fuzzy search: initiatives / tickets / runs]
-
-    DetailWorkspace --> InitiativeView[Initiative View - breadcrumb + pipeline + stage-switched planning content]
-    DetailWorkspace --> SpecView[Spec View - legacy /initiative/:id/spec/:type redirect surface]
-    DetailWorkspace --> TicketView[Ticket View - preflight + execution timeline + run history]
-    DetailWorkspace --> RunView[Run View - secondary execution report]
-    DetailWorkspace --> InitiativeCreator[Initiative Creator - raw idea entry + inline handoff into brief intake]
-    DetailWorkspace --> InitiativeHandoffView[Initiative Handoff View - inline brief intake]
-    DetailWorkspace --> OverviewPanel[Home - Up next queue + initiative cards]
-
-    TicketView --> PreflightCard[Preflight Card]
-    TicketView --> ExportPanel[Export Bundle Panel]
-    TicketView --> CapturePanel[Capture Results Panel]
-    TicketView --> VerificationPanel[Verification Panel]
-    TicketView --> AuditPanel[Audit Panel - contextual]
-    RunView --> AuditPanel
-
-    SSEClient --> VerificationPanel
-    SSEClient --> InitiativeView
-```
-
-**Component responsibilities:**
+### packages/client - Presentation Layer
 
 | Component | Responsibility |
 |---|---|
-| **WorkspaceShell** | Two-column grid (`56px 1fr`); slots: icon rail, detail workspace, navigation drawer overlay, command palette |
-| **IconRail** | Primary navigation chrome: Home, aggregate views, initiative shortcuts, search, settings |
-| **Navigator** | Secondary structural drawer; WAI-ARIA TreeView hierarchy for aggregate views + initiatives > phases > tickets + Quick Tasks; keyboard navigation via `useTreeNavigation` hook |
-| **CommandPalette** | Cmd+K modal overlay; delegates to mode sub-components (`PaletteSearchMode`, `PaletteQuickTaskMode`, `PaletteGithubImportMode`); parent owns mode state and overlay |
-| **SettingsModal** | Overlay triggered by `pathname === "/settings"`; provider/API-key form; delegates model picker to `ModelCombobox` component; `navigate(-1)` to close |
-| **DetailWorkspace** | React Router `<Routes>` switch for `/initiative/:id`, `/initiative/:id/spec/:type`, `/ticket/:id`, `/run/:id`, `/new`, `/new-initiative`, `/new-quick-task`, aggregate list routes, and backward-compat redirects from old plural paths |
-| **OverviewPanel** | Action-oriented home surface: ranked Up next queue plus initiative cards with inline pipeline progress |
-| **Pipeline** | Shared initiative progress component used across Home, initiative, ticket, and run surfaces |
-| **InitiativeView** | Canonical planning shell: breadcrumb + sticky pipeline header, one active stage (Consult/Draft/Checkpoint/Complete), summary-first artifact view, autosaved editing, collapsed review checkpoints, and ticket coverage checkpoint driven by a dedicated workspace hook |
-| **SpecView** | Legacy single-artifact route that redirects back into the initiative workflow step |
-| **TicketView** | Ticket execution workspace; status dropdown using `canTransition()`; single preflight card for coverage/blockers/phase warnings; covered spec items context; execution sections driven by `useVerificationStream`, `useCapturePreview`, and `useExportWorkflow`; run history kept subordinate to the ticket |
-| **InitiativeCreator** | Entry into the same planning shell used by the initiative workspace; captures a raw idea and routes directly into required brief intake |
-| **InitiativeHandoffView** | Inline brief-intake surface used immediately after initiative creation or quick-task promotion |
-| **RunView** | Secondary execution report with summary, diff viewer, attempt history, contextual audit panel, and initiative pipeline context; links back to the ticket as the primary recovery path |
-| **Root Error Boundary** | Catches rendering crashes; presents a recovery UI instead of a blank screen |
-| **Toast Context** | Surfaces API errors (rate limits, conflicts, auth failures) that would otherwise be silent |
-| **SSE Client** | Maintains SSE connections; on disconnect performs snapshot refresh via REST and resumes from latest persisted state |
-| **ExportSection** | Agent selector; displays flattened clipboard string; copy button; download link; state managed by `useExportWorkflow` hook |
-| **CaptureVerifySection** | Git diff preview (if git detected) or folder/file picker (no-git); optional summary; state managed by `useCapturePreview` hook |
-| **VerificationResultsSection** | Per-criterion pass/fail with severity and remediation hint; drift flags; fix-forward re-export; delegates override UI to `OverridePanel` |
-| **OverridePanel** | Two-step Override to Done flow with required reason |
-| **Audit Panel** | Diff source selector; two-panel findings list + diff viewer with gutter markers; per-finding actions |
-| **Preflight Card** | Shows execution blockers, coverage gate state, and phase warnings in one place before export/execution |
+| **`App.tsx`** | Holds the top-level `ArtifactsSnapshot`, refreshes persisted state, and subscribes to desktop artifact-change events |
+| **Transport adapter (`src/api/transport.ts`)** | Switches between desktop transport (`invoke`, `Channel`, native dialogs, Tauri events) and legacy web transport (`fetch`, SSE, HTTP downloads) |
+| **API modules (`src/api/*`)** | Keep domain-level client APIs stable while routing them through the active transport |
+| **Workspace shell + navigation** | Provide the rail, drawer, command palette, and route-level workspace structure |
+| **Initiative / ticket / run views** | Render planning, execution, and verification flows using backend-owned workflow and verification state |
+| **Execution hooks** | Manage local UI concerns such as verification log display, capture preview debouncing, export workflow state, and error toasts |
+
+### packages/tauri - Desktop Bridge
+
+| Component | Responsibility |
+|---|---|
+| **Rust bridge (`src-tauri/src/lib.rs`)** | Spawns the Node sidecar, forwards request/response traffic, relays progress events, emits `artifacts-changed`, and drains pending requests on disconnect |
+| **Tauri config (`tauri.conf.json`)** | Production build configuration, including frontend assets and packaged sidecar binary |
+| **Dev config (`tauri.dev.conf.json`)** | Dev-only overlay that disables `externalBin` so `tauri dev` can use the Node `dist/sidecar.js` flow instead of requiring a packaged sidecar |
+| **Workspace scripts (`packages/tauri/package.json`)** | Own the desktop dev stack through `beforeDevCommand`, including the initial `@specflow/app` build and the app/client watch processes |
+
 ---
 
-## End-to-End Request Trace: Verification
+## Transport Surfaces
+
+### Desktop sidecar method families
+
+The desktop runtime uses correlated JSON-RPC requests over stdin/stdout between Tauri and the Node sidecar. Current method families:
+
+| Namespace | Purpose |
+|---|---|
+| `runtime.*` / `artifacts.*` | Runtime status and full snapshot reads |
+| `config.*` / `providers.*` | Settings writes and provider model discovery |
+| `operations.*` | Operation-status probing for idempotent retries |
+| `initiatives.*` | Planning workflow actions, reviews, and ticket-plan generation |
+| `tickets.*` | Ticket CRUD, bundle export, capture preview, verification, and override flows |
+| `runs.*` | Run list/detail/state plus desktop ZIP save |
+| `audit.*` | Drift audit execution and finding actions |
+| `import.*` | GitHub Issue import |
+
+### Legacy HTTP surface
+
+Legacy web mode retains the corresponding `/api/...` routes as adapters over the same runtime handlers. HTTP remains supported for:
+
+- browser fallback
+- jsdom/browser-oriented tests
+- existing CLI server delegation
+- explicit compatibility workflows such as legacy ZIP download
+
+Only legacy web mode uses Fastify-bound HTTP and SSE during normal interaction.
+
+---
+
+## End-to-End Request Trace: Desktop Verification
 
 ```mermaid
 sequenceDiagram
-    participant Board
-    participant Server
-    participant DiffEngine
-    participant VerifierService
-    participant LLMClient
-    participant ArtifactStore
+    participant UI as React UI
+    participant Tauri as Tauri Bridge
+    participant Sidecar as Node Sidecar
+    participant Verify as Verifier Service
+    participant Store as Artifact Store
 
-    Board->>Server: POST /api/tickets/:id/capture-results {summary}
-    Server->>DiffEngine: getDiff(ticketId, runAttemptId)
-    DiffEngine->>DiffEngine: git diff OR snapshot compare
-    DiffEngine->>DiffEngine: compute pre-capture drift diff (no-git path)
-    DiffEngine-->>Server: primary diff + drift diff
-    Server->>VerifierService: verify(ticket, primaryDiff, agentsmd)
-    VerifierService->>LLMClient: stream(verifyPrompt)
-    LLMClient-->>Server: real SSE token stream from provider
-    Server-->>Board: SSE: verification progress tokens
-    LLMClient-->>VerifierService: complete structured result {criteriaResults, driftFlags}
-    VerifierService->>ArtifactStore: writeAttemptResult(result)
-    ArtifactStore->>ArtifactStore: write-through to verification.json
-    Server-->>Board: SSE: verification complete
-    Board->>Board: render Verification Panel with severity + remediation hints
-    Note over Board,Server: On SSE disconnect, Board refetches /api/runs/:id/state and resumes from snapshot
+    UI->>Tauri: invoke("sidecar_request", tickets.captureResults)
+    Tauri->>Sidecar: LDJSON request
+    Sidecar->>Verify: captureAndVerify(...)
+    Verify->>Verify: git diff or snapshot compare
+    Verify-->>Sidecar: progress notifications + final result
+    Sidecar->>Store: staged write of attempt artifacts
+    Sidecar-->>Tauri: success response + artifacts.changed
+    Tauri-->>UI: request-scoped events + artifacts-changed event
+    UI->>UI: refresh snapshot and render verification results
 ```
 
----
-
-## End-to-End Request Trace: Export Bundle
+## End-to-End Request Trace: Legacy Web Verification
 
 ```mermaid
 sequenceDiagram
-    participant Board
-    participant Server
-    participant BundleGenerator
-    participant ArtifactStore
-    participant Disk
+    participant UI as React UI
+    participant Fastify as Fastify Route Adapter
+    participant Runtime as Shared Runtime Handler
+    participant Verify as Verifier Service
+    participant Store as Artifact Store
 
-    Board->>Server: POST /api/tickets/:id/export-bundle {agent, exportMode, operationId}
-    Server->>BundleGenerator: generate(ticketId, agent, exportMode, operationId)
-    BundleGenerator->>ArtifactStore: getTicket + getLinkedSpecs + getAgentsMd
-    ArtifactStore-->>BundleGenerator: ticket, specs, conventions
-    BundleGenerator->>BundleGenerator: render agent-specific format
-    BundleGenerator->>Disk: write staged output to runs/.../_tmp/<operation-id>/
-    BundleGenerator->>Disk: capture file snapshot (no-git baseline)
-    BundleGenerator->>Disk: write bundle-manifest.yaml
-    BundleGenerator->>Disk: commit by atomically updating run pointer
-    BundleGenerator-->>Server: flatString + bundlePath
-    Server->>ArtifactStore: update ticket status -> in-progress (committed attempt)
-    Server-->>Board: {flatString, bundlePath, manifest}
-    Board->>Board: show clipboard panel + download link
+    UI->>Fastify: POST /api/tickets/:id/capture-results
+    Fastify->>Runtime: tickets.captureResults handler
+    Runtime->>Verify: captureAndVerify(...)
+    Verify-->>Fastify: progress chunks + final result
+    Runtime->>Store: staged write of attempt artifacts
+    Fastify-->>UI: HTTP response
+    UI->>UI: optional SSE fallback refresh / snapshot refresh
+```
+
+## End-to-End Request Trace: Bundle Export
+
+```mermaid
+sequenceDiagram
+    participant UI as React UI
+    participant Bridge as Tauri or Fastify Adapter
+    participant Runtime as Shared Runtime Handler
+    participant Bundle as Bundle Generator
+    participant Store as Artifact Store
+
+    UI->>Bridge: tickets.exportBundle
+    Bridge->>Runtime: exportBundle handler
+    Runtime->>Bundle: generate(ticketId, agent, exportMode)
+    Bundle->>Store: read ticket/spec context
+    Bundle->>Store: staged write of bundle artifacts and manifests
+    Runtime-->>Bridge: flatString + run/attempt metadata
+    Bridge-->>UI: export result
+    UI->>UI: show flat bundle, copy action, and ZIP save/download action
 ```

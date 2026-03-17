@@ -14,12 +14,20 @@ const main = async (): Promise<void> => {
 
   program
     .command("ui")
-    .description("Start the local SpecFlow server and board UI")
+    .description("Launch the SpecFlow desktop app, or fall back to the legacy web UI")
     .option("--host <host>", "Host binding", "127.0.0.1")
     .option("--port <port>", "Port binding", parseInteger, 3141)
     .option("--no-open", "Do not open browser", false)
+    .option("--legacy-web", "Skip desktop launch and force the legacy Fastify + browser runtime", false)
+    .option("--desktop-binary <path>", "Explicit desktop binary override")
     .action((options) => {
-      void runUiCommand(options as { host: string; port: number; noOpen: boolean });
+      void runUiCommand(options as {
+        host: string;
+        port: number;
+        noOpen: boolean;
+        legacyWeb: boolean;
+        desktopBinary?: string;
+      });
     });
 
   program

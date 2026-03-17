@@ -45,16 +45,16 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 
 1. User opens a ticket from an initiative, the Home queue, or the navigation drawer. The ticket view opens as a single execution workspace with a **Preflight** card first, then one execution timeline below.
 2. If the ticket is still in **Backlog**, the user can move it to **Ready** via the status dropdown. When they try to move it into **In Progress**, the server rejects the change with a 409 error if the ticket still has unfinished blockers or the initiative's **Coverage check** is blocked or stale.
-3. User clicks **Export Bundle**. A panel slides in asking: *"Which agent?"* -- options are Claude Code, Codex CLI, OpenCode, Generic. User selects one. For initiative-linked tickets, unresolved coverage checks also block export until the user resolves or overrides the check in the initiative view.
-4. The bundle is generated and displayed: a copy-to-clipboard button and a download link. The ticket moves to **In Progress**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
+3. User clicks **Create bundle**. The execution section asks which agent should receive the handoff bundle: Claude Code, Codex CLI, OpenCode, or Generic. For initiative-linked tickets, unresolved coverage checks also block export until the user resolves or overrides the check in the initiative view.
+4. The bundle is generated and displayed inline. The user can copy the flattened bundle immediately. Desktop mode also offers a native **Save ZIP bundle** action, while legacy web mode keeps the HTTP ZIP download path. The ticket moves to **In Progress**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
 5. User runs the agent manually in their terminal (outside SpecFlow). SpecFlow waits.
-6. User returns to the ticket page and clicks **Capture Results**.
+6. User returns to the ticket page and opens the verification section.
 7. The Capture panel shows:
    - If git is detected: an auto-generated diff preview with a *"Use this diff"* confirmation.
    - If git is not detected: current verification scope (captured at export) plus an optional **widen scope** action.
    - A text area: *"Summarize what the agent did (optional)."*
 8. For no-git runs, widened scope is treated as **drift-only** context. Primary verification remains anchored to the initial export-time scope.
-9. User confirms and clicks **Submit Results**. Verification runs automatically.
+9. User clicks **Verify work**. Verification runs automatically.
 10. The **Verification Panel** appears below the ticket details: each acceptance criterion shows Pass or Fail, a **severity** (Critical/Major/Minor/Outdated), and a **remediation hint** on failure. Drift flags (unexpected file touches, missing requirements, widened-scope drift warnings) are listed separately.
 11. **If all pass:** ticket moves to **Done** automatically. User proceeds to the next ticket.
 12. **If any fail:** ticket stays in **Verify** status. User gets two actions:
@@ -84,8 +84,8 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
    - If too large or ambiguous, SpecFlow auto-converts it into a **draft initiative** and routes the user into Groundwork with the original input prefilled.
 4. For focused tasks, the Planner generates: acceptance criteria, a short implementation plan, and suggested file targets.
 5. A ticket is created in **Ready** status (skips Backlog -- it's already scoped). The command palette closes and the workspace navigates directly to the new ticket.
-6. User opens the ticket and clicks **Export Bundle** -- selects agent, bundle is generated.
-7. User runs the agent manually, returns, and clicks **Capture Results** (same capture flow as Milestone Run).
+6. User opens the ticket and clicks **Create bundle** -- selects agent, bundle is generated.
+7. User runs the agent manually, returns, and clicks **Verify work** (same capture flow as Milestone Run).
 9. Verification runs automatically. Ticket moves to Done or stays in Verify with findings.
 
 **Notes:**

@@ -1,5 +1,6 @@
 import type { AgentTarget, AuditReport, Ticket } from "../types";
 import { parse } from "./http";
+import { transportRequest } from "./transport";
 
 export const runAudit = async (
   runId: string,
@@ -12,35 +13,52 @@ export const runAudit = async (
     widenedScopePaths: string[];
   }
 ): Promise<AuditReport> => {
-  const response = await fetch(`/api/runs/${runId}/audit`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  return transportRequest(
+    "audit.run",
+    { runId, body: payload },
+    async () => {
+      const response = await fetch(`/api/runs/${runId}/audit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
 
-  return parse<AuditReport>(response);
+      return parse<AuditReport>(response);
+    }
+  );
 };
 
 export const createTicketFromAuditFinding = async (runId: string, findingId: string): Promise<Ticket> => {
-  const response = await fetch(`/api/runs/${runId}/findings/${findingId}/create-ticket`, {
-    method: "POST"
-  });
+  const payload = await transportRequest<{ ticket: Ticket }>(
+    "audit.createTicket",
+    { runId, findingId },
+    async () => {
+      const response = await fetch(`/api/runs/${runId}/findings/${findingId}/create-ticket`, {
+        method: "POST"
+      });
 
-  const payload = await parse<{ ticket: Ticket }>(response);
+      return parse<{ ticket: Ticket }>(response);
+    }
+  );
   return payload.ticket;
 };
 
 export const dismissAuditFinding = async (runId: string, findingId: string, note: string): Promise<void> => {
-  await parse(
-    await fetch(`/api/runs/${runId}/findings/${findingId}/dismiss`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ note })
-    })
+  await transportRequest(
+    "audit.dismiss",
+    { runId, findingId, note },
+    async () =>
+      parse(
+        await fetch(`/api/runs/${runId}/findings/${findingId}/dismiss`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ note })
+        })
+      )
   );
 };
 
@@ -49,13 +67,19 @@ export const exportFixBundle = async (
   findingId: string,
   agent: AgentTarget
 ): Promise<{ runId: string; attemptId: string; bundlePath: string; flatString: string }> => {
-  const response = await fetch(`/api/runs/${runId}/findings/${findingId}/export-fix-bundle`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ agent })
-  });
+  return transportRequest(
+    "tickets.exportFixBundle",
+    { runId, findingId, body: { agent } },
+    async () => {
+      const response = await fetch(`/api/runs/${runId}/findings/${findingId}/export-fix-bundle`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ agent })
+      });
 
-  return parse(response);
+      return parse(response);
+    }
+  );
 };

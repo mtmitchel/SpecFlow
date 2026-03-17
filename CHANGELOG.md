@@ -5,6 +5,36 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+**Desktop-first runtime**
+- SpecFlow now runs desktop-first through a Tauri v2 shell backed by a persistent Node sidecar
+- `packages/client` remains the React/Vite UI, `packages/app` remains the Node business-logic package, and `packages/tauri` now owns the desktop shell and bridge
+- Normal desktop usage no longer depends on a Fastify-bound HTTP port
+
+**Shared runtime**
+- Added transport-agnostic runtime handlers and a shared sidecar RPC contract under `packages/app/src/runtime/`
+- Fastify route modules now act as legacy HTTP/SSE adapters over the shared handler layer
+- Added a persistent sidecar entrypoint and dispatcher in `packages/app/src/sidecar.ts` and `packages/app/src/sidecar/`
+
+**Client transport**
+- Replaced desktop-path API calls with transport adapters over Tauri `invoke`, `Channel`, events, and native save dialogs
+- Removed the stale `/api/planner/stream` reconnect assumption from the client
+- Verification progress now uses request-scoped desktop events, while legacy web mode retains SSE fallback where still supported
+- Desktop ZIP export now uses a native save flow instead of an HTTP-only anchor
+
+**CLI and scripts**
+- `specflow ui` is now desktop-first and falls back to legacy Fastify + browser mode with a deprecation warning
+- Root `npm run tauri dev` is the primary desktop development command, with `npm run dev` as an alias
+- Desktop development uses a dev-only Tauri config that disables packaged sidecar requirements
+- Added sidecar packaging with `caxa` for desktop builds
+
+**Documentation**
+- Rewrote the setup and architecture docs for the desktop-first runtime
+- Added `docs/runtime-modes.md` to document desktop dev, desktop build, legacy web fallback, and CLI/runtime expectations
+
 ## [0.3.0] - 2026-03-01
 
 ### Changed

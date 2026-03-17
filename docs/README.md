@@ -10,6 +10,7 @@ Documentation for SpecFlow.
 | [`product-language-spec.md`](product-language-spec.md) | Canonical product vocabulary, phase language, status labels, CTA rules, empty states, and transition messaging |
 | [`workflows.md`](workflows.md) | Four user workflows (Groundwork, Milestone Run, Quick Build, Drift Audit) with step-by-step flows and state diagrams |
 | [`architecture.md`](architecture.md) | Technical architecture: package structure, data model, component responsibilities, API surface, sequence diagrams |
+| [`runtime-modes.md`](runtime-modes.md) | Desktop-first development and runtime modes, including `tauri dev`, legacy web fallback, sidecar expectations, and build outputs |
 | [`review-prompts/`](review-prompts/) | Structured repo-review prompts for data integrity, security, client state, and product-value audits |
 
 For setup and quick-start instructions, see the root [`README.md`](../README.md).
@@ -18,16 +19,19 @@ For the version history, see [`CHANGELOG.md`](../CHANGELOG.md).
 
 Agent-facing rule: duplicated or near-duplicated UI meaning is treated as a defect. The repo-level `npm run check` command includes a hard UI dedupe gate.
 
-## Implementation Status
+## Current Repository State
 
-SpecFlow is fully implemented. The repository includes a working app/client workspace:
+SpecFlow is now desktop-first. The active runtime under development is:
 
-- `packages/app`: Fastify backend, CLI commands (`ui`, `export-bundle`, `verify`), and all backend services
+- `packages/app`: Node business logic, CLI commands (`ui`, `export-bundle`, `verify`), shared runtime handlers, and the persistent sidecar entrypoint
 - `packages/client`: React UI for initiatives, tickets, runs, audits, specs, and settings
+- `packages/tauri`: Tauri v2 desktop shell and Rust bridge
 
-All four workflows are functional: Groundwork, Milestone Run, Quick Build, and Drift Audit.
+Legacy Fastify + browser mode remains available as a fallback and compatibility path.
 
-Key capabilities in the current version (0.1.0):
+All four workflows remain functional: Groundwork, Milestone Run, Quick Build, and Drift Audit.
+
+Key capabilities in the current version:
 
 - Action-oriented home: an Up next queue plus initiative cards with inline progress instead of a counts dashboard
 - Rail + drawer workspace: slim icon rail for primary navigation, with the structural navigator preserved as a secondary drawer
@@ -42,6 +46,6 @@ Key capabilities in the current version (0.1.0):
 - Verification with per-criterion severity (Critical/Major/Minor/Outdated) and remediation hints
 - Fix-forward loop: quick-fix export mode chains failed verification to enriched re-export to re-verify
 - LLM-powered drift audit with Bug/Performance/Security/Clarity finding categories
-- Real SSE token streaming for all LLM operations
+- Real streaming progress for LLM operations through transport adapters: Tauri channels in desktop mode and SSE in legacy web mode
 - GitHub Issue import via `POST /api/import/github-issue`
 - Ticket dependencies with automatic inter-phase wiring and enforced status transitions

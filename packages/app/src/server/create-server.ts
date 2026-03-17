@@ -2,12 +2,8 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
-import { BundleGenerator } from "../bundle/bundle-generator.js";
-import { loadEnvironment } from "../config/env.js";
-import { PlannerService } from "../planner/planner-service.js";
-import { ArtifactStore } from "../store/artifact-store.js";
-import { DiffEngine } from "../verify/diff-engine.js";
-import { VerifierService } from "../verify/verifier-service.js";
+import { createSpecFlowRuntime } from "../runtime/create-runtime.js";
+import type { CreateSpecFlowRuntimeOptions, SpecFlowRuntime } from "../runtime/types.js";
 import { registerImportRoutes } from "./routes/import-routes.js";
 import { registerInitiativeRoutes } from "./routes/initiative-routes.js";
 import { registerOperationRoutes } from "./routes/operation-routes.js";
@@ -18,21 +14,16 @@ import { registerRuntimeRoutes } from "./routes/runtime-routes.js";
 import { registerTicketRoutes } from "./routes/ticket-routes.js";
 import type { SseSession } from "./sse/session.js";
 
-export interface CreateSpecFlowServerOptions {
-  rootDir: string;
+export interface CreateSpecFlowServerOptions extends CreateSpecFlowRuntimeOptions {
   host?: string;
   port?: number;
   staticDir?: string;
-  fetchImpl?: typeof fetch;
-  store?: ArtifactStore;
-  plannerService?: PlannerService;
-  bundleGenerator?: BundleGenerator;
-  verifierService?: VerifierService;
 }
 
 export interface SpecFlowServer {
   app: FastifyInstance;
-  store: ArtifactStore;
+  runtime: SpecFlowRuntime;
+  store: SpecFlowRuntime["store"];
   host: string;
   port: number;
   start: () => Promise<string>;
@@ -53,32 +44,10 @@ const registerStubbedApiRoutes = (app: FastifyInstance): void => {
 export const createSpecFlowServer = async (
   options: CreateSpecFlowServerOptions
 ): Promise<SpecFlowServer> => {
-  loadEnvironment(options.rootDir);
-
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? 3141;
   const staticDir = options.staticDir ?? path.join(options.rootDir, "packages", "client", "dist");
-  const store = options.store ?? new ArtifactStore({ rootDir: options.rootDir });
-
-  await store.initialize();
-
-  const plannerService = options.plannerService ??
-    new PlannerService({
-      rootDir: options.rootDir,
-      store
-    });
-  const bundleGenerator = options.bundleGenerator ??
-    new BundleGenerator({
-      rootDir: options.rootDir,
-      store
-    });
-  const verifierService = options.verifierService ??
-    new VerifierService({
-      rootDir: options.rootDir,
-      store
-    });
-  const diffEngine = new DiffEngine({ rootDir: options.rootDir });
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const runtime = await createSpecFlowRuntime(options);
 
   await mkdir(staticDir, { recursive: true });
 
@@ -108,35 +77,25 @@ export const createSpecFlowServer = async (
     await reply.sendFile("index.html");
   });
 
-  registerRuntimeRoutes(app, { store });
-  registerInitiativeRoutes(app, { plannerService, store });
-  registerProviderRoutes(app, { store, fetchImpl });
+  registerRuntimeRoutes(app, { runtime });
+  registerInitiativeRoutes(app, { runtime });
+  registerProviderRoutes(app, { runtime });
   registerTicketRoutes(app, {
-    bundleGenerator,
-    diffEngine,
-    plannerService,
-    store,
-    verifierService,
+    runtime,
     broadcastVerificationEvent,
     verificationSubscribers
   });
-  registerRunQueryRoutes(app, {
-    rootDir: options.rootDir,
-    store
-  });
-  registerRunAuditRoutes(app, {
-    rootDir: options.rootDir,
-    store,
-    diffEngine
-  });
-  registerOperationRoutes(app, { store });
-  registerImportRoutes(app, { plannerService, fetchImpl });
+  registerRunQueryRoutes(app, { runtime });
+  registerRunAuditRoutes(app, { runtime });
+  registerOperationRoutes(app, { runtime });
+  registerImportRoutes(app, { runtime });
 
   registerStubbedApiRoutes(app);
 
   return {
     app,
-    store,
+    runtime,
+    store: runtime.store,
     host,
     port,
     start: async () => {
@@ -151,7 +110,7 @@ export const createSpecFlowServer = async (
     },
     close: async () => {
       await app.close();
-      await store.close();
+      await runtime.close();
     }
   };
 };

@@ -1,10 +1,10 @@
 # Prompt 1: Data Integrity & Concurrency Review
 
-You have access to the repository at https://github.com/mtmitchel/SpecFlow (main branch, commit 6dfc3ae).
+You are reviewing the current repository checkout for SpecFlow.
 
-You are reviewing the data layer of a Node.js application called SpecFlow. It uses flat YAML/JSON files on disk instead of a database. All data is loaded into in-memory Maps at startup and written through atomically.
+You are reviewing the data layer of SpecFlow. It uses flat YAML/JSON files on disk instead of a database. All data is loaded into in-memory maps and is mutated through staged writes.
 
-The critical invariant is the **staged commit model**: long operations (export bundle, verification) write to a temp directory first, then "commit" by copying to the final location and updating the run pointer. A single in-process write lock (`Map<string, string>`) prevents concurrent operations on the same run.
+The critical invariant is the **staged commit model**: long operations (export bundle, verification, audit writes) stage into temp workspaces first, then commit by updating the authoritative run pointer and reloading the in-memory state. The current desktop migration also introduces a long-lived Node sidecar, so review for concurrency and staged-write invariants across shared runtime handlers, sidecar dispatch, and legacy Fastify adapters.
 
 ## Key files to read from the repo
 

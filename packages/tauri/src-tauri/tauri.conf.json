@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SpecFlow",
+  "version": "0.1.0",
+  "identifier": "com.specflow.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev:stack",
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../../client/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "SpecFlow",
+        "width": 1440,
+        "height": 960,
+        "resizable": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "externalBin": [
+      "../../app/dist-sidecar/specflow-sidecar"
+    ]
+  }
+}

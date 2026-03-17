@@ -1,10 +1,10 @@
 # Prompt 4: Product Value & Spec Quality Review
 
-You have access to the repository at https://github.com/mtmitchel/SpecFlow (main branch, commit 6dfc3ae).
+You are reviewing the current repository checkout for SpecFlow.
 
 ## What this app is
 
-SpecFlow is a local-first tool for a **solo non-developer who uses AI coding agents** (Claude Code, Codex CLI, etc.) to build software. The user is not a programmer by trade -- they are a "vibe coder" who describes what they want and hands structured prompts to AI agents.
+SpecFlow is a local-first desktop-first tool for a **solo non-developer who uses AI coding agents** (Claude Code, Codex CLI, etc.) to build software. The user is not a programmer by trade -- they are a "vibe coder" who describes what they want and hands structured prompts to AI agents.
 
 The tool's value proposition is: **turn a vague idea into structured planning artifacts, break those into ordered tickets, generate agent-ready prompt bundles, then verify the agent's output against acceptance criteria.**
 

@@ -1,0 +1,14 @@
+{
+  "name": "@specflow/tauri",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:stack": "npm run -w @specflow/app build && concurrently -k -n app,client \"npm run -w @specflow/app watch\" \"npm run -w @specflow/client dev\"",
+    "dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.4"
+  }
+}

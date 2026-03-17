@@ -340,6 +340,8 @@ export const TicketView = ({
                 copyFeedback={exportWf.copyFeedback}
                 handleExport={exportWf.handleExport}
                 handleCopyBundle={exportWf.handleCopyBundle}
+                handleSaveZipBundle={exportWf.handleSaveZipBundle}
+                desktopRuntime={exportWf.desktopRuntime}
                 chrome="plain"
               />
             </ExecutionTimelineStage>

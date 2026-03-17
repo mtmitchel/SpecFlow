@@ -18,6 +18,7 @@ obj/
 node_modules/
 coverage/
 dist/
+dist-sidecar/
 *.tsbuildinfo
 
 # Env files
@@ -27,6 +28,9 @@ dist/
 
 # Local runtime artifacts
 specflow/
+
+# Desktop build outputs
+packages/tauri/src-tauri/target/
 
 # Git worktrees
 .worktrees/

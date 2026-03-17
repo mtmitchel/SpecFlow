@@ -1,414 +1,204 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
-import { BundleGenerator } from "../../bundle/bundle-generator.js";
-import { getTicketExecutionGate } from "../../planner/execution-gates.js";
-import { PlannerService } from "../../planner/planner-service.js";
-import type { ArtifactStore } from "../../store/artifact-store.js";
-import type { Ticket } from "../../types/entities.js";
-import { DiffEngine } from "../../verify/diff-engine.js";
-import { VerifierService } from "../../verify/verifier-service.js";
+import type { FastifyInstance } from "fastify";
+import {
+  capturePreview,
+  captureResults,
+  exportBundle,
+  exportFixBundle,
+  listTickets,
+  overrideDone,
+  triageQuickTask,
+  updateTicket
+} from "../../runtime/handlers/ticket-handlers.js";
+import { isHandlerError } from "../../runtime/errors.js";
+import { sendHandlerError } from "../../runtime/handlers/shared.js";
+import type { NotificationSink, SpecFlowRuntime } from "../../runtime/types.js";
 import { startSseSession, type SseSession } from "../sse/session.js";
-import { isValidEntityId, isValidFindingId } from "../validation.js";
+import { isValidEntityId } from "../validation.js";
 
 export interface RegisterTicketRoutesOptions {
-  bundleGenerator: BundleGenerator;
-  diffEngine: DiffEngine;
-  plannerService: PlannerService;
-  store: ArtifactStore;
-  verifierService: VerifierService;
+  runtime: SpecFlowRuntime;
   broadcastVerificationEvent: (ticketId: string, event: string, payload: unknown) => void;
   verificationSubscribers: Map<string, Set<SseSession>>;
 }
 
-const requireCoverageReviewResolvedOrReply = async (
-  ticket: Ticket,
-  store: ArtifactStore,
-  reply: FastifyReply
-): Promise<boolean> => {
-  if (!ticket.initiativeId) {
-    return true;
-  }
-
-  const gate = getTicketExecutionGate(ticket, store.planningReviews);
-  if (gate.allowed) {
-    return true;
-  }
-
-  await reply.code(409).send({
-    error: "Blocked",
-    message: gate.message,
-    reviewKind: gate.reviewKind
-  });
-  return false;
-};
+const MAX_SSE_SUBSCRIBERS = 10;
 
 export const registerTicketRoutes = (app: FastifyInstance, options: RegisterTicketRoutesOptions): void => {
   const {
-    bundleGenerator,
-    diffEngine,
-    plannerService,
-    store,
-    verifierService,
+    runtime,
     broadcastVerificationEvent,
     verificationSubscribers
   } = options;
 
   app.get("/api/tickets", async (_request, reply) => {
-    await reply.send({ tickets: Array.from(store.tickets.values()) });
+    await reply.send(listTickets(runtime));
   });
 
   app.patch("/api/tickets/:id", async (request, reply) => {
-    const ticketId = (request.params as { id: string }).id;
-    if (!isValidEntityId(ticketId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
-      return;
-    }
-    const ticket = store.tickets.get(ticketId);
-    if (!ticket) {
-      await reply.code(404).send({ error: "Not Found", message: `Ticket ${ticketId} not found` });
-      return;
-    }
-
-    const body = (request.body ?? {}) as {
-      status?: "backlog" | "ready" | "in-progress" | "verify" | "done";
-      title?: string;
-      description?: string;
-    };
-
-    const nextStatus = body.status ?? ticket.status;
-
-    if (nextStatus === "in-progress" && nextStatus !== ticket.status) {
-      const blockedBy = ticket.blockedBy ?? [];
-      const unfinished = blockedBy.filter((blockerId) => {
-        const blocker = store.tickets.get(blockerId);
-        return blocker && blocker.status !== "done";
-      });
-
-      if (unfinished.length > 0) {
-        await reply.code(409).send({
-          error: "Blocked",
-          message: `Cannot start: ${unfinished.length} blocking ticket(s) must be completed first`,
-          blockers: unfinished
-        });
+    try {
+      await reply.send(
+        await updateTicket(
+          runtime,
+          (request.params as { id: string }).id,
+          (request.body ?? {}) as {
+            status?: "backlog" | "ready" | "in-progress" | "verify" | "done";
+            title?: string;
+            description?: string;
+          }
+        )
+      );
+    } catch (error) {
+      if (isHandlerError(error)) {
+        await sendHandlerError(reply, error);
         return;
       }
 
-      if (!(await requireCoverageReviewResolvedOrReply(ticket, store, reply))) {
-        return;
-      }
+      throw error;
     }
-
-    const updated = {
-      ...ticket,
-      status: nextStatus,
-      title: body.title ?? ticket.title,
-      description: body.description ?? ticket.description,
-      updatedAt: new Date().toISOString()
-    };
-
-    await store.upsertTicket(updated);
-    await reply.send({ ticket: updated });
   });
 
   app.post("/api/tickets", async (request, reply) => {
-    const body = (request.body ?? {}) as { description?: string };
-
-    if (!body.description?.trim()) {
-      await reply.code(400).send({ error: "Bad Request", message: "description is required" });
-      return;
-    }
-
     try {
-      const triage = await plannerService.runTriageJob({ description: body.description });
-      if (triage.decision === "too-large") {
-        await reply.code(201).send({
-          decision: triage.decision,
-          reason: triage.reason,
-          initiativeId: triage.initiative.id,
-          initiativeTitle: triage.initiative.title
-        });
+      await reply.code(201).send(await triageQuickTask(runtime, (request.body ?? {}) as { description?: string }));
+    } catch (error) {
+      if (isHandlerError(error)) {
+        await sendHandlerError(reply, error);
         return;
       }
 
-      await reply.code(201).send({
-        decision: triage.decision,
-        reason: triage.reason,
-        ticketId: triage.ticket.id,
-        ticketTitle: triage.ticket.title,
-        acceptanceCriteria: triage.ticket.acceptanceCriteria,
-        implementationPlan: triage.ticket.implementationPlan,
-        fileTargets: triage.ticket.fileTargets
-      });
-    } catch (error) {
-      const structured = plannerService.toStructuredError(error);
-      await reply.code(structured.statusCode).send(structured);
+      throw error;
     }
   });
 
   app.post("/api/tickets/:id/export-bundle", async (request, reply) => {
-    const ticketId = (request.params as { id: string }).id;
-    if (!isValidEntityId(ticketId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
-      return;
-    }
-    const body = (request.body ?? {}) as {
-      agent?: "claude-code" | "codex-cli" | "opencode" | "generic";
-      exportMode?: "standard" | "quick-fix";
-      operationId?: string;
-    };
-    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
-      return;
-    }
-    const agentTarget = body.agent ?? "codex-cli";
-    const exportMode = body.exportMode === "quick-fix" ? "quick-fix" : "standard";
-
-    const ticket = store.tickets.get(ticketId);
-    if (!ticket) {
-      await reply.code(404).send({ error: "Not Found", message: `Ticket ${ticketId} not found` });
-      return;
-    }
-
-    if (!(await requireCoverageReviewResolvedOrReply(ticket, store, reply))) {
-      return;
-    }
-
     try {
-      const result = await bundleGenerator.exportBundle({
-        ticketId,
-        agentTarget,
-        exportMode,
-        operationId: body.operationId
-      });
-
-      await reply.code(201).send({
-        runId: result.runId,
-        attemptId: result.attemptId,
-        bundlePath: result.bundlePath,
-        flatString: result.flatString,
-        manifest: result.manifest
-      });
+      await reply.code(201).send(
+        await exportBundle(
+          runtime,
+          (request.params as { id: string }).id,
+          (request.body ?? {}) as {
+            agent?: "claude-code" | "codex-cli" | "opencode" | "generic";
+            exportMode?: "standard" | "quick-fix";
+            operationId?: string;
+          }
+        )
+      );
     } catch (error) {
-      await reply.code(400).send({
-        error: "Export Failed",
-        message: (error as Error).message
-      });
+      if (isHandlerError(error)) {
+        await sendHandlerError(reply, error);
+        return;
+      }
+
+      throw error;
     }
   });
 
   app.post("/api/runs/:id/findings/:findingId/export-fix-bundle", async (request, reply) => {
-    const params = request.params as { id: string; findingId: string };
-    if (!isValidEntityId(params.id)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid run ID format" });
-      return;
-    }
-    if (!isValidFindingId(params.findingId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid finding ID format" });
-      return;
-    }
-    const run = store.runs.get(params.id);
-
-    if (!run) {
-      await reply.code(404).send({ error: "Not Found", message: `Run ${params.id} not found` });
-      return;
-    }
-
-    if (!run.ticketId) {
-      await reply.code(400).send({ error: "Bad Request", message: "Run is not linked to a ticket" });
-      return;
-    }
-
-    const ticket = store.tickets.get(run.ticketId);
-    if (!ticket) {
-      await reply.code(404).send({ error: "Not Found", message: `Ticket ${run.ticketId} not found` });
-      return;
-    }
-
-    if (!(await requireCoverageReviewResolvedOrReply(ticket, store, reply))) {
-      return;
-    }
-
-    const body = (request.body ?? {}) as {
-      agent?: "claude-code" | "codex-cli" | "opencode" | "generic";
-      operationId?: string;
-    };
-    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
-      return;
-    }
-    const agentTarget = body.agent ?? "codex-cli";
-
     try {
-      const result = await bundleGenerator.exportBundle({
-        ticketId: run.ticketId,
-        agentTarget,
-        exportMode: "quick-fix",
-        sourceRunId: run.id,
-        sourceFindingId: params.findingId,
-        operationId: body.operationId
-      });
-
-      await reply.code(201).send({
-        runId: result.runId,
-        attemptId: result.attemptId,
-        bundlePath: result.bundlePath,
-        flatString: result.flatString,
-        manifest: result.manifest
-      });
+      await reply.code(201).send(
+        await exportFixBundle(
+          runtime,
+          (request.params as { id: string }).id,
+          (request.params as { findingId: string }).findingId,
+          (request.body ?? {}) as {
+            agent?: "claude-code" | "codex-cli" | "opencode" | "generic";
+            operationId?: string;
+          }
+        )
+      );
     } catch (error) {
-      await reply.code(400).send({
-        error: "Export Failed",
-        message: (error as Error).message
-      });
+      if (isHandlerError(error)) {
+        await sendHandlerError(reply, error);
+        return;
+      }
+
+      throw error;
     }
   });
 
   app.post("/api/tickets/:id/capture-results", async (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
-    if (!isValidEntityId(ticketId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
-      return;
-    }
-    const body = (request.body ?? {}) as {
-      agentSummary?: string;
-      scopePaths?: string[];
-      widenedScopePaths?: string[];
-      operationId?: string;
+    const onEvent: NotificationSink = async (event, payload) => {
+      broadcastVerificationEvent(ticketId, event, payload);
     };
 
-    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
-      return;
-    }
-
     try {
-      broadcastVerificationEvent(ticketId, "verify-started", { ticketId });
-
-      const result = await verifierService.captureAndVerify(
-        {
+      await reply.code(201).send(
+        await captureResults(
+          runtime,
           ticketId,
-          agentSummary: body.agentSummary,
-          scopePaths: body.scopePaths ?? [],
-          widenedScopePaths: body.widenedScopePaths ?? [],
-          operationId: body.operationId
-        },
-        async (chunk) => {
-          broadcastVerificationEvent(ticketId, "verify-token", { chunk });
-        }
+          (request.body ?? {}) as {
+            agentSummary?: string;
+            scopePaths?: string[];
+            widenedScopePaths?: string[];
+            operationId?: string;
+          },
+          onEvent
+        )
       );
-
-      broadcastVerificationEvent(ticketId, "verify-complete", {
-        ticketId,
-        runId: result.runId,
-        attemptId: result.attempt.attemptId,
-        overallPass: result.overallPass
-      });
-
-      await reply.code(201).send({
-        runId: result.runId,
-        attemptId: result.attempt.attemptId,
-        overallPass: result.overallPass,
-        criteriaResults: result.attempt.criteriaResults,
-        driftFlags: result.attempt.driftFlags
-      });
     } catch (error) {
-      const structured = verifierService.toStructuredError(error);
-      broadcastVerificationEvent(ticketId, "verify-error", structured);
-      await reply.code(structured.statusCode).send(structured);
+      if (isHandlerError(error)) {
+        await sendHandlerError(reply, error);
+        return;
+      }
+
+      throw error;
     }
   });
 
   app.post("/api/tickets/:id/capture-preview", async (request, reply) => {
-    const ticketId = (request.params as { id: string }).id;
-    if (!isValidEntityId(ticketId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
-      return;
+    try {
+      await reply.send(
+        await capturePreview(
+          runtime,
+          (request.params as { id: string }).id,
+          (request.body ?? {}) as {
+            scopePaths?: string[];
+            widenedScopePaths?: string[];
+            diffSource?: { mode: "auto" | "snapshot" };
+          }
+        )
+      );
+    } catch (error) {
+      if (isHandlerError(error)) {
+        await sendHandlerError(reply, error);
+        return;
+      }
+
+      throw error;
     }
-    const body = (request.body ?? {}) as {
-      scopePaths?: string[];
-      widenedScopePaths?: string[];
-      diffSource?: { mode: "auto" | "snapshot" };
-    };
-
-    const ticket = store.tickets.get(ticketId);
-    if (!ticket?.runId) {
-      await reply.code(400).send({ error: "Bad Request", message: `Ticket ${ticketId} has no active run for preview` });
-      return;
-    }
-
-    const run = store.runs.get(ticket.runId);
-    if (!run) {
-      await reply.code(404).send({ error: "Not Found", message: `Run ${ticket.runId} not found` });
-      return;
-    }
-
-    const diffResult = await diffEngine.computeDiff({
-      ticket,
-      runId: run.id,
-      baselineAttemptId: run.committedAttemptId,
-      scopePaths: body.scopePaths ?? [],
-      widenedScopePaths: body.widenedScopePaths ?? [],
-      diffSource: body.diffSource ?? { mode: "auto" }
-    });
-
-    const defaultScope = Array.from(new Set([...ticket.fileTargets, ...diffResult.changedFiles]));
-
-    await reply.send({
-      source: diffResult.diffSource,
-      defaultScope,
-      changedPaths: diffResult.changedFiles,
-      primaryDiff: diffResult.primaryDiff,
-      driftDiff: diffResult.driftDiff
-    });
   });
 
   app.post("/api/tickets/:id/override-done", async (request, reply) => {
-    const ticketId = (request.params as { id: string }).id;
-    if (!isValidEntityId(ticketId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
-      return;
-    }
-    const body = (request.body ?? {}) as {
-      reason?: string;
-      overrideAccepted?: boolean;
-      operationId?: string;
-    };
-
-    if (body.operationId !== undefined && !isValidEntityId(body.operationId)) {
-      await reply.code(400).send({ error: "Bad Request", message: "Invalid operationId format" });
-      return;
-    }
-
     try {
-      const result = await verifierService.overrideDone({
-        ticketId,
-        reason: body.reason ?? "",
-        overrideAccepted: body.overrideAccepted === true,
-        operationId: body.operationId
-      });
-
-      await reply.code(201).send({
-        runId: result.runId,
-        attemptId: result.attempt.attemptId,
-        overrideReason: result.attempt.overrideReason,
-        overrideAccepted: result.attempt.overrideAccepted
-      });
+      await reply.code(201).send(
+        await overrideDone(
+          runtime,
+          (request.params as { id: string }).id,
+          (request.body ?? {}) as {
+            reason?: string;
+            overrideAccepted?: boolean;
+            operationId?: string;
+          }
+        )
+      );
     } catch (error) {
-      const structured = verifierService.toStructuredError(error);
-      await reply.code(structured.statusCode).send(structured);
+      if (isHandlerError(error)) {
+        await sendHandlerError(reply, error);
+        return;
+      }
+
+      throw error;
     }
   });
 
-  const MAX_SSE_SUBSCRIBERS = 10;
-
   app.get("/api/tickets/:id/verify/stream", (request, reply) => {
     const ticketId = (request.params as { id: string }).id;
-
     if (!isValidEntityId(ticketId)) {
       void reply.code(400).send({ error: "Bad Request", message: "Invalid ticket ID format" });
       return;
     }
-
-    if (!store.tickets.has(ticketId)) {
+    if (!runtime.store.tickets.has(ticketId)) {
       void reply.code(404).send({ error: "Not Found", message: `Ticket ${ticketId} not found` });
       return;
     }

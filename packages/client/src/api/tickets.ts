@@ -1,16 +1,23 @@
 import type { AgentTarget, Ticket, TicketStatus } from "../types";
 import { parse } from "./http";
+import { chooseSavePath, isDesktopRuntime, transportRequest, type TransportEvent } from "./transport";
 
 export const updateTicketStatus = async (ticketId: string, status: TicketStatus): Promise<Ticket> => {
-  const response = await fetch(`/api/tickets/${ticketId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ status })
-  });
+  const payload = await transportRequest<{ ticket: Ticket }>(
+    "tickets.update",
+    { id: ticketId, body: { status } },
+    async () => {
+      const response = await fetch(`/api/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status })
+      });
 
-  const payload = await parse<{ ticket: Ticket }>(response);
+      return parse<{ ticket: Ticket }>(response);
+    }
+  );
   return payload.ticket;
 };
 
@@ -28,15 +35,21 @@ export const triageQuickTask = async (
     }
   | { decision: "too-large"; reason: string; initiativeId: string; initiativeTitle: string }
 > => {
-  const response = await fetch("/api/tickets", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ description })
-  });
+  return transportRequest(
+    "tickets.create",
+    { body: { description } },
+    async () => {
+      const response = await fetch("/api/tickets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ description })
+      });
 
-  return parse(response);
+      return parse(response);
+    }
+  );
 };
 
 export const exportBundle = async (
@@ -44,22 +57,29 @@ export const exportBundle = async (
   agent: AgentTarget,
   exportMode?: "standard" | "quick-fix"
 ): Promise<{ runId: string; attemptId: string; bundlePath: string; flatString: string }> => {
-  const response = await fetch(`/api/tickets/${ticketId}/export-bundle`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ agent, exportMode })
-  });
+  return transportRequest(
+    "tickets.exportBundle",
+    { id: ticketId, body: { agent, exportMode } },
+    async () => {
+      const response = await fetch(`/api/tickets/${ticketId}/export-bundle`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ agent, exportMode })
+      });
 
-  return parse(response);
+      return parse(response);
+    }
+  );
 };
 
 export const captureResults = async (
   ticketId: string,
   agentSummary: string,
   scopePaths: string[],
-  widenedScopePaths: string[]
+  widenedScopePaths: string[],
+  onEvent?: (event: TransportEvent) => void
 ): Promise<{
   runId: string;
   attemptId: string;
@@ -71,19 +91,33 @@ export const captureResults = async (
     description: string;
   }>;
 }> => {
-  const response = await fetch(`/api/tickets/${ticketId}/capture-results`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
+  return transportRequest(
+    "tickets.captureResults",
+    {
+      id: ticketId,
+      body: {
+        agentSummary,
+        scopePaths,
+        widenedScopePaths
+      }
     },
-    body: JSON.stringify({
-      agentSummary,
-      scopePaths,
-      widenedScopePaths
-    })
-  });
+    async () => {
+      const response = await fetch(`/api/tickets/${ticketId}/capture-results`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          agentSummary,
+          scopePaths,
+          widenedScopePaths
+        })
+      });
 
-  return parse(response);
+      return parse(response);
+    },
+    onEvent
+  );
 };
 
 export const capturePreview = async (
@@ -100,15 +134,21 @@ export const capturePreview = async (
   primaryDiff: string;
   driftDiff: string | null;
 }> => {
-  const response = await fetch(`/api/tickets/${ticketId}/capture-preview`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  return transportRequest(
+    "tickets.capturePreview",
+    { id: ticketId, body: payload },
+    async () => {
+      const response = await fetch(`/api/tickets/${ticketId}/capture-preview`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
 
-  return parse(response);
+      return parse(response);
+    }
+  );
 };
 
 export const overrideDone = async (
@@ -116,16 +156,45 @@ export const overrideDone = async (
   reason: string,
   overrideAccepted: boolean
 ): Promise<{ runId: string; attemptId: string }> => {
-  const response = await fetch(`/api/tickets/${ticketId}/override-done`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      reason,
-      overrideAccepted
-    })
-  });
+  return transportRequest(
+    "tickets.overrideDone",
+    { id: ticketId, body: { reason, overrideAccepted } },
+    async () => {
+      const response = await fetch(`/api/tickets/${ticketId}/override-done`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          reason,
+          overrideAccepted
+        })
+      });
 
-  return parse(response);
+      return parse(response);
+    }
+  );
+};
+
+export const saveBundleZip = async (
+  runId: string,
+  attemptId: string,
+  defaultFilename: string
+): Promise<string | null> => {
+  if (!isDesktopRuntime()) {
+    return null;
+  }
+
+  const destinationPath = await chooseSavePath(defaultFilename);
+  if (!destinationPath) {
+    return null;
+  }
+
+  const payload = await transportRequest<{ path: string }>(
+    "runs.saveBundleZip",
+    { runId, attemptId, destinationPath },
+    async () => ({ path: destinationPath })
+  );
+
+  return payload.path;
 };

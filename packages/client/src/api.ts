@@ -21,6 +21,7 @@ export {
   captureResults,
   exportBundle,
   overrideDone,
+  saveBundleZip,
   triageQuickTask,
   updateTicketStatus
 } from "./api/tickets";

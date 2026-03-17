@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { exportBundle } from "../../api.js";
+import { exportBundle, saveBundleZip } from "../../api.js";
 import type { AgentTarget, VerificationResult } from "../../types.js";
 import { useToast } from "../context/toast.js";
+import { isDesktopRuntime } from "../../api/transport.js";
 
 interface ExportResult {
   runId: string;
@@ -21,11 +22,17 @@ export const useExportWorkflow = (
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [fixForwardReady, setFixForwardReady] = useState(false);
   const downloadUrlRef = useRef<string | null>(null);
+  const copyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setExportResult(null);
     setCopyFeedback(false);
     setFixForwardReady(false);
+
+    if (copyFeedbackTimerRef.current) {
+      clearTimeout(copyFeedbackTimerRef.current);
+      copyFeedbackTimerRef.current = null;
+    }
 
     if (downloadUrlRef.current) {
       URL.revokeObjectURL(downloadUrlRef.current);
@@ -34,6 +41,11 @@ export const useExportWorkflow = (
     }
 
     return () => {
+      if (copyFeedbackTimerRef.current) {
+        clearTimeout(copyFeedbackTimerRef.current);
+        copyFeedbackTimerRef.current = null;
+      }
+
       if (downloadUrlRef.current) {
         URL.revokeObjectURL(downloadUrlRef.current);
         downloadUrlRef.current = null;
@@ -107,7 +119,34 @@ export const useExportWorkflow = (
     void navigator.clipboard.writeText(exportResult.flatString);
     setCopyFeedback(true);
     showSuccess("Bundle copied to clipboard");
-    setTimeout(() => setCopyFeedback(false), 2000);
+
+    if (copyFeedbackTimerRef.current) {
+      clearTimeout(copyFeedbackTimerRef.current);
+    }
+
+    copyFeedbackTimerRef.current = setTimeout(() => {
+      copyFeedbackTimerRef.current = null;
+      setCopyFeedback(false);
+    }, 2000);
+  };
+
+  const handleSaveZipBundle = async () => {
+    if (!exportResult) {
+      return;
+    }
+
+    try {
+      const savedPath = await saveBundleZip(
+        exportResult.runId,
+        exportResult.attemptId,
+        `${exportResult.runId}-${exportResult.attemptId}-bundle.zip`
+      );
+      if (savedPath) {
+        showSuccess("ZIP bundle saved");
+      }
+    } catch (err) {
+      showError((err as Error).message ?? "ZIP export failed");
+    }
   };
 
   return {
@@ -120,6 +159,8 @@ export const useExportWorkflow = (
     setFixForwardReady,
     handleExport,
     handleReExportWithFindings,
-    handleCopyBundle
+    handleCopyBundle,
+    handleSaveZipBundle,
+    desktopRuntime: isDesktopRuntime()
   };
 };

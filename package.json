@@ -6,16 +6,25 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run -w @specflow/client build && npm run -w @specflow/app build",
+    "build": "npm run build:web && npm run build:sidecar && npm run -w @specflow/tauri build",
+    "build:web": "npm run -w @specflow/client build && npm run -w @specflow/app build",
+    "build:sidecar": "TARGET=$(rustc -vV | sed -n 's/^host: //p') && mkdir -p packages/app/dist-sidecar && caxa --input . --output packages/app/dist-sidecar/specflow-sidecar-$TARGET -- '{{caxa}}/node_modules/.bin/node' '{{caxa}}/packages/app/dist/sidecar.js'",
     "check": "tsc -p packages/app/tsconfig.json --noEmit && tsc -p packages/client/tsconfig.json --noEmit && npm run check:ui-dedupe",
     "check:ui-dedupe": "tsx scripts/check-ui-dedupe.ts",
-    "dev": "concurrently -k -n server,client \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "tsx watch packages/app/src/cli.ts ui --no-open --port 3142",
+    "dev": "npm run tauri dev",
+    "dev:app": "npm run -w @specflow/app watch",
     "dev:client": "npm run -w @specflow/client dev",
+    "dev:tauri": "npm run -w @specflow/tauri dev",
+    "tauri:dev": "npm run dev:tauri",
+    "tauri": "npm run -w @specflow/tauri",
+    "dev:web": "concurrently -k -n server,client \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "tsx watch packages/app/src/cli.ts ui --no-open --port 3142 --legacy-web",
     "test": "npm run -w @specflow/app test && npm run -w @specflow/client test",
-    "ui": "npm run build && node packages/app/dist/cli.js ui"
+    "ui": "npm run build && node packages/app/dist/cli.js ui",
+    "ui:web": "npm run build:web && node packages/app/dist/cli.js ui --legacy-web"
   },
   "devDependencies": {
+    "caxa": "^3.0.1",
     "concurrently": "^9.2.1",
     "tsx": "^4.20.6"
   }

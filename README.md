@@ -2,6 +2,8 @@
 
 Local-first, spec-driven development orchestrator for planning, executing, and verifying AI-agent work.
 
+SpecFlow now runs desktop-first through a Tauri v2 shell backed by a persistent Node sidecar. The existing React/Vite UI stays in `packages/client`, the business logic stays in `packages/app`, and the desktop runtime avoids binding an HTTP port during normal use.
+
 ## Prerequisites
 
 - Node.js 20+
@@ -24,38 +26,58 @@ repoInstructionFile: specflow/AGENTS.md
 YAML
 
 npm install
+npm run tauri dev
+```
+
+`npm run tauri dev` is the primary desktop development loop. It builds `packages/app` once, starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
+
+`npm run dev` is an alias for `npm run tauri dev`.
+
+For a production-style local launch:
+
+```bash
 npm run ui
 ```
 
-Open `http://127.0.0.1:3141`.
+That builds the client, backend, and desktop bundle, then launches the desktop app.
 
-For iterative development:
+Legacy Fastify + browser mode is still available when needed:
 
 ```bash
-npm run dev
+npm run dev:web
+npm run ui:web
 ```
 
-Open `http://127.0.0.1:5173`. The Vite client proxies `/api` requests to the watched app server on `http://127.0.0.1:3142`.
+In legacy web mode, the Vite client proxies `/api` requests to the watched app server on `http://127.0.0.1:3142`, and `ui:web` serves the built UI from Fastify on `http://127.0.0.1:3141`.
 
 ## Workspace Commands
 
 ```bash
 npm run dev
+npm run tauri dev
+npm run tauri:dev
+npm run dev:web
 npm test
 npm run build
 npm run ui
+npm run ui:web
 ```
 
 `npm test` runs both the backend and client Vitest suites.
 `npm run check` now also runs a UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
+`npm run build` produces the unsigned native desktop bundle for the current host platform.
+`npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.
 
 Direct CLI commands (after `npm run build`):
 
 ```bash
 node packages/app/dist/cli.js ui --no-open
+node packages/app/dist/cli.js ui --legacy-web --no-open
 node packages/app/dist/cli.js export-bundle --ticket <ticket-id> --agent codex-cli
 node packages/app/dist/cli.js verify --ticket <ticket-id> --summary "Implemented + tests"
 ```
+
+`specflow ui` is desktop-first. If the desktop binary is unavailable, it falls back to the legacy Fastify + browser runtime with a deprecation warning. `export-bundle` and `verify` remain headless CLI commands and preserve the existing prefer-server delegation behavior when a compatible server is already running.
 
 ## Configuration and Security
 
@@ -81,7 +103,7 @@ The Settings modal (open via Cmd+K or the rail settings button) lets you change 
 - **Rail + drawer workspace**: a slim icon rail handles primary navigation, while the hierarchical navigator remains available as a secondary drawer for browse-heavy use.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Inline initiative handoff**: `/new-initiative` flows directly into required brief intake in the same screen instead of bouncing through separate creation and planning views.
-- **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents.
+- **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents. Desktop mode saves ZIP bundles through the native file picker instead of an HTTP download anchor.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
 - **Fix-forward loop**: failed verification auto-enriches the re-export bundle with failure context; one-click re-export and re-verify.
 - **Drift audit**: diff-based audit with LLM-powered finding categorisation (Bug/Performance/Security/Clarity) and finding-to-ticket creation.
@@ -90,7 +112,10 @@ The Settings modal (open via Cmd+K or the rail settings button) lets you change 
 
 ## Project Layout
 
-- `packages/app`: Fastify API server, CLI, bundle/export/verify services
-- `packages/client`: React board UI
+- `packages/app`: Fastify legacy web runtime, CLI, sidecar, bundle/export/verify services
+- `packages/client`: React board UI with desktop and legacy-web transport adapters
+- `packages/tauri`: Tauri v2 desktop shell and Rust bridge to the Node sidecar
 - `docs/`: product docs, workflow docs, technical architecture, and review prompts
 - `specflow/`: runtime artifacts (`config.yaml`, initiatives, reviews, traces, tickets, runs, decisions)
+
+For desktop versus legacy web runtime details, see [`docs/runtime-modes.md`](docs/runtime-modes.md).
