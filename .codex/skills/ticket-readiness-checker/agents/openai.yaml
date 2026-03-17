@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ticket Readiness Checker"
+  short_description: "Review tickets for execution readiness"
+  default_prompt: "Use $ticket-readiness-checker to review this ticket for execution readiness, ambiguity, and verification gaps."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workflow Guide"
+  short_description: "Guide users through the SpecFlow lifecycle"
+  default_prompt: "Use $workflow-guide to tell me what comes next in this SpecFlow work and whether the required artifacts, reviews, and gates are complete."

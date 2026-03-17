@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Prompt Composer"
+  short_description: "Compose sharper review prompts"
+  default_prompt: "Use $review-prompt-composer to turn this review request into the right evaluation frame and apply the review if needed."
