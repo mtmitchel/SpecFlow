@@ -1,20 +1,9 @@
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export const useDirtyForm = (isDirty: boolean): void => {
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Block in-app navigation via patching navigate
-  const guardedNavigate = useCallback(
-    (to: string) => {
-      if (isDirty && !window.confirm("You have unsaved changes. Discard them?")) {
-        return;
-      }
-      navigate(to);
-    },
-    [isDirty, navigate]
-  );
 
   // Intercept link clicks within the app to guard navigation
   useEffect(() => {

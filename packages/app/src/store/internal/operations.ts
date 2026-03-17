@@ -5,7 +5,7 @@ import { readYamlFile, writeYamlFile } from "../../io/yaml.js";
 import { NotFoundError, RetryableConflictError } from "../errors.js";
 import type { PreparedOperationArtifacts } from "../types.js";
 import { listDirectoryNames } from "./fs-utils.js";
-import type { OperationManifest, OperationState, Run, RunAttempt } from "../../types/entities.js";
+import type { OperationManifest, OperationState, Run } from "../../types/entities.js";
 
 export interface PrepareRunOperationInput {
   runId: string;

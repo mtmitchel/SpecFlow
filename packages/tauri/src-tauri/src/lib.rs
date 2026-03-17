@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -9,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::{oneshot, Mutex};
+use tokio::time::sleep;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SidecarRequest {
@@ -145,12 +147,36 @@ fn resolve_dev_sidecar_path() -> Result<PathBuf, SidecarCommandError> {
         .join("sidecar.js"))
 }
 
+async fn wait_for_dev_sidecar_path(path: &Path) -> Result<(), SidecarCommandError> {
+    const MAX_ATTEMPTS: usize = 200;
+    const POLL_INTERVAL: Duration = Duration::from_millis(100);
+
+    for _ in 0..MAX_ATTEMPTS {
+        if path.is_file() {
+            return Ok(());
+        }
+
+        sleep(POLL_INTERVAL).await;
+    }
+
+    Err(SidecarCommandError {
+        code: "Desktop Bridge Error".into(),
+        message: format!(
+            "Timed out waiting for the dev sidecar build at {}",
+            path.display()
+        ),
+        status_code: 500,
+        details: None,
+    })
+}
+
 async fn spawn_sidecar(app: &AppHandle) -> Result<Arc<SidecarRuntime>, SidecarCommandError> {
     let workspace_root = resolve_workspace_root()?;
     let sidecar_env = [("SPECFLOW_ROOT_DIR", workspace_root.to_string_lossy().to_string())];
 
     let (mut rx, child) = if cfg!(debug_assertions) {
         let sidecar_path = resolve_dev_sidecar_path()?;
+        wait_for_dev_sidecar_path(&sidecar_path).await?;
         let command = app
             .shell()
             .command("node")

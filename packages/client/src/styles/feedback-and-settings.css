@@ -173,23 +173,6 @@
       "status";
   }
 
-  .workspace-navigator {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 280px;
-    z-index: 100;
-    transform: translateX(-100%);
-    transition: transform var(--transition-normal);
-    background: var(--surface-dropdown);
-    border-right: 1px solid var(--panel-border);
-  }
-
-  .workspace-navigator.open {
-    transform: translateX(0);
-  }
-
   .workspace-nav-toggle {
     display: block;
   }

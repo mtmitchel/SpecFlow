@@ -76,6 +76,7 @@
   /* Transitions */
   --transition-fast: 120ms ease;
   --transition-normal: 200ms ease;
+  --transition-panel: 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {

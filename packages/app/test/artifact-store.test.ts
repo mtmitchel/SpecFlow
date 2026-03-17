@@ -5,12 +5,7 @@ import { describe, expect, it } from "vitest";
 import { writeYamlFile } from "../src/io/yaml.js";
 import {
   attemptDir,
-  initiativeReviewPath,
-  initiativeTicketCoveragePath,
-  initiativeTracePath,
-  operationDir,
   operationManifestPath,
-  runDir,
   runTmpDir,
   runYamlPath,
   specflowDir,
@@ -62,20 +57,6 @@ const makeRun = (overrides: Partial<Run> = {}): Run => ({
   operationLeaseExpiresAt: null,
   lastCommittedAt: null,
   createdAt: now,
-  ...overrides
-});
-
-const makeInitiative = (overrides: Partial<Initiative> = {}): Initiative => ({
-  id: "initiative-1",
-  title: "Auth",
-  description: "Build authentication",
-  status: "active",
-  phases: [],
-  specIds: [],
-  ticketIds: [],
-  workflow: createInitiativeWorkflow(),
-  createdAt: now,
-  updatedAt: now,
   ...overrides
 });
 

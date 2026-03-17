@@ -117,13 +117,11 @@ const AppInner = () => {
             snapshot={snapshot}
             navigatorOpen={navigatorOpen}
             onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-            onToggleNavigator={() => setNavigatorOpen((current) => !current)}
+            navigatorContent={<Navigator snapshot={snapshot} />}
           />
         }
-        navigator={
-          <Navigator snapshot={snapshot} />
-        }
         navigatorOpen={navigatorOpen}
+        onToggleNavigator={() => setNavigatorOpen((current) => !current)}
         onCloseNavigator={() => setNavigatorOpen(false)}
         commandPalette={
           <CommandPalette

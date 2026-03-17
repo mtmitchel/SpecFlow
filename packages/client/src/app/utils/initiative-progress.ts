@@ -1,7 +1,6 @@
 import type {
   ArtifactsSnapshot,
   Initiative,
-  InitiativeArtifactStep,
   InitiativePlanningStep,
   PlanningReviewArtifact,
   PlanningReviewKind,

@@ -29,7 +29,6 @@ import {
   getInitiativeBlockedStep,
   getInitiativeResumeStep,
   getNextInitiativeStep,
-  INITIATIVE_ARTIFACT_STEPS,
   INITIATIVE_WORKFLOW_LABELS,
   REQUIRED_REVIEWS_BEFORE_STEP,
   REVIEWS_BY_STEP

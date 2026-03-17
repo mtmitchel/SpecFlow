@@ -21,10 +21,10 @@ npm run tauri dev
 
 What it does:
 
-1. Builds `@specflow/app` once so `packages/app/dist/sidecar.js` exists
-2. Starts the `@specflow/app` TypeScript watcher
-3. Starts the Vite client dev server on `http://127.0.0.1:5173`
-4. Launches `tauri dev`
+1. Starts the `@specflow/app` TypeScript watcher
+2. Starts the Vite client dev server on `http://127.0.0.1:5173`
+3. Launches `tauri dev`
+4. Waits for the first watched `packages/app/dist/sidecar.js` output before spawning the desktop sidecar
 
 Notes:
 
@@ -32,7 +32,7 @@ Notes:
 - `npm run tauri:dev` is a second alias for the same desktop-oriented dev flow
 - Development uses `packages/tauri/src-tauri/tauri.dev.conf.json`
 - The dev config disables `bundle.externalBin`, so desktop development does not require `packages/app/dist-sidecar/*`
-- The Tauri shell spawns the Node sidecar from `packages/app/dist/sidecar.js`
+- The Tauri shell spawns the Node sidecar from `packages/app/dist/sidecar.js` after the watcher has produced it
 
 ## Desktop Build
 

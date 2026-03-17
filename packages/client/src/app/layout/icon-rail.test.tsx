@@ -49,8 +49,8 @@ const LocationProbe = () => {
 };
 
 describe("IconRail", () => {
-  it("uses the SF logo as home and exposes a separate navigator toggle", () => {
-    const onToggleNavigator = vi.fn();
+  it("uses the SF logo as home and exposes search, browse, and new initiative actions", () => {
+    const onOpenCommandPalette = vi.fn();
 
     render(
       <MemoryRouter initialEntries={[`/initiative/${initiative.id}`]}>
@@ -58,21 +58,42 @@ describe("IconRail", () => {
         <IconRail
           snapshot={snapshot}
           navigatorOpen={false}
-          onOpenCommandPalette={vi.fn()}
-          onToggleNavigator={onToggleNavigator}
+          onOpenCommandPalette={onOpenCommandPalette}
+          navigatorContent={<div>Navigator</div>}
         />
       </MemoryRouter>
     );
 
     const homeButton = screen.getByRole("button", { name: "Home" });
     expect(homeButton).toHaveTextContent("SF");
-    expect(screen.queryByRole("button", { name: /All tickets/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /All runs/i })).not.toBeInTheDocument();
 
     fireEvent.click(homeButton);
     expect(screen.getByTestId("location")).toHaveTextContent("/");
 
-    fireEvent.click(screen.getByRole("button", { name: "Open project navigator" }));
-    expect(onToggleNavigator).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Search and commands" }));
+    expect(onOpenCommandPalette).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "New initiative" }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/new");
+  });
+
+  it("reveals text labels when the sidebar is expanded", () => {
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}`]}>
+        <IconRail
+          snapshot={snapshot}
+          navigatorOpen
+          onOpenCommandPalette={vi.fn()}
+          navigatorContent={<div>Navigator</div>}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("SpecFlow")).toBeInTheDocument();
+    expect(screen.getByText("Search")).toBeInTheDocument();
+    expect(screen.getByText("New Initiative")).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toBeInTheDocument();
+    expect(screen.getByText("Local Notes")).toBeInTheDocument();
+    expect(screen.getByText("Navigator")).toBeInTheDocument();
   });
 });

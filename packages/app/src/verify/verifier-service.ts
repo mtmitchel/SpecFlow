@@ -3,7 +3,7 @@ import { loadEnvironment } from "../config/env.js";
 import { HttpLlmClient, type LlmClient, type LlmTokenHandler } from "../llm/client.js";
 import { LlmProviderError } from "../llm/errors.js";
 import { ArtifactStore } from "../store/artifact-store.js";
-import type { DriftFlag, RunAttempt, Ticket } from "../types/entities.js";
+import type { DriftFlag, RunAttempt } from "../types/entities.js";
 import { DiffEngine } from "./diff-engine.js";
 import { readVerifierAgentsMd } from "./internal/agents-md.js";
 import { mergeCriteria } from "./internal/criteria.js";

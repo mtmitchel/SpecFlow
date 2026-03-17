@@ -6,9 +6,7 @@ import { canEditStep, completeWorkflowStep, getRefinementAssumptions, invalidate
 import type {
   Initiative,
   InitiativeArtifactStep,
-  InitiativePlanningStep,
   PlanningReviewArtifact,
-  PlanningReviewKind
 } from "../../types/entities.js";
 import type { ProgressSink, SpecFlowRuntime } from "../types.js";
 import { badRequest, conflict } from "../errors.js";

@@ -32,7 +32,7 @@ npm run tauri dev
 
 `npm run setup:git-hooks` configures the repo's versioned `pre-commit` and `pre-push` hooks for this clone. The hooks enforce `git diff --cached --check`, block committed build outputs, and run the repo `check`/`test` gates before commits and pushes.
 
-`npm run tauri dev` is the primary desktop development loop. It builds `packages/app` once, starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
+`npm run tauri dev` is the primary desktop development loop. It starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. During startup the desktop bridge waits for the first watched `packages/app/dist/sidecar.js` output instead of requiring a separate upfront build. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
 
 `npm run dev` is an alias for `npm run tauri dev`.
 
@@ -60,6 +60,8 @@ npm run dev
 npm run tauri dev
 npm run tauri:dev
 npm run dev:web
+npm run lint
+npm run check
 npm test
 npm run build
 npm run ui
@@ -67,7 +69,8 @@ npm run ui:web
 ```
 
 `npm test` runs both the backend and client Vitest suites.
-`npm run check` now also runs a UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
+`npm run lint` runs the shared ESLint baseline for TypeScript, React Hooks, and general correctness issues.
+`npm run check` now runs lint, both TypeScript checks, and the UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
 `npm run build` produces the unsigned native desktop bundle for the current host platform.
 `npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.
 
@@ -103,7 +106,7 @@ The Settings modal (open via Cmd+K or the rail settings button) lets you change 
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
 - **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved coverage checks block export and execution until the user reruns or overrides the check.
 - **Action-oriented home**: the landing view is an Up next queue plus initiative cards with inline progress, so the first screen answers what needs attention now instead of showing aggregate counts.
-- **Rail + drawer workspace**: a slim icon rail handles primary navigation, while the hierarchical navigator remains available as a secondary drawer for browse-heavy use.
+- **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals labels plus the active initiative hierarchy.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Inline initiative handoff**: `/new-initiative` flows directly into required brief intake in the same screen instead of bouncing through separate creation and planning views.
 - **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents. Desktop mode saves ZIP bundles through the native file picker instead of an HTTP download anchor.

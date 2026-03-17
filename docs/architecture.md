@@ -17,7 +17,7 @@ Three packages share a single npm workspace root:
 | `packages/client` | React + Vite SPA | Browser / Tauri webview |
 | `packages/tauri` | Tauri v2 desktop shell and Rust bridge | Rust + Tauri |
 
-Desktop is the primary runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack starts an initial `packages/app` build, then runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell. In desktop mode, the UI does not talk to Fastify and normal usage does not bind an HTTP port.
+Desktop is the primary runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell without a separate upfront build step; the desktop bridge waits for the first watched `packages/app/dist/sidecar.js` output before spawning the sidecar. In desktop mode, the UI does not talk to Fastify and normal usage does not bind an HTTP port.
 
 Legacy Fastify + browser mode is still supported for fallback and compatibility. `npm run dev:web` starts the watched app server on `127.0.0.1:3142` plus the Vite client with `/api` proxying, and `specflow ui --legacy-web` serves the built UI from Fastify.
 
@@ -453,7 +453,7 @@ graph TD
 | **`App.tsx`** | Holds the top-level `ArtifactsSnapshot`, refreshes persisted state, and subscribes to desktop artifact-change events |
 | **Transport adapter (`src/api/transport.ts`)** | Switches between desktop transport (`invoke`, `Channel`, native dialogs, Tauri events) and legacy web transport (`fetch`, SSE, HTTP downloads) |
 | **API modules (`src/api/*`)** | Keep domain-level client APIs stable while routing them through the active transport |
-| **Workspace shell + navigation** | Provide the rail, drawer, command palette, and route-level workspace structure |
+| **Workspace shell + navigation** | Provide the collapsing/expanding left sidebar, command palette, and route-level workspace structure |
 | **Initiative / ticket / run views** | Render planning, execution, and verification flows using backend-owned workflow and verification state |
 | **Execution hooks** | Manage local UI concerns such as verification log display, capture preview debouncing, export workflow state, and error toasts |
 

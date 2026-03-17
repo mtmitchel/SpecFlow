@@ -78,14 +78,6 @@ export const InitiativeView = ({
     );
   };
 
-  if (!workspace.initiative) {
-    return (
-      <section>
-        <h2>Initiative not found</h2>
-      </section>
-    );
-  }
-
   const {
     initiative,
     initiativeReviews,
@@ -158,9 +150,11 @@ export const InitiativeView = ({
   }, [busyAction]);
   const progressModel = useMemo(
     () =>
-      getInitiativeProgressModel(initiative, snapshot, {
+      initiative
+        ? getInitiativeProgressModel(initiative, snapshot, {
         generatingKey
-      }),
+      })
+        : null,
     [generatingKey, initiative, snapshot]
   );
   const unresolvedReviewByStep = {
@@ -169,6 +163,14 @@ export const InitiativeView = ({
     prd: REVIEWS_BY_STEP.prd.find((kind) => !isResolvedReview(getReview(kind))) ?? null,
     "tech-spec": REVIEWS_BY_STEP["tech-spec"].find((kind) => !isResolvedReview(getReview(kind))) ?? null
   } as const;
+
+  if (!initiative || !progressModel) {
+    return (
+      <section>
+        <h2>Initiative not found</h2>
+      </section>
+    );
+  }
 
   const renderArtifactSummary = () => {
     if (!activeSpecStep || !activePreview) {

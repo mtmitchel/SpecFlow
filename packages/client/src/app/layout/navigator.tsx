@@ -1,24 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { ArtifactsSnapshot } from "../../types.js";
+import type { ArtifactsSnapshot, Ticket } from "../../types.js";
 import { useTreeNavigation } from "../hooks/use-tree-navigation.js";
 import {
   buildNavigatorTree,
   computeAutoExpansion,
   findActiveNodeId,
-  type NavigatorNode
+  type NavigatorNode,
 } from "./navigator-tree.js";
 
 interface NavigatorProps {
   snapshot: ArtifactsSnapshot;
 }
 
-// Covers both initiative statuses (draft/active/done) and phase statuses (active/complete)
 const STATUS_DOT: Record<string, string> = {
   active: "var(--accent)",
   done: "var(--success)",
   draft: "var(--muted)",
-  complete: "var(--success)"
+  complete: "var(--success)",
 };
 
 const TICKET_DOT: Record<string, string> = {
@@ -26,7 +25,7 @@ const TICKET_DOT: Record<string, string> = {
   ready: "var(--accent)",
   "in-progress": "var(--warning)",
   verify: "var(--accent)",
-  done: "var(--success)"
+  done: "var(--success)",
 };
 
 interface TreeItemProps {
@@ -64,8 +63,8 @@ const TreeItem = ({
     node.ticketStatus
       ? TICKET_DOT[node.ticketStatus] ?? "var(--muted)"
       : node.status
-      ? STATUS_DOT[node.status] ?? "var(--muted)"
-      : null;
+        ? STATUS_DOT[node.status] ?? "var(--muted)"
+        : null;
 
   useEffect(() => {
     if (focusedId === node.id) ref.current?.focus();
@@ -75,11 +74,10 @@ const TreeItem = ({
     node.id,
     flatList,
     { onNavigate, onToggle, setFocusedId },
-    { isExpanded, hasChildren: !!hasChildren, children: node.children, path: node.path }
+    { isExpanded, hasChildren: !!hasChildren, children: node.children, path: node.path },
   );
 
   const isHeader = node.type === "quick-tasks-header" || node.type === "section-header";
-  const isAggregateLink = node.type === "aggregate-link";
   const indentPx = depth * 14;
   const isClickable = !isHeader;
 
@@ -91,7 +89,7 @@ const TreeItem = ({
         aria-selected={isActive}
         aria-expanded={hasChildren ? isExpanded : undefined}
         tabIndex={focusedId === node.id ? 0 : -1}
-        className={`nav-tree-item${isActive ? " active" : ""}${isHeader ? " nav-tree-header" : ""}${isAggregateLink ? " nav-tree-aggregate" : ""}`}
+        className={`nav-tree-item${isActive ? " active" : ""}${isHeader ? " nav-tree-header" : ""}`}
         style={{ paddingLeft: `${0.7 + indentPx / 16}rem` }}
         onClick={() => {
           setFocusedId(node.id);
@@ -105,16 +103,12 @@ const TreeItem = ({
         <span className="nav-tree-chevron" style={{ visibility: hasChildren ? "visible" : "hidden" }}>
           {isExpanded ? "▾" : "▸"}
         </span>
-        {dotColor && (
-          <span
-            className="nav-tree-dot"
-            style={{ background: dotColor }}
-            aria-hidden="true"
-          />
-        )}
-        <span className="nav-tree-label" title={node.label}>{node.label}</span>
+        {dotColor ? <span className="nav-tree-dot" style={{ background: dotColor }} aria-hidden="true" /> : null}
+        <span className="nav-tree-label" title={node.label}>
+          {node.label}
+        </span>
       </div>
-      {hasChildren && isExpanded && node.children && (
+      {hasChildren && isExpanded && node.children ? (
         <div role="group">
           {node.children.map((child) => {
             const childExpanded = manualExpanded.has(child.id) || autoExpanded.has(child.id);
@@ -137,7 +131,7 @@ const TreeItem = ({
             );
           })}
         </div>
-      )}
+      ) : null}
     </>
   );
 };
@@ -153,45 +147,74 @@ const flattenVisible = (nodes: NavigatorNode[], expanded: Set<string>): Navigato
   return result;
 };
 
+const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): string | null => {
+  if (pathname.startsWith("/initiative/")) {
+    return pathname.split("/")[2] ?? null;
+  }
+
+  const ticketForPath = (ticketId: string | null | undefined): Ticket | undefined =>
+    snapshot.tickets.find((ticket) => ticket.id === ticketId);
+
+  if (pathname.startsWith("/ticket/")) {
+    return ticketForPath(pathname.split("/")[2])?.initiativeId ?? null;
+  }
+
+  if (pathname.startsWith("/run/")) {
+    const runId = pathname.split("/")[2];
+    const run = snapshot.runs.find((candidate) => candidate.id === runId);
+    return ticketForPath(run?.ticketId)?.initiativeId ?? null;
+  }
+
+  return null;
+};
+
 export const Navigator = ({ snapshot }: NavigatorProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
-  const [filterText, setFilterText] = useState("");
   const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const tree = useMemo(() => buildNavigatorTree(snapshot), [snapshot]);
+  const activeInitiativeId = useMemo(
+    () => getActiveInitiativeId(snapshot, location.pathname),
+    [location.pathname, snapshot],
+  );
+  const activeInitiativeNode = useMemo(
+    () => (activeInitiativeId ? tree.find((node) => node.id === `initiative-${activeInitiativeId}`) ?? null : null),
+    [activeInitiativeId, tree],
+  );
+  const quickTasksNode = useMemo(
+    () => tree.find((node) => node.type === "quick-tasks-header") ?? null,
+    [tree],
+  );
+
+  const contentNodes = useMemo(() => {
+    const nodes: NavigatorNode[] = [];
+
+    if (activeInitiativeNode?.children?.length) {
+      nodes.push(...activeInitiativeNode.children);
+    }
+
+    if (quickTasksNode) {
+      nodes.push(quickTasksNode);
+    }
+
+    return nodes;
+  }, [activeInitiativeNode, quickTasksNode]);
 
   const autoExpanded = useMemo(
-    () => computeAutoExpansion(tree, location.pathname),
-    [tree, location.pathname]
+    () => computeAutoExpansion(contentNodes, location.pathname),
+    [contentNodes, location.pathname],
   );
-
-  const activeNodeId = useMemo(
-    () => findActiveNodeId(tree, location.pathname),
-    [tree, location.pathname]
-  );
-
   const allExpanded = useMemo(() => {
     const combined = new Set(manualExpanded);
     for (const id of autoExpanded) combined.add(id);
     return combined;
   }, [manualExpanded, autoExpanded]);
-
-  const flatList = useMemo(() => flattenVisible(tree, allExpanded), [tree, allExpanded]);
-
-  const filteredTree = useMemo(() => {
-    if (!filterText.trim()) return tree;
-    const q = filterText.toLowerCase();
-    const filterNodes = (nodes: NavigatorNode[]): NavigatorNode[] =>
-      nodes.flatMap((n) => {
-        if (n.label.toLowerCase().includes(q)) return [n];
-        const filteredChildren = n.children ? filterNodes(n.children) : [];
-        if (filteredChildren.length > 0) return [{ ...n, children: filteredChildren }];
-        return [];
-      });
-    return filterNodes(tree);
-  }, [tree, filterText]);
+  const flatList = useMemo(() => flattenVisible(contentNodes, allExpanded), [contentNodes, allExpanded]);
+  const activeNodeId = useMemo(() => {
+    return findActiveNodeId(contentNodes, location.pathname);
+  }, [contentNodes, location.pathname]);
 
   const handleToggle = useCallback((id: string) => {
     setManualExpanded((prev) => {
@@ -209,20 +232,13 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
     (path: string) => {
       navigate(path);
     },
-    [navigate]
+    [navigate],
   );
-
-  const displayTree = filterText.trim() ? filteredTree : tree;
-  const displayFlatList = filterText.trim()
-    ? flattenVisible(filteredTree, new Set(filteredTree.map((n) => n.id)))
-    : flatList;
-
-  const aggregateNodes = displayTree.filter((n) => n.type === "aggregate-link");
-  const contentNodes = displayTree.filter((n) => n.type !== "aggregate-link");
 
   const renderItem = (node: NavigatorNode) => {
     const expanded = allExpanded.has(node.id);
     const isActive = activeNodeId === node.id;
+
     return (
       <TreeItem
         key={node.id}
@@ -235,7 +251,7 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
         onNavigate={handleNavigate}
         focusedId={focusedId}
         setFocusedId={setFocusedId}
-        flatList={displayFlatList}
+        flatList={flatList}
         manualExpanded={manualExpanded}
         autoExpanded={autoExpanded}
       />
@@ -244,67 +260,18 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
 
   return (
     <div className="navigator">
-      <div className="navigator-brand">
-        <div className="navigator-brand-name">SpecFlow</div>
-      </div>
-
-      <div className="navigator-filter">
-        <div className="navigator-filter-wrap">
-          <input
-            type="text"
-            placeholder="Search"
-            value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
-            className="navigator-filter-input"
-            aria-label="Search navigator"
-          />
-          {filterText && (
-            <button
-              type="button"
-              className="navigator-filter-clear"
-              onClick={() => setFilterText("")}
-              aria-label="Clear filter"
-            >
-              ×
-            </button>
-          )}
+      {activeInitiativeNode ? (
+        <div className="navigator-section">
+          <div className="navigator-section-label">Current initiative</div>
+          <div className="navigator-section-title">{activeInitiativeNode.label}</div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="navigator-actions">
-        <button
-          type="button"
-          className="btn-primary navigator-new-button"
-          onClick={() => navigate("/new")}
-        >
-          + New
-        </button>
-      </div>
-
-      <div role="tree" aria-label="Project navigator" className="navigator-tree">
-        {aggregateNodes.length > 0 && (
-          <>
-            {aggregateNodes.map(renderItem)}
-            {contentNodes.length > 0 && <div className="nav-tree-divider" />}
-          </>
-        )}
-        {contentNodes.map(renderItem)}
-      </div>
-
-      <div className="navigator-footer">
-        <button
-          className="navigator-settings-button"
-          onClick={() => navigate("/settings")}
-          type="button"
-          aria-label="Settings"
-          title="Settings"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="8" cy="8" r="2.5" />
-            <path d="M6.8 1.5h2.4l.35 1.7a5 5 0 0 1 1.2.7l1.65-.55.95 1.65-1.3 1.15a5 5 0 0 1 0 1.4l1.3 1.15-.95 1.65-1.65-.55a5 5 0 0 1-1.2.7l-.35 1.7H6.8l-.35-1.7a5 5 0 0 1-1.2-.7l-1.65.55-.95-1.65 1.3-1.15a5 5 0 0 1 0-1.4L2.65 5.05l.95-1.65 1.65.55a5 5 0 0 1 1.2-.7l.35-1.7Z" />
-          </svg>
-        </button>
-      </div>
+      {contentNodes.length > 0 ? (
+        <div role="tree" aria-label="Project navigator" className="navigator-tree">
+          {contentNodes.map(renderItem)}
+        </div>
+      ) : null}
     </div>
   );
 };

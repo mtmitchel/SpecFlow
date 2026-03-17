@@ -3,8 +3,8 @@ import type { ArtifactsSnapshot, Initiative } from "../../types.js";
 
 interface IconRailProps {
   onOpenCommandPalette: () => void;
-  onToggleNavigator: () => void;
   navigatorOpen: boolean;
+  navigatorContent?: React.ReactNode;
   snapshot: ArtifactsSnapshot;
 }
 
@@ -18,14 +18,37 @@ const getMonogram = (initiative: Initiative): string => {
   return tokens.join("") || "SF";
 };
 
-const RailIcon = ({
+const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): string | null => {
+  if (pathname.startsWith("/initiative/")) {
+    return pathname.split("/")[2] ?? null;
+  }
+
+  if (pathname.startsWith("/ticket/")) {
+    const ticketId = pathname.split("/")[2];
+    return snapshot.tickets.find((ticket) => ticket.id === ticketId)?.initiativeId ?? null;
+  }
+
+  if (pathname.startsWith("/run/")) {
+    const runId = pathname.split("/")[2];
+    const run = snapshot.runs.find((candidate) => candidate.id === runId);
+    return snapshot.tickets.find((ticket) => ticket.id === run?.ticketId)?.initiativeId ?? null;
+  }
+
+  return null;
+};
+
+const RailButton = ({
   active,
   ariaLabel,
+  icon,
+  label,
   children,
   onClick,
 }: {
   active?: boolean;
   ariaLabel: string;
+  icon?: React.ReactNode;
+  label?: string;
   children: React.ReactNode;
   onClick: () => void;
 }) => (
@@ -36,20 +59,24 @@ const RailIcon = ({
     aria-label={ariaLabel}
     title={ariaLabel}
   >
-    {children}
+    <span className="icon-rail-button-icon" aria-hidden="true">
+      {icon ?? children}
+    </span>
+    {label ? <span className="icon-rail-button-label">{label}</span> : null}
   </button>
 );
 
-export const IconRail = ({ onOpenCommandPalette, onToggleNavigator, navigatorOpen, snapshot }: IconRailProps) => {
+export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent, snapshot }: IconRailProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const initiatives = [...snapshot.initiatives].sort(
     (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
   const homeActive = location.pathname === "/";
+  const activeInitiativeId = getActiveInitiativeId(snapshot, location.pathname);
 
   return (
-    <div className="icon-rail">
+    <div className={`icon-rail${navigatorOpen ? " open" : ""}`}>
       <div className="icon-rail-group">
         <button
           type="button"
@@ -58,25 +85,27 @@ export const IconRail = ({ onOpenCommandPalette, onToggleNavigator, navigatorOpe
           aria-label="Home"
           title="Home"
         >
-          <span>SF</span>
+          <span className="icon-rail-logo-mark">SF</span>
+          <span className="icon-rail-logo-label">SpecFlow</span>
         </button>
-        <RailIcon
-          active={navigatorOpen}
-          ariaLabel={navigatorOpen ? "Close project navigator" : "Open project navigator"}
-          onClick={onToggleNavigator}
-        >
+        <RailButton ariaLabel="Search and commands" label="Search" onClick={onOpenCommandPalette}>
           <svg viewBox="0 0 16 16">
-            <path d="M3 4.5h10a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z" />
-            <path d="M5.5 4.5v7" />
+            <path d="M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm3.1 7.1L13 13" />
           </svg>
-        </RailIcon>
+        </RailButton>
+        <RailButton ariaLabel="New initiative" label="New Initiative" onClick={() => navigate("/new")}>
+          <svg viewBox="0 0 16 16">
+            <path d="M8 3v10" />
+            <path d="M3 8h10" />
+          </svg>
+        </RailButton>
       </div>
 
       <div className="icon-rail-divider" />
 
       <div className="icon-rail-group icon-rail-initiatives" aria-label="Initiative shortcuts">
         {initiatives.map((initiative) => {
-          const active = location.pathname.startsWith(`/initiative/${initiative.id}`);
+          const active = activeInitiativeId === initiative.id;
 
           return (
             <button
@@ -87,26 +116,33 @@ export const IconRail = ({ onOpenCommandPalette, onToggleNavigator, navigatorOpe
               aria-label={initiative.title}
               title={initiative.title}
             >
-              <span>{getMonogram(initiative)}</span>
+              <span className="icon-rail-initiative-mark">{getMonogram(initiative)}</span>
+              <span className="icon-rail-initiative-label">{initiative.title}</span>
             </button>
           );
         })}
       </div>
 
+      {navigatorContent ? (
+        <div className={`icon-rail-navigator${navigatorOpen ? " open" : ""}`}>
+          <div className="icon-rail-navigator-inner">{navigatorContent}</div>
+        </div>
+      ) : null}
+
       <div className="icon-rail-spacer" />
 
       <div className="icon-rail-group">
-        <RailIcon ariaLabel="Search and commands" onClick={onOpenCommandPalette}>
-          <svg viewBox="0 0 16 16">
-            <path d="M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm3.1 7.1L13 13" />
+        <RailButton
+          active={location.pathname === "/settings"}
+          ariaLabel="Settings"
+          label="Settings"
+          onClick={() => navigate("/settings")}
+        >
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3.1" />
+            <path d="M19.4 14.5c.05-.4.1-.82.1-1.25s-.05-.85-.1-1.25l2.02-1.58-1.92-3.32-2.45.82a7.86 7.86 0 0 0-2.17-1.25L14.5 4h-5l-.4 2.67c-.78.3-1.51.72-2.17 1.25l-2.45-.82-1.92 3.32 2.02 1.58c-.05.4-.1.82-.1 1.25s.05.85.1 1.25L2.56 16.1l1.92 3.32 2.45-.82c.66.53 1.39.95 2.17 1.25L9.5 22h5l.4-2.67c.78-.3 1.51-.72 2.17-1.25l2.45.82 1.92-3.32-2.04-1.08Z" />
           </svg>
-        </RailIcon>
-        <RailIcon active={location.pathname === "/settings"} ariaLabel="Settings" onClick={() => navigate("/settings")}>
-          <svg viewBox="0 0 16 16">
-            <circle cx="8" cy="8" r="2.3" />
-            <path d="M6.8 1.7h2.4l.35 1.65a5.4 5.4 0 0 1 1.2.7l1.6-.5.95 1.6-1.25 1.15c.08.43.08.87 0 1.3l1.25 1.15-.95 1.6-1.6-.5a5.4 5.4 0 0 1-1.2.7l-.35 1.65H6.8l-.35-1.65a5.4 5.4 0 0 1-1.2-.7l-1.6.5-.95-1.6 1.25-1.15a4 4 0 0 1 0-1.3L2.7 5.12l.95-1.6 1.6.5a5.4 5.4 0 0 1 1.2-.7z" />
-          </svg>
-        </RailIcon>
+        </RailButton>
       </div>
     </div>
   );

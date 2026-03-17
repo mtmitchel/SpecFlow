@@ -81,7 +81,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
             onSubmit={(event) => {
               event.preventDefault();
               if (saving) return;
-              const { hasApiKey, ...rest } = form;
+              const { hasApiKey: _hasApiKey, ...rest } = form;
               const hadKeyInput = !!apiKeyInput;
               const payload: ConfigSavePayload = {
                 ...rest,

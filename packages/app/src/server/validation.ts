@@ -13,7 +13,7 @@ export const isContainedPath = (root: string, target: string): boolean => {
 
 /** Git ref: alphanumeric, slashes, dots, hyphens, underscores; no leading dash */
 export const isValidGitRef = (ref: string): boolean =>
-  /^[a-zA-Z0-9][a-zA-Z0-9/_.\-]*$/.test(ref);
+  /^[a-zA-Z0-9][a-zA-Z0-9/_.-]*$/.test(ref);
 
 /** GitHub owner/org: alphanumeric + hyphens, 1-39 chars, no leading/trailing dash */
 export const isValidGitHubOwner = (owner: string): boolean =>

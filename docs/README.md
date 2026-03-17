@@ -17,7 +17,7 @@ For setup and quick-start instructions, see the root [`README.md`](../README.md)
 For coding conventions, testing guidelines, and commit rules, see [`AGENTS.md`](../AGENTS.md).
 For the version history, see [`CHANGELOG.md`](../CHANGELOG.md).
 
-Agent-facing rule: duplicated or near-duplicated UI meaning is treated as a defect. The repo-level `npm run check` command includes a hard UI dedupe gate.
+Agent-facing rule: duplicated or near-duplicated UI meaning is treated as a defect. The repo-level `npm run lint` command runs the shared ESLint baseline, and `npm run check` includes that lint pass plus the hard UI dedupe gate.
 
 ## Current Repository State
 
@@ -34,7 +34,7 @@ All four workflows remain functional: Groundwork, Milestone Run, Quick Build, an
 Key capabilities in the current version:
 
 - Action-oriented home: an Up next queue plus initiative cards with inline progress instead of a counts dashboard
-- Rail + drawer workspace: slim icon rail for primary navigation, with the structural navigator preserved as a secondary drawer
+- Expandable sidebar workspace: slim icon rail for primary navigation that expands in place to reveal labels and the active initiative hierarchy
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
 - Shared initiative pipeline: Brief -> Core flows -> PRD -> Tech spec -> Tickets -> Execute -> Verify -> Done as one continuous visual model
 - Mandatory brief intake before the first brief is generated

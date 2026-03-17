@@ -31,14 +31,6 @@ export const InitiativeHandoffView = ({
       </span>
     ) : null;
 
-  if (!workspace.initiative) {
-    return (
-      <section className="planning-shell">
-        <h2>Initiative not found</h2>
-      </section>
-    );
-  }
-
   const {
     initiative,
     activeRefinement,
@@ -63,15 +55,21 @@ export const InitiativeHandoffView = ({
   } = workspace;
 
   useEffect(() => {
+    if (!initiative) {
+      return;
+    }
+
     setIdeaDraft(initiative.description);
-  }, [initiative.description]);
+  }, [initiative]);
 
   const progressModel = useMemo(
     () =>
-      getInitiativeProgressModel(initiative, snapshot, {
+      initiative
+        ? getInitiativeProgressModel(initiative, snapshot, {
         currentKey: "brief",
         generatingKey: busyAction === "generate-brief" ? "brief" : null,
-      }),
+      })
+        : null,
     [busyAction, initiative, snapshot],
   );
 
@@ -95,6 +93,10 @@ export const InitiativeHandoffView = ({
   }, [activeRefinement, defaultAnswerQuestionIds, refinementAnswers, unresolvedQuestionCount]);
 
   useEffect(() => {
+    if (!initiative) {
+      return;
+    }
+
     if (intakeStartedRef.current || refinementCheckedAt || busyAction === "check-brief") {
       return;
     }
@@ -104,6 +106,10 @@ export const InitiativeHandoffView = ({
   }, [busyAction, handleCheckAndAdvance, refinementCheckedAt]);
 
   useEffect(() => {
+    if (!initiative) {
+      return;
+    }
+
     if (!hasActiveContent || isBusy) {
       return;
     }
@@ -112,6 +118,10 @@ export const InitiativeHandoffView = ({
   }, [hasActiveContent, isBusy, navigateToStep]);
 
   useEffect(() => {
+    if (!initiative) {
+      return;
+    }
+
     if (
       !completedQuestionSignature ||
       hasActiveContent ||
@@ -124,7 +134,15 @@ export const InitiativeHandoffView = ({
 
     followUpCheckSignatureRef.current = completedQuestionSignature;
     void handleCheckAndAdvance("brief");
-  }, [activeStep, completedQuestionSignature, handleCheckAndAdvance, hasActiveContent, isBusy]);
+  }, [activeStep, completedQuestionSignature, handleCheckAndAdvance, hasActiveContent, initiative, isBusy]);
+
+  if (!initiative || !progressModel) {
+    return (
+      <section className="planning-shell">
+        <h2>Initiative not found</h2>
+      </section>
+    );
+  }
 
   const handleContinueFromIdea = async () => {
     const trimmed = ideaDraft.trim();

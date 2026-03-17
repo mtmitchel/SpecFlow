@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  isValidEntityId,
   isValidFindingId,
   isValidGitHubOwner,
   isValidGitHubRepo,
-  isValidGitRef,
-  isContainedPath
 } from "../src/server/validation.js";
 import { operationDir } from "../src/io/paths.js";
 

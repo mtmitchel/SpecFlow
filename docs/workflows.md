@@ -36,7 +36,7 @@ Related docs:
 8. User moves into **Tickets** and generates the ticket plan. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger.
 9. After ticket generation, SpecFlow runs a **Coverage checkpoint**. If the ticket plan leaves important flows, requirements, or decisions uncovered, the user must rerun or override that check before execution starts.
 10. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page.
-11. The top-level workspace stays light by default: icon rail for primary navigation, Up next on Home, and a secondary drawer for browse-heavy hierarchy.
+11. The top-level workspace stays light by default: a collapsed icon rail for primary navigation, Up next on Home, and an in-place expandable sidebar that reveals initiative structure without opening a second panel.
 
 **Exit:** Initiative is ready for execution once the coverage checkpoint is passed or overridden. All tickets are in Backlog. User proceeds to Milestone Run.
 
@@ -46,11 +46,11 @@ Related docs:
 
 **Purpose:** Execute an initiative's tickets phase-by-phase, with a verify gate after each ticket before moving to the next.
 
-**Entry point:** Initiative page (after Groundwork), Home's Up next queue, or the navigation drawer.
+**Entry point:** Initiative page (after Groundwork), Home's Up next queue, or the expanded left sidebar.
 
 **Steps:**
 
-1. User opens a ticket from an initiative, the Home queue, or the navigation drawer. The ticket view opens as a single execution workspace with a **Preflight** card first, then one execution timeline below.
+1. User opens a ticket from an initiative, the Home queue, or the expanded left sidebar. The ticket view opens as a single execution workspace with a **Preflight** card first, then one execution timeline below.
 2. If the ticket is still in **Backlog**, the user can move it to **Ready** via the status dropdown. When they try to move it into **In Progress**, the server rejects the change with a 409 error if the ticket still has unfinished blockers or the initiative's **Coverage check** is blocked or stale.
 3. User clicks **Create bundle**. The execution section asks which agent should receive the handoff bundle: Claude Code, Codex CLI, OpenCode, or Generic. For initiative-linked tickets, unresolved coverage checks also block export until the user resolves or overrides the check in the initiative view.
 4. The bundle is generated and displayed inline. The user can copy the flattened bundle immediately. Desktop mode also offers a native **Save ZIP bundle** action, while legacy web mode keeps the HTTP ZIP download path. The ticket moves to **In Progress**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
@@ -96,7 +96,7 @@ Related docs:
 9. Verification runs automatically. Ticket moves to Done or stays in Verify with findings.
 
 **Notes:**
-- Quick Tasks remain outside initiatives and are still browseable from the secondary navigation drawer and aggregate ticket views.
+- Quick Tasks remain outside initiatives and are still browseable from the expanded left sidebar and aggregate ticket views.
 - A Quick Task can be linked to an existing initiative later via the ticket's detail page.
 - Quick Tasks are exempt from initiative coverage gating until they are linked to an initiative.
 
@@ -152,11 +152,9 @@ stateDiagram
 ```mermaid
 graph TD
     Rail[Icon rail] --> Home[Home - Up next + initiative cards]
-    Rail --> Tickets[All Tickets]
-    Rail --> Runs[All Runs]
-    Rail --> Drawer[Navigation drawer]
-    Drawer --> Initiatives
-    Drawer --> QuickTasks[Quick Tasks section]
+    Rail --> Sidebar[Expanded sidebar]
+    Sidebar --> Initiatives[Active initiative hierarchy]
+    Sidebar --> QuickTasks[Quick Tasks section]
     CmdK[Cmd+K Command Palette] --> QT[Quick Task flow]
     CmdK --> NI[New Initiative flow]
     CmdK --> GH[GitHub Import flow]
