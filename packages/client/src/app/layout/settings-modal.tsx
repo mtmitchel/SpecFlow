@@ -4,6 +4,12 @@ import type { Config, ConfigSavePayload } from "../../types.js";
 import { useToast } from "../context/toast.js";
 import { ModelCombobox } from "../components/model-combobox.js";
 
+const PROVIDER_OPTIONS: { value: Config["provider"]; label: string }[] = [
+  { value: "anthropic", label: "Anthropic" },
+  { value: "openai", label: "OpenAI" },
+  { value: "openrouter", label: "OpenRouter" },
+];
+
 interface SettingsModalProps {
   config: Config | null;
   onSave: (next: ConfigSavePayload) => Promise<void>;
@@ -20,7 +26,9 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const [saving, setSaving] = useState(false);
   const [modelsGeneration, setModelsGeneration] = useState(0);
   const [dirty, setDirty] = useState(false);
+  const [providerOpen, setProviderOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const providerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!dirty) {
@@ -40,11 +48,24 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") {
+        if (providerOpen) { setProviderOpen(false); return; }
+        close();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, close]);
+  }, [isOpen, close, providerOpen]);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (providerRef.current && !providerRef.current.contains(e.target as Node)) {
+        setProviderOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -105,11 +126,38 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
           >
             <label>
               Provider
-              <select value={form.provider} onChange={(event) => { setDirty(true); setForm({ ...form, provider: event.target.value as Config["provider"] }); }}>
-                <option value="anthropic">Anthropic</option>
-                <option value="openai">OpenAI</option>
-                <option value="openrouter">OpenRouter</option>
-              </select>
+              <div className="settings-provider-picker" ref={providerRef}>
+                <button
+                  type="button"
+                  className="settings-provider-trigger"
+                  onClick={() => setProviderOpen((prev) => !prev)}
+                  aria-haspopup="listbox"
+                  aria-expanded={providerOpen}
+                >
+                  <span>{PROVIDER_OPTIONS.find((o) => o.value === form.provider)?.label}</span>
+                  <span className="settings-provider-arrow" aria-hidden="true">{providerOpen ? "\u25B2" : "\u25BC"}</span>
+                </button>
+                {providerOpen ? (
+                  <ul className="settings-model-list" role="listbox" onMouseDown={(e) => e.preventDefault()}>
+                    {PROVIDER_OPTIONS.map((opt) => (
+                      <li
+                        key={opt.value}
+                        role="option"
+                        aria-selected={form.provider === opt.value}
+                        className={"settings-model-item" + (form.provider === opt.value ? " selected" : "")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDirty(true);
+                          setForm({ ...form, provider: opt.value });
+                          setProviderOpen(false);
+                        }}
+                      >
+                        <span>{opt.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </label>
             <label>
               Model

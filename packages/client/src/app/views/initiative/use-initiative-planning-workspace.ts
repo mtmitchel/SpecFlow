@@ -22,6 +22,7 @@ import type {
   PlanningReviewArtifact,
   PlanningReviewKind
 } from "../../../types.js";
+import { useConfirm } from "../../context/confirm.js";
 import { useToast } from "../../context/toast.js";
 import { getInitiativeDisplayTitle } from "../../utils/initiative-titles.js";
 import {
@@ -65,6 +66,7 @@ export const useInitiativePlanningWorkspace = (
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { showError } = useToast();
+  const confirm = useConfirm();
   const initiative = snapshot.initiatives.find((item) => item.id === params.id) ?? null;
 
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -597,9 +599,12 @@ export const useInitiativePlanningWorkspace = (
       return;
     }
 
-    if (!window.confirm(`Delete initiative "${headerTitle}"? This cannot be undone.`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      message: `Delete initiative "${headerTitle}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!confirmed) return;
 
     try {
       await deleteInitiative(initiative.id);

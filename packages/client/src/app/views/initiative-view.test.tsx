@@ -18,6 +18,10 @@ vi.mock("../context/toast.js", () => ({
   useToast: () => ({ showError: vi.fn() })
 }));
 
+vi.mock("../context/confirm.js", () => ({
+  useConfirm: () => vi.fn().mockResolvedValue(false)
+}));
+
 const initiative: Initiative = {
   id: "initiative-12345678",
   title: "Note App for Linux Fedora",

@@ -7,6 +7,7 @@ import { Navigator } from "./app/layout/navigator";
 import { IconRail } from "./app/layout/icon-rail";
 import { WorkspaceShell } from "./app/layout/workspace-shell";
 import { ToastProvider, useToast } from "./app/context/toast";
+import { ConfirmProvider } from "./app/context/confirm";
 import { DetailWorkspace } from "./app/views/detail-workspace";
 import { CommandPalette } from "./app/layout/command-palette";
 import { SettingsModal } from "./app/layout/settings-modal";
@@ -147,7 +148,9 @@ const AppInner = () => {
 export const App = () => (
   <ErrorBoundary>
     <ToastProvider>
-      <AppInner />
+      <ConfirmProvider>
+        <AppInner />
+      </ConfirmProvider>
     </ToastProvider>
   </ErrorBoundary>
 );

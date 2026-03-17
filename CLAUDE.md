@@ -73,7 +73,7 @@ Single state atom pattern: `AppInner` in App.tsx holds an `ArtifactsSnapshot` (c
 
 API layer: thin wrappers over `fetch` in `src/api/`. `http.ts` provides `requestJson<T>()` and throws `ApiError` with status and structured message on non-2xx.
 
-Pages use `useToast()` for error display. Root wraps: `<ErrorBoundary><ToastProvider><AppInner/></ToastProvider></ErrorBoundary>`.
+Pages use `useToast()` for error display. Destructive actions use `useConfirm()` for async confirmation dialogs. Root wraps: `<ErrorBoundary><ToastProvider><ConfirmProvider><AppInner/></ConfirmProvider></ToastProvider></ErrorBoundary>`.
 
 Reusable hooks in `src/app/hooks/`: `useDirtyForm` (unsaved changes warning via click-intercept + beforeunload; does NOT use `useBlocker` since the app uses `<BrowserRouter>`, not a data router), `useVerificationStream` (SSE EventSource with reconnection), `useCapturePreview` (diff preview with debounced refresh), `useExportWorkflow` (export/copy/fix-forward state), `useTreeNavigation` (keyboard nav for navigator tree).
 
@@ -103,6 +103,8 @@ Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by tick
 - **React components**: do NOT annotate return types with `: JSX.Element` (removed in `@types/react@19`). Use `ConfigSavePayload` for writes, `Config` for reads. `AgentTarget` is the shared agent selection type.
 - **File names**: kebab-case.
 - **No duplicate UI meaning**: never repeat the same action, state, explanation, or option in nearby UI. Exact duplicates and near-duplicates are defects. `npm run check` includes a hard UI dedupe gate; do not bypass it.
+- **No native browser dialogs**: never use `window.confirm()`, `window.alert()`, or `window.prompt()`. Use `useConfirm()` from `src/app/context/confirm.tsx` for confirmation flows. Destructive actions (deletes, discards) must await confirmation before proceeding.
+- **No native `<select>` elements**: use custom styled dropdowns to ensure dark-theme consistency. Native `<select>` and `<option>` ignore CSS background/color on many platforms.
 - **Ellipsis in UI copy**: never use `...` (ellipsis) in static copy such as placeholders, labels, or empty-state messages. Ellipsis is reserved exclusively for loading/progress states (e.g. "Creating", "Importing"). Placeholder text should read naturally without trailing dots (e.g. `"Search tickets"` not `"Search tickets..."`).
 - **CSS design tokens**: all visual values must use tokens from `base.css`. Never hardcode `border-radius`, `font-size` (for small text), `box-shadow`, or disabled/hover opacity.
   - **Border radius**: `--radius-xs` (6px), `--radius-sm` (4px), `--radius-md` (8px), `--radius-lg` (12px), `--radius-pill` (999px).

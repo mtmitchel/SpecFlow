@@ -300,8 +300,7 @@
   color: var(--muted);
 }
 
-.settings-form input,
-.settings-form select {
+.settings-form input {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--panel-border);

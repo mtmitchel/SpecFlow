@@ -121,7 +121,7 @@ export const ModelCombobox = ({ provider, hasApiKey, value, onSelect, modelsGene
         }}
       />
       {dropdownOpen ? (
-        <ul className="settings-model-list" ref={listRef}>
+        <ul className="settings-model-list" ref={listRef} onMouseDown={(e) => e.preventDefault()}>
           {filteredModels.length === 0 ? (
             <li className="settings-model-item disabled">
               {modelsLoading ? "Loading models" : "No models found"}

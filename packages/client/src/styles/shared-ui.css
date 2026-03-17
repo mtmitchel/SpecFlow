@@ -545,6 +545,35 @@
   transition: opacity var(--transition-fast);
 }
 
+.settings-provider-picker {
+  position: relative;
+}
+
+.settings-provider-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-xs);
+  padding: 0.58rem 0.78rem;
+  font-size: var(--font-body-sm);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.settings-provider-trigger:hover {
+  border-color: var(--accent-border-subtle);
+}
+
+.settings-provider-arrow {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+
 .settings-model-picker {
   position: relative;
   display: grid;
