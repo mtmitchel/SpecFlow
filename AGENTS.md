@@ -1,19 +1,37 @@
-# Repository Guidelines
+# AGENTS.md - SpecFlow Repository
 
-## Project Structure & Module Organization
+This file is the operating standard for every coding agent working in this repository. Read it before touching any file. Follow it without exception.
 
-Core runtime and docs live together as an npm workspace:
+## 1. Prime Directive
 
-- `packages/app`: Fastify server, CLI, and all backend services
-- `packages/client`: React + Vite board UI
+Ship production-grade work. Finish the task completely. Do not return half-finished changes, stub implementations, placeholder comments, or temporary workarounds unless the user explicitly asks for them.
+
+Prefer root-cause fixes over symptom patches. If a bug is structural, fix the structure.
+
+When in doubt, do less and report what you found. A smaller correct change is better than a larger uncertain one.
+
+## 2. Project Overview
+
+SpecFlow is a local-first, spec-driven development orchestrator for solo builders and small teams using AI coding agents. It turns raw intent into planning artifacts, ordered ticket breakdowns, and agent-ready bundles, then verifies that the agent's output satisfies the original plan.
+
+The repository is an npm workspace with two packages:
+
+| Package | Contents | Runtime |
+| --- | --- | --- |
+| `packages/app` | Fastify server, CLI, and backend services | Node.js |
+| `packages/client` | React + Vite board UI | Browser |
+
+Core runtime and docs live together in the workspace:
+
 - `docs/`: product and technical planning artifacts
-- `README.md` and `docs/README.md`: entry points for setup and docs index
+- `README.md` and `docs/README.md`: setup and docs entry points
+- `specflow/`: runtime data (`config.yaml`, `initiatives/`, `tickets/`, `runs/`, `decisions/`)
 
-Runtime data is persisted under `specflow/` (`config.yaml`, `initiatives/`, `tickets/`, `runs/`, `decisions/`).
+## 3. Repository Layout
 
-### packages/app source layout
+### `packages/app`
 
-```
+```text
 src/
   bundle/           bundle generation and agent-specific renderers
     internal/       helpers: agents-md, context-files, manifest, operations, snapshot
@@ -28,7 +46,7 @@ src/
     audit/          drift audit logic (findings, report-store, types)
     routes/         one file per domain: import, initiative, operation, provider, run-query, run-audit, runtime, ticket
     sse/            SSE session management
-    validation.ts   security validators (see Security section)
+    validation.ts   security validators
     zip/            bundle ZIP streaming
   store/            in-memory artifact store with staged commits
     internal/       helpers: artifact-writer, cleanup, fs-utils, loaders, operations, planning-artifact-validation, recovery, reload, spec-utils, watcher
@@ -39,9 +57,9 @@ src/
     internal/       helpers: agents-md, config, criteria, operations, prompt
 ```
 
-### packages/client source layout
+### `packages/client`
 
-```
+```text
 src/
   api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
   styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, planning-shell, pipeline, planning-intake, planning-reviews, overview, ticket-execution, run-report)
@@ -60,118 +78,258 @@ src/
   types.ts          all client-facing types including AgentTarget, Config, ConfigSavePayload
 ```
 
-## Build, Test, and Development Commands
+## 4. Commands
 
-Use these canonical commands:
+Use these canonical commands. Do not invent variations.
 
-- `npm install` - install workspaces
-- `npm run check` - type-check both packages (tsc --noEmit); no build output
-- `npm test` - run backend and client Vitest suites
-- `npm run build` - build client and backend
-- `npm run dev` - run the watched backend and Vite client together
-- `npm run ui` - build and start local server/UI
-- `git status -sb` - quick working tree check
+```bash
+npm install          # install all workspaces
+npm run check        # type-check both packages (tsc --noEmit) and run the UI dedupe gate
+npm test             # run all Vitest suites (backend + client)
+npm run build        # build client and backend
+npm run dev          # watched backend + Vite client together
+npm run ui           # build and start local server/UI
+git status -sb       # quick working tree check
+```
 
-Direct CLI examples (after build):
+Direct CLI examples after build:
 
 - `node packages/app/dist/cli.js ui --no-open`
 - `node packages/app/dist/cli.js export-bundle --ticket <ticket-id> --agent codex-cli`
 - `node packages/app/dist/cli.js verify --ticket <ticket-id>`
 
-## Coding Style & Naming Conventions
+Run `npm run check && npm test && npm run build` before considering any task complete. Do not report success without running them. Show real output. Do not invent results.
+
+## 5. Code Quality Standards
+
+### 5a. Finish the task
+
+Do not stop at the first passing state. Verify the full acceptance criteria. If tests or type checks are broken in areas you touched, fix them even if you did not introduce the breakage.
+
+### 5b. Fix root causes
+
+If a bug has a structural cause such as a wrong data model, missing validation, or incorrect ownership of state, fix the structure. Do not hide the symptom with a guard clause.
+
+### 5c. File size: 600 LOC hard limit
+
+If a file you are editing or creating reaches or exceeds 600 lines of code, stop and propose a refactor plan before adding more code. Describe what the file is doing, how it should be split, and what each new module would own. Do not keep adding code to a file that already needs to be broken up.
+
+### 5d. No hacks or short-term bandaids
+
+Do not introduce:
+
+- magic constants without named exports
+- `// @ts-ignore` or `as any` without a documented reason in a comment directly above the line
+- disabled lint rules without a documented reason
+- workarounds that defer the real fix
+- comments such as "temporary" or "fix later"
+
+If a proper fix requires more context than you have, say so explicitly. Do not ship the hack.
+
+### 5e. No ceremony
+
+Do not create:
+
+- new scripts, runners, or wrapper files to manage existing tooling
+- process documents, ADRs, or tracking files unless explicitly requested
+- abstraction layers whose only purpose is to exist
+
+Build or fix the thing itself.
+
+### 5f. No silent error suppression
+
+Do not swallow errors. Every error path must either surface to the caller, log with enough context to diagnose, or both.
+
+## 6. TypeScript and Coding Conventions
 
 - Follow `.editorconfig`: UTF-8, LF, final newline, trimmed trailing whitespace.
-- TypeScript: explicit interfaces for shared entities and API payloads.
-- Markdown docs: concise sections with clear scope boundaries.
+- Use explicit interfaces for shared entities and API payloads. Do not use anonymous object types for anything that crosses a module boundary.
+- Shared TypeScript types between packages live in `packages/app/src/types/` and are imported via path aliases. Do not duplicate type definitions across packages.
+- Markdown docs should use concise sections with clear scope boundaries.
 - File names use kebab-case unless framework conventions require otherwise.
+- Do not annotate React component return types with `: JSX.Element`. TypeScript infers them correctly and the global `JSX` namespace was removed in `@types/react@19`.
+- Use `ConfigSavePayload` from `types.ts` when sending config to `PUT /api/config`. Use `Config` for reading.
+- `AgentTarget` is the canonical type for agent selection (`"claude-code" | "codex-cli" | "opencode" | "generic"`). Import it from `../types` rather than re-declaring it locally.
 
-## No Duplicate UI
+## 7. CSS Design System
 
-- Never ship duplicated UI meaning.
-- Do not repeat the same action, state, or explanation in adjacent controls, cards, banners, drawers, or helper text.
-- Treat near-duplicates as defects, not copy tweaks. If two labels or blocks mean the same thing, keep one.
-- Do not render the same option twice in a choice set, including special fallback options such as `Other`.
-- Run `npm run check` after UI work. It now includes a hard UI dedupe gate.
+All visual tokens live in `packages/client/src/styles/base.css`. Use tokens instead of hardcoded values.
 
-### React / client conventions
+- Border radius: `--radius-xs` (6px), `--radius-sm` (4px), `--radius-md` (8px), `--radius-lg` (12px), `--radius-pill` (999px)
+- Typography: `--font-caption` (0.75rem), `--font-sm` (0.82rem), `--font-body-sm` (0.88rem)
+- Shadows: `--shadow-md`, `--shadow-lg`, `--shadow-drawer`
+- Disabled states: opacity `0.5`, `cursor: not-allowed`, `pointer-events: none`; shared rule in `shared-ui.css` covers `.inline-action`, `.btn-primary`, `.btn-destructive`, `.btn-danger-subtle`, `.btn-success`, `.settings-form button`
+- Hover opacity: always `0.85`
+- Button padding: compact `0.3rem 0.6rem`, standard `0.45rem 0.75rem`
+- Input padding: `0.4rem 0.6rem`
+- Transitions: list explicit properties such as `background`, `border-color`, `opacity`; never use `transition: all`
+- Utility classes in `shared-ui.css`: `.text-muted-sm`, `.text-muted-caption`, `.heading-reset`, `.textarea-sm/md/lg`; prefer these over inline `style` props
 
-- Do **not** annotate component return types with `: JSX.Element`. The global `JSX` namespace was removed in `@types/react@19`. TypeScript infers component return types correctly without annotations.
-- Use `ConfigSavePayload` (from `types.ts`) when sending config to the server via `PUT /api/config`. Use `Config` for reading. The server returns `hasApiKey: boolean` instead of the raw API key -- never expose the key through API reads.
-- `AgentTarget` is the shared type for agent selection (`"claude-code" | "codex-cli" | "opencode" | "generic"`). Import from `../types` rather than re-declaring locally.
+## 8. No Duplicate UI
 
-### CSS design system
+Never ship duplicated UI meaning. Do not repeat the same action, state, or explanation in adjacent controls, cards, banners, drawers, or helper text. Treat near-duplicates as defects, not copy tweaks. If two labels or blocks mean the same thing, keep one.
 
-All visual tokens live in `packages/client/src/styles/base.css`. Use tokens instead of hardcoded values:
+Do not render the same option twice in a choice set, including fallback options such as `Other`.
 
-- **Border radius**: `--radius-xs` (6px), `--radius-sm` (4px), `--radius-md` (8px), `--radius-lg` (12px), `--radius-pill` (999px).
-- **Typography scale** (small text): `--font-caption` (0.75rem), `--font-sm` (0.82rem), `--font-body-sm` (0.88rem).
-- **Shadows**: `--shadow-md`, `--shadow-lg`, `--shadow-drawer`.
-- **Disabled states**: opacity `0.5`, `cursor: not-allowed`, `pointer-events: none`. Shared rule in `shared-ui.css` covers `.inline-action`, `.btn-primary`, `.btn-destructive`, `.btn-danger-subtle`, `.btn-success`, `.settings-form button`.
-- **Hover opacity**: always `0.85`.
-- **Button padding**: compact tier `0.3rem 0.6rem` (inline/pill), standard tier `0.45rem 0.75rem` (primary/form).
-- **Input padding**: `0.4rem 0.6rem` for all form inputs.
-- **Transitions**: list explicit properties (`background`, `border-color`, `opacity`). Never use `transition: all`.
-- **Utility classes** (`shared-ui.css`): `.text-muted-sm`, `.text-muted-caption`, `.heading-reset`, `.textarea-sm/md/lg`. Prefer these over inline `style` props.
+`npm run check` includes a hard UI dedupe gate. Fix failures. Do not bypass them.
 
-## Testing Guidelines
+## 9. Architecture Constraints
 
-Backend tests use Vitest under `packages/app/test`. Test files are split by domain:
+### Artifact store staged commit model
 
-- `artifact-store.test.ts` - in-memory store semantics, staged commits, reload serialization, orphan cleanup, file watcher
-- `atomic-write.test.ts` - atomic temp-rename writes
-- `bundle-generator.test.ts` - bundle generation, agent renderers, manifest versioning
-- `llm-client.test.ts` - LLM streaming and error handling
-- `planner.test.ts` - spec generation, JSON parsing, job orchestration
-- `validation.test.ts` - input validation helpers (entity IDs, path containment, git refs, SSE event names)
-- `verifier.test.ts` - verification pass/fail logic, drift flags
-- `server/audit-routes.test.ts` - drift audit endpoints
-- `server/initiative-routes.test.ts` - initiative CRUD and spec generation
-- `server/provider-routes.test.ts` - model discovery, provider configuration
-- `server/run-routes.test.ts` - run detail, bundle ZIP download
-- `server/runtime-status.test.ts` - server health/capability probes
-- `server/ticket-routes.test.ts` - ticket CRUD, export, capture, SSE
+All mutations to `specflow/` follow the staged commit model:
 
-Client tests use Vitest + React Testing Library under `packages/client/src/**/*.test.tsx`. Current high-value UI coverage includes:
+1. Build the full output in a temp attempt directory.
+2. Validate and write a temp manifest.
+3. Atomically commit by updating the authoritative pointer in `run.yaml`.
+4. Refresh in-memory maps from committed files.
 
-- `app/views/initiative-creator.test.tsx` - new-initiative handoff into brief intake
-- `app/views/initiative-view.test.tsx` - contained brief-intake stage after initiative creation
-- `app/views/overview-panel.test.tsx` - Up next queue and initiative-card progress rendering
-- `app/views/initiative/tickets-step-section.test.tsx` - coverage check card and override states in the Tickets step
-- `app/views/ticket-view.test.tsx` - ticket execution gating banner and covered spec items rendering
-- `app/views/run-view.test.tsx` - run report shell and contextual execution-report framing
+Never write directly to committed artifact paths. Never skip the temp-rename pattern for single-file writes. Writes are serialized with a per-run lock. Concurrent operations against the same run must be rejected with a retryable conflict error.
 
-Add or adjust tests when modifying server routes, verifier/diff logic, bundle generation, or artifact store semantics. Before pushing, run `npm run check`, `npm test`, and `npm run build`.
+### LLM calls go through the server
 
-## Code Quality Policy
+The browser never calls provider APIs directly. Planner, Verifier, and Audit operations go through Fastify API routes. The server reads provider keys from `.env`. Do not pass API keys through client payloads.
 
-If you are working on a feature or module and encounter errors or failing tests that you did not introduce, you are still responsible for fixing them. We do not ship broken code. All type-check errors and test failures in the areas you touch must be resolved before your work is considered complete.
+### CLI prefers server delegation
 
-## Commit & Pull Request Guidelines
+The CLI probes `/api/runtime/status` before executing mutating commands. If the server is running, the CLI delegates to server APIs. If the server is reachable but the protocol check fails, mutating commands fail closed. Do not implement local fallback for protocol mismatches.
+
+### Workflow contract and execution gates
+
+Step order, review kinds, labels, and prerequisite review rules are defined in `packages/app/src/planner/workflow-contract.ts`. Initiative-linked execution gating is centralized in `packages/app/src/planner/execution-gates.ts`. Do not duplicate or diverge from those rules in route handlers or UI logic.
+
+### SSE reconnection
+
+SSE reconnection is non-resumable with snapshot refresh. On disconnect, the client reconnects and immediately fetches latest state via REST. Do not implement event replay buffers.
+
+## 10. Input Validation, Security, and Data Contracts
+
+### Input validation
+
+All server-side input validation lives in `packages/app/src/server/validation.ts`. Use these helpers instead of ad-hoc checks:
+
+- `isValidEntityId(id)` validates entity ID format (`prefix-{8 hex chars}`)
+- `isContainedPath(root, target)` prevents directory traversal
+- `isValidGitRef(ref)` validates git branch and commit refs
+- `sanitizeSseEventName(event)` strips unsafe chars from SSE event names
+
+When adding routes that accept entity IDs or file paths, validate before constructing filesystem paths or passing values to git commands.
+
+### API key handling
+
+The server redacts `apiKey` from all API responses. Clients receive `hasApiKey: boolean` instead. The raw key is only ever sent from client to server on `PUT /api/config` via `ConfigSavePayload`. Never include the raw key in any API response, log line, or error message.
+
+### Secrets
+
+Never commit secrets or provider API keys.
+
+- Keep provider keys in `.env`: `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`
+- Keep `specflow/config.yaml` non-secret: `provider`, `model`, `host`, `port`, `repoInstructionFile`
+- `.env.example` may be committed; `.env` must remain ignored
+
+### GitHub issue import
+
+`POST /api/import/github-issue` fetches a GitHub issue and feeds it through the triage pipeline. It reads `GITHUB_PERSONAL_ACCESS_TOKEN` or `GITHUB_TOKEN` from the environment at request time. No GitHub credentials are stored in the artifact store or returned in API responses.
+
+### Ticket dependency fields
+
+`Ticket` carries two required arrays: `blockedBy: string[]` and `blocks: string[]`. Older YAML files that lack these fields are normalized to empty arrays in `packages/app/src/store/internal/loaders.ts`. When adding literals that satisfy `Ticket`, always include both fields.
+
+## 11. Testing Standards
+
+Backend tests use Vitest under `packages/app/test` and are split by domain:
+
+- `artifact-store.test.ts`: store semantics, staged commits, reload serialization, orphan cleanup, file watcher
+- `atomic-write.test.ts`: atomic temp-rename writes
+- `bundle-generator.test.ts`: bundle generation, agent renderers, manifest versioning
+- `llm-client.test.ts`: LLM streaming and error handling
+- `planner.test.ts`: spec generation, JSON parsing, job orchestration
+- `validation.test.ts`: input validation helpers, including entity IDs, path containment, git refs, and SSE event names
+- `verifier.test.ts`: verification pass/fail logic and drift flags
+- `server/audit-routes.test.ts`: drift audit endpoints
+- `server/initiative-routes.test.ts`: initiative CRUD and spec generation
+- `server/provider-routes.test.ts`: model discovery and provider configuration
+- `server/run-routes.test.ts`: run detail and bundle ZIP download
+- `server/runtime-status.test.ts`: server health and capability probes
+- `server/ticket-routes.test.ts`: ticket CRUD, export, capture, and SSE
+
+Client tests use Vitest and React Testing Library under `packages/client/src/**/*.test.tsx`. Current high-value coverage includes:
+
+- `app/views/initiative-creator.test.tsx`
+- `app/views/initiative-view.test.tsx`
+- `app/views/overview-panel.test.tsx`
+- `app/views/initiative/tickets-step-section.test.tsx`
+- `app/views/ticket-view.test.tsx`
+- `app/views/run-view.test.tsx`
+
+Add or adjust tests when modifying server routes, verifier or diff logic, bundle generation, artifact store semantics, or client behavior with meaningful UI state. If behavior changes and tests do not exist, add them.
+
+Do not mock behavior you can test directly. Do not write tests that only assert that a mock was called.
+
+## 12. Refactor Triggers
+
+Propose a refactor instead of silently continuing when any of the following are true:
+
+- a file reaches 600 LOC
+- a function exceeds roughly 60 lines and handles more than one concern
+- a module imports from more than 8 other internal modules
+- a route handler contains business logic that belongs in a service layer
+- a component manages both data fetching and complex render logic in the same file
+
+When proposing a refactor, name the file, the problem, the proposed split, and the new module names with their responsibilities. Wait for confirmation before executing if the refactor would touch more than 3 files.
+
+## 13. Stop Rules
+
+Stop and report rather than continuing when:
+
+- you have made three attempts to fix the same failing test or type error and it is still failing
+- a fix requires a non-trivial change in a file you were not given context for
+- you are about to make a destructive filesystem or git operation that was not explicitly requested
+- you cannot determine whether a change is safe without running the app end to end and you do not have that capability
+
+Do not spiral on repeated failed variants of the same fix. Report what you tried, what failed, and what you believe the root cause is.
+
+## 14. Reporting Standards
+
+When reporting completed work, include:
+
+- what changed: the exact files modified, with a one-line description of each
+- test results: the real output of `npm run check && npm test`
+- build status: the real output of `npm run build`
+- what is not done: anything from the acceptance criteria that remains incomplete
+- known risks: anything uncertain or likely to need follow-up
+
+Do not omit failures. Do not say "tests pass" without real output. Do not say "should work."
+
+## 15. Commit and PR Guidelines
 
 Use concise imperative commit subjects, for example:
 
 - `Implement run audit actions and run detail endpoints`
-- `Update docs for .env-based provider configuration`
+- `Fix coverage-gate banner rendering on stale initiatives`
+- `Refactor artifact-store into writer and loader modules`
 
-PRs should include:
+PRs must include:
 
-- What changed and why
-- Linked issue(s) (for example, `#8`)
-- Any docs updates (`README.md`, `docs/README.md`, or design docs)
-- Screenshots/GIFs for user-visible UI changes
+- what changed and why
+- linked issue(s), for example `#8`
+- docs updates in `README.md`, `docs/README.md`, or design docs when applicable
+- screenshots or GIFs for user-visible UI changes
 
-## GitHub Issue Process (Required on this Machine)
+## 16. GitHub Issue Process (Required on This Machine)
 
 Use the local MCP wrapper as the only GitHub MCP entrypoint:
 
 - MCP server name: `github`
-- Backing command: `/home/mason/bin/mcp-github-server`
+- backing command: `/home/mason/bin/mcp-github-server`
 
-Run this auth gate before any GitHub read/write:
+Run this auth gate before any GitHub read or write:
 
-- `~/bin/mcp-github-server --auth-check`
-- Exit `0`: proceed
-- Non-zero: stop and fix auth first
+```bash
+~/bin/mcp-github-server --auth-check
+```
+
+Exit `0` means proceed. Non-zero means stop and fix auth first.
 
 Optional checks:
 
@@ -182,51 +340,21 @@ Optional checks:
 
 Auth model:
 
-- Token source of truth: Bitwarden Secrets Manager (`bws`)
-- Runtime cache: kernel keyring (`keyctl`), key `github-mcp-token`, TTL 24h
-- The wrapper exports `GITHUB_PERSONAL_ACCESS_TOKEN` and `GITHUB_TOKEN` only for the launched MCP process
+- token source of truth: Bitwarden Secrets Manager (`bws`)
+- runtime cache: kernel keyring (`keyctl`), key `github-mcp-token`, TTL 24h
+- the wrapper exports `GITHUB_PERSONAL_ACCESS_TOKEN` and `GITHUB_TOKEN` only for the launched MCP process
 
 Issue workflow:
 
 1. Auth check
-2. List/search for duplicates
-3. Create/update issue
+2. List or search for duplicates
+3. Create or update the issue
 4. Add progress comments
-5. Update labels/assignees/state as needed
+5. Update labels, assignees, and state as needed
 
 Rules:
 
-- Do not use Docker GitHub MCP auth.
-- Do not use `gh auth status` as auth gate.
-- Do not use any GitHub path other than the wrapper above.
-- `--auth-check` is authoritative.
-
-## Security & Configuration Tips
-
-- Never commit secrets or provider API keys.
-- Keep provider keys in `.env` (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).
-- Keep `specflow/config.yaml` non-secret (`provider`, `model`, `host`, `port`, `repoInstructionFile`).
-- `.env.example` may be committed; `.env` must remain ignored.
-
-### Input validation
-
-All server-side input validation lives in `packages/app/src/server/validation.ts`. Use these helpers rather than ad-hoc checks:
-
-- `isValidEntityId(id)` - validates entity ID format (`prefix-{8 hex chars}`)
-- `isContainedPath(root, target)` - prevents directory traversal (resolved target must be under root)
-- `isValidGitRef(ref)` - validates git branch and commit refs (no leading dash, safe chars only)
-- `sanitizeSseEventName(event)` - strips unsafe chars from SSE event names
-
-When adding new routes that accept entity IDs or file paths, validate with these before constructing filesystem paths or passing to git commands.
-
-### API key handling
-
-The server redacts `apiKey` from all API responses. Clients receive `hasApiKey: boolean` (from `GET /api/artifacts` and `PUT /api/config`). The raw key is only ever sent from client to server on `PUT /api/config` via `ConfigSavePayload`. Never include the raw key in any API response.
-
-### GitHub Issue import
-
-`POST /api/import/github-issue` fetches a GitHub issue and feeds it through the triage pipeline. It reads `GITHUB_PERSONAL_ACCESS_TOKEN` or `GITHUB_TOKEN` from the environment at request time. No GitHub credentials are stored in the artifact store or returned in API responses.
-
-### Ticket dependency fields
-
-`Ticket` carries two required arrays: `blockedBy: string[]` and `blocks: string[]`. Older YAML files that lack these fields are normalised to empty arrays in `loadTickets` (`packages/app/src/store/internal/loaders.ts`). When adding literals that satisfy `Ticket`, always include both fields.
+- do not use Docker GitHub MCP auth
+- do not use `gh auth status` as the auth gate
+- do not use any GitHub path other than the wrapper above
+- `--auth-check` is authoritative
