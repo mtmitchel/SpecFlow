@@ -30,7 +30,7 @@ npm run setup:git-hooks
 npm run tauri dev
 ```
 
-`npm run setup:git-hooks` configures the repo's versioned `pre-commit` and `pre-push` hooks for this clone. The hooks enforce `git diff --cached --check`, block committed build outputs, and run the repo `check`/`test` gates before commits and pushes.
+`npm run setup:git-hooks` configures the repo's versioned `pre-commit` and `pre-push` hooks for this clone. The hooks enforce `git diff --cached --check`, block committed build outputs, and run the repo `check`/`test` gates before commits and pushes. They intentionally do not run `npm run build`; production packaging remains a separate explicit validation step.
 
 `npm run tauri dev` is the primary desktop development loop. It starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. During startup the desktop bridge waits for the first watched `packages/app/dist/sidecar.js` output instead of requiring a separate upfront build. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
 

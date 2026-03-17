@@ -4,5 +4,7 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+# Intentionally skip npm run build here as well. Pushes are gated by lint, type
+# checks, UI dedupe, and tests without forcing a production desktop package build.
 npm run check
 npm test

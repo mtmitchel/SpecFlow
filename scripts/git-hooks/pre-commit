@@ -13,4 +13,6 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -Eq "$blocked_paths";
   exit 1
 fi
 
+# Intentionally skip npm run build in commit-time hooks. Build remains an explicit
+# production/package validation step, not a required part of the development loop.
 npm run check

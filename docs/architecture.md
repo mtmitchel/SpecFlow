@@ -464,7 +464,7 @@ graph TD
 | **Rust bridge (`src-tauri/src/lib.rs`)** | Spawns the Node sidecar, forwards request/response traffic, relays progress events, emits `artifacts-changed`, and drains pending requests on disconnect |
 | **Tauri config (`tauri.conf.json`)** | Production build configuration, including frontend assets and packaged sidecar binary |
 | **Dev config (`tauri.dev.conf.json`)** | Dev-only overlay that disables `externalBin` so `tauri dev` can use the Node `dist/sidecar.js` flow instead of requiring a packaged sidecar |
-| **Workspace scripts (`packages/tauri/package.json`)** | Own the desktop dev stack through `beforeDevCommand`, including the initial `@specflow/app` build and the app/client watch processes |
+| **Workspace scripts (`packages/tauri/package.json`)** | Own the desktop dev stack through `beforeDevCommand`, including the app/client watch processes and watcher-first sidecar startup |
 
 ---
 
