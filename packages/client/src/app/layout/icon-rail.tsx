@@ -4,6 +4,7 @@ import type { ArtifactsSnapshot, Initiative } from "../../types.js";
 interface IconRailProps {
   onOpenCommandPalette: () => void;
   onToggleNavigator: () => void;
+  navigatorOpen: boolean;
   snapshot: ArtifactsSnapshot;
 }
 
@@ -39,47 +40,34 @@ const RailIcon = ({
   </button>
 );
 
-export const IconRail = ({ onOpenCommandPalette, onToggleNavigator, snapshot }: IconRailProps) => {
+export const IconRail = ({ onOpenCommandPalette, onToggleNavigator, navigatorOpen, snapshot }: IconRailProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const initiatives = [...snapshot.initiatives].sort(
     (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
+  const homeActive = location.pathname === "/";
 
   return (
     <div className="icon-rail">
-      <button
-        type="button"
-        className="icon-rail-logo"
-        onClick={onToggleNavigator}
-        aria-label="Open navigation drawer"
-        title="Open navigation drawer"
-      >
-        <span>SF</span>
-      </button>
-
       <div className="icon-rail-group">
-        <RailIcon active={location.pathname === "/"} ariaLabel="Home" onClick={() => navigate("/")}>
-          <svg viewBox="0 0 16 16">
-            <path d="M3 8.8 8 4.3l5 4.5V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
-          </svg>
-        </RailIcon>
+        <button
+          type="button"
+          className={`icon-rail-logo${homeActive ? " active" : ""}`}
+          onClick={() => navigate("/")}
+          aria-label="Home"
+          title="Home"
+        >
+          <span>SF</span>
+        </button>
         <RailIcon
-          active={location.pathname.startsWith("/tickets") || location.pathname.startsWith("/ticket/")}
-          ariaLabel="All tickets"
-          onClick={() => navigate("/tickets")}
+          active={navigatorOpen}
+          ariaLabel={navigatorOpen ? "Close project navigator" : "Open project navigator"}
+          onClick={onToggleNavigator}
         >
           <svg viewBox="0 0 16 16">
-            <path d="M3 5h10a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm3 0v6" />
-          </svg>
-        </RailIcon>
-        <RailIcon
-          active={location.pathname.startsWith("/runs") || location.pathname.startsWith("/run/")}
-          ariaLabel="All runs"
-          onClick={() => navigate("/runs")}
-        >
-          <svg viewBox="0 0 16 16">
-            <path d="m5.5 3.5 6 4.5-6 4.5Z" />
+            <path d="M3 4.5h10a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z" />
+            <path d="M5.5 4.5v7" />
           </svg>
         </RailIcon>
       </div>
@@ -123,4 +111,3 @@ export const IconRail = ({ onOpenCommandPalette, onToggleNavigator, snapshot }: 
     </div>
   );
 };
-

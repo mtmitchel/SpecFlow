@@ -55,6 +55,22 @@ const getFirstOpenQuestionId = (
   return firstUnresolved?.id ?? activeRefinement.questions[0]?.id ?? null;
 };
 
+const OtherAnswerField = ({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (nextValue: string) => void;
+}) => (
+  <textarea
+    className="multiline textarea-sm"
+    value={value}
+    placeholder="Add a custom answer"
+    rows={4}
+    onChange={(event) => onChange(event.target.value)}
+  />
+);
+
 const SelectChoiceCards = ({
   question,
   value,
@@ -98,10 +114,9 @@ const SelectChoiceCards = ({
         <p>Use a custom answer if none of these options fit.</p>
       </button>
       {otherSelected ? (
-        <input
+        <OtherAnswerField
           value={hasCustomValue ? currentValue : ""}
-          placeholder="Optional custom answer"
-          onChange={(event) => onChange(event.target.value || "Other")}
+          onChange={(nextValue) => onChange(nextValue || "Other")}
         />
       ) : null}
     </div>
@@ -148,10 +163,9 @@ const RefinementField = ({
           <p>Use a custom answer if yes or no does not fit.</p>
         </button>
         {otherSelected ? (
-          <input
+          <OtherAnswerField
             value={typeof value === "string" && value !== "Other" ? value : ""}
-            placeholder="Optional custom answer"
-            onChange={(event) => onChange(event.target.value || "Other")}
+            onChange={(nextValue) => onChange(nextValue || "Other")}
           />
         ) : null}
       </div>
@@ -213,12 +227,11 @@ const RefinementField = ({
           <p>Use a custom answer if none of these options fit.</p>
         </label>
         {hasOther ? (
-          <input
+          <OtherAnswerField
             value={customValues[0] ?? ""}
-            placeholder="Optional custom answer"
-            onChange={(event) => {
+            onChange={(nextValue) => {
               const baseValues = selected.filter((item) => options.includes(item));
-              onChange(event.target.value ? [...baseValues, event.target.value] : [...baseValues, "Other"]);
+              onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, "Other"]);
             }}
           />
         ) : null}

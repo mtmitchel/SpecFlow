@@ -124,7 +124,6 @@ describe("PlannerService", () => {
           markdown: "# Brief",
           traceOutline: traceOutline("Brief")
         }),
-        JSON.stringify(reviewResult("Brief review")),
         JSON.stringify({
           decision: "proceed",
           questions: [],
@@ -250,7 +249,8 @@ describe("PlannerService", () => {
       await planner.runTriageJob({ description: "Add one button" });
 
       expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
-      expect(mockClient.requests).toHaveLength(19);
+      expect(store.planningReviews.get(`${initiative.id}:brief-review`)?.status).toBe("passed");
+      expect(mockClient.requests).toHaveLength(18);
       expect(mockClient.requests[0]?.userPrompt).toContain('Default to "proceed"');
       for (const req of mockClient.requests) {
         expect(req.systemPrompt).toContain("team-rules: always include tests");
@@ -372,7 +372,6 @@ describe("PlannerService", () => {
             ]
           }
         }),
-        JSON.stringify(reviewResult("Brief review")),
         JSON.stringify({
           markdown: "# Core Flows",
           traceOutline: {
@@ -512,7 +511,6 @@ describe("PlannerService", () => {
             markdown: "# Brief",
             traceOutline: { sections: [{ key: "goals", label: "Goals", items: ["Support email login"] }] }
           }),
-          JSON.stringify(reviewResult("Brief review")),
           JSON.stringify({
             markdown: "# Core Flows",
             traceOutline: { sections: [{ key: "flows", label: "Flows", items: ["User signs in"] }] }
@@ -603,16 +601,17 @@ describe("PlannerService", () => {
         repoInstructionFile: "specflow/AGENTS.md"
       });
 
+      const mockClient = new MockLlmClient([
+        JSON.stringify({
+          markdown: "# Brief",
+          traceOutline: traceOutline("Brief")
+        })
+      ]);
+
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
-            markdown: "# Brief",
-            traceOutline: traceOutline("Brief")
-          }),
-          JSON.stringify(reviewResult("Brief review"))
-        ]),
+        llmClient: mockClient,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "consult1"
       });
@@ -638,6 +637,11 @@ describe("PlannerService", () => {
       await expect(planner.runBriefJob({ initiativeId: initiative.id })).resolves.toMatchObject({
         markdown: "# Brief"
       });
+      expect(store.planningReviews.get(`${initiative.id}:brief-review`)).toMatchObject({
+        status: "passed",
+        summary: "Brief intake resolved the blockers for the initial brief draft."
+      });
+      expect(mockClient.requests).toHaveLength(1);
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });

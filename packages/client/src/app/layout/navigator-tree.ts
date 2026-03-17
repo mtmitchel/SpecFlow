@@ -30,13 +30,6 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
   const { initiatives, tickets } = snapshot;
   const nodes: NavigatorNode[] = [];
 
-  // Aggregate view links
-  nodes.push(
-    { id: "agg-tickets", type: "aggregate-link", label: "All Tickets", path: "/tickets" },
-    { id: "agg-runs", type: "aggregate-link", label: "All Runs", path: "/runs" },
-    { id: "agg-specs", type: "aggregate-link", label: "Specs", path: "/specs" }
-  );
-
   if (initiatives.length > 0) {
     nodes.push({
       id: "initiatives-header",

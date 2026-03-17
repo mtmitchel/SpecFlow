@@ -244,11 +244,8 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
 
   return (
     <div className="navigator">
-      <div className="navigator-brand navigator-brand-clickable" onClick={() => navigate("/")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") navigate("/"); }}>
-        <div className="brand-mark">SF</div>
-        <div>
-          <div className="navigator-brand-name">SpecFlow</div>
-        </div>
+      <div className="navigator-brand">
+        <div className="navigator-brand-name">SpecFlow</div>
       </div>
 
       <div className="navigator-filter">

@@ -57,7 +57,9 @@ const AppInner = () => {
   }, []);
 
   useEffect(() => {
-    setNavigatorOpen(false);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches) {
+      setNavigatorOpen(false);
+    }
   }, [location.pathname, location.search]);
 
   const handleMoveTicket = useCallback(async (ticketId: string, status: TicketStatus): Promise<void> => {
@@ -96,6 +98,7 @@ const AppInner = () => {
         iconRail={
           <IconRail
             snapshot={snapshot}
+            navigatorOpen={navigatorOpen}
             onOpenCommandPalette={() => setCommandPaletteOpen(true)}
             onToggleNavigator={() => setNavigatorOpen((current) => !current)}
           />

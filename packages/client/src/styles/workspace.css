@@ -1,36 +1,53 @@
 /* WorkspaceShell */
 .workspace-shell {
+  --rail-width: 84px;
+  --nav-width: var(--rail-width);
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
+  grid-template-columns: var(--nav-width) minmax(0, 1fr);
   min-height: 100vh;
   background: linear-gradient(180deg, rgba(72, 203, 255, 0.04), rgba(72, 203, 255, 0));
+  transition: grid-template-columns var(--transition-normal);
+}
+
+.workspace-shell.navigator-open {
+  --nav-width: min(360px, 30vw);
+}
+
+.workspace-navigation {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: stretch;
+  width: var(--nav-width);
+  height: 100vh;
+  border-right: 1px solid var(--panel-border);
+  background:
+    radial-gradient(circle at top left, rgba(72, 203, 255, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(10, 15, 23, 0.96), rgba(12, 18, 28, 0.98));
+  overflow: hidden;
+  z-index: 100;
+  transition: width var(--transition-normal);
 }
 
 .workspace-icon-rail {
-  border-right: 1px solid var(--panel-border);
-  background: rgba(10, 15, 23, 0.94);
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  z-index: 70;
+  flex: 0 0 var(--rail-width);
+  background: transparent;
+  height: 100%;
 }
 
 .workspace-navigator {
-  position: fixed;
-  top: 0;
-  left: 84px;
-  bottom: 0;
-  width: min(360px, calc(100vw - 104px));
-  border-right: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(72, 203, 255, 0.08), rgba(16, 24, 38, 0.98));
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  transform: translateX(-105%);
+  overflow-x: hidden;
+  transform: translateX(-16px);
   opacity: 0;
   pointer-events: none;
   transition: transform var(--transition-normal), opacity var(--transition-normal);
-  z-index: 90;
 }
 
 .workspace-navigator.open {
@@ -45,11 +62,7 @@
 }
 
 .workspace-nav-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(2px);
+  display: none;
 }
 
 .icon-rail {
@@ -79,7 +92,6 @@
 }
 
 .icon-rail-logo {
-  margin-bottom: 0.85rem;
   background: linear-gradient(135deg, var(--accent), var(--execution));
   color: #05080d;
   font-weight: 700;
@@ -87,7 +99,18 @@
   letter-spacing: -0.03em;
 }
 
-.icon-rail-logo:hover,
+.icon-rail-logo:hover {
+  border-color: rgba(72, 203, 255, 0.45);
+  background: linear-gradient(135deg, var(--accent), var(--execution));
+  color: #05080d;
+  transform: translateY(-1px);
+}
+
+.icon-rail-logo.active {
+  border-color: rgba(72, 203, 255, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
 .icon-rail-button:hover,
 .icon-rail-initiative:hover {
   border-color: var(--panel-border);
@@ -192,7 +215,24 @@
 
 @media (max-width: 900px) {
   .workspace-shell {
-    grid-template-columns: 68px minmax(0, 1fr);
+    --rail-width: 68px;
+    --nav-width: var(--rail-width);
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
+    transition: none;
+  }
+
+  .workspace-shell.navigator-open {
+    --nav-width: min(320px, calc(100vw - 16px));
+  }
+
+  .workspace-navigation {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--nav-width);
+    height: 100dvh;
+    transform: translateX(0);
   }
 
   .workspace-icon-rail {
@@ -200,11 +240,23 @@
   }
 
   .workspace-navigator {
-    left: 68px;
-    width: min(320px, calc(100vw - 84px));
+    transform: translateX(-12px);
+  }
+
+  .workspace-navigator.open {
+    transform: translateX(0);
   }
 
   .workspace-detail {
     padding: 1.2rem;
+  }
+
+  .workspace-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    display: block;
+    z-index: 80;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
   }
 }

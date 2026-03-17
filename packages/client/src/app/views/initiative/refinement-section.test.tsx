@@ -55,4 +55,47 @@ describe("RefinementSection", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Checking if the brief needs anything else");
     expect(screen.getByText("Stay here. More questions may appear, or the next step will unlock.")).toBeInTheDocument();
   });
+
+  it("uses a multiline field for custom other answers", () => {
+    const refinementWithBooleanQuestion: InitiativeRefinementState = {
+      ...activeRefinement,
+      questions: [
+        {
+          id: "brief-sync",
+          label: "Should the product include optional cloud sync in the initial design?",
+          type: "boolean",
+          whyThisBlocks: "This changes the architecture and scope of the first release.",
+          affectedArtifact: "brief",
+          decisionType: "scope",
+          assumptionIfUnanswered: "Keep the first release local-first."
+        }
+      ],
+      answers: {},
+      checkedAt: "2026-03-16T20:05:00.000Z"
+    };
+
+    render(
+      <RefinementSection
+        activeSpecStep="brief"
+        activeRefinement={refinementWithBooleanQuestion}
+        refinementAnswers={{ "brief-sync": "Other" }}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="idle"
+        unresolvedQuestionCount={1}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        variant="survey"
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    const customAnswerField = screen.getByPlaceholderText("Add a custom answer");
+    expect(customAnswerField.tagName).toBe("TEXTAREA");
+  });
 });

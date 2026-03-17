@@ -66,27 +66,6 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
       sublabel: "Configure LLM provider and model",
       isAction: true,
       action: () => go("/settings")
-    },
-    {
-      id: "action-all-tickets",
-      label: "All tickets",
-      sublabel: "Browse tickets",
-      isAction: true,
-      action: () => go("/tickets")
-    },
-    {
-      id: "action-all-runs",
-      label: "All runs",
-      sublabel: "Browse runs",
-      isAction: true,
-      action: () => go("/runs")
-    },
-    {
-      id: "action-all-specs",
-      label: "Specs",
-      sublabel: "Browse specs",
-      isAction: true,
-      action: () => go("/specs")
     }
   ];
 

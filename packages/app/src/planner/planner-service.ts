@@ -96,6 +96,9 @@ const CHECK_BUDGET_BY_STEP: Record<RefinementStep, number> = {
   "tech-spec": 3
 };
 
+const INITIAL_BRIEF_REVIEW_SUMMARY =
+  "Brief intake resolved the blockers for the initial brief draft.";
+
 export class PlannerService {
   private readonly rootDir: string;
   private readonly store: ArtifactStore;
@@ -401,6 +404,7 @@ export class PlannerService {
   ): Promise<GeneratedPhaseResult> {
     const initiative = this.requireInitiative(initiativeId);
     const markdownByStep = getArtifactMarkdownMap(initiative.id, this.store.specs);
+    const isInitialBriefDraft = step === "brief" && markdownByStep.brief.trim().length === 0;
     if (
       step === "brief" &&
       requiresInitialBriefConsultation({
@@ -431,7 +435,9 @@ export class PlannerService {
     });
 
     const refreshedInitiative = this.requireInitiative(initiativeId);
-    const reviews = await this.runAutoReviews(refreshedInitiative, step);
+    const reviews = await this.runAutoReviews(refreshedInitiative, step, {
+      useIntakeResolvedBriefReview: isInitialBriefDraft
+    });
     return {
       markdown: result.markdown,
       reviews
@@ -440,15 +446,38 @@ export class PlannerService {
 
   private async runAutoReviews(
     initiative: Initiative,
-    step: InitiativeArtifactStep
+    step: InitiativeArtifactStep,
+    options: { useIntakeResolvedBriefReview?: boolean } = {}
   ): Promise<PlanningReviewArtifact[]> {
     const reviews: PlanningReviewArtifact[] = [];
     for (const kind of AUTO_REVIEW_KINDS_BY_STEP[step]) {
-      const review = await this.executeReviewJob(initiative, kind);
+      const review =
+        options.useIntakeResolvedBriefReview && kind === "brief-review"
+          ? this.buildInitialBriefReview(initiative)
+          : await this.executeReviewJob(initiative, kind);
       await this.store.upsertPlanningReview(review);
       reviews.push(review);
     }
     return reviews;
+  }
+
+  private buildInitialBriefReview(initiative: Initiative): PlanningReviewArtifact {
+    const nowIso = this.now().toISOString();
+
+    return {
+      id: `${initiative.id}:brief-review`,
+      initiativeId: initiative.id,
+      kind: "brief-review",
+      status: "passed",
+      summary: INITIAL_BRIEF_REVIEW_SUMMARY,
+      findings: [],
+      sourceUpdatedAts: {
+        brief: requireSpecUpdatedAt(initiative.id, "brief", this.store.specs)
+      },
+      overrideReason: null,
+      reviewedAt: nowIso,
+      updatedAt: nowIso
+    };
   }
 
   private async executeReviewJob(
