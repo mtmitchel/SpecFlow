@@ -2,6 +2,13 @@
 
 SpecFlow has four named workflows. Each is a distinct user journey with a clear entry point, a set of user actions, and a defined exit state.
 
+Related docs:
+
+- For setup and command entry points, see [`../README.md`](../README.md)
+- For desktop-first versus legacy web runtime behavior, see [`runtime-modes.md`](runtime-modes.md)
+- For implementation architecture behind these flows, see [`architecture.md`](architecture.md)
+- For canonical product and UI wording, see [`product-language-spec.md`](product-language-spec.md)
+
 | Workflow | Purpose |
 |---|---|
 | **Groundwork** | Turn a raw idea into structured specs + an ordered ticket breakdown |

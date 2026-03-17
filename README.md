@@ -26,8 +26,11 @@ repoInstructionFile: specflow/AGENTS.md
 YAML
 
 npm install
+npm run setup:git-hooks
 npm run tauri dev
 ```
+
+`npm run setup:git-hooks` configures the repo's versioned `pre-commit` and `pre-push` hooks for this clone. The hooks enforce `git diff --cached --check`, block committed build outputs, and run the repo `check`/`test` gates before commits and pushes.
 
 `npm run tauri dev` is the primary desktop development loop. It builds `packages/app` once, starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
 
@@ -119,3 +122,7 @@ The Settings modal (open via Cmd+K or the rail settings button) lets you change 
 - `specflow/`: runtime artifacts (`config.yaml`, initiatives, reviews, traces, tickets, runs, decisions)
 
 For desktop versus legacy web runtime details, see [`docs/runtime-modes.md`](docs/runtime-modes.md).
+For the full docs index, see [`docs/README.md`](docs/README.md).
+For backend/runtime structure, see [`docs/architecture.md`](docs/architecture.md).
+For user workflow behavior, see [`docs/workflows.md`](docs/workflows.md).
+For canonical user-facing terminology, see [`docs/product-language-spec.md`](docs/product-language-spec.md).

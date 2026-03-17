@@ -5,6 +5,12 @@ SpecFlow now has two runtime modes:
 - `desktop-first`: the active development and normal usage path
 - `legacy web`: the retained fallback path for compatibility and browser-based testing
 
+Related docs:
+
+- For setup and command entry points, see [`../README.md`](../README.md)
+- For transport, sidecar, CLI, and store architecture, see [`architecture.md`](architecture.md)
+- For user-visible workflow behavior, see [`workflows.md`](workflows.md)
+
 ## Desktop Development
 
 Use this for day-to-day development:
@@ -94,3 +100,5 @@ Rules:
 - Desktop mode: React -> Tauri bridge -> Node sidecar
 - Legacy web mode: React -> Fastify HTTP/SSE -> shared runtime handlers
 - Both modes use the same planner, verifier, bundle, store, config, and import logic in `packages/app`
+
+For deeper implementation details, continue with [`architecture.md`](architecture.md).

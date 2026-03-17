@@ -19,6 +19,7 @@
     "tauri": "npm run -w @specflow/tauri",
     "dev:web": "concurrently -k -n server,client \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch packages/app/src/cli.ts ui --no-open --port 3142 --legacy-web",
+    "setup:git-hooks": "bash scripts/setup-git-hooks.sh",
     "test": "npm run -w @specflow/app test && npm run -w @specflow/client test",
     "ui": "npm run build && node packages/app/dist/cli.js ui",
     "ui:web": "npm run build:web && node packages/app/dist/cli.js ui --legacy-web"

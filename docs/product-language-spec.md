@@ -1,5 +1,11 @@
 # Product Language Spec - SpecFlow
 
+Related docs:
+
+- For the docs index, see [`README.md`](README.md)
+- For user workflow behavior, see [`workflows.md`](workflows.md)
+- For runtime and architecture context, see [`runtime-modes.md`](runtime-modes.md) and [`architecture.md`](architecture.md)
+
 ## Purpose
 
 This document defines the user-facing language system for SpecFlow.

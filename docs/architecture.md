@@ -1,5 +1,12 @@
 # Architecture - SpecFlow
 
+Related docs:
+
+- For setup and top-level command entry points, see [`../README.md`](../README.md)
+- For desktop-first versus legacy web runtime behavior, see [`runtime-modes.md`](runtime-modes.md)
+- For user workflow expectations and state transitions, see [`workflows.md`](workflows.md)
+- For canonical UI terminology, see [`product-language-spec.md`](product-language-spec.md)
+
 ## Package Structure
 
 Three packages share a single npm workspace root:
@@ -94,6 +101,8 @@ The browser never calls provider APIs directly. In legacy web mode, AI operation
 Planning workflow metadata lives in one shared contract module: `packages/app/src/planner/workflow-contract.ts`. Step order, review kinds, labels, source-step ownership, and prerequisite review rules are defined there and imported by both the server and client so the initiative workspace cannot drift from backend gating behavior.
 
 Initiative-linked execution gating is centralized in `packages/app/src/planner/execution-gates.ts`. Ticket status transitions and bundle export both use the same helper, so the rule "resolve the coverage check before starting execution" is enforced consistently across server routes and surfaced with the same message in the UI.
+
+For the user-facing version of these workflow rules, see [`workflows.md`](workflows.md).
 
 ---
 

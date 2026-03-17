@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+git diff --cached --check
+
+blocked_paths='^(packages/app/dist|packages/app/dist-sidecar|packages/client/dist|packages/tauri/src-tauri/target)(/|$)'
+if git diff --cached --name-only --diff-filter=ACMR | grep -Eq "$blocked_paths"; then
+  echo "Refusing commit: generated build output is staged."
+  echo "Remove staged files under packages/app/dist, packages/app/dist-sidecar, packages/client/dist, or packages/tauri/src-tauri/target."
+  exit 1
+fi
+
+npm run check

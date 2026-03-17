@@ -14,18 +14,32 @@ When in doubt, do less and report what you found. A smaller correct change is be
 
 SpecFlow is a local-first, spec-driven development orchestrator for solo builders and small teams using AI coding agents. It turns raw intent into planning artifacts, ordered ticket breakdowns, and agent-ready bundles, then verifies that the agent's output satisfies the original plan.
 
-The repository is an npm workspace with two packages:
+SpecFlow is now desktop-first. The primary runtime is a Tauri v2 desktop shell backed by a persistent Node sidecar. A legacy Fastify + browser runtime remains available only as an explicit fallback and compatibility path.
+
+The repository is an npm workspace with three packages:
 
 | Package | Contents | Runtime |
 | --- | --- | --- |
-| `packages/app` | Fastify server, CLI, and backend services | Node.js |
-| `packages/client` | React + Vite board UI | Browser |
+| `packages/app` | Node business logic, shared runtime handlers, CLI, sidecar, and legacy Fastify runtime | Node.js |
+| `packages/client` | React + Vite UI with desktop and legacy-web transport adapters | Browser / Tauri webview |
+| `packages/tauri` | Tauri v2 desktop shell and Rust bridge | Rust + Tauri |
 
 Core runtime and docs live together in the workspace:
 
 - `docs/`: product and technical planning artifacts
 - `README.md` and `docs/README.md`: setup and docs entry points
 - `specflow/`: runtime data (`config.yaml`, `initiatives/`, `tickets/`, `runs/`, `decisions/`)
+
+### Required startup reading
+
+Before making changes, read the docs that match the area you are about to touch. The minimum startup order is:
+
+1. [`README.md`](README.md) for setup, commands, and runtime expectations
+2. [`docs/runtime-modes.md`](docs/runtime-modes.md) for desktop-first versus legacy web behavior
+3. [`docs/architecture.md`](docs/architecture.md) before changing sidecar, transport, CLI, Fastify, store, planner, verifier, or bundle behavior
+4. [`docs/workflows.md`](docs/workflows.md) before changing planning, execution, verification, or audit UX/flow behavior
+
+Use [`docs/README.md`](docs/README.md) as the index for additional domain docs. If a change touches product language or review expectations, read the relevant file under `docs/` before editing code.
 
 ## 3. Repository Layout
 
@@ -42,12 +56,15 @@ src/
   llm/              LLM provider client, error types, SSE stream parser
   planner/          spec + plan generation service, workflow contract, execution gates
     internal/       helpers: context, error-shaping, plan-job, review-job, spec-artifacts, ticket-factory, validators
-  server/           Fastify HTTP server
+  runtime/          transport-agnostic runtime factory, handler layer, shared sidecar contract
+    handlers/       one file per domain: runtime, providers, initiatives, tickets, runs, audit, operations, import
+  server/           Fastify legacy web runtime
     audit/          drift audit logic (findings, report-store, types)
     routes/         one file per domain: import, initiative, operation, provider, run-query, run-audit, runtime, ticket
-    sse/            SSE session management
+    sse/            legacy SSE session management
     validation.ts   security validators
-    zip/            bundle ZIP streaming
+    zip/            legacy HTTP ZIP streaming
+  sidecar/          sidecar JSON-RPC dispatcher and runtime helpers
   store/            in-memory artifact store with staged commits
     internal/       helpers: artifact-writer, cleanup, fs-utils, loaders, operations, planning-artifact-validation, recovery, reload, spec-utils, watcher
     types.ts        PreparedOperationArtifacts interface (shared between store and operations)
@@ -61,13 +78,13 @@ src/
 
 ```text
 src/
-  api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets
+  api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets, transport
   styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, planning-shell, pipeline, planning-intake, planning-reviews, overview, ticket-execution, run-report)
   app/
     components/     shared UI: audit-panel, checkpoint-gate-banner, diff-viewer, markdown-view, model-combobox, phase-transition-banner, pipeline, workflow-section
     constants/      status-columns (status transition rules, canTransition helper)
     context/        toast (error notification context and useToast hook)
-    hooks/          use-capture-preview, use-dirty-form, use-export-workflow, use-sse-reconnect, use-tree-navigation, use-verification-stream
+    hooks/          use-capture-preview, use-dirty-form, use-export-workflow, use-tree-navigation, use-verification-stream
     layout/         workspace-shell, icon-rail, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal
     utils/          initiative-progress, phase-warning, scope-paths, specs
     views/          detail-workspace, overview-panel, initiative-view, initiative-route-view, initiative-creator, initiative-handoff-view, spec-view, ticket-view, run-view
@@ -78,23 +95,40 @@ src/
   types.ts          all client-facing types including AgentTarget, Config, ConfigSavePayload
 ```
 
+### `packages/tauri`
+
+```text
+src-tauri/
+  src/              Rust bridge, sidecar lifecycle, pending request registry, Tauri commands
+  capabilities/     Tauri capability declarations
+  icons/            desktop app icons
+  tauri.conf.json   packaged desktop config
+  tauri.dev.conf.json
+                   dev-only overlay that disables packaged-sidecar requirements
+```
+
 ## 4. Commands
 
 Use these canonical commands. Do not invent variations.
 
 ```bash
 npm install          # install all workspaces
+npm run setup:git-hooks
 npm run check        # type-check both packages (tsc --noEmit) and run the UI dedupe gate
 npm test             # run all Vitest suites (backend + client)
-npm run build        # build client and backend
-npm run dev          # watched backend + Vite client together
-npm run ui           # build and start local server/UI
+npm run build        # build web artifacts, package the sidecar, and build the unsigned desktop bundle
+npm run dev          # alias for the desktop-first Tauri dev loop
+npm run tauri dev    # explicit desktop-first dev loop
+npm run dev:web      # legacy Fastify + browser dev path
+npm run ui           # build and launch the desktop app
+npm run ui:web       # build and start the legacy Fastify/browser runtime
 git status -sb       # quick working tree check
 ```
 
 Direct CLI examples after build:
 
 - `node packages/app/dist/cli.js ui --no-open`
+- `node packages/app/dist/cli.js ui --legacy-web --no-open`
 - `node packages/app/dist/cli.js export-bundle --ticket <ticket-id> --agent codex-cli`
 - `node packages/app/dist/cli.js verify --ticket <ticket-id>`
 
@@ -186,9 +220,9 @@ All mutations to `specflow/` follow the staged commit model:
 
 Never write directly to committed artifact paths. Never skip the temp-rename pattern for single-file writes. Writes are serialized with a per-run lock. Concurrent operations against the same run must be rejected with a retryable conflict error.
 
-### LLM calls go through the server
+### LLM calls go through the backend runtime
 
-The browser never calls provider APIs directly. Planner, Verifier, and Audit operations go through Fastify API routes. The server reads provider keys from `.env`. Do not pass API keys through client payloads.
+The UI never calls provider APIs directly. Planner, Verifier, and Audit operations go through backend-owned handlers, reached either through the Tauri sidecar bridge in desktop mode or Fastify adapters in legacy web mode. Provider keys are read from `.env`. Do not pass API keys through client payloads.
 
 ### CLI prefers server delegation
 
@@ -198,9 +232,9 @@ The CLI probes `/api/runtime/status` before executing mutating commands. If the 
 
 Step order, review kinds, labels, and prerequisite review rules are defined in `packages/app/src/planner/workflow-contract.ts`. Initiative-linked execution gating is centralized in `packages/app/src/planner/execution-gates.ts`. Do not duplicate or diverge from those rules in route handlers or UI logic.
 
-### SSE reconnection
+### Streaming and reconnection
 
-SSE reconnection is non-resumable with snapshot refresh. On disconnect, the client reconnects and immediately fetches latest state via REST. Do not implement event replay buffers.
+Desktop mode uses request-scoped sidecar notifications routed through the Tauri bridge. Legacy web mode still uses SSE where explicitly supported. Reconnection remains non-resumable with snapshot refresh: on disconnect, the client reconnects and fetches the latest persisted state instead of replaying buffered events. Do not implement event replay buffers.
 
 ## 10. Input Validation, Security, and Data Contracts
 
