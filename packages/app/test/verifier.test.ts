@@ -21,6 +21,22 @@ const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   await writeFile(path.join(rootDir, "specflow", "AGENTS.md"), "Always verify carefully.\n", "utf8");
 };
 
+const mockProviderRegistryFetch: typeof fetch = async (input, init) => {
+  void init;
+  const url = typeof input === "string" ? input : input.url;
+
+  if (url === "https://openrouter.ai/api/v1/models") {
+    return new Response(
+      JSON.stringify({
+        data: [{ id: "openrouter/model", name: "OpenRouter Model", context_length: 128000 }]
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  throw new Error(`Unexpected fetch request: ${url}`);
+};
+
 class MockLlmClient implements LlmClient {
   private readonly responses: string[];
 
@@ -233,6 +249,7 @@ describe("VerifierService", () => {
           overallPass: false
         })
       ]),
+      fetchImpl: mockProviderRegistryFetch,
       now: () => new Date(now),
       idGenerator: (() => {
         const ids = ["att1", "op1"];

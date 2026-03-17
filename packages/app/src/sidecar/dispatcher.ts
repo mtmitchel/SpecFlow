@@ -14,7 +14,7 @@ import {
 } from "../runtime/handlers/initiative-handlers.js";
 import { importGithubIssue } from "../runtime/handlers/import-handlers.js";
 import { getOperationStatus } from "../runtime/handlers/operation-handlers.js";
-import { getProviderModels, saveConfig } from "../runtime/handlers/provider-handlers.js";
+import { getProviderModels, saveConfig, saveProviderKey } from "../runtime/handlers/provider-handlers.js";
 import { createTicketFromAuditFinding, dismissAuditFinding, runAudit } from "../runtime/handlers/run-audit-handlers.js";
 import {
   getBundleText,
@@ -46,6 +46,7 @@ export type SidecarWriter = (message: SidecarSuccess | SidecarFailure | SidecarN
 
 const MUTATING_METHODS = new Set([
   "config.save",
+  "config.saveProviderKey",
   "initiatives.delete",
   "initiatives.update",
   "initiatives.refinement.save",
@@ -161,6 +162,8 @@ const routeSidecarMethod = async (
       return getSpecDetail(runtime, String(params.id ?? ""));
     case "config.save":
       return saveConfig(runtime, params);
+    case "config.saveProviderKey":
+      return saveProviderKey(runtime, params);
     case "providers.models":
       return getProviderModels(runtime, String(params.provider ?? ""), typeof params.q === "string" ? params.q : undefined);
     case "operations.status":

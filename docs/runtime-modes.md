@@ -66,6 +66,12 @@ npm run ui
 
 `specflow ui` runs the CLI from source. It looks for an existing packaged desktop binary and launches it. If no desktop binary is available, it falls back to legacy web mode with a deprecation warning.
 
+Important:
+
+- `npm run ui` prefers an existing packaged desktop binary over the current source tree.
+- If you have changed sidecar JSON-RPC methods or desktop transport behavior in source, use `npm run tauri dev` or rebuild the desktop app first.
+- Otherwise you can end up with a newer UI talking to an older packaged sidecar, which surfaces as unsupported sidecar-method errors.
+
 ## Legacy Web Mode
 
 Use this only when you explicitly need the old Fastify + browser runtime:

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { fetchArtifacts, saveConfig, updateTicketStatus } from "./api";
+import { fetchArtifacts, saveConfig, saveProviderKey, updateTicketStatus } from "./api";
 import type { ArtifactsSnapshot, ConfigSavePayload, TicketStatus } from "./types";
 import { ErrorBoundary } from "./app/components/error-boundary";
 import { Navigator } from "./app/layout/navigator";
@@ -92,8 +92,16 @@ const AppInner = () => {
     }
   }, [showError]);
 
-  const handleSaveConfig = useCallback(async (next: ConfigSavePayload): Promise<void> => {
+  const handleSaveConfig = useCallback(async (next: ConfigSavePayload, apiKey?: string): Promise<void> => {
     try {
+      const trimmedApiKey = apiKey?.trim() ?? "";
+      if (trimmedApiKey) {
+        await saveProviderKey({
+          provider: next.provider,
+          apiKey: trimmedApiKey
+        });
+      }
+
       const updatedConfig = await saveConfig(next);
       setSnapshot((prev) => ({ ...prev, config: updatedConfig }));
     } catch (err) {

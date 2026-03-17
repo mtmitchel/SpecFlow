@@ -248,13 +248,27 @@ export interface TicketCoverageArtifact {
   updatedAt: string;
 }
 
+export type ProviderId = "anthropic" | "openai" | "openrouter";
+export type ProviderKeyStatus = Record<ProviderId, boolean>;
+
 export interface Config {
-  provider: "anthropic" | "openai" | "openrouter";
+  provider: ProviderId;
   model: string;
-  apiKey?: string;
   port: number;
   host: string;
   repoInstructionFile: string;
+}
+
+export interface RedactedConfig extends Config {
+  hasApiKey: boolean;
+  providerKeyStatus: ProviderKeyStatus;
+}
+
+export type ConfigSavePayload = Config;
+
+export interface SaveProviderKeyPayload {
+  provider: ProviderId;
+  apiKey: string;
 }
 
 export type OperationState = "prepared" | "committed" | "abandoned" | "superseded" | "failed";

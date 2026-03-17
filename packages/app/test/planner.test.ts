@@ -56,6 +56,43 @@ const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   await writeFile(path.join(base, "AGENTS.md"), "team-rules: always include tests\n", "utf8");
 };
 
+const mockProviderRegistryFetch: typeof fetch = async (input, init) => {
+  void init;
+  const url = typeof input === "string" ? input : input.url;
+
+  if (url === "https://openrouter.ai/api/v1/models") {
+    return new Response(
+      JSON.stringify({
+        data: [
+          { id: "openrouter/model", name: "OpenRouter Model", context_length: 128000 },
+          { id: "openrouter/auto", name: "Auto Router", context_length: 200000 }
+        ]
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (url === "https://api.openai.com/v1/models") {
+    return new Response(
+      JSON.stringify({
+        data: [{ id: "gpt-5-mini", name: "gpt-5-mini" }]
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (url === "https://api.anthropic.com/v1/models") {
+    return new Response(
+      JSON.stringify({
+        data: [{ id: "claude-opus-4-5", display_name: "Claude Opus 4.5" }]
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  throw new Error(`Unexpected fetch request: ${url}`);
+};
+
 const resolveBriefConsultation = async (
   store: ArtifactStore,
   initiativeId: string,
@@ -108,7 +145,6 @@ describe("PlannerService", () => {
       await store.upsertConfig({
         provider: "openrouter",
         model: "openrouter/model",
-        apiKey: "",
         port: 3141,
         host: "127.0.0.1",
         repoInstructionFile: "specflow/AGENTS.md"
@@ -199,6 +235,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: mockClient,
+        fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "abc12345"
       });
@@ -294,7 +331,6 @@ describe("PlannerService", () => {
       await store.upsertConfig({
         provider: "openrouter",
         model: "openrouter/model",
-        apiKey: "",
         port: 3141,
         host: "127.0.0.1",
         repoInstructionFile: "specflow/AGENTS.md"
@@ -321,6 +357,7 @@ describe("PlannerService", () => {
             }
           })
         ]),
+        fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => Math.random().toString(16).slice(2, 10)
       });
@@ -356,7 +393,6 @@ describe("PlannerService", () => {
       await store.upsertConfig({
         provider: "openrouter",
         model: "openrouter/model",
-        apiKey: "",
         port: 3141,
         host: "127.0.0.1",
         repoInstructionFile: "specflow/AGENTS.md"
@@ -434,6 +470,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: mockClient,
+        fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: (() => {
           const ids = [
@@ -497,7 +534,6 @@ describe("PlannerService", () => {
       await store.upsertConfig({
         provider: "openrouter",
         model: "openrouter/model",
-        apiKey: "",
         port: 3141,
         host: "127.0.0.1",
         repoInstructionFile: "specflow/AGENTS.md"
@@ -549,6 +585,7 @@ describe("PlannerService", () => {
             uncoveredCoverageItemIds: []
           })
         ]),
+        fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "invalid01"
       });
@@ -595,7 +632,6 @@ describe("PlannerService", () => {
       await store.upsertConfig({
         provider: "openrouter",
         model: "openrouter/model",
-        apiKey: "",
         port: 3141,
         host: "127.0.0.1",
         repoInstructionFile: "specflow/AGENTS.md"
@@ -612,6 +648,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: mockClient,
+        fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "consult1"
       });
@@ -642,6 +679,62 @@ describe("PlannerService", () => {
         summary: "Brief intake resolved the blockers for the initial brief draft."
       });
       expect(mockClient.requests).toHaveLength(1);
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("fails fast when persisted config has an invalid provider/model pair", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-invalid-config-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-6";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/missing",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const mockClient = new MockLlmClient([
+        JSON.stringify({
+          decision: "ok",
+          reason: "Small task",
+          ticketDraft: {
+            title: "Fix typo",
+            description: "Fix typo in docs",
+            acceptanceCriteria: ["Docs updated"],
+            implementationPlan: "Edit one file",
+            fileTargets: ["README.md"]
+          }
+        })
+      ]);
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: mockClient,
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "badcfg01"
+      });
+
+      await expect(planner.runTriageJob({ description: "Fix a typo" })).rejects.toThrow(
+        "Configured model 'openrouter/missing' is not available for provider 'openrouter'. Save settings with a supported model."
+      );
+      expect(mockClient.requests).toHaveLength(0);
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });

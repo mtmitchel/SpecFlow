@@ -37,7 +37,7 @@ export {
   fetchRunState
 } from "./api/runs";
 
-export { fetchProviderModels, saveConfig } from "./api/settings";
+export { fetchProviderModels, saveConfig, saveProviderKey } from "./api/settings";
 
 export { createTicketFromAuditFinding, dismissAuditFinding, exportFixBundle, runAudit } from "./api/audit";
 

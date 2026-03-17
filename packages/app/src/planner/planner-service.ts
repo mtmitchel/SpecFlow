@@ -70,6 +70,7 @@ export interface PlannerServiceOptions {
   rootDir: string;
   store: ArtifactStore;
   llmClient?: LlmClient;
+  fetchImpl?: typeof fetch;
   now?: () => Date;
   idGenerator?: () => string;
 }
@@ -103,6 +104,7 @@ export class PlannerService {
   private readonly rootDir: string;
   private readonly store: ArtifactStore;
   private readonly llmClient: LlmClient;
+  private readonly fetchImpl: typeof fetch;
   private readonly now: () => Date;
   private readonly idGenerator: () => string;
 
@@ -110,7 +112,8 @@ export class PlannerService {
     this.rootDir = options.rootDir;
     loadEnvironment(this.rootDir);
     this.store = options.store;
-    this.llmClient = options.llmClient ?? new HttpLlmClient();
+    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.llmClient = options.llmClient ?? new HttpLlmClient(this.fetchImpl);
     this.now = options.now ?? (() => new Date());
     this.idGenerator = options.idGenerator ?? (() => randomUUID().slice(0, 8));
   }
@@ -595,7 +598,7 @@ export class PlannerService {
     onToken?: LlmTokenHandler,
     signal?: AbortSignal
   ): Promise<T> {
-    const config = getResolvedPlannerConfig(this.store);
+    const config = await getResolvedPlannerConfig(this.store, this.fetchImpl);
     const agentsMd = await loadPlannerAgentsMd(this.rootDir, config.repoInstructionFile);
 
     return executePlannerJobInternal<T>({

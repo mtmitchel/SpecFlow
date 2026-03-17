@@ -302,22 +302,30 @@ export interface TicketCoverageArtifact {
   updatedAt: string;
 }
 
+export type ProviderId = "anthropic" | "openai" | "openrouter";
+export type ProviderKeyStatus = Record<ProviderId, boolean>;
+
 export interface Config {
-  provider: "anthropic" | "openai" | "openrouter";
+  provider: ProviderId;
   model: string;
-  hasApiKey?: boolean;
+  hasApiKey: boolean;
+  providerKeyStatus: ProviderKeyStatus;
   port: number;
   host: string;
   repoInstructionFile: string;
 }
 
 export interface ConfigSavePayload {
-  provider: "anthropic" | "openai" | "openrouter";
+  provider: ProviderId;
   model: string;
-  apiKey?: string;
   port: number;
   host: string;
   repoInstructionFile: string;
+}
+
+export interface SaveProviderKeyPayload {
+  provider: ProviderId;
+  apiKey: string;
 }
 
 export interface ProviderModel {

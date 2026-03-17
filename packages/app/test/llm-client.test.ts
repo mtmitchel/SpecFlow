@@ -72,4 +72,53 @@ describe("HttpLlmClient OpenRouter support", () => {
       })
     );
   });
+
+  it("replaces malformed surrogate code units before serializing prompt text", async () => {
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body));
+
+      expect(payload.messages[0].content).toBe("sys \uFFFD prompt");
+      expect(payload.messages[1].content).toBe("user \uFFFD prompt");
+
+      return new Response(makeOpenAiSseStream('{"decision":"ok"}'), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" }
+      });
+    });
+
+    const client = new HttpLlmClient(fetchMock as unknown as typeof fetch);
+    await client.complete({
+      provider: "openai",
+      model: "gpt-5-mini",
+      apiKey: "test-key",
+      systemPrompt: "sys \uD800 prompt",
+      userPrompt: "user \uDC00 prompt"
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes the serialized request size when the provider rejects the JSON body", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ error: { message: "We could not parse the JSON body of your request." } }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+    const client = new HttpLlmClient(fetchMock as unknown as typeof fetch);
+
+    await expect(
+      client.complete({
+        provider: "openai",
+        model: "gpt-5-mini",
+        apiKey: "test-key",
+        systemPrompt: "sys",
+        userPrompt: "user"
+      })
+    ).rejects.toMatchObject({
+      name: "LlmProviderError",
+      code: "provider_error",
+      message: expect.stringContaining("Request size:")
+    });
+  });
 });

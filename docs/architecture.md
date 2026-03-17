@@ -135,6 +135,7 @@ The Verifier LLM receives the primary diff, acceptance criteria, and `specflow/A
 ### File Layout
 
 ```text
+.env                               # provider secrets (OPENAI_API_KEY, etc.)
 specflow/
   config.yaml                        # provider, model, host, port, repoInstructionFile (non-secret)
   AGENTS.md                          # repo instruction file (conventions)
@@ -368,11 +369,12 @@ findings:
 ```yaml
 provider: anthropic | openai | openrouter
 model: string                # e.g. claude-opus-4-6, gpt-4o, openrouter/auto
-apiKey?: string              # optional legacy fallback; prefer environment variables
 port: number                 # default 3141
 host: string                 # default 127.0.0.1
 repoInstructionFile: string  # default specflow/AGENTS.md
 ```
+
+Provider secrets are stored separately in repo-root `.env`. Settings writes use a dedicated secret-save path (`config.saveProviderKey` / `PUT /api/config/provider-key`) that updates `.env`, refreshes `process.env`, and never returns the raw key. Legacy `apiKey` fields found in `specflow/config.yaml` are auto-migrated into `.env` and scrubbed on startup.
 
 **BundleManifest**
 ```yaml
@@ -477,7 +479,7 @@ The desktop runtime uses correlated JSON-RPC requests over stdin/stdout between 
 | Namespace | Purpose |
 |---|---|
 | `runtime.*` / `artifacts.*` | Runtime status and full snapshot reads |
-| `config.*` / `providers.*` | Settings writes and provider model discovery |
+| `config.*` / `providers.*` | Non-secret settings writes, provider-key saves, and provider model discovery |
 | `operations.*` | Operation-status probing for idempotent retries |
 | `initiatives.*` | Planning workflow actions, reviews, and ticket-plan generation |
 | `tickets.*` | Ticket CRUD, bundle export, capture preview, verification, and override flows |

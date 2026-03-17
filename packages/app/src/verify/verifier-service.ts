@@ -17,6 +17,7 @@ export interface VerifierServiceOptions {
   store: ArtifactStore;
   llmClient?: LlmClient;
   diffEngine?: DiffEngine;
+  fetchImpl?: typeof fetch;
   now?: () => Date;
   idGenerator?: () => string;
 }
@@ -34,6 +35,7 @@ export class VerifierService {
   private readonly store: ArtifactStore;
   private readonly llmClient: LlmClient;
   private readonly diffEngine: DiffEngine;
+  private readonly fetchImpl: typeof fetch;
   private readonly now: () => Date;
   private readonly idGenerator: () => string;
 
@@ -41,8 +43,9 @@ export class VerifierService {
     this.rootDir = options.rootDir;
     loadEnvironment(this.rootDir);
     this.store = options.store;
-    this.llmClient = options.llmClient ?? new HttpLlmClient();
     this.diffEngine = options.diffEngine ?? new DiffEngine({ rootDir: this.rootDir });
+    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.llmClient = options.llmClient ?? new HttpLlmClient(this.fetchImpl);
     this.now = options.now ?? (() => new Date());
     this.idGenerator = options.idGenerator ?? (() => randomUUID().slice(0, 8));
   }
@@ -91,7 +94,7 @@ export class VerifierService {
     });
     throwIfAborted(signal);
 
-    const config = getResolvedVerifierConfig(this.store);
+    const config = await getResolvedVerifierConfig(this.store, this.fetchImpl);
     const agentsMd = await readVerifierAgentsMd(this.rootDir, config.repoInstructionFile);
     const parsed = await runVerifierPrompt({
       llmClient: this.llmClient,

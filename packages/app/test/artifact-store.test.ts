@@ -97,7 +97,6 @@ describe("ArtifactStore", () => {
     const config: Config = {
       provider: "anthropic",
       model: "claude-opus-4-5",
-      apiKey: "",
       port: 3141,
       host: "127.0.0.1",
       repoInstructionFile: "specflow/AGENTS.md"

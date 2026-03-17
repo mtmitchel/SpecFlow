@@ -1,11 +1,14 @@
 import type { ArtifactsSnapshot, SpecDocument } from "../types";
+import { normalizeArtifactsSnapshot } from "../config-normalization";
 import { parse, requestJson } from "./http";
 import { transportRequest } from "./transport";
 
 export const fetchArtifacts = async (): Promise<ArtifactsSnapshot> => {
-  return transportRequest("artifacts.snapshot", {}, () =>
+  const snapshot = await transportRequest("artifacts.snapshot", {}, () =>
     requestJson<ArtifactsSnapshot>("/api/artifacts")
   );
+
+  return normalizeArtifactsSnapshot(snapshot);
 };
 
 export const fetchSpecDetail = async (

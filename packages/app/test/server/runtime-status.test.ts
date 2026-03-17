@@ -33,7 +33,12 @@ describe("server runtime routes", () => {
         host: "127.0.0.1",
         port: 3141,
         repoInstructionFile: "specflow/AGENTS.md",
-        hasApiKey: false
+        hasApiKey: false,
+        providerKeyStatus: {
+          anthropic: false,
+          openai: false,
+          openrouter: false
+        }
       });
 
       const runStateResponse = await fixture.server.app.inject({ method: "GET", url: "/api/runs/run-aabb1122/state" });

@@ -21,8 +21,89 @@ export interface LlmClient {
 const DEFAULT_MAX_TOKENS = 4096;
 const DEFAULT_TIMEOUT_MS = 120_000;
 
-const classifyProviderError = (statusCode: number, message: string): LlmProviderError => {
+const HIGH_SURROGATE_START = 0xd800;
+const HIGH_SURROGATE_END = 0xdbff;
+const LOW_SURROGATE_START = 0xdc00;
+const LOW_SURROGATE_END = 0xdfff;
+
+const normalizeTransportText = (value: string): string => {
+  let normalized = "";
+
+  for (let index = 0; index < value.length; index += 1) {
+    const current = value.charCodeAt(index);
+
+    if (current >= HIGH_SURROGATE_START && current <= HIGH_SURROGATE_END) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= LOW_SURROGATE_START && next <= LOW_SURROGATE_END) {
+        normalized += value[index] ?? "";
+        normalized += value[index + 1] ?? "";
+        index += 1;
+        continue;
+      }
+
+      normalized += "\uFFFD";
+      continue;
+    }
+
+    if (current >= LOW_SURROGATE_START && current <= LOW_SURROGATE_END) {
+      normalized += "\uFFFD";
+      continue;
+    }
+
+    normalized += value[index] ?? "";
+  }
+
+  return normalized;
+};
+
+const sanitizeTransportValue = (value: unknown): unknown => {
+  if (typeof value === "string") {
+    return normalizeTransportText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeTransportValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, sanitizeTransportValue(entry)])
+    );
+  }
+
+  return value;
+};
+
+const serializeRequestBody = (payload: Record<string, unknown>): { body: string; requestBytes: number } => {
+  const sanitizedPayload = sanitizeTransportValue(payload);
+  const body = JSON.stringify(sanitizedPayload);
+
+  if (typeof body !== "string") {
+    throw new LlmProviderError("Failed to serialize provider request body", "provider_error");
+  }
+
+  return {
+    body,
+    requestBytes: Buffer.byteLength(body, "utf8")
+  };
+};
+
+const extractProviderDetail = (message: string): string => {
+  try {
+    const parsed = JSON.parse(message);
+    return String(parsed?.error?.message ?? "").trim();
+  } catch {
+    return message.slice(0, 200).trim();
+  }
+};
+
+const classifyProviderError = (
+  statusCode: number,
+  message: string,
+  metadata?: { requestBytes?: number }
+): LlmProviderError => {
   const normalized = message.toLowerCase();
+  const detail = extractProviderDetail(message);
 
   if (statusCode === 401 || normalized.includes("invalid api key") || normalized.includes("authentication")) {
     return new LlmProviderError("Invalid provider API key", "invalid_api_key", statusCode);
@@ -32,14 +113,18 @@ const classifyProviderError = (statusCode: number, message: string): LlmProvider
     return new LlmProviderError("Rate limited by provider", "rate_limit", statusCode);
   }
 
-  // Extract a useful detail from the provider response
-  let detail = "";
-  try {
-    const parsed = JSON.parse(message);
-    detail = parsed?.error?.message ?? "";
-  } catch {
-    detail = message.slice(0, 200);
+  if (normalized.includes("parse the json body")) {
+    const sizeSuffix =
+      typeof metadata?.requestBytes === "number"
+        ? ` Request size: ${metadata.requestBytes.toLocaleString()} bytes.`
+        : "";
+    return new LlmProviderError(
+      `Provider request failed: ${detail || "The provider rejected the JSON request body."}${sizeSuffix}`,
+      "provider_error",
+      statusCode
+    );
   }
+
   const suffix = detail ? `: ${detail}` : ` (HTTP ${statusCode})`;
   return new LlmProviderError(`Provider request failed${suffix}`, "provider_error", statusCode);
 };
@@ -108,6 +193,13 @@ export class HttpLlmClient implements LlmClient {
     signal: AbortSignal,
     onToken?: LlmTokenHandler
   ): Promise<string> {
+    const payload = serializeRequestBody({
+      model: request.model,
+      system: request.systemPrompt,
+      max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+      stream: true,
+      messages: [{ role: "user", content: request.userPrompt }]
+    });
     const response = await this.fetchImpl("https://api.anthropic.com/v1/messages", {
       method: "POST",
       signal,
@@ -116,18 +208,12 @@ export class HttpLlmClient implements LlmClient {
         "x-api-key": request.apiKey,
         "anthropic-version": "2023-06-01"
       },
-      body: JSON.stringify({
-        model: request.model,
-        system: request.systemPrompt,
-        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-        stream: true,
-        messages: [{ role: "user", content: request.userPrompt }]
-      })
+      body: payload.body
     });
 
     if (!response.ok) {
       const raw = await response.text();
-      throw classifyProviderError(response.status, raw);
+      throw classifyProviderError(response.status, raw, payload);
     }
 
     return parseStreamingSse(response, ANTHROPIC_SSE_CONFIG, onToken);
@@ -138,6 +224,15 @@ export class HttpLlmClient implements LlmClient {
     signal: AbortSignal,
     onToken?: LlmTokenHandler
   ): Promise<string> {
+    const payload = serializeRequestBody({
+      model: request.model,
+      max_completion_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+      stream: true,
+      messages: [
+        { role: "system", content: request.systemPrompt },
+        { role: "user", content: request.userPrompt }
+      ]
+    });
     const response = await this.fetchImpl("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       signal,
@@ -145,20 +240,12 @@ export class HttpLlmClient implements LlmClient {
         "Content-Type": "application/json",
         Authorization: `Bearer ${request.apiKey}`
       },
-      body: JSON.stringify({
-        model: request.model,
-        max_completion_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-        stream: true,
-        messages: [
-          { role: "system", content: request.systemPrompt },
-          { role: "user", content: request.userPrompt }
-        ]
-      })
+      body: payload.body
     });
 
     if (!response.ok) {
       const raw = await response.text();
-      throw classifyProviderError(response.status, raw);
+      throw classifyProviderError(response.status, raw, payload);
     }
 
     return parseStreamingSse(response, OPENAI_SSE_CONFIG, onToken);
@@ -169,6 +256,16 @@ export class HttpLlmClient implements LlmClient {
     signal: AbortSignal,
     onToken?: LlmTokenHandler
   ): Promise<string> {
+    const payload = serializeRequestBody({
+      model: request.model,
+      temperature: 0.2,
+      max_completion_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+      stream: true,
+      messages: [
+        { role: "system", content: request.systemPrompt },
+        { role: "user", content: request.userPrompt }
+      ]
+    });
     const response = await this.fetchImpl("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       signal,
@@ -178,21 +275,12 @@ export class HttpLlmClient implements LlmClient {
         "HTTP-Referer": "https://specflow.local",
         "X-Title": "SpecFlow"
       },
-      body: JSON.stringify({
-        model: request.model,
-        temperature: 0.2,
-        max_completion_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-        stream: true,
-        messages: [
-          { role: "system", content: request.systemPrompt },
-          { role: "user", content: request.userPrompt }
-        ]
-      })
+      body: payload.body
     });
 
     if (!response.ok) {
       const raw = await response.text();
-      throw classifyProviderError(response.status, raw);
+      throw classifyProviderError(response.status, raw, payload);
     }
 
     return parseStreamingSse(response, OPENAI_SSE_CONFIG, onToken);

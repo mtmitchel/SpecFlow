@@ -70,7 +70,7 @@ export const runAudit = async (
   });
 
   const agentsConventions = await readAgentsConventions(runtime.rootDir);
-  const llmConfig = getResolvedVerifierConfig(runtime.store);
+  const llmConfig = await getResolvedVerifierConfig(runtime.store, runtime.fetchImpl);
   const useLlm = llmConfig.apiKey.trim().length > 0;
 
   const findings = useLlm
@@ -79,7 +79,7 @@ export const runAudit = async (
         primaryDiff: diffResult.primaryDiff,
         driftDiff: diffResult.driftDiff,
         agentsConventions,
-        llmClient: new HttpLlmClient(),
+        llmClient: new HttpLlmClient(runtime.fetchImpl),
         provider: llmConfig.provider,
         model: llmConfig.model,
         apiKey: llmConfig.apiKey

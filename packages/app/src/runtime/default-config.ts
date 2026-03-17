@@ -1,9 +1,9 @@
-import type { Config } from "../types/entities.js";
+import { getProviderKeyStatus } from "../config/env.js";
+import type { Config, RedactedConfig } from "../types/entities.js";
 
 export const DEFAULT_RUNTIME_CONFIG: Config = {
   provider: "openrouter",
   model: "openrouter/auto",
-  apiKey: "",
   port: 3141,
   host: "127.0.0.1",
   repoInstructionFile: "specflow/AGENTS.md"
@@ -11,12 +11,13 @@ export const DEFAULT_RUNTIME_CONFIG: Config = {
 
 export const getRuntimeConfig = (config: Config | null): Config => config ?? DEFAULT_RUNTIME_CONFIG;
 
-export const redactConfig = (
-  config: Config | null
-): Omit<Config, "apiKey"> & { hasApiKey: boolean } => {
-  const { apiKey, ...rest } = getRuntimeConfig(config);
+export const redactConfig = (config: Config | null): RedactedConfig => {
+  const rest = getRuntimeConfig(config);
+  const providerKeyStatus = getProviderKeyStatus();
+
   return {
     ...rest,
-    hasApiKey: Boolean(apiKey)
+    hasApiKey: providerKeyStatus[rest.provider],
+    providerKeyStatus
   };
 };

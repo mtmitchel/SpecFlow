@@ -44,6 +44,8 @@ npm run ui
 
 That runs the CLI from source. If a packaged desktop binary already exists, it launches it. If not, it falls back to the legacy Fastify + browser runtime.
 
+If you have changed sidecar methods or desktop-only transport behavior in source, prefer `npm run tauri dev` until you rebuild the desktop app. `npm run ui` will still prefer an older packaged binary if one exists, which can leave the UI and sidecar on different revisions.
+
 Legacy Fastify + browser mode is still available when needed:
 
 ```bash
@@ -89,7 +91,7 @@ tsx packages/app/src/cli.ts verify --ticket <ticket-id> --summary "Implemented +
 
 ## Configuration and Security
 
-- Keep provider secrets in `.env` only.
+- Keep provider secrets in repo-root `.env` only.
 - Supported environment keys:
   - `OPENROUTER_API_KEY`
   - `OPENAI_API_KEY`
@@ -98,7 +100,9 @@ tsx packages/app/src/cli.ts verify --ticket <ticket-id> --summary "Implemented +
 - Keep `specflow/config.yaml` non-secret (`provider`, `model`, `host`, `port`, `repoInstructionFile`).
 - `.env` is ignored by git; `.env.example` is safe to commit.
 
-The Settings modal (open via Cmd+K or the rail settings button) lets you change provider, model, and API key at runtime. For OpenRouter, a searchable model picker loads all available models. The server never returns your API key in API responses -- the UI only shows whether a key is currently set.
+The Settings modal (open via Cmd+K or the rail settings button) lets you change provider, model, and API key at runtime. API keys are written through the backend into repo-root `.env`, not into `specflow/config.yaml`. For OpenRouter, a searchable model picker loads all available models. The server never returns your API key in API responses; the UI only receives redacted per-provider key status.
+
+If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup migrates it into `.env`, scrubs the YAML, and logs a rotation warning.
 
 ## Key Features
 
