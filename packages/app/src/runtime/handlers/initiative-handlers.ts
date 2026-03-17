@@ -44,7 +44,7 @@ const hasCheckedPhase = (initiative: Initiative, step: ArtifactStep): boolean =>
 const blocksInitialBriefGeneration = (runtime: SpecFlowRuntime, initiative: Initiative): boolean =>
   requiresInitialBriefConsultation({
     initiative,
-    briefMarkdown: runtime.store.specs.get(`${initiative.id}:brief`)?.content ?? ""
+    briefMarkdown: runtime.store.specs.has(`${initiative.id}:brief`) ? "(existing brief)" : ""
   });
 
 const canReplacePlanningTickets = (runtime: SpecFlowRuntime, initiative: Initiative): boolean => {
@@ -140,7 +140,8 @@ export const saveInitiativeRefinement = async (
 export const requestInitiativeClarificationHelp = async (
   runtime: SpecFlowRuntime,
   initiativeId: string,
-  body: { questionId?: string; note?: string }
+  body: { questionId?: string; note?: string },
+  signal?: AbortSignal
 ) => {
   const initiative = readInitiative(runtime, initiativeId);
   if (!body.questionId?.trim()) {
@@ -152,7 +153,7 @@ export const requestInitiativeClarificationHelp = async (
       initiativeId: initiative.id,
       questionId: body.questionId.trim(),
       note: body.note
-    });
+    }, undefined, signal);
   } catch (error) {
     throw structuredPlannerError(runtime, error);
   }
@@ -220,7 +221,8 @@ export const createDraftInitiative = async (runtime: SpecFlowRuntime, body: { de
 export const runInitiativePhaseCheck = async (
   runtime: SpecFlowRuntime,
   initiativeId: string,
-  step: ArtifactStep
+  step: ArtifactStep,
+  signal?: AbortSignal
 ) => {
   const initiative = readInitiative(runtime, initiativeId);
   if (!canEditStep(initiative.workflow, step)) {
@@ -229,7 +231,7 @@ export const runInitiativePhaseCheck = async (
   requireResolvedReviews(runtime, initiative, step);
 
   try {
-    return await runtime.plannerService.runPhaseCheckJob({ initiativeId, step });
+    return await runtime.plannerService.runPhaseCheckJob({ initiativeId, step }, undefined, signal);
   } catch (error) {
     throw structuredPlannerError(runtime, error);
   }
@@ -304,22 +306,29 @@ export const generateInitiativeArtifact = async (
   runtime: SpecFlowRuntime,
   initiativeId: string,
   step: ArtifactStep,
-  onToken?: ProgressSink
+  onToken?: ProgressSink,
+  signal?: AbortSignal
 ) => {
   validateInitiativeArtifactGeneration(runtime, initiativeId, step);
 
   if (step === "brief") {
-    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) => runtime.plannerService.runBriefJob({ initiativeId: id }, sink));
+    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) =>
+      runtime.plannerService.runBriefJob({ initiativeId: id }, sink, signal)
+    );
   }
   if (step === "core-flows") {
-    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) => runtime.plannerService.runCoreFlowsJob({ initiativeId: id }, sink));
+    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) =>
+      runtime.plannerService.runCoreFlowsJob({ initiativeId: id }, sink, signal)
+    );
   }
   if (step === "prd") {
-    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) => runtime.plannerService.runPrdJob({ initiativeId: id }, sink));
+    return runGenerator(runtime, initiativeId, step, onToken, (id, sink) =>
+      runtime.plannerService.runPrdJob({ initiativeId: id }, sink, signal)
+    );
   }
 
   return runGenerator(runtime, initiativeId, step, onToken, (id, sink) =>
-    runtime.plannerService.runTechSpecJob({ initiativeId: id }, sink)
+    runtime.plannerService.runTechSpecJob({ initiativeId: id }, sink, signal)
   );
 };
 
@@ -327,7 +336,8 @@ export const runInitiativeReview = async (
   runtime: SpecFlowRuntime,
   initiativeId: string,
   kind: string,
-  onToken?: ProgressSink
+  onToken?: ProgressSink,
+  signal?: AbortSignal
 ) => {
   const initiative = readInitiative(runtime, initiativeId);
   const reviewKind = requirePlanningReviewKind(kind);
@@ -335,7 +345,8 @@ export const runInitiativeReview = async (
   try {
     return await runtime.plannerService.runPlanningReviewJob(
       { initiativeId: initiative.id, kind: reviewKind },
-      onToken
+      onToken,
+      signal
     );
   } catch (error) {
     throw structuredPlannerError(runtime, error);
@@ -391,7 +402,8 @@ export const overrideInitiativeReview = async (
 export const generateInitiativePlan = async (
   runtime: SpecFlowRuntime,
   initiativeId: string,
-  onToken?: ProgressSink
+  onToken?: ProgressSink,
+  signal?: AbortSignal
 ) => {
   validateInitiativePlanGeneration(runtime, initiativeId);
   const initiative = readInitiative(runtime, initiativeId);
@@ -408,7 +420,7 @@ export const generateInitiativePlan = async (
   }
 
   try {
-    return await runtime.plannerService.runPlanJob({ initiativeId }, onToken);
+    return await runtime.plannerService.runPlanJob({ initiativeId }, onToken, signal);
   } catch (error) {
     throw structuredPlannerError(runtime, error);
   }

@@ -1,4 +1,4 @@
-export { fetchArtifacts } from "./api/artifacts";
+export { fetchArtifacts, fetchSpecDetail } from "./api/artifacts";
 
 export {
   createInitiative,
@@ -26,7 +26,16 @@ export {
   updateTicketStatus
 } from "./api/tickets";
 
-export { fetchOperationStatus, fetchRunDetail, fetchRuns, fetchRunState } from "./api/runs";
+export {
+  fetchBundleText,
+  fetchOperationStatus,
+  fetchRunAttemptDetail,
+  fetchRunDetail,
+  fetchRunDiff,
+  fetchRunProgress,
+  fetchRuns,
+  fetchRunState
+} from "./api/runs";
 
 export { fetchProviderModels, saveConfig } from "./api/settings";
 

@@ -116,23 +116,23 @@ npm install          # install all workspaces
 npm run setup:git-hooks
 npm run check        # type-check both packages (tsc --noEmit) and run the UI dedupe gate
 npm test             # run all Vitest suites (backend + client)
-npm run build        # build web artifacts, package the sidecar, and build the unsigned desktop bundle
 npm run dev          # alias for the desktop-first Tauri dev loop
 npm run tauri dev    # explicit desktop-first dev loop
 npm run dev:web      # legacy Fastify + browser dev path
-npm run ui           # build and launch the desktop app
-npm run ui:web       # build and start the legacy Fastify/browser runtime
+npm run ui           # launch from source; uses an existing desktop binary if present, otherwise falls back to legacy web
+npm run ui:web       # start the legacy Fastify/browser runtime from source
+npm run package:desktop  # explicit desktop packaging only; not part of development
 git status -sb       # quick working tree check
 ```
 
-Direct CLI examples after build:
+Direct CLI examples during development:
 
-- `node packages/app/dist/cli.js ui --no-open`
-- `node packages/app/dist/cli.js ui --legacy-web --no-open`
-- `node packages/app/dist/cli.js export-bundle --ticket <ticket-id> --agent codex-cli`
-- `node packages/app/dist/cli.js verify --ticket <ticket-id>`
+- `tsx packages/app/src/cli.ts ui --no-open`
+- `tsx packages/app/src/cli.ts ui --legacy-web --no-open`
+- `tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli`
+- `tsx packages/app/src/cli.ts verify --ticket <ticket-id>`
 
-Run `npm run check && npm test && npm run build` before considering any task complete. Do not report success without running them. Show real output. Do not invent results.
+For normal development tasks, run `npm run check && npm test` before considering the task complete. Run desktop packaging only when the user explicitly asks for packaging or release validation. Do not report success without real command output. Do not invent results.
 
 ## 5. Code Quality Standards
 
@@ -329,7 +329,7 @@ When reporting completed work, include:
 
 - what changed: the exact files modified, with a one-line description of each
 - test results: the real output of `npm run check && npm test`
-- build status: the real output of `npm run build`
+- packaging status: the real output of `npm run package:desktop` when packaging was explicitly requested or performed
 - what is not done: anything from the acceptance criteria that remains incomplete
 - known risks: anything uncertain or likely to need follow-up
 

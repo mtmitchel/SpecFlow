@@ -4,6 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { ArtifactsSnapshot, Initiative } from "../../types.js";
 import { InitiativeRouteView } from "./initiative-route-view.js";
 
+const fetchSpecDetailMock = vi.fn();
+
+vi.mock("../../api.js", async () => {
+  const actual = await vi.importActual<typeof import("../../api.js")>("../../api.js");
+  return {
+    ...actual,
+    fetchSpecDetail: (...args: unknown[]) => fetchSpecDetailMock(...args),
+  };
+});
+
 vi.mock("../context/toast.js", () => ({
   useToast: () => ({ showError: vi.fn() })
 }));
@@ -74,6 +84,17 @@ const snapshot: ArtifactsSnapshot = {
   ticketCoverageArtifacts: []
 };
 
+const briefSpec = {
+  id: `${initiative.id}:brief`,
+  initiativeId: initiative.id,
+  type: "brief" as const,
+  title: "Brief",
+  content: "# Brief\n\nA short summary.\n\n## Goals\n\n- Keep capture fast.\n- Support richer notes.",
+  sourcePath: "specflow/initiatives/initiative-12345678/brief.md",
+  createdAt: "2026-03-16T12:10:00.000Z",
+  updatedAt: "2026-03-16T12:10:00.000Z"
+};
+
 const reviewSnapshot: ArtifactsSnapshot = {
   ...snapshot,
   initiatives: [
@@ -94,14 +115,13 @@ const reviewSnapshot: ArtifactsSnapshot = {
   ],
   specs: [
     {
-      id: "spec-brief",
-      initiativeId: initiative.id,
-      type: "brief",
-      title: "Brief",
-      content: "# Brief\n\nA short summary.\n\n## Goals\n\n- Keep capture fast.\n- Support richer notes.",
-      sourcePath: "specflow/initiatives/initiative-12345678/brief.md",
-      createdAt: "2026-03-16T12:10:00.000Z",
-      updatedAt: "2026-03-16T12:10:00.000Z"
+      id: briefSpec.id,
+      initiativeId: briefSpec.initiativeId,
+      type: briefSpec.type,
+      title: briefSpec.title,
+      sourcePath: briefSpec.sourcePath,
+      createdAt: briefSpec.createdAt,
+      updatedAt: briefSpec.updatedAt
     }
   ],
   planningReviews: [
@@ -155,14 +175,13 @@ const completedReviewBlockedSnapshot: ArtifactsSnapshot = {
   ],
   specs: [
     {
-      id: "spec-brief",
-      initiativeId: initiative.id,
-      type: "brief",
-      title: "Brief",
-      content: "# Brief\n\nA short summary.\n\n## Goals\n\n- Keep capture fast.\n- Support richer notes.",
-      sourcePath: "specflow/initiatives/initiative-12345678/brief.md",
-      createdAt: "2026-03-16T12:10:00.000Z",
-      updatedAt: "2026-03-16T12:10:00.000Z"
+      id: briefSpec.id,
+      initiativeId: briefSpec.initiativeId,
+      type: briefSpec.type,
+      title: briefSpec.title,
+      sourcePath: briefSpec.sourcePath,
+      createdAt: briefSpec.createdAt,
+      updatedAt: briefSpec.updatedAt
     }
   ],
   planningReviews: reviewSnapshot.planningReviews
@@ -181,6 +200,8 @@ const WorkspaceWithLocation = () => {
 
 describe("InitiativeView", () => {
   it("lands the user in the contained brief intake stage after initiative creation", async () => {
+    fetchSpecDetailMock.mockResolvedValue(briefSpec);
+
     render(
       <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief&handoff=created`]}>
         <Routes>
@@ -214,7 +235,9 @@ describe("InitiativeView", () => {
     });
   });
 
-  it("opens the clarification flow instead of dumping review findings into the page", async () => {
+  it("keeps blocked brief work in the clarification flow instead of dumping review findings into the page", async () => {
+    fetchSpecDetailMock.mockResolvedValue(briefSpec);
+
     render(
       <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
         <Routes>
@@ -227,23 +250,17 @@ describe("InitiativeView", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Brief" })).toBeInTheDocument();
-    expect(screen.getByText("Needs review")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Summary" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Document" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Fix issues" }));
-
-    expect(screen.getByRole("dialog", { name: "Change brief inputs" })).toBeInTheDocument();
     expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Capture something quickly/i })).toBeInTheDocument();
     expect(screen.queryByText("24 questions to answer")).not.toBeInTheDocument();
     expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Move on anyway" })).not.toBeInTheDocument();
   });
 
-  it("keeps the override path behind the menu instead of showing the review wall by default", async () => {
+  it("does not surface override actions while clarification is still required", async () => {
+    fetchSpecDetailMock.mockResolvedValue(briefSpec);
+
     render(
       <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
         <Routes>
@@ -255,14 +272,11 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText("More"));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Move on anyway" }));
-
-    expect(screen.getByRole("dialog", { name: "Brief review" })).toBeInTheDocument();
-    expect(screen.getByText("Make a few changes before you move on")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Change inputs" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit text" })).toBeInTheDocument();
-    expect(screen.queryByText("24 questions to answer")).not.toBeInTheDocument();
+    expect(screen.queryByText("More")).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Move on anyway" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change inputs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit text" })).not.toBeInTheDocument();
+    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
   });
 
   it("keeps the blocked phase active in the pipeline when the next phase is ready", () => {

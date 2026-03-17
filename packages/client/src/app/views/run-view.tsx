@@ -1,11 +1,17 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { fetchRunDetail } from "../../api.js";
+import {
+  fetchRunAttemptDetail,
+  fetchRunDetail,
+  fetchRunDiff,
+  fetchRunProgress
+} from "../../api.js";
 import type {
   ArtifactsSnapshot,
   Initiative,
   PlanningReviewArtifact,
   Run,
+  RunAttemptDetail,
   RunDetail,
   Ticket,
   TicketCoverageArtifact,
@@ -50,14 +56,77 @@ export const RunView = ({
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [detail, setDetail] = useState<RunDetail | null>(null);
+  const [committedAttemptDetail, setCommittedAttemptDetail] = useState<RunAttemptDetail | null>(null);
+  const [attemptLoading, setAttemptLoading] = useState(false);
+  const [attemptError, setAttemptError] = useState<string | null>(null);
+  const [primaryDiff, setPrimaryDiff] = useState<string | null>(null);
+  const [primaryDiffLoading, setPrimaryDiffLoading] = useState(false);
+  const [driftDiff, setDriftDiff] = useState<string | null>(null);
+  const [driftDiffLoading, setDriftDiffLoading] = useState(false);
+  const [diffError, setDiffError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDrift, setShowDrift] = useState(false);
   const [showAuditPanel, setShowAuditPanel] = useState(false);
+  const committedAttemptIdRef = useRef<string | null>(null);
+
+  const loadCommittedAttempt = useCallback(async (runId: string, attemptId: string): Promise<void> => {
+    setAttemptLoading(true);
+    setAttemptError(null);
+    setPrimaryDiff(null);
+    setDriftDiff(null);
+    setDiffError(null);
+    setShowDrift(false);
+
+    try {
+      const attempt = await fetchRunAttemptDetail(runId, attemptId);
+      setCommittedAttemptDetail(attempt);
+    } catch (loadError) {
+      setCommittedAttemptDetail(null);
+      setAttemptError((loadError as Error).message);
+    } finally {
+      setAttemptLoading(false);
+    }
+  }, []);
+
+  const loadDiff = useCallback(async (kind: "primary" | "drift"): Promise<void> => {
+    if (!detail?.committed?.attemptId) {
+      return;
+    }
+
+    if (kind === "primary" ? primaryDiffLoading : driftDiffLoading) {
+      return;
+    }
+
+    if (kind === "primary") {
+      setPrimaryDiffLoading(true);
+    } else {
+      setDriftDiffLoading(true);
+    }
+    setDiffError(null);
+
+    try {
+      const payload = await fetchRunDiff(detail.run.id, detail.committed.attemptId, kind);
+      if (kind === "primary") {
+        setPrimaryDiff(payload.diff);
+      } else {
+        setDriftDiff(payload.diff);
+      }
+    } catch (loadError) {
+      setDiffError((loadError as Error).message);
+    } finally {
+      if (kind === "primary") {
+        setPrimaryDiffLoading(false);
+      } else {
+        setDriftDiffLoading(false);
+      }
+    }
+  }, [detail?.committed?.attemptId, detail?.run.id, driftDiffLoading, primaryDiffLoading]);
 
   useEffect(() => {
     let cancelled = false;
     const runId = params.id;
+    const loadController = new AbortController();
 
     if (!runId) {
       setError("Run id is required");
@@ -68,10 +137,22 @@ export const RunView = ({
     const load = async (): Promise<void> => {
       setLoading(true);
       setError(null);
+      setDetail(null);
+      setCommittedAttemptDetail(null);
+      setAttemptError(null);
+      setPrimaryDiff(null);
+      setDriftDiff(null);
+      setDiffError(null);
+      setShowDrift(false);
       try {
-        const payload = await fetchRunDetail(runId);
-        if (!cancelled) {
-          setDetail(payload);
+        const payload = await fetchRunDetail(runId, { signal: loadController.signal });
+        if (cancelled) {
+          return;
+        }
+
+        setDetail(payload);
+        if (payload.committed?.attemptId) {
+          await loadCommittedAttempt(runId, payload.committed.attemptId);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -88,35 +169,102 @@ export const RunView = ({
     void load();
     return () => {
       cancelled = true;
+      loadController.abort();
     };
-  }, [params.id]);
+  }, [loadCommittedAttempt, params.id]);
+
+  const committedAttemptId = detail?.committed?.attemptId ?? null;
 
   useEffect(() => {
-    if (!params.id || !detail || detail.run.status !== "pending") {
+    committedAttemptIdRef.current = committedAttemptId;
+  }, [committedAttemptId]);
+
+  useEffect(() => {
+    if (!detail?.run.id || !committedAttemptId) {
+      setCommittedAttemptDetail(null);
+      setAttemptError(null);
+      return;
+    }
+
+    if (committedAttemptDetail?.attemptId === committedAttemptId) {
+      return;
+    }
+
+    void loadCommittedAttempt(detail.run.id, committedAttemptId);
+  }, [committedAttemptDetail?.attemptId, committedAttemptId, detail?.run.id, loadCommittedAttempt]);
+
+  useEffect(() => {
+    if (!detail?.run.id || detail.run.status !== "pending") {
       return;
     }
 
     let cancelled = false;
-    const interval = window.setInterval(() => {
-      void fetchRunDetail(params.id!)
-        .then((payload) => {
-          if (!cancelled) {
-            setDetail(payload);
-            setError(null);
-          }
-        })
-        .catch((loadError) => {
-          if (!cancelled) {
-            setError((loadError as Error).message);
-          }
-        });
-    }, 5000);
+    let timeoutId: number | null = null;
+    let activePollController: AbortController | null = null;
 
+    const poll = async (): Promise<void> => {
+      activePollController = new AbortController();
+      try {
+        const progress = await fetchRunProgress(detail.run.id, { signal: activePollController.signal });
+        if (cancelled) {
+          return;
+        }
+
+        const attempts = progress.attempts.map((attempt) => ({
+          id: `${progress.run.id}:${attempt.attemptId}`,
+          ...attempt
+        }));
+
+        setDetail((previous) => {
+          if (!previous || previous.run.id !== progress.run.id) {
+            return previous;
+          }
+
+          return {
+            ...previous,
+            run: progress.run,
+            operationState: progress.operationState,
+            attempts,
+            committed: previous.committed && progress.run.committedAttemptId
+              ? {
+                  ...previous.committed,
+                  attemptId: progress.run.committedAttemptId,
+                  attempt:
+                    attempts.find((attempt) => attempt.attemptId === progress.run.committedAttemptId) ?? previous.committed.attempt
+                }
+              : previous.committed
+          };
+        });
+
+        if (progress.run.committedAttemptId !== committedAttemptIdRef.current) {
+          setCommittedAttemptDetail(null);
+          setPrimaryDiff(null);
+          setDriftDiff(null);
+          setDiffError(null);
+          setShowDrift(false);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError((loadError as Error).message);
+        }
+      } finally {
+        if (!cancelled) {
+          timeoutId = window.setTimeout(() => {
+            void poll();
+          }, 5000);
+        }
+      }
+    };
+
+    void poll();
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      activePollController?.abort();
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
-  }, [detail, params.id]);
+  }, [detail?.run.id, detail?.run.status]);
 
   if (loading) {
     return (
@@ -135,7 +283,7 @@ export const RunView = ({
     );
   }
 
-  const verificationPass = detail.committed?.attempt?.overallPass ?? null;
+  const verificationPass = committedAttemptDetail?.overallPass ?? detail.committed?.attempt?.overallPass ?? null;
   const bundleFiles = [
     ...(detail.committed?.bundleManifest?.requiredFiles ?? []),
     ...(detail.committed?.bundleManifest?.contextFiles ?? [])
@@ -157,6 +305,8 @@ export const RunView = ({
       )
     : null;
   const reportVerdict = verificationPass === null ? "No verdict yet" : verificationPass ? "Pass" : "Fail";
+  const committedHasPrimaryDiff = Boolean(committedAttemptDetail?.primaryDiffPath);
+  const committedHasDriftDiff = Boolean(committedAttemptDetail?.driftDiffPath);
 
   return (
     <section className="ticket-journey">
@@ -232,25 +382,48 @@ export const RunView = ({
 
             {showAuditPanel ? <AuditPanel runId={detail.run.id} defaultScopePaths={detail.ticket?.fileTargets ?? []} /> : null}
 
-            <MarkdownView content={detail.committed?.attempt?.agentSummary || "(no summary provided)"} />
+            {attemptLoading ? <p className="ticket-empty-note">Loading committed attempt...</p> : null}
+            {attemptError ? <p className="ticket-empty-note">{attemptError}</p> : null}
+            <MarkdownView content={committedAttemptDetail?.agentSummary || "(no summary provided)"} />
           </RunReportCard>
 
-          <RunReportCard title="Changes" badge={detail.committed?.primaryDiff ? "Available" : "No diff"}>
-            {detail.committed?.primaryDiff ? (
-              <DiffViewer title="Changes" diff={detail.committed.primaryDiff} />
-            ) : (
+          <RunReportCard title="Changes" badge={committedHasPrimaryDiff ? (primaryDiff ? "Loaded" : "Available") : "No diff"}>
+            {!committedHasPrimaryDiff ? (
               <p className="ticket-empty-note">No captured changes for this run.</p>
-            )}
-          </RunReportCard>
-
-          {detail.committed?.driftDiff ? (
-            <RunReportCard title="Out-of-scope changes" badge="Drift">
+            ) : primaryDiff ? (
+              <DiffViewer title="Changes" diff={primaryDiff} />
+            ) : (
               <div className="button-row">
-                <button type="button" onClick={() => setShowDrift((current) => !current)}>
-                  {showDrift ? "Hide diff" : "Show diff"}
+                <button type="button" onClick={() => void loadDiff("primary")} disabled={primaryDiffLoading}>
+                  {primaryDiffLoading ? "Loading diff..." : "Load diff"}
                 </button>
               </div>
-              {showDrift ? <DiffViewer title="Drift diff" diff={detail.committed.driftDiff} /> : null}
+            )}
+            {diffError ? <p className="ticket-empty-note">{diffError}</p> : null}
+          </RunReportCard>
+
+          {committedHasDriftDiff ? (
+            <RunReportCard title="Out-of-scope changes" badge="Drift">
+              <div className="button-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (showDrift) {
+                      setShowDrift(false);
+                      return;
+                    }
+
+                    setShowDrift(true);
+                    if (!driftDiff) {
+                      void loadDiff("drift");
+                    }
+                  }}
+                >
+                  {showDrift ? "Hide diff" : driftDiffLoading ? "Loading diff..." : "Show diff"}
+                </button>
+              </div>
+              {showDrift && driftDiff ? <DiffViewer title="Drift diff" diff={driftDiff} /> : null}
+              {showDrift && diffError ? <p className="ticket-empty-note">{diffError}</p> : null}
             </RunReportCard>
           ) : null}
 

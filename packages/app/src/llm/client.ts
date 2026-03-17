@@ -1,5 +1,6 @@
 import { LlmProviderError } from "./errors.js";
 import { ANTHROPIC_SSE_CONFIG, OPENAI_SSE_CONFIG, parseStreamingSse } from "./sse-parser.js";
+import { asCancelledError } from "../cancellation.js";
 
 export interface LlmRequest {
   provider: "anthropic" | "openai" | "openrouter";
@@ -14,7 +15,7 @@ export interface LlmRequest {
 export type LlmTokenHandler = (chunk: string) => Promise<void> | void;
 
 export interface LlmClient {
-  complete(request: LlmRequest, onToken?: LlmTokenHandler): Promise<string>;
+  complete(request: LlmRequest, onToken?: LlmTokenHandler, options?: { signal?: AbortSignal }): Promise<string>;
 }
 
 const DEFAULT_MAX_TOKENS = 4096;
@@ -50,7 +51,11 @@ export class HttpLlmClient implements LlmClient {
     this.fetchImpl = fetchImpl;
   }
 
-  public async complete(request: LlmRequest, onToken?: LlmTokenHandler): Promise<string> {
+  public async complete(
+    request: LlmRequest,
+    onToken?: LlmTokenHandler,
+    options?: { signal?: AbortSignal }
+  ): Promise<string> {
     if (!request.apiKey.trim()) {
       throw new LlmProviderError(
         "Missing API key. Set provider key in .env (OPENROUTER_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY).",
@@ -63,11 +68,17 @@ export class HttpLlmClient implements LlmClient {
     const timeout = setTimeout(() => {
       controller.abort();
     }, timeoutMs);
+    const signal = options?.signal
+      ? AbortSignal.any([controller.signal, options.signal])
+      : controller.signal;
 
     try {
-      return await this.executeRequest(request, controller.signal, onToken);
+      return await this.executeRequest(request, signal, onToken);
     } catch (error) {
       if ((error as Error).name === "AbortError") {
+        if (options?.signal?.aborted) {
+          throw asCancelledError(options.signal.reason);
+        }
         throw new LlmProviderError("Provider request timed out", "timeout");
       }
       throw error;

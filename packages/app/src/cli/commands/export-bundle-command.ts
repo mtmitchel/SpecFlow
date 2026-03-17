@@ -1,5 +1,7 @@
 import process from "node:process";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { BundleGenerator } from "../../bundle/bundle-generator.js";
 import { ArtifactStore } from "../../store/artifact-store.js";
 import { printOutput } from "../output.js";
@@ -52,7 +54,6 @@ export const runExportBundleCommand = async (options: {
         runId: string;
         attemptId: string;
         bundlePath: string;
-        flatString: string;
       };
     });
 
@@ -81,19 +82,32 @@ export const runExportBundleCommand = async (options: {
         runId: string;
         attemptId: string;
         bundlePath: string;
-        flatString: string;
       };
+      const bundleTextResponse = await fetch(
+        `${baseUrl}/api/runs/${payload.runId}/attempts/${payload.attemptId}/bundle-text`
+      );
+      if (!bundleTextResponse.ok) {
+        throw new Error(`Delegated bundle text fetch failed with status ${bundleTextResponse.status}`);
+      }
+      const bundleTextPayload = (await bundleTextResponse.json()) as { content: string };
 
       printOutput(options.format, payload, () => {
-        return [`Delegated export complete`, `bundlePath: ${payload.bundlePath}`, "", payload.flatString].join("\n");
+        return [`Delegated export complete`, `bundlePath: ${payload.bundlePath}`, "", bundleTextPayload.content].join("\n");
       });
 
       return;
     }
 
     const payload = delegated.value;
+    const bundleTextResponse = await fetch(
+      `${baseUrl}/api/runs/${payload.runId}/attempts/${payload.attemptId}/bundle-text`
+    );
+    if (!bundleTextResponse.ok) {
+      throw new Error(`Delegated bundle text fetch failed with status ${bundleTextResponse.status}`);
+    }
+    const bundleTextPayload = (await bundleTextResponse.json()) as { content: string };
     printOutput(options.format, payload, () => {
-      return [`Delegated export complete`, `bundlePath: ${payload.bundlePath}`, "", payload.flatString].join("\n");
+      return [`Delegated export complete`, `bundlePath: ${payload.bundlePath}`, "", bundleTextPayload.content].join("\n");
     });
 
     return;
@@ -110,9 +124,11 @@ export const runExportBundleCommand = async (options: {
       exportMode: "standard",
       operationId
     });
+    const promptPath = path.join(local.bundlePath, "PROMPT.md");
+    const bundleText = await readFile(promptPath, "utf8");
 
     printOutput(options.format, local, () => {
-      return [`Local export complete`, `bundlePath: ${local.bundlePath}`, "", local.flatString].join("\n");
+      return [`Local export complete`, `bundlePath: ${local.bundlePath}`, "", bundleText].join("\n");
     });
   } finally {
     await store.close();

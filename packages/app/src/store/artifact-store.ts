@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { writeFileAtomic } from "../io/atomic-write.js";
 import {
@@ -44,7 +44,9 @@ import type {
   PlanningReviewArtifact,
   Run,
   RunAttempt,
+  RunAttemptSummary,
   SpecDocument,
+  SpecDocumentSummary,
   TicketCoverageArtifact,
   Ticket
 } from "../types/entities.js";
@@ -85,8 +87,8 @@ export class ArtifactStore {
   public readonly initiatives = new Map<string, Initiative>();
   public readonly tickets = new Map<string, Ticket>();
   public readonly runs = new Map<string, Run>();
-  public readonly runAttempts = new Map<string, RunAttempt>();
-  public readonly specs = new Map<string, SpecDocument>();
+  public readonly runAttempts = new Map<string, RunAttemptSummary>();
+  public readonly specs = new Map<string, SpecDocumentSummary>();
   public readonly planningReviews = new Map<string, PlanningReviewArtifact>();
   public readonly ticketCoverageArtifacts = new Map<string, TicketCoverageArtifact>();
   public readonly artifactTraces = new Map<string, ArtifactTraceOutline>();
@@ -181,19 +183,19 @@ export class ArtifactStore {
       hasBrief:
         docs.brief !== undefined
           ? docs.brief.trim().length > 0
-          : (this.specs.get(`${initiative.id}:brief`)?.content ?? "").trim().length > 0,
+          : this.specs.has(`${initiative.id}:brief`),
       hasCoreFlows:
         docs.coreFlows !== undefined
           ? docs.coreFlows.trim().length > 0
-          : (this.specs.get(`${initiative.id}:core-flows`)?.content ?? "").trim().length > 0,
+          : this.specs.has(`${initiative.id}:core-flows`),
       hasPrd:
         docs.prd !== undefined
           ? docs.prd.trim().length > 0
-          : (this.specs.get(`${initiative.id}:prd`)?.content ?? "").trim().length > 0,
+          : this.specs.has(`${initiative.id}:prd`),
       hasTechSpec:
         docs.techSpec !== undefined
           ? docs.techSpec.trim().length > 0
-          : (this.specs.get(`${initiative.id}:tech-spec`)?.content ?? "").trim().length > 0,
+          : this.specs.has(`${initiative.id}:tech-spec`),
       hasTickets:
         initiative.ticketIds.length > 0 ||
         initiative.phases.length > 0 ||
@@ -312,7 +314,46 @@ export class ArtifactStore {
     const filePath = verificationPath(this.rootDir, runId, attempt.attemptId);
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFileAtomic(filePath, JSON.stringify(attempt, null, 2));
-    this.runAttempts.set(this.runAttemptKey(runId, attempt.attemptId), attempt);
+    this.runAttempts.set(this.runAttemptKey(runId, attempt.attemptId), {
+      attemptId: attempt.attemptId,
+      overallPass: attempt.overallPass,
+      overrideReason: attempt.overrideReason,
+      overrideAccepted: attempt.overrideAccepted,
+      createdAt: attempt.createdAt
+    });
+  }
+
+  public async readRunAttempt(runId: string, attemptId: string): Promise<RunAttempt | null> {
+    try {
+      const raw = await readFile(verificationPath(this.rootDir, runId, attemptId), "utf8");
+      return JSON.parse(raw) as RunAttempt;
+    } catch {
+      return null;
+    }
+  }
+
+  public async readSpec(specId: string): Promise<SpecDocument | null> {
+    const summary = this.specs.get(specId);
+    if (!summary) {
+      return null;
+    }
+
+    try {
+      const content = await readFile(summary.sourcePath, "utf8");
+      const fileStat = await stat(summary.sourcePath);
+      return {
+        ...summary,
+        content,
+        createdAt: fileStat.birthtime.toISOString(),
+        updatedAt: fileStat.mtime.toISOString()
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  public async readSpecMarkdown(specId: string): Promise<string> {
+    return (await this.readSpec(specId))?.content ?? "";
   }
 
   public async upsertSpec(spec: SpecDocument): Promise<void> {

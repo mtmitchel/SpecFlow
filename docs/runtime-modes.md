@@ -34,12 +34,12 @@ Notes:
 - The dev config disables `bundle.externalBin`, so desktop development does not require `packages/app/dist-sidecar/*`
 - The Tauri shell spawns the Node sidecar from `packages/app/dist/sidecar.js` after the watcher has produced it
 
-## Desktop Build
+## Desktop Packaging
 
 Use this when you need a native desktop bundle:
 
 ```bash
-npm run build
+npm run package:desktop
 ```
 
 What it does:
@@ -54,15 +54,17 @@ Build output:
 - Tauri artifacts are emitted under `packages/tauri/src-tauri/target/`
 - Native bundles are unsigned in this migration
 
+Desktop packaging is explicit. It is not part of normal development, and it is not required to use `npm run tauri dev`.
+
 ## Desktop Launch
 
-For a production-style local launch from built artifacts:
+For a local launch outside the Tauri dev loop:
 
 ```bash
 npm run ui
 ```
 
-`specflow ui` is desktop-first. It looks for a built desktop binary and launches it. If no desktop binary is available, it falls back to legacy web mode with a deprecation warning.
+`specflow ui` runs the CLI from source. It looks for an existing packaged desktop binary and launches it. If no desktop binary is available, it falls back to legacy web mode with a deprecation warning.
 
 ## Legacy Web Mode
 
@@ -76,7 +78,7 @@ npm run ui:web
 Behavior:
 
 - `npm run dev:web` starts the watched app server plus the Vite dev server
-- `npm run ui:web` builds the client and app, then serves the UI from Fastify
+- `npm run ui:web` runs the legacy Fastify + browser runtime from source without an upfront package build
 - Legacy web mode still uses `/api` HTTP routes and SSE
 - This mode is retained for fallback behavior, compatibility, and browser-focused testing
 
@@ -85,8 +87,8 @@ Behavior:
 The CLI remains available in both runtime modes:
 
 ```bash
-node packages/app/dist/cli.js export-bundle --ticket <ticket-id> --agent codex-cli
-node packages/app/dist/cli.js verify --ticket <ticket-id>
+tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli
+tsx packages/app/src/cli.ts verify --ticket <ticket-id>
 ```
 
 Rules:

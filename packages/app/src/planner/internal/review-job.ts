@@ -63,7 +63,7 @@ export const executeReviewJob = async (input: {
     payload: ReviewRunInput,
     onToken?: LlmTokenHandler
   ) => Promise<T>;
-  getArtifactMarkdownMap: (initiativeId: string) => Record<InitiativeArtifactStep, string>;
+  getArtifactMarkdownMap: (initiativeId: string) => Promise<Record<InitiativeArtifactStep, string>>;
   ensureArtifactTrace: (initiative: Initiative, step: InitiativeArtifactStep) => Promise<ArtifactTraceOutline>;
   requireSpecUpdatedAt: (initiativeId: string, step: InitiativeArtifactStep) => string;
   requireTicketCoverageArtifact: (initiativeId: string) => {
@@ -75,7 +75,7 @@ export const executeReviewJob = async (input: {
   onToken?: LlmTokenHandler;
 }): Promise<PlanningReviewArtifact> => {
   const sourceSteps = REVIEW_KIND_SOURCE_STEPS[input.kind];
-  const markdownByStep = input.getArtifactMarkdownMap(input.initiative.id);
+  const markdownByStep = await input.getArtifactMarkdownMap(input.initiative.id);
   const traceOutlines: ReviewRunInput["traceOutlines"] = {};
   const sourceUpdatedAts: Partial<Record<InitiativePlanningStep, string>> = {};
   let coverageItems: TicketCoverageItem[] | undefined;

@@ -66,7 +66,7 @@ export const exportFixBundle = async (
   runId: string,
   findingId: string,
   agent: AgentTarget
-): Promise<{ runId: string; attemptId: string; bundlePath: string; flatString: string }> => {
+): Promise<{ runId: string; attemptId: string; bundlePath: string }> => {
   return transportRequest(
     "tickets.exportFixBundle",
     { runId, findingId, body: { agent } },

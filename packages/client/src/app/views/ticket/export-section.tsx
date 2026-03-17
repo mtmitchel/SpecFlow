@@ -1,4 +1,4 @@
-import type { AgentTarget, Ticket } from "../../../types.js";
+import type { AgentTarget } from "../../../types.js";
 import { WorkflowSection } from "../../components/workflow-section.js";
 import type { WorkflowPhase } from "./workflow.js";
 
@@ -7,30 +7,36 @@ const HelpTip = ({ text }: { text: string }) => (
 );
 
 interface ExportSectionProps {
-  ticket: Ticket;
   workflowPhase: WorkflowPhase;
   agentTarget: AgentTarget;
   setAgentTarget: (target: AgentTarget) => void;
-  exportResult: { runId: string; attemptId: string; flatString: string } | null;
-  downloadUrl: string | null;
+  exportResult: { runId: string; attemptId: string } | null;
+  bundlePreview: string | null;
+  bundlePreviewOpen: boolean;
+  bundleTextLoading: boolean;
   copyFeedback: boolean;
   handleExport: () => Promise<void>;
-  handleCopyBundle: () => void;
+  handleCopyBundle: () => Promise<void>;
+  handleToggleBundlePreview: () => Promise<void>;
+  handleDownloadBundle: () => Promise<void>;
   handleSaveZipBundle: () => Promise<void>;
   desktopRuntime: boolean;
   chrome?: "section" | "plain";
 }
 
 export const ExportSection = ({
-  ticket,
   workflowPhase,
   agentTarget,
   setAgentTarget,
   exportResult,
-  downloadUrl,
+  bundlePreview,
+  bundlePreviewOpen,
+  bundleTextLoading,
   copyFeedback,
   handleExport,
   handleCopyBundle,
+  handleToggleBundlePreview,
+  handleDownloadBundle,
   handleSaveZipBundle,
   desktopRuntime,
   chrome = "section"
@@ -59,15 +65,20 @@ export const ExportSection = ({
           <button
             type="button"
             className={copyFeedback ? "btn-copied" : ""}
-            onClick={handleCopyBundle}
+            onClick={() => void handleCopyBundle()}
           >
             {copyFeedback ? "Copied" : "Copy bundle"}
           </button>
         ) : null}
-        {downloadUrl ? (
-          <a href={downloadUrl} download={`${ticket.id}-bundle-flat.md`} className="inline-action">
+        {exportResult ? (
+          <button type="button" className="inline-action" onClick={() => void handleToggleBundlePreview()}>
+            {bundlePreviewOpen ? "Hide bundle" : bundleTextLoading ? "Loading bundle..." : "Preview bundle"}
+          </button>
+        ) : null}
+        {exportResult ? (
+          <button type="button" className="inline-action" onClick={() => void handleDownloadBundle()}>
             Download flat bundle
-          </a>
+          </button>
         ) : null}
         {exportResult ? (
           desktopRuntime ? (
@@ -84,7 +95,7 @@ export const ExportSection = ({
           )
         ) : null}
       </div>
-      {exportResult ? <pre>{exportResult.flatString}</pre> : null}
+      {bundlePreviewOpen && bundlePreview ? <pre>{bundlePreview}</pre> : null}
     </>
   );
 

@@ -33,8 +33,7 @@ export const resolveExistingVerificationOperation = async (input: {
     throw new Error(`Operation ${input.operationId} is currently ${existing.state}`);
   }
 
-  const mapKey = `${existing.runId}:${existing.targetAttemptId}`;
-  const inMemory = input.store.runAttempts.get(mapKey);
+  const inMemory = await input.store.readRunAttempt(existing.runId, existing.targetAttemptId);
   if (inMemory) {
     return { runId: existing.runId, attempt: inMemory };
   }

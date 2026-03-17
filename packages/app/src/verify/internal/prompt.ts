@@ -52,6 +52,7 @@ export const runVerifierPrompt = async (input: {
   diffResult: DiffComputationResult;
   agentsMd: string;
   onToken?: LlmTokenHandler;
+  signal?: AbortSignal;
 }): Promise<ParsedVerifierResult> => {
   const systemPrompt = [
     "You are SpecFlow verifier. Your job is to determine whether a code diff satisfies the acceptance criteria of a ticket.",
@@ -103,7 +104,8 @@ export const runVerifierPrompt = async (input: {
       maxTokens: 4096,
       timeoutMs: 120_000
     },
-    input.onToken
+    input.onToken,
+    { signal: input.signal }
   );
 
   const parsed = parseJsonEnvelope<ParsedVerifierResult>(response);

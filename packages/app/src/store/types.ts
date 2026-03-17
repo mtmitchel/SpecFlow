@@ -1,7 +1,6 @@
 import type { RunAttempt } from "../types/entities.js";
 
 export interface PreparedOperationArtifacts {
-  bundleFlat?: string;
   bundleManifest?: unknown;
   verification?: RunAttempt;
   primaryDiff?: string;

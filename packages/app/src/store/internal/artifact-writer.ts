@@ -7,10 +7,6 @@ export const writePreparedArtifacts = async (
   stagedAttemptDir: string,
   artifacts: PreparedOperationArtifacts
 ): Promise<void> => {
-  if (artifacts.bundleFlat !== undefined) {
-    await writeFileAtomic(path.join(stagedAttemptDir, "bundle-flat.md"), artifacts.bundleFlat);
-  }
-
   if (artifacts.bundleManifest !== undefined) {
     await writeYamlFile(path.join(stagedAttemptDir, "bundle-manifest.yaml"), artifacts.bundleManifest);
   }

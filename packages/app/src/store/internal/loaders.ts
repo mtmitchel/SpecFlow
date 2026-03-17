@@ -24,7 +24,9 @@ import type {
   PlanningReviewArtifact,
   Run,
   RunAttempt,
+  RunAttemptSummary,
   SpecDocument,
+  SpecDocumentSummary,
   TicketCoverageArtifact,
   Ticket
 } from "../../types/entities.js";
@@ -41,7 +43,7 @@ export const loadInitiatives = async (input: {
   planningReviews: Map<string, PlanningReviewArtifact>;
   artifactTraces: Map<string, ArtifactTraceOutline>;
   ticketCoverageArtifacts: Map<string, TicketCoverageArtifact>;
-  specs: Map<string, SpecDocument>;
+  specs: Map<string, SpecDocumentSummary>;
 }): Promise<void> => {
   const ids = await listDirectoryNames(initiativesDir(input.rootDir));
 
@@ -66,7 +68,6 @@ export const loadInitiatives = async (input: {
         continue;
       }
 
-      const content = await readFile(filePath, "utf8");
       const fileStat = await stat(filePath);
       const specId = `${initiative.id}:${doc.type}`;
 
@@ -75,7 +76,6 @@ export const loadInitiatives = async (input: {
         initiativeId: initiative.id,
         type: doc.type,
         title: doc.title,
-        content,
         sourcePath: filePath,
         createdAt: fileStat.birthtime.toISOString(),
         updatedAt: fileStat.mtime.toISOString()
@@ -154,7 +154,7 @@ export const loadTickets = async (input: {
 export const loadRuns = async (input: {
   rootDir: string;
   runs: Map<string, Run>;
-  runAttempts: Map<string, RunAttempt>;
+  runAttempts: Map<string, RunAttemptSummary>;
   runAttemptKey: (runId: string, attemptId: string) => string;
 }): Promise<void> => {
   const runIds = await listDirectoryNames(runsDir(input.rootDir));
@@ -176,14 +176,20 @@ export const loadRuns = async (input: {
 
       const raw = await readFile(verificationFile, "utf8");
       const attempt = JSON.parse(raw) as RunAttempt;
-      input.runAttempts.set(input.runAttemptKey(run.id, attemptId), attempt);
+      input.runAttempts.set(input.runAttemptKey(run.id, attemptId), {
+        attemptId: attempt.attemptId,
+        overallPass: attempt.overallPass,
+        overrideReason: attempt.overrideReason,
+        overrideAccepted: attempt.overrideAccepted,
+        createdAt: attempt.createdAt
+      });
     }
   }
 };
 
 export const loadDecisions = async (input: {
   rootDir: string;
-  specs: Map<string, SpecDocument>;
+  specs: Map<string, SpecDocumentSummary>;
 }): Promise<void> => {
   const fileNames = await listFileNames(decisionsDir(input.rootDir));
 
@@ -193,7 +199,6 @@ export const loadDecisions = async (input: {
     }
 
     const filePath = path.join(decisionsDir(input.rootDir), fileName);
-    const content = await readFile(filePath, "utf8");
     const fileStat = await stat(filePath);
     const decisionId = path.basename(fileName, ".md");
 
@@ -202,7 +207,6 @@ export const loadDecisions = async (input: {
       initiativeId: null,
       type: "decision",
       title: decisionId,
-      content,
       sourcePath: filePath,
       createdAt: fileStat.birthtime.toISOString(),
       updatedAt: fileStat.mtime.toISOString()

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { exportBundle, saveBundleZip } from "../../api.js";
+import { exportBundle, fetchBundleText, saveBundleZip } from "../../api.js";
 import type { AgentTarget, VerificationResult } from "../../types.js";
 import { useToast } from "../context/toast.js";
 import { isDesktopRuntime } from "../../api/transport.js";
@@ -7,8 +7,9 @@ import { isDesktopRuntime } from "../../api/transport.js";
 interface ExportResult {
   runId: string;
   attemptId: string;
-  flatString: string;
   bundlePath: string;
+  bundleText: string | null;
+  bundleTextPrefix: string | null;
 }
 
 export const useExportWorkflow = (
@@ -18,59 +19,90 @@ export const useExportWorkflow = (
   const { showError, showSuccess } = useToast();
   const [agentTarget, setAgentTarget] = useState<AgentTarget>("codex-cli");
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [fixForwardReady, setFixForwardReady] = useState(false);
-  const downloadUrlRef = useRef<string | null>(null);
+  const [bundlePreviewOpen, setBundlePreviewOpen] = useState(false);
+  const [bundleTextLoading, setBundleTextLoading] = useState(false);
   const copyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyBundlePrefix = (content: string, prefix: string | null): string =>
+    prefix ? `${prefix}\n\n${content}` : content;
 
   useEffect(() => {
     setExportResult(null);
     setCopyFeedback(false);
     setFixForwardReady(false);
-
-    if (copyFeedbackTimerRef.current) {
-      clearTimeout(copyFeedbackTimerRef.current);
-      copyFeedbackTimerRef.current = null;
-    }
-
-    if (downloadUrlRef.current) {
-      URL.revokeObjectURL(downloadUrlRef.current);
-      downloadUrlRef.current = null;
-      setDownloadUrl(null);
-    }
+    setBundlePreviewOpen(false);
+    setBundleTextLoading(false);
 
     return () => {
       if (copyFeedbackTimerRef.current) {
         clearTimeout(copyFeedbackTimerRef.current);
         copyFeedbackTimerRef.current = null;
       }
-
-      if (downloadUrlRef.current) {
-        URL.revokeObjectURL(downloadUrlRef.current);
-        downloadUrlRef.current = null;
-      }
     };
   }, [ticketId]);
+
+  const ensureBundleText = async (
+    current = exportResult
+  ): Promise<{ content: string; rawContent: string } | null> => {
+    if (!current) {
+      return null;
+    }
+
+    if (current.bundleText !== null) {
+      return {
+        rawContent: current.bundleText,
+        content: applyBundlePrefix(current.bundleText, current.bundleTextPrefix)
+      };
+    }
+
+    setBundleTextLoading(true);
+    try {
+      const rawContent = await fetchBundleText(current.runId, current.attemptId);
+      setExportResult((previous) => {
+        if (!previous || previous.runId !== current.runId || previous.attemptId !== current.attemptId) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          bundleText: rawContent
+        };
+      });
+
+      return {
+        rawContent,
+        content: applyBundlePrefix(rawContent, current.bundleTextPrefix)
+      };
+    } finally {
+      setBundleTextLoading(false);
+    }
+  };
+
+  const downloadFlatBundle = (content: string, ticketSlug: string): void => {
+    const objectUrl = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = `${ticketSlug}-bundle-flat.md`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+  };
 
   const handleExport = async () => {
     if (!ticketId) return;
     try {
       const exported = await exportBundle(ticketId, agentTarget);
-      if (downloadUrlRef.current) {
-        URL.revokeObjectURL(downloadUrlRef.current);
-      }
-
-      const blob = new Blob([exported.flatString], { type: "text/plain" });
-      const nextUrl = URL.createObjectURL(blob);
-      downloadUrlRef.current = nextUrl;
-      setDownloadUrl(nextUrl);
       setExportResult({
         runId: exported.runId,
         attemptId: exported.attemptId,
-        flatString: exported.flatString,
-        bundlePath: exported.bundlePath
+        bundlePath: exported.bundlePath,
+        bundleText: null,
+        bundleTextPrefix: null
       });
+      setBundlePreviewOpen(false);
       showSuccess("Bundle exported");
       await onRefresh();
     } catch (err) {
@@ -90,22 +122,15 @@ export const useExportWorkflow = (
           return `- [${criterion.severity ?? ""}] ${criterion.criterionId}: ${criterion.evidence}${hint}`;
         });
 
-      const enrichedFlat =
-        failureLines.length > 0
-          ? `# Verification Failure Context\n${failureLines.join("\n")}\n\n${exported.flatString}`
-          : exported.flatString;
-      if (downloadUrlRef.current) {
-        URL.revokeObjectURL(downloadUrlRef.current);
-      }
-      const nextUrl = URL.createObjectURL(new Blob([enrichedFlat], { type: "text/plain" }));
-      downloadUrlRef.current = nextUrl;
-      setDownloadUrl(nextUrl);
       setExportResult({
         runId: exported.runId,
         attemptId: exported.attemptId,
-        flatString: enrichedFlat,
-        bundlePath: exported.bundlePath
+        bundlePath: exported.bundlePath,
+        bundleText: null,
+        bundleTextPrefix:
+          failureLines.length > 0 ? `# Verification Failure Context\n${failureLines.join("\n")}` : null
       });
+      setBundlePreviewOpen(false);
       setFixForwardReady(true);
       showSuccess("Fix-forward bundle exported");
       await onRefresh();
@@ -114,9 +139,10 @@ export const useExportWorkflow = (
     }
   };
 
-  const handleCopyBundle = () => {
-    if (!exportResult) return;
-    void navigator.clipboard.writeText(exportResult.flatString);
+  const handleCopyBundle = async () => {
+    const payload = await ensureBundleText();
+    if (!payload) return;
+    await navigator.clipboard.writeText(payload.content);
     setCopyFeedback(true);
     showSuccess("Bundle copied to clipboard");
 
@@ -128,6 +154,46 @@ export const useExportWorkflow = (
       copyFeedbackTimerRef.current = null;
       setCopyFeedback(false);
     }, 2000);
+  };
+
+  const handleToggleBundlePreview = async () => {
+    if (!exportResult) {
+      return;
+    }
+
+    if (bundlePreviewOpen) {
+      setBundlePreviewOpen(false);
+      return;
+    }
+
+    try {
+      const payload = await ensureBundleText(exportResult);
+      if (!payload) {
+        return;
+      }
+
+      setBundlePreviewOpen(true);
+    } catch (err) {
+      showError((err as Error).message ?? "Failed to load bundle");
+    }
+  };
+
+  const handleDownloadBundle = async () => {
+    if (!exportResult || !ticketId) {
+      return;
+    }
+
+    try {
+      const payload = await ensureBundleText(exportResult);
+      if (!payload) {
+        return;
+      }
+
+      downloadFlatBundle(payload.content, ticketId);
+      showSuccess("Flat bundle downloaded");
+    } catch (err) {
+      showError((err as Error).message ?? "Flat bundle download failed");
+    }
   };
 
   const handleSaveZipBundle = async () => {
@@ -153,13 +219,20 @@ export const useExportWorkflow = (
     agentTarget,
     setAgentTarget,
     exportResult,
-    downloadUrl,
+    bundlePreview:
+      exportResult && exportResult.bundleText !== null
+        ? applyBundlePrefix(exportResult.bundleText, exportResult.bundleTextPrefix)
+        : null,
+    bundlePreviewOpen,
+    bundleTextLoading,
     copyFeedback,
     fixForwardReady,
     setFixForwardReady,
     handleExport,
     handleReExportWithFindings,
     handleCopyBundle,
+    handleToggleBundlePreview,
+    handleDownloadBundle,
     handleSaveZipBundle,
     desktopRuntime: isDesktopRuntime()
   };

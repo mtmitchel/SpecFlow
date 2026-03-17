@@ -30,6 +30,8 @@ const loadRunAttempts = (run: Run, runtime: SpecFlowRuntime) =>
       return {
         attemptId: attempt.attemptId,
         overallPass: attempt.overallPass,
+        overrideReason: attempt.overrideReason,
+        overrideAccepted: attempt.overrideAccepted,
         createdAt: attempt.createdAt
       };
     })
@@ -128,8 +130,6 @@ export const getRunDetail = async (runtime: SpecFlowRuntime, runId: string) => {
   const bundleManifest = attemptRoot
     ? await readYamlFile<BundleManifest>(path.join(attemptRoot, "bundle-manifest.yaml"))
     : null;
-  const primaryDiff = attemptRoot ? await readTextIfExists(path.join(attemptRoot, "diff-primary.patch")) : null;
-  const driftDiff = attemptRoot ? await readTextIfExists(path.join(attemptRoot, "diff-drift.patch")) : null;
   const operationState = run.activeOperationId
     ? (await runtime.store.getOperationStatus(run.activeOperationId))?.state ?? null
     : null;
@@ -140,14 +140,91 @@ export const getRunDetail = async (runtime: SpecFlowRuntime, runId: string) => {
     attempts,
     operationState,
     committed: run.committedAttemptId
-      ? {
-          attemptId: run.committedAttemptId,
+        ? {
+            attemptId: run.committedAttemptId,
           attempt: committedAttempt ?? null,
-          bundleManifest,
-          primaryDiff,
-          driftDiff
+          bundleManifest
         }
       : null
+  };
+};
+
+export const getRunAttemptDetail = async (
+  runtime: SpecFlowRuntime,
+  runId: string,
+  attemptId: string
+) => {
+  requireValidEntityId(runId, "run ID");
+  requireValidEntityId(attemptId, "attempt ID");
+
+  const run = runtime.store.runs.get(runId);
+  if (!run) {
+    throw notFound(`Run ${runId} not found`);
+  }
+
+  if (!run.attempts.includes(attemptId)) {
+    throw notFound(`Attempt ${attemptId} not found for run ${runId}`);
+  }
+
+  const attempt = await runtime.store.readRunAttempt(runId, attemptId);
+  if (!attempt) {
+    throw notFound(`Attempt ${attemptId} not found for run ${runId}`);
+  }
+
+  return {
+    attempt: {
+      id: `${runId}:${attemptId}`,
+      ...attempt
+    }
+  };
+};
+
+export const getRunDiff = async (
+  runtime: SpecFlowRuntime,
+  runId: string,
+  attemptId: string,
+  kind: "primary" | "drift"
+) => {
+  requireValidEntityId(runId, "run ID");
+  requireValidEntityId(attemptId, "attempt ID");
+
+  const artifactFile = kind === "primary" ? "diff-primary.patch" : "diff-drift.patch";
+  const diffPath = path.join(runtime.rootDir, "specflow", "runs", runId, "attempts", attemptId, artifactFile);
+  if (!isContainedPath(path.join(runtime.rootDir, "specflow", "runs"), diffPath)) {
+    throw badRequest("Path traversal detected");
+  }
+
+  const diff = await readTextIfExists(diffPath);
+  if (diff === null) {
+    throw notFound(`${kind} diff not found for run ${runId} attempt ${attemptId}`);
+  }
+
+  return {
+    kind,
+    diff
+  };
+};
+
+export const getBundleText = async (
+  runtime: SpecFlowRuntime,
+  runId: string,
+  attemptId: string
+) => {
+  requireValidEntityId(runId, "run ID");
+  requireValidEntityId(attemptId, "attempt ID");
+
+  const promptPath = path.join(runtime.rootDir, "specflow", "runs", runId, "attempts", attemptId, "bundle", "PROMPT.md");
+  if (!isContainedPath(path.join(runtime.rootDir, "specflow", "runs"), promptPath)) {
+    throw badRequest("Path traversal detected");
+  }
+
+  const content = await readTextIfExists(promptPath);
+  if (content === null) {
+    throw notFound(`Bundle text not found for run ${runId} attempt ${attemptId}`);
+  }
+
+  return {
+    content
   };
 };
 
@@ -204,8 +281,26 @@ export const getRunState = async (runtime: SpecFlowRuntime, runId: string) => {
 
   return {
     run,
-    attempts: run.attempts
-      .map((attemptId) => runtime.store.runAttempts.get(`${runId}:${attemptId}`))
-      .filter((attempt): attempt is NonNullable<typeof attempt> => Boolean(attempt))
+    attempts: (
+      await Promise.all(
+        run.attempts.map(async (attemptId) => runtime.store.readRunAttempt(runId, attemptId))
+      )
+    ).filter((attempt): attempt is NonNullable<typeof attempt> => Boolean(attempt))
+  };
+};
+
+export const getRunProgress = async (runtime: SpecFlowRuntime, runId: string) => {
+  requireValidEntityId(runId, "run ID");
+  const run = runtime.store.runs.get(runId);
+  if (!run) {
+    throw notFound(`Run ${runId} not found`);
+  }
+
+  return {
+    run,
+    operationState: run.activeOperationId
+      ? (await runtime.store.getOperationStatus(run.activeOperationId))?.state ?? null
+      : null,
+    attempts: loadRunAttempts(run, runtime)
   };
 };

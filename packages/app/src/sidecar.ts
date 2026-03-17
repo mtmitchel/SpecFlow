@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import process from "node:process";
 import readline from "node:readline";
+import { RequestCancelledError } from "./cancellation.js";
 import { createSpecFlowRuntime } from "./runtime/create-runtime.js";
 import type { SidecarFailure, SidecarRequest } from "./runtime/sidecar-contract.js";
 import { dispatchSidecarRequest, isMutatingSidecarMethod } from "./sidecar/dispatcher.js";
+
+const REQUEST_TTL_MS = 5 * 60_000;
 
 const writeMessage = (message: unknown): void => {
   process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -41,6 +44,7 @@ const main = async (): Promise<void> => {
 
   let mutationQueue = Promise.resolve();
   const pending = new Set<Promise<void>>();
+  const inflight = new Map<string, AbortController>();
 
   const shutdown = async (signal: string): Promise<void> => {
     rl.close();
@@ -68,8 +72,31 @@ const main = async (): Promise<void> => {
       return;
     }
 
+    if (request.method === "runtime.cancel") {
+      const requestId = typeof request.params === "object" && request.params !== null
+        ? String((request.params as { requestId?: string }).requestId ?? "")
+        : "";
+      const controller = inflight.get(requestId);
+      if (controller) {
+        controller.abort(new RequestCancelledError());
+      }
+
+      writeMessage({
+        id: request.id,
+        ok: true,
+        result: { cancelled: Boolean(controller) }
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    inflight.set(request.id, controller);
+    const requestTimeout = setTimeout(() => {
+      controller.abort(new RequestCancelledError("Request timed out"));
+    }, REQUEST_TTL_MS);
+
     const runDispatch = async (): Promise<void> => {
-      await dispatchSidecarRequest(runtime, request, writeMessage);
+      await dispatchSidecarRequest(runtime, request, writeMessage, controller.signal);
     };
 
     const task = isMutatingSidecarMethod(request.method)
@@ -78,6 +105,8 @@ const main = async (): Promise<void> => {
 
     pending.add(task);
     void task.finally(() => {
+      clearTimeout(requestTimeout);
+      inflight.delete(request.id);
       pending.delete(task);
     });
   });

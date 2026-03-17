@@ -1,11 +1,12 @@
 import path from "node:path";
-import type { SpecDocument } from "../../types/entities.js";
+import type { SpecDocument, SpecDocumentSummary } from "../../types/entities.js";
 import type { BundleContextFile } from "../types.js";
 
-export const collectContextFiles = (input: {
+export const collectContextFiles = async (input: {
   initiativeId: string | null;
-  specs: Iterable<SpecDocument>;
-}): BundleContextFile[] => {
+  specs: Iterable<SpecDocumentSummary>;
+  readSpec: (specId: string) => Promise<SpecDocument | null>;
+}): Promise<BundleContextFile[]> => {
   const files: BundleContextFile[] = [];
 
   if (!input.initiativeId) {
@@ -16,7 +17,12 @@ export const collectContextFiles = (input: {
     (spec) => spec.initiativeId === input.initiativeId && spec.type !== "decision"
   );
 
-  for (const spec of specs) {
+  for (const specSummary of specs) {
+    const spec = await input.readSpec(specSummary.id);
+    if (!spec) {
+      continue;
+    }
+
     const fileName = path.basename(spec.sourcePath);
     files.push({
       relativePath: `specs/${fileName}`,

@@ -1,13 +1,26 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import type { Initiative, PlanningReviewArtifact, Run, RunDetail, Ticket, TicketCoverageArtifact } from "../../types.js";
+import type {
+  Initiative,
+  PlanningReviewArtifact,
+  Run,
+  RunAttemptDetail,
+  RunDetail,
+  Ticket,
+  TicketCoverageArtifact
+} from "../../types.js";
 import { RunView } from "./run-view.js";
 
 const fetchRunDetailMock = vi.fn();
+const fetchRunAttemptDetailMock = vi.fn();
+const fetchRunProgressMock = vi.fn();
 
 vi.mock("../../api.js", () => ({
   fetchRunDetail: (...args: unknown[]) => fetchRunDetailMock(...args),
+  fetchRunAttemptDetail: (...args: unknown[]) => fetchRunAttemptDetailMock(...args),
+  fetchRunProgress: (...args: unknown[]) => fetchRunProgressMock(...args),
+  fetchRunDiff: vi.fn(),
 }));
 
 vi.mock("../components/diff-viewer.js", () => ({
@@ -86,22 +99,8 @@ const detail: RunDetail = {
     {
       id: "attempt-record-1",
       attemptId: "attempt-1",
-      agentSummary: "Implemented the execution gate and updated tests.",
-      diffSource: "git",
-      initialScopePaths: ["packages/app/src/server/routes/ticket-routes.ts"],
-      widenedScopePaths: [],
-      primaryDiffPath: "primary.diff",
-      driftDiffPath: null,
       overrideReason: null,
       overrideAccepted: false,
-      criteriaResults: [
-        {
-          criterionId: "criterion-1",
-          pass: true,
-          evidence: "The route now blocks execution while coverage is unresolved.",
-        },
-      ],
-      driftFlags: [],
       overallPass: true,
       createdAt: "2026-03-16T10:35:00.000Z",
     },
@@ -111,22 +110,8 @@ const detail: RunDetail = {
     attempt: {
       id: "attempt-record-1",
       attemptId: "attempt-1",
-      agentSummary: "Implemented the execution gate and updated tests.",
-      diffSource: "git",
-      initialScopePaths: ["packages/app/src/server/routes/ticket-routes.ts"],
-      widenedScopePaths: [],
-      primaryDiffPath: "primary.diff",
-      driftDiffPath: null,
       overrideReason: null,
       overrideAccepted: false,
-      criteriaResults: [
-        {
-          criterionId: "criterion-1",
-          pass: true,
-          evidence: "The route now blocks execution while coverage is unresolved.",
-        },
-      ],
-      driftFlags: [],
       overallPass: true,
       createdAt: "2026-03-16T10:35:00.000Z",
     },
@@ -134,14 +119,36 @@ const detail: RunDetail = {
       requiredFiles: ["packages/app/src/server/routes/ticket-routes.ts"],
       contextFiles: ["packages/app/test/server/ticket-routes.test.ts"],
     },
-    primaryDiff: "diff --git a/file b/file",
-    driftDiff: null,
   },
+};
+
+const committedAttempt: RunAttemptDetail = {
+  id: "attempt-record-1",
+  attemptId: "attempt-1",
+  agentSummary: "Implemented the execution gate and updated tests.",
+  diffSource: "git",
+  initialScopePaths: ["packages/app/src/server/routes/ticket-routes.ts"],
+  widenedScopePaths: [],
+  primaryDiffPath: "primary.diff",
+  driftDiffPath: null,
+  overrideReason: null,
+  overrideAccepted: false,
+  criteriaResults: [
+    {
+      criterionId: "criterion-1",
+      pass: true,
+      evidence: "The route now blocks execution while coverage is unresolved.",
+    },
+  ],
+  driftFlags: [],
+  overallPass: true,
+  createdAt: "2026-03-16T10:35:00.000Z",
 };
 
 describe("RunView", () => {
   it("renders the execution report shell with report facts and included files", async () => {
     fetchRunDetailMock.mockResolvedValueOnce(detail);
+    fetchRunAttemptDetailMock.mockResolvedValueOnce(committedAttempt);
 
     render(
       <MemoryRouter initialEntries={[`/run/${run.id}`]}>

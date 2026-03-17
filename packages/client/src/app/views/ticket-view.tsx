@@ -331,15 +331,18 @@ export const TicketView = ({
               state={exportStageState}
             >
               <ExportSection
-                ticket={ticket}
                 workflowPhase={workflowPhase}
                 agentTarget={exportWf.agentTarget}
                 setAgentTarget={exportWf.setAgentTarget}
                 exportResult={exportWf.exportResult}
-                downloadUrl={exportWf.downloadUrl}
+                bundlePreview={exportWf.bundlePreview}
+                bundlePreviewOpen={exportWf.bundlePreviewOpen}
+                bundleTextLoading={exportWf.bundleTextLoading}
                 copyFeedback={exportWf.copyFeedback}
                 handleExport={exportWf.handleExport}
                 handleCopyBundle={exportWf.handleCopyBundle}
+                handleToggleBundlePreview={exportWf.handleToggleBundlePreview}
+                handleDownloadBundle={exportWf.handleDownloadBundle}
                 handleSaveZipBundle={exportWf.handleSaveZipBundle}
                 desktopRuntime={exportWf.desktopRuntime}
                 chrome="plain"

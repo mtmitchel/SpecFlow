@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   checkInitiativePhase,
+  fetchSpecDetail,
   generateInitiativeBrief,
   generateInitiativeCoreFlows,
   generateInitiativePlan,
@@ -23,7 +24,6 @@ import type {
 } from "../../../types.js";
 import { useToast } from "../../context/toast.js";
 import { getInitiativeDisplayTitle } from "../../utils/initiative-titles.js";
-import { getSpecMarkdown } from "../../utils/specs.js";
 import {
   canOpenInitiativeStep,
   getInitiativeBlockedStep,
@@ -80,6 +80,56 @@ export const useInitiativePlanningWorkspace = (
   const [reviewOverrideKind, setReviewOverrideKind] = useState<PlanningReviewKind | null>(null);
   const [reviewOverrideReason, setReviewOverrideReason] = useState("");
   const [drawerState, setDrawerState] = useState<PlanningDrawerState>(null);
+  const [loadedSpecs, setLoadedSpecs] = useState<Record<SpecStep, string>>(EMPTY_DRAFTS);
+
+  const specLoadSignature = useMemo(() => {
+    if (!initiative) {
+      return "";
+    }
+
+    return snapshot.specs
+      .filter((spec) => spec.initiativeId === initiative.id)
+      .map((spec) => `${spec.id}:${spec.updatedAt}`)
+      .sort()
+      .join("|");
+  }, [initiative, snapshot.specs]);
+
+  useEffect(() => {
+    if (!initiative) {
+      setLoadedSpecs(EMPTY_DRAFTS);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const summaries = snapshot.specs.filter((spec) => spec.initiativeId === initiative.id);
+    const nextSpecs: Record<SpecStep, string> = { ...EMPTY_DRAFTS };
+
+    void Promise.all(summaries.map(async (summary) => fetchSpecDetail(summary.id, { signal: controller.signal })))
+      .then((specs) => {
+        if (cancelled) {
+          return;
+        }
+
+        for (const spec of specs) {
+          if (spec.type === "brief" || spec.type === "core-flows" || spec.type === "prd" || spec.type === "tech-spec") {
+            nextSpecs[spec.type] = spec.content;
+          }
+        }
+
+        setLoadedSpecs(nextSpecs);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoadedSpecs(EMPTY_DRAFTS);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [initiative, specLoadSignature, snapshot.specs]);
 
   const savedDrafts = useMemo<Record<SpecStep, string>>(() => {
     if (!initiative) {
@@ -87,12 +137,12 @@ export const useInitiativePlanningWorkspace = (
     }
 
     return {
-      brief: getSpecMarkdown(snapshot.specs, initiative.id, "brief"),
-      "core-flows": getSpecMarkdown(snapshot.specs, initiative.id, "core-flows"),
-      prd: getSpecMarkdown(snapshot.specs, initiative.id, "prd"),
-      "tech-spec": getSpecMarkdown(snapshot.specs, initiative.id, "tech-spec")
+      brief: loadedSpecs.brief,
+      "core-flows": loadedSpecs["core-flows"],
+      prd: loadedSpecs.prd,
+      "tech-spec": loadedSpecs["tech-spec"]
     };
-  }, [initiative, snapshot.specs]);
+  }, [initiative, loadedSpecs]);
 
   useEffect(() => {
     if (!initiative) {

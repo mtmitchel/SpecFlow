@@ -224,9 +224,17 @@ describe("ArtifactStore", () => {
     expect(reloaded.artifactTraces.get(trace.id)).toEqual(trace);
     expect(reloaded.tickets.get(ticket.id)).toEqual(ticket);
     expect(reloaded.runs.get(run.id)).toEqual(run);
-    expect(reloaded.runAttempts.get("run-1:attempt-1")).toEqual(attempt);
+    expect(reloaded.runAttempts.get("run-1:attempt-1")).toEqual({
+      attemptId: attempt.attemptId,
+      overallPass: attempt.overallPass,
+      overrideReason: attempt.overrideReason,
+      overrideAccepted: attempt.overrideAccepted,
+      createdAt: attempt.createdAt
+    });
 
-    const decision = Array.from(reloaded.specs.values()).find((spec) => spec.type === "decision");
+    const decisionSummary = Array.from(reloaded.specs.values()).find((spec) => spec.type === "decision");
+    expect(decisionSummary?.title).toContain("adr-1");
+    const decision = await reloaded.readSpec("decision:adr-1");
     expect(decision?.content).toContain("Use Fastify");
 
     await reloaded.close();

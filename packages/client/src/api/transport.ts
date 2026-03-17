@@ -8,6 +8,10 @@ export interface TransportEvent {
   requestId?: string;
 }
 
+export interface TransportRequestOptions {
+  signal?: AbortSignal;
+}
+
 let requestCounter = 0;
 
 const nextRequestId = (): string => {
@@ -20,8 +24,13 @@ export const isDesktopRuntime = (): boolean => isTauri();
 export const invokeDesktop = async <T>(
   method: string,
   params?: unknown,
-  onEvent?: (event: TransportEvent) => void
+  onEvent?: (event: TransportEvent) => void,
+  options?: TransportRequestOptions
 ): Promise<T> => {
+  if (options?.signal?.aborted) {
+    throw new Error("Request cancelled");
+  }
+
   const request = {
     id: nextRequestId(),
     method,
@@ -33,27 +42,46 @@ export const invokeDesktop = async <T>(
     onEvent?.(message);
   };
 
+  let removeAbortListener = (): void => {};
+  const invokePromise = invoke<T>("sidecar_request", {
+    request,
+    onEvent: channel
+  });
+  const abortPromise = options?.signal
+    ? new Promise<never>((_, reject) => {
+        const onAbort = () => {
+          void invoke("sidecar_cancel", { requestId: request.id }).catch(() => undefined);
+          reject(new Error("Request cancelled"));
+        };
+
+        options.signal?.addEventListener("abort", onAbort, { once: true });
+        removeAbortListener = () => {
+          options.signal?.removeEventListener("abort", onAbort);
+        };
+      })
+    : null;
+
   try {
-    return await invoke<T>("sidecar_request", {
-      request,
-      onEvent: channel
-    });
+    return await (abortPromise ? Promise.race([invokePromise, abortPromise]) : invokePromise);
   } catch (error) {
     throw normalizeDesktopError(error);
+  } finally {
+    removeAbortListener();
   }
 };
 
 export const transportRequest = async <T>(
   method: string,
   params: unknown,
-  webFallback: () => Promise<T>,
-  onEvent?: (event: TransportEvent) => void
+  webFallback: (signal?: AbortSignal) => Promise<T>,
+  onEvent?: (event: TransportEvent) => void,
+  options?: TransportRequestOptions
 ): Promise<T> => {
   if (!isDesktopRuntime()) {
-    return webFallback();
+    return webFallback(options?.signal);
   }
 
-  return invokeDesktop<T>(method, params, onEvent);
+  return invokeDesktop<T>(method, params, onEvent, options);
 };
 
 export const subscribeArtifactsChanged = async (

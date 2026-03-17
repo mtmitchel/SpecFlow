@@ -6,8 +6,8 @@ import type {
   Initiative,
   PlanningReviewArtifact,
   Run,
-  RunAttempt,
-  SpecDocument,
+  RunAttemptSummary,
+  SpecDocumentSummary,
   Ticket,
   TicketCoverageArtifact
 } from "../../types/entities.js";
@@ -18,8 +18,8 @@ export interface StoreReloadSnapshot {
   initiatives: Map<string, Initiative>;
   tickets: Map<string, Ticket>;
   runs: Map<string, Run>;
-  runAttempts: Map<string, RunAttempt>;
-  specs: Map<string, SpecDocument>;
+  runAttempts: Map<string, RunAttemptSummary>;
+  specs: Map<string, SpecDocumentSummary>;
   planningReviews: Map<string, PlanningReviewArtifact>;
   ticketCoverageArtifacts: Map<string, TicketCoverageArtifact>;
   artifactTraces: Map<string, ArtifactTraceOutline>;
@@ -44,8 +44,8 @@ export const loadStoreSnapshot = async (input: {
   const initiatives = new Map<string, Initiative>();
   const tickets = new Map<string, Ticket>();
   const runs = new Map<string, Run>();
-  const runAttempts = new Map<string, RunAttempt>();
-  const specs = new Map<string, SpecDocument>();
+  const runAttempts = new Map<string, RunAttemptSummary>();
+  const specs = new Map<string, SpecDocumentSummary>();
   const planningReviews = new Map<string, PlanningReviewArtifact>();
   const ticketCoverageArtifacts = new Map<string, TicketCoverageArtifact>();
   const artifactTraces = new Map<string, ArtifactTraceOutline>();
@@ -81,10 +81,10 @@ export const loadStoreSnapshot = async (input: {
     initiatives.set(
       initiativeId,
       input.normalizeInitiative(initiative, {
-        hasBrief: relatedSpecs.some((spec) => spec.type === "brief" && spec.content.trim().length > 0),
-        hasCoreFlows: relatedSpecs.some((spec) => spec.type === "core-flows" && spec.content.trim().length > 0),
-        hasPrd: relatedSpecs.some((spec) => spec.type === "prd" && spec.content.trim().length > 0),
-        hasTechSpec: relatedSpecs.some((spec) => spec.type === "tech-spec" && spec.content.trim().length > 0),
+        hasBrief: relatedSpecs.some((spec) => spec.type === "brief"),
+        hasCoreFlows: relatedSpecs.some((spec) => spec.type === "core-flows"),
+        hasPrd: relatedSpecs.some((spec) => spec.type === "prd"),
+        hasTechSpec: relatedSpecs.some((spec) => spec.type === "tech-spec"),
         hasTickets: relatedTickets.length > 0 || initiative.ticketIds.length > 0 || initiative.phases.length > 0
       })
     );

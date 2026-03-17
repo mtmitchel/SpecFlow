@@ -17,7 +17,7 @@ For setup and quick-start instructions, see the root [`README.md`](../README.md)
 For coding conventions, testing guidelines, and commit rules, see [`AGENTS.md`](../AGENTS.md).
 For the version history, see [`CHANGELOG.md`](../CHANGELOG.md).
 
-Agent-facing rule: duplicated or near-duplicated UI meaning is treated as a defect. The repo-level `npm run lint` command runs the shared ESLint baseline, and `npm run check` includes that lint pass plus the hard UI dedupe gate. The configured git hooks intentionally stop short of `npm run build`, so production packaging stays out of the normal commit/push loop.
+Agent-facing rule: duplicated or near-duplicated UI meaning is treated as a defect. The repo-level `npm run lint` command runs the shared ESLint baseline, and `npm run check` includes that lint pass plus the hard UI dedupe gate. The configured git hooks intentionally stop short of desktop packaging, so packaging stays out of the normal commit/push loop and out of the active development loop.
 
 ## Current Repository State
 

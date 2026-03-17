@@ -140,7 +140,7 @@ export interface VerificationResult {
   }>;
 }
 
-export interface RunDetailAttempt {
+export interface RunAttemptDetail {
   id: string;
   attemptId: string;
   agentSummary: string;
@@ -168,22 +168,34 @@ export interface RunDetailAttempt {
   createdAt: string;
 }
 
+export interface RunDetailAttemptSummary {
+  id: string;
+  attemptId: string;
+  overallPass: boolean;
+  overrideReason: string | null;
+  overrideAccepted: boolean;
+  createdAt: string;
+}
+
 export interface RunDetail {
   run: Run;
   ticket: Ticket | null;
-  attempts: RunDetailAttempt[];
+  attempts: RunDetailAttemptSummary[];
   operationState: "prepared" | "committed" | "abandoned" | "superseded" | "failed" | null;
   committed: {
     attemptId: string;
-    attempt: RunDetailAttempt | null;
+    attempt: RunDetailAttemptSummary | null;
     bundleManifest: {
       contextFiles: string[];
       requiredFiles: string[];
       [key: string]: unknown;
     } | null;
-    primaryDiff: string | null;
-    driftDiff: string | null;
   } | null;
+}
+
+export interface RunDiffPayload {
+  kind: "primary" | "drift";
+  diff: string;
 }
 
 export type AuditCategory = "drift" | "acceptance" | "convention" | "bug" | "performance" | "security" | "clarity";
@@ -216,6 +228,16 @@ export interface SpecDocument {
   type: InitiativeArtifactStep | "decision";
   title: string;
   content: string;
+  sourcePath: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SpecDocumentSummary {
+  id: string;
+  initiativeId: string | null;
+  type: InitiativeArtifactStep | "decision";
+  title: string;
   sourcePath: string;
   createdAt: string;
   updatedAt: string;
@@ -310,7 +332,7 @@ export interface ArtifactsSnapshot {
   tickets: Ticket[];
   runs: Run[];
   runAttempts: RunAttempt[];
-  specs: SpecDocument[];
+  specs: SpecDocumentSummary[];
   planningReviews: PlanningReviewArtifact[];
   ticketCoverageArtifacts: TicketCoverageArtifact[];
 }

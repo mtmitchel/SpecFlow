@@ -12,6 +12,8 @@ use tauri_plugin_shell::ShellExt;
 use tokio::sync::{oneshot, Mutex};
 use tokio::time::sleep;
 
+const PENDING_REQUEST_TTL: Duration = Duration::from_secs(300);
+
 #[derive(Debug, Serialize, Deserialize)]
 struct SidecarRequest {
     id: String,
@@ -98,6 +100,25 @@ async fn sidecar_request(
         );
     }
 
+    let runtime_for_timeout = state.runtime.clone();
+    let request_id_for_timeout = request.id.clone();
+    tauri::async_runtime::spawn(async move {
+        sleep(PENDING_REQUEST_TTL).await;
+        let pending = {
+            let mut pending = runtime_for_timeout.pending.lock().await;
+            pending.remove(&request_id_for_timeout)
+        };
+
+        if let Some(pending) = pending {
+            let _ = pending.tx.send(Err(SidecarCommandError {
+                code: "Request Timeout".into(),
+                message: "The SpecFlow sidecar request exceeded the pending timeout".into(),
+                status_code: 504,
+                details: None,
+            }));
+        }
+    });
+
     {
         let mut child = state.runtime.child.lock().await;
         if let Err(error) = child.write(&line) {
@@ -119,6 +140,39 @@ async fn sidecar_request(
             })
         }
     }
+}
+
+#[tauri::command]
+async fn sidecar_cancel(
+    state: State<'_, SidecarState>,
+    request_id: String,
+) -> Result<(), SidecarCommandError> {
+    let pending = {
+        let mut pending = state.runtime.pending.lock().await;
+        pending.remove(&request_id)
+    };
+
+    if let Some(pending) = pending {
+        let _ = pending.tx.send(Err(SidecarCommandError {
+            code: "Request Cancelled".into(),
+            message: "Request cancelled".into(),
+            status_code: 499,
+            details: None,
+        }));
+    }
+
+    let cancel_request = SidecarRequest {
+        id: format!("cancel-{request_id}"),
+        method: "runtime.cancel".into(),
+        params: Some(serde_json::json!({ "requestId": request_id })),
+    };
+    let payload = serde_json::to_vec(&cancel_request).map_err(to_command_error)?;
+    let mut line = payload;
+    line.push(b'\n');
+
+    let mut child = state.runtime.child.lock().await;
+    child.write(&line).map_err(to_command_error)?;
+    Ok(())
 }
 
 fn to_command_error(error: impl ToString) -> SidecarCommandError {
@@ -322,7 +376,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![sidecar_request])
+        .invoke_handler(tauri::generate_handler![sidecar_request, sidecar_cancel])
         .run(tauri::generate_context!())
         .expect("error while running SpecFlow desktop");
 }

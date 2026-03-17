@@ -4,7 +4,7 @@ import type {
   Initiative,
   InitiativeArtifactStep,
   InitiativePlanningStep,
-  SpecDocument,
+  SpecDocumentSummary,
   TicketCoverageArtifact,
   TicketCoverageItem
 } from "../../types/entities.js";
@@ -58,11 +58,12 @@ export const buildTicketCoverageInput = async (input: {
 export const ensureArtifactTrace = async (input: {
   initiative: Initiative;
   step: InitiativeArtifactStep;
-  specs: ReadonlyMap<string, SpecDocument>;
+  specs: ReadonlyMap<string, SpecDocumentSummary>;
   artifactTraces: ReadonlyMap<string, ArtifactTraceOutline>;
   nowIso: string;
   validatePhaseMarkdownResult: (result: PhaseMarkdownResult) => void;
-  buildSpecGenerationInput: (initiative: Initiative, step: RefinementStep) => SpecGenInput;
+  readSpecMarkdown: (specId: string) => Promise<string>;
+  buildSpecGenerationInput: (initiative: Initiative, step: RefinementStep) => Promise<SpecGenInput>;
   executePlannerJob: <T>(
     job: PlannerJob,
     payload: SpecGenInput & { artifact: RefinementStep },
@@ -71,7 +72,8 @@ export const ensureArtifactTrace = async (input: {
   upsertArtifactTrace: (trace: ArtifactTraceOutline) => Promise<void>;
 }): Promise<ArtifactTraceOutline> => {
   const spec = input.specs.get(`${input.initiative.id}:${input.step}`);
-  if (!spec || !spec.content.trim()) {
+  const currentMarkdown = spec ? await input.readSpecMarkdown(spec.id) : "";
+  if (!spec || !currentMarkdown.trim()) {
     throw new Error(`Artifact ${input.step} is missing for initiative ${input.initiative.id}`);
   }
 
@@ -83,24 +85,24 @@ export const ensureArtifactTrace = async (input: {
   const result = await input.executePlannerJob<PhaseMarkdownResult>(
     "trace-outline",
     {
-      ...input.buildSpecGenerationInput(input.initiative, input.step),
+      ...(await input.buildSpecGenerationInput(input.initiative, input.step)),
       artifact: input.step,
       briefMarkdown:
         input.step === "brief"
-          ? spec.content
-          : input.specs.get(`${input.initiative.id}:brief`)?.content ?? "",
+          ? currentMarkdown
+          : await input.readSpecMarkdown(`${input.initiative.id}:brief`),
       coreFlowsMarkdown:
         input.step === "core-flows"
-          ? spec.content
-          : input.specs.get(`${input.initiative.id}:core-flows`)?.content ?? "",
+          ? currentMarkdown
+          : await input.readSpecMarkdown(`${input.initiative.id}:core-flows`),
       prdMarkdown:
         input.step === "prd"
-          ? spec.content
-          : input.specs.get(`${input.initiative.id}:prd`)?.content ?? "",
+          ? currentMarkdown
+          : await input.readSpecMarkdown(`${input.initiative.id}:prd`),
       techSpecMarkdown:
         input.step === "tech-spec"
-          ? spec.content
-          : input.specs.get(`${input.initiative.id}:tech-spec`)?.content ?? ""
+          ? currentMarkdown
+          : await input.readSpecMarkdown(`${input.initiative.id}:tech-spec`)
     },
     undefined
   );
@@ -129,7 +131,7 @@ export const persistPhaseMarkdown = async (input: {
     initiative: Initiative,
     docs: { brief?: string; coreFlows?: string; prd?: string; techSpec?: string }
   ) => Promise<void>;
-  specs: ReadonlyMap<string, SpecDocument>;
+  specs: ReadonlyMap<string, SpecDocumentSummary>;
   upsertArtifactTrace: (trace: ArtifactTraceOutline) => Promise<void>;
   markPlanningArtifactsStale: (initiativeId: string, step: InitiativeArtifactStep) => Promise<void>;
 }): Promise<void> => {

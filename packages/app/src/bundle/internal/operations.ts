@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { readYamlFile } from "../../io/yaml.js";
 import { ArtifactStore } from "../../store/artifact-store.js";
@@ -28,9 +27,7 @@ export const resolveExistingOperation = async (input: {
     existing.targetAttemptId
   );
 
-  const flatPath = path.join(attemptDir, "bundle-flat.md");
   const manifestPath = path.join(attemptDir, "bundle-manifest.yaml");
-  const flatString = await readFile(flatPath, "utf8");
   const manifest = await readYamlFile<BundleManifest>(manifestPath);
 
   if (!manifest) {
@@ -42,7 +39,6 @@ export const resolveExistingOperation = async (input: {
     attemptId: existing.targetAttemptId,
     operationId: input.operationId,
     bundlePath: path.join(attemptDir, "bundle"),
-    flatString,
     manifest
   };
 };

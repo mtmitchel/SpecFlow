@@ -12,7 +12,14 @@ describe("ticket routes", () => {
         payload: { agent: "generic", operationId: "op-deadbeef" }
       });
       expect(exportResponse.statusCode).toBe(201);
-      expect(exportResponse.json().flatString).toContain("SpecFlow Task Bundle");
+      expect(exportResponse.json().bundlePath).toContain("/bundle");
+
+      const bundleTextResponse = await fixture.server.app.inject({
+        method: "GET",
+        url: `/api/runs/${exportResponse.json().runId}/attempts/${exportResponse.json().attemptId}/bundle-text`
+      });
+      expect(bundleTextResponse.statusCode).toBe(200);
+      expect(bundleTextResponse.json().content).toContain("SpecFlow Task Bundle");
 
       const operationResponse = await fixture.server.app.inject({
         method: "GET",

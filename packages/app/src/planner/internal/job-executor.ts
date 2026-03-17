@@ -34,6 +34,7 @@ export const executePlannerJob = async <T>(input: {
   payload: ClarifyHelpInput | PhaseCheckInput | ReviewRunInput | SpecGenInput | PlanInput | TriageInput;
   agentsMd: string;
   onToken?: LlmTokenHandler;
+  signal?: AbortSignal;
 }): Promise<T> => {
   const prompts = buildPlannerPrompt(input.job, input.payload, input.agentsMd);
 
@@ -54,7 +55,8 @@ export const executePlannerJob = async <T>(input: {
           ? 180_000
           : 90_000
     },
-    input.onToken
+    input.onToken,
+    { signal: input.signal }
   );
 
   return parseJsonEnvelope<T>(responseText);

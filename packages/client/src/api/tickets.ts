@@ -56,7 +56,7 @@ export const exportBundle = async (
   ticketId: string,
   agent: AgentTarget,
   exportMode?: "standard" | "quick-fix"
-): Promise<{ runId: string; attemptId: string; bundlePath: string; flatString: string }> => {
+): Promise<{ runId: string; attemptId: string; bundlePath: string }> => {
   return transportRequest(
     "tickets.exportBundle",
     { id: ticketId, body: { agent, exportMode } },

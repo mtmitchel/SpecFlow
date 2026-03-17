@@ -10,6 +10,7 @@ import { mergeCriteria } from "./internal/criteria.js";
 import { getResolvedVerifierConfig } from "./internal/config.js";
 import { readAttemptArtifact, resolveExistingVerificationOperation } from "./internal/operations.js";
 import { runVerifierPrompt } from "./internal/prompt.js";
+import { throwIfAborted } from "../cancellation.js";
 
 export interface VerifierServiceOptions {
   rootDir: string;
@@ -48,8 +49,10 @@ export class VerifierService {
 
   public async captureAndVerify(
     input: CaptureResultsInput,
-    onToken?: LlmTokenHandler
+    onToken?: LlmTokenHandler,
+    signal?: AbortSignal
   ): Promise<{ runId: string; attempt: RunAttempt; overallPass: boolean }> {
+    throwIfAborted(signal);
     if (input.operationId) {
       const existing = await resolveExistingVerificationOperation({
         rootDir: this.rootDir,
@@ -86,6 +89,7 @@ export class VerifierService {
       scopePaths: input.scopePaths,
       widenedScopePaths: input.widenedScopePaths ?? []
     });
+    throwIfAborted(signal);
 
     const config = getResolvedVerifierConfig(this.store);
     const agentsMd = await readVerifierAgentsMd(this.rootDir, config.repoInstructionFile);
@@ -95,7 +99,8 @@ export class VerifierService {
       ticket,
       diffResult,
       agentsMd,
-      onToken
+      onToken,
+      signal
     });
     const criteriaResults = mergeCriteria(ticket, parsed.criteriaResults);
 
@@ -142,6 +147,7 @@ export class VerifierService {
     });
 
     await this.store.commitRunOperation({ runId: run.id, operationId });
+    throwIfAborted(signal);
 
     await this.store.upsertTicket({
       ...ticket,
@@ -161,7 +167,8 @@ export class VerifierService {
     reason: string;
     overrideAccepted: boolean;
     operationId?: string;
-  }): Promise<{ runId: string; attempt: RunAttempt }> {
+  }, signal?: AbortSignal): Promise<{ runId: string; attempt: RunAttempt }> {
+    throwIfAborted(signal);
     if (input.operationId) {
       const existing = await resolveExistingVerificationOperation({
         rootDir: this.rootDir,
@@ -194,13 +201,14 @@ export class VerifierService {
       throw new Error(`Run ${ticket.runId} has no committed attempt to override`);
     }
 
-    const previousAttempt = this.store.runAttempts.get(`${run.id}:${run.committedAttemptId}`);
+    const previousAttempt = await this.store.readRunAttempt(run.id, run.committedAttemptId);
     if (!previousAttempt) {
       throw new Error(`Attempt ${run.committedAttemptId} not found for run ${run.id}`);
     }
 
     const primaryDiff = await readAttemptArtifact(this.rootDir, run.id, run.committedAttemptId, "diff-primary.patch");
     const driftDiff = await readAttemptArtifact(this.rootDir, run.id, run.committedAttemptId, "diff-drift.patch");
+    throwIfAborted(signal);
 
     const updatedAttempt: RunAttempt = {
       ...previousAttempt,
@@ -226,6 +234,7 @@ export class VerifierService {
     });
 
     await this.store.commitRunOperation({ runId: run.id, operationId });
+    throwIfAborted(signal);
 
     await this.store.upsertTicket({
       ...ticket,

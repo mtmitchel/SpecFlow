@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   createTicketFromAuditFinding,
   dismissAuditFinding,
+  fetchBundleText,
   exportFixBundle,
   runAudit
 } from "../../api.js";
@@ -202,8 +203,9 @@ export const AuditPanel = ({
                     onClick={async () => {
                       try {
                         const exported = await exportFixBundle(runId, selectedFinding.id, exportAgent);
-                        setExportFlat(exported.flatString);
-                        void navigator.clipboard.writeText(exported.flatString);
+                        const bundleText = await fetchBundleText(exported.runId, exported.attemptId);
+                        setExportFlat(bundleText);
+                        await navigator.clipboard.writeText(bundleText);
                       } catch (err) {
                         showError((err as Error).message ?? "Export failed");
                       }

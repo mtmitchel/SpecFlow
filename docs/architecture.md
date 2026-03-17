@@ -19,7 +19,7 @@ Three packages share a single npm workspace root:
 
 Desktop is the primary runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell without a separate upfront build step; the desktop bridge waits for the first watched `packages/app/dist/sidecar.js` output before spawning the sidecar. In desktop mode, the UI does not talk to Fastify and normal usage does not bind an HTTP port.
 
-Legacy Fastify + browser mode is still supported for fallback and compatibility. `npm run dev:web` starts the watched app server on `127.0.0.1:3142` plus the Vite client with `/api` proxying, and `specflow ui --legacy-web` serves the built UI from Fastify.
+Legacy Fastify + browser mode is still supported for fallback and compatibility. `npm run dev:web` starts the watched app server on `127.0.0.1:3142` plus the Vite client with `/api` proxying, and `specflow ui --legacy-web` runs the Fastify + browser runtime from source.
 
 Shared TypeScript types (entity schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
 

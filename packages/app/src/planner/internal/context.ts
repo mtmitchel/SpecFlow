@@ -1,7 +1,7 @@
 import type {
   Initiative,
   InitiativeArtifactStep,
-  SpecDocument,
+  SpecDocumentSummary,
   Ticket
 } from "../../types/entities.js";
 import { requiresInitialBriefConsultation } from "../brief-consultation.js";
@@ -34,13 +34,19 @@ export const getSavedContext = (
 
 export const getArtifactMarkdownMap = (
   initiativeId: string,
-  specs: ReadonlyMap<string, SpecDocument>
-): Record<InitiativeArtifactStep, string> => ({
-  brief: specs.get(`${initiativeId}:brief`)?.content ?? "",
-  "core-flows": specs.get(`${initiativeId}:core-flows`)?.content ?? "",
-  prd: specs.get(`${initiativeId}:prd`)?.content ?? "",
-  "tech-spec": specs.get(`${initiativeId}:tech-spec`)?.content ?? ""
-});
+  readSpecMarkdown: (specId: string) => Promise<string>
+): Promise<Record<InitiativeArtifactStep, string>> =>
+  Promise.all([
+    readSpecMarkdown(`${initiativeId}:brief`),
+    readSpecMarkdown(`${initiativeId}:core-flows`),
+    readSpecMarkdown(`${initiativeId}:prd`),
+    readSpecMarkdown(`${initiativeId}:tech-spec`)
+  ]).then(([brief, coreFlows, prd, techSpec]) => ({
+    brief,
+    "core-flows": coreFlows,
+    prd,
+    "tech-spec": techSpec
+  }));
 
 export const buildPhaseCheckInput = (
   initiative: Initiative,
@@ -79,19 +85,19 @@ export const buildSpecGenerationInput = (
 export const requireSpecMarkdown = (
   initiativeId: string,
   step: InitiativeArtifactStep,
-  specs: ReadonlyMap<string, SpecDocument>
-): string => {
-  const markdown = specs.get(`${initiativeId}:${step}`)?.content ?? "";
+  readSpecMarkdown: (specId: string) => Promise<string>
+): Promise<string> =>
+  readSpecMarkdown(`${initiativeId}:${step}`).then((markdown) => {
   if (!markdown.trim()) {
     throw new Error(`Artifact ${step} is missing for initiative ${initiativeId}`);
   }
   return markdown;
-};
+});
 
 export const requireSpecUpdatedAt = (
   initiativeId: string,
   step: InitiativeArtifactStep,
-  specs: ReadonlyMap<string, SpecDocument>
+  specs: ReadonlyMap<string, SpecDocumentSummary>
 ): string => {
   const updatedAt = specs.get(`${initiativeId}:${step}`)?.updatedAt;
   if (!updatedAt) {

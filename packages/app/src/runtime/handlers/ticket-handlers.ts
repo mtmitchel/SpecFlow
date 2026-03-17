@@ -54,14 +54,15 @@ export const updateTicket = async (
 
 export const triageQuickTask = async (
   runtime: SpecFlowRuntime,
-  body: { description?: string }
+  body: { description?: string },
+  signal?: AbortSignal
 ) => {
   if (!body.description?.trim()) {
     throw badRequest("description is required");
   }
 
   try {
-    const triage = await runtime.plannerService.runTriageJob({ description: body.description });
+    const triage = await runtime.plannerService.runTriageJob({ description: body.description }, undefined, signal);
     if (triage.decision === "too-large") {
       return {
         decision: triage.decision,
@@ -100,7 +101,8 @@ const requireValidOperationId = (operationId: string | undefined): void => {
 export const exportBundle = async (
   runtime: SpecFlowRuntime,
   ticketId: string,
-  input: ExportBundleInput
+  input: ExportBundleInput,
+  signal?: AbortSignal
 ) => {
   requireValidOperationId(input.operationId);
   const ticket = readTicket(runtime, ticketId);
@@ -112,13 +114,12 @@ export const exportBundle = async (
       agentTarget: input.agent ?? "codex-cli",
       exportMode: input.exportMode === "quick-fix" ? "quick-fix" : "standard",
       operationId: input.operationId
-    });
+    }, signal);
 
     return {
       runId: result.runId,
       attemptId: result.attemptId,
       bundlePath: result.bundlePath,
-      flatString: result.flatString,
       manifest: result.manifest
     };
   } catch (error) {
@@ -133,7 +134,8 @@ export const exportFixBundle = async (
   runtime: SpecFlowRuntime,
   runId: string,
   findingId: string,
-  body: { agent?: AgentType; operationId?: string }
+  body: { agent?: AgentType; operationId?: string },
+  signal?: AbortSignal
 ) => {
   requireValidEntityId(runId, "run ID");
   if (!isValidFindingId(findingId)) {
@@ -160,13 +162,12 @@ export const exportFixBundle = async (
       sourceRunId: run.id,
       sourceFindingId: findingId,
       operationId: body.operationId
-    });
+    }, signal);
 
     return {
       runId: result.runId,
       attemptId: result.attemptId,
       bundlePath: result.bundlePath,
-      flatString: result.flatString,
       manifest: result.manifest
     };
   } catch (error) {
@@ -186,7 +187,8 @@ export const captureResults = async (
     widenedScopePaths?: string[];
     operationId?: string;
   },
-  onEvent?: NotificationSink
+  onEvent?: NotificationSink,
+  signal?: AbortSignal
 ) => {
   requireValidOperationId(body.operationId);
   readTicket(runtime, ticketId);
@@ -204,7 +206,8 @@ export const captureResults = async (
       },
       async (chunk) => {
         await onEvent?.("verify-token", { chunk });
-      }
+      },
+      signal
     );
 
     await onEvent?.("verify-complete", {
@@ -275,7 +278,8 @@ export const overrideDone = async (
     reason?: string;
     overrideAccepted?: boolean;
     operationId?: string;
-  }
+  },
+  signal?: AbortSignal
 ) => {
   requireValidOperationId(body.operationId);
   readTicket(runtime, ticketId);
@@ -286,7 +290,7 @@ export const overrideDone = async (
       reason: body.reason ?? "",
       overrideAccepted: body.overrideAccepted === true,
       operationId: body.operationId
-    });
+    }, signal);
 
     return {
       runId: result.runId,

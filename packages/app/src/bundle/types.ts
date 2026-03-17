@@ -55,6 +55,5 @@ export interface ExportBundleResult {
   attemptId: string;
   operationId: string;
   bundlePath: string;
-  flatString: string;
   manifest: BundleManifest;
 }

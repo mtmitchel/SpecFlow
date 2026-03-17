@@ -186,7 +186,6 @@ describe("BundleGenerator", () => {
       exportMode: "standard"
     });
 
-    expect(result.flatString).toContain("Codex Task Bundle");
     expect(result.manifest.bundleSchemaVersion).toBe("1.0.0");
     expect(result.manifest.exportMode).toBe("standard");
 
@@ -324,7 +323,9 @@ describe("BundleGenerator", () => {
 
     expect(second.runId).toBe(first.runId);
     expect(second.attemptId).toBe(first.attemptId);
-    expect(second.flatString).toBe(first.flatString);
+    await expect(readFile(path.join(second.bundlePath, "PROMPT.md"), "utf8")).resolves.toBe(
+      await readFile(path.join(first.bundlePath, "PROMPT.md"), "utf8")
+    );
 
     await store.close();
     await rm(rootDir, { recursive: true, force: true });

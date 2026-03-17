@@ -142,6 +142,14 @@ export interface RunAttempt {
   createdAt: string;
 }
 
+export interface RunAttemptSummary {
+  attemptId: string;
+  overallPass: boolean;
+  overrideReason: string | null;
+  overrideAccepted: boolean;
+  createdAt: string;
+}
+
 export type SpecType = InitiativeArtifactStep | "decision";
 
 export interface SpecDocument {
@@ -150,6 +158,16 @@ export interface SpecDocument {
   type: SpecType;
   title: string;
   content: string;
+  sourcePath: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SpecDocumentSummary {
+  id: string;
+  initiativeId: string | null;
+  type: SpecType;
+  title: string;
   sourcePath: string;
   createdAt: string;
   updatedAt: string;
