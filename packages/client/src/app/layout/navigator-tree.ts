@@ -43,7 +43,7 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
   for (const initiative of initiatives) {
     const initiativeTickets = tickets.filter((t) => t.initiativeId === initiative.id);
     const initiativeProgress = getInitiativeProgressModel(initiative, snapshot);
-    const initiativePath = getInitiativeResumeHref(initiative, initiativeProgress);
+    const initiativePath = getInitiativeResumeHref(initiative, initiativeProgress, snapshot);
 
     const children: NavigatorNode[] = [];
 

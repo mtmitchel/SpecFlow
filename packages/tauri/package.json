@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev:stack": "concurrently -k -n app,client \"npm run -w @specflow/app watch\" \"npm run -w @specflow/client dev\"",
+    "dev:stack": "concurrently --raw -k \"npm run -w @specflow/app watch\" \"npm run -w @specflow/client dev\"",
     "dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "build": "tauri build"
   },

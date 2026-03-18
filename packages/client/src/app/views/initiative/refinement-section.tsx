@@ -6,15 +6,25 @@ import type { RefinementAnswer, SaveState, SpecStep } from "./shared.js";
 import { isQuestionAnswered } from "./shared.js";
 
 const QUESTION_DECISION_LABELS: Record<InitiativePlanningQuestion["decisionType"], string> = {
+  problem: "Problem",
+  success: "Success",
+  constraint: "Constraint",
+  journey: "Journey",
+  branch: "Branch",
+  state: "State",
+  behavior: "Behavior",
+  rule: "Rule",
   scope: "Scope",
   user: "User",
-  workflow: "Workflow",
-  platform: "Platform",
-  data: "Data",
-  security: "Security",
+  "non-goal": "Non-goal",
+  architecture: "Architecture",
+  "data-flow": "Data flow",
+  persistence: "Persistence",
   integration: "Integration",
-  "success-metric": "Success metric",
+  risk: "Risk",
+  verification: "Verification"
 };
+const CUSTOM_ANSWER_SENTINEL = "Other";
 
 const getAnswerPreview = (
   question: InitiativePlanningQuestion,
@@ -96,10 +106,12 @@ const SelectChoiceCards = ({
   value: string | undefined;
   onChange: (nextValue: string) => void;
 }) => {
-  const options = (question.options ?? []).filter((option) => option !== "Other");
+  const options = question.options ?? [];
   const currentValue = value ?? "";
-  const hasCustomValue = currentValue !== "" && !options.includes(currentValue) && currentValue !== "Other";
-  const otherSelected = currentValue === "Other" || hasCustomValue;
+  const hasCustomValue = currentValue !== "" && !options.includes(currentValue) && currentValue !== CUSTOM_ANSWER_SENTINEL;
+  const otherSelected =
+    question.allowCustomAnswer === true &&
+    (currentValue === CUSTOM_ANSWER_SENTINEL || hasCustomValue);
 
   return (
     <div className="clarification-option-list">
@@ -119,21 +131,25 @@ const SelectChoiceCards = ({
           {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
         </button>
       ))}
-      <button
-        type="button"
-        className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
-        onClick={() => onChange(hasCustomValue ? currentValue : "Other")}
-      >
-        <div className="clarification-option-header">
-          <span>Other</span>
-        </div>
-        <p>Use a custom answer if none of these options fit.</p>
-      </button>
-      {otherSelected ? (
-        <OtherAnswerField
-          value={hasCustomValue ? currentValue : ""}
-          onChange={(nextValue) => onChange(nextValue || "Other")}
-        />
+      {question.allowCustomAnswer ? (
+        <>
+          <button
+            type="button"
+            className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
+            onClick={() => onChange(hasCustomValue ? currentValue : CUSTOM_ANSWER_SENTINEL)}
+          >
+            <div className="clarification-option-header">
+              <span>Other</span>
+            </div>
+            <p>Use a custom answer if none of these options fit.</p>
+          </button>
+          {otherSelected ? (
+            <OtherAnswerField
+              value={hasCustomValue ? currentValue : ""}
+              onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
+            />
+          ) : null}
+        </>
       ) : null}
     </div>
   );
@@ -168,21 +184,25 @@ const RefinementField = ({
             <p>{option.description}</p>
           </button>
         ))}
-        <button
-          type="button"
-          className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
-          onClick={() => onChange(typeof value === "string" && value.trim() ? value : "Other")}
-        >
-          <div className="clarification-option-header">
-            <span>Other</span>
-          </div>
-          <p>Use a custom answer if yes or no does not fit.</p>
-        </button>
-        {otherSelected ? (
-          <OtherAnswerField
-            value={typeof value === "string" && value !== "Other" ? value : ""}
-            onChange={(nextValue) => onChange(nextValue || "Other")}
-          />
+        {question.allowCustomAnswer ? (
+          <>
+            <button
+              type="button"
+              className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
+              onClick={() => onChange(typeof value === "string" && value.trim() ? value : CUSTOM_ANSWER_SENTINEL)}
+            >
+              <div className="clarification-option-header">
+                <span>Other</span>
+              </div>
+              <p>Use a custom answer if yes or no does not fit.</p>
+            </button>
+            {otherSelected ? (
+              <OtherAnswerField
+                value={typeof value === "string" && value !== CUSTOM_ANSWER_SENTINEL ? value : ""}
+                onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
+              />
+            ) : null}
+          </>
         ) : null}
       </div>
     );
@@ -200,9 +220,11 @@ const RefinementField = ({
 
   if (question.type === "multi-select") {
     const selected = Array.isArray(value) ? value : [];
-    const options = (question.options ?? []).filter((option) => option !== "Other");
-    const customValues = selected.filter((item) => !options.includes(item) && item !== "Other");
-    const hasOther = selected.includes("Other") || customValues.length > 0;
+    const options = question.options ?? [];
+    const customValues = selected.filter((item) => !options.includes(item) && item !== CUSTOM_ANSWER_SENTINEL);
+    const hasOther =
+      question.allowCustomAnswer === true &&
+      (selected.includes(CUSTOM_ANSWER_SENTINEL) || customValues.length > 0);
 
     return (
       <div className="clarification-option-list">
@@ -225,43 +247,41 @@ const RefinementField = ({
             {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
           </label>
         ))}
-        <label className="clarification-option-card clarification-option-checkbox">
-          <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={hasOther}
-              onChange={(event) => {
-                if (event.target.checked) {
-                  onChange([...selected.filter((item) => options.includes(item)), "Other"]);
-                } else {
-                  onChange(selected.filter((item) => options.includes(item)));
-                }
-              }}
-            />
-            <span>Other</span>
-          </span>
-          <p>Use a custom answer if none of these options fit.</p>
-        </label>
-        {hasOther ? (
-          <OtherAnswerField
-            value={customValues[0] ?? ""}
-            onChange={(nextValue) => {
-              const baseValues = selected.filter((item) => options.includes(item));
-              onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, "Other"]);
-            }}
-          />
+        {question.allowCustomAnswer ? (
+          <>
+            <label className="clarification-option-card clarification-option-checkbox">
+              <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={hasOther}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      onChange([...selected.filter((item) => options.includes(item)), CUSTOM_ANSWER_SENTINEL]);
+                    } else {
+                      onChange(selected.filter((item) => options.includes(item)));
+                    }
+                  }}
+                />
+                <span>Other</span>
+              </span>
+              <p>Use a custom answer if none of these options fit.</p>
+            </label>
+            {hasOther ? (
+              <OtherAnswerField
+                value={customValues[0] ?? ""}
+                onChange={(nextValue) => {
+                  const baseValues = selected.filter((item) => options.includes(item));
+                  onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, CUSTOM_ANSWER_SENTINEL]);
+                }}
+              />
+            ) : null}
+          </>
         ) : null}
       </div>
     );
   }
 
-  return (
-    <input
-      value={typeof value === "string" ? value : ""}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder="Type your answer"
-    />
-  );
+  return null;
 };
 
 interface RefinementSectionProps {
@@ -370,7 +390,11 @@ export const RefinementSection = ({
       : null;
 
   return (
-    <div className={`planning-intake-flow${compact ? " planning-intake-flow-compact" : ""}${questionDeck ? " planning-intake-flow-survey" : ""}`}>
+    <div
+      className={`planning-intake-flow${compact ? " planning-intake-flow-compact" : ""}${questionDeck ? " planning-intake-flow-survey" : ""}${
+        loadingStateLabel && compact ? " planning-intake-flow-loading" : ""
+      }`}
+    >
       {questionDeck ? (
         <div className="planning-survey-step-header">
           {surveyStepLabel ? <span className="planning-survey-card-step">{surveyStepLabel}</span> : null}
@@ -401,7 +425,11 @@ export const RefinementSection = ({
       </div>
 
       {loadingStateLabel ? (
-        <div className="status-loading-card planning-intake-loading" role="status" aria-live="polite">
+        <div
+          className={`status-loading-card planning-intake-loading${compact ? " planning-intake-loading-compact" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
           <span className="status-loading-spinner" aria-hidden="true" />
           <div className="status-loading-copy">
             <strong>{loadingStateLabel}</strong>

@@ -8,7 +8,7 @@ Ship production-grade work. Finish the task completely. Do not return half-finis
 
 Prefer root-cause fixes over symptom patches. If a bug is structural, fix the structure.
 
-When in doubt, do less and report what you found. A smaller correct change is better than a larger uncertain one.
+When in doubt, choose the smallest change that fully resolves the root cause and keeps the design coherent. Do not default to a narrow patch when the defect crosses a shared boundary, and do not widen scope without a concrete structural reason.
 
 ## 2. Project Overview
 
@@ -144,11 +144,19 @@ Do not stop at the first passing state. Verify the full acceptance criteria. If 
 
 If a bug has a structural cause such as a wrong data model, missing validation, or incorrect ownership of state, fix the structure. Do not hide the symptom with a guard clause.
 
-### 5c. File size: 600 LOC hard limit
+### 5c. Design scope: durable but bounded
+
+Optimize for the cleanest long-term design justified by the current task, not the smallest diff.
+
+Before implementing, inspect the shared type surface, ownership boundaries, and workflow contracts touched by the change. If the root cause crosses one of those boundaries, fix the boundary instead of patching downstream symptoms.
+
+Do not introduce new abstractions, generic helpers, or future-facing extensibility unless they remove current duplication, restore clear ownership, or are required to make the current behavior correct.
+
+### 5d. File size: 600 LOC hard limit
 
 If a file you are editing or creating reaches or exceeds 600 lines of code, stop and propose a refactor plan before adding more code. Describe what the file is doing, how it should be split, and what each new module would own. Do not keep adding code to a file that already needs to be broken up.
 
-### 5d. No hacks or short-term bandaids
+### 5e. No hacks or short-term bandaids
 
 Do not introduce:
 
@@ -160,7 +168,7 @@ Do not introduce:
 
 If a proper fix requires more context than you have, say so explicitly. Do not ship the hack.
 
-### 5e. No ceremony
+### 5f. No ceremony
 
 Do not create:
 
@@ -170,7 +178,7 @@ Do not create:
 
 Build or fix the thing itself.
 
-### 5f. No silent error suppression
+### 5g. No silent error suppression
 
 Do not swallow errors. Every error path must either surface to the caller, log with enough context to diagnose, or both.
 
@@ -328,6 +336,7 @@ Do not spiral on repeated failed variants of the same fix. Report what you tried
 When reporting completed work, include:
 
 - what changed: the exact files modified, with a one-line description of each
+- scope rationale: one sentence explaining why the chosen fix scope matched the actual root cause
 - test results: the real output of `npm run check && npm test`
 - packaging status: the real output of `npm run package:desktop` when packaging was explicitly requested or performed
 - what is not done: anything from the acceptance criteria that remains incomplete

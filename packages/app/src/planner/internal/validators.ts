@@ -3,14 +3,30 @@ import type {
   PhaseCheckResult,
   PhaseMarkdownResult,
   PlanResult,
+  RefinementStep,
   ReviewRunResult,
   TriageResult
 } from "../types.js";
+import { getQuestionPolicy } from "../refinement-check-policy.js";
+
+const normalizeQuestionText = (question: PhaseCheckResult["questions"][number]): string =>
+  [
+    question.label,
+    question.whyThisBlocks,
+    question.assumptionIfUnanswered,
+    ...(question.options ?? []),
+    ...Object.values(question.optionHelp ?? {})
+  ]
+    .join(" ")
+    .toLowerCase();
 
 const validateQuestions = (
   questions: PhaseCheckResult["questions"],
+  step: RefinementStep,
   maxQuestions: number
 ): void => {
+  const questionPolicy = getQuestionPolicy(step);
+
   if (!Array.isArray(questions)) {
     throw new Error("Phase-check result missing questions array");
   }
@@ -21,12 +37,26 @@ const validateQuestions = (
 
   for (const question of questions) {
     const options = Array.isArray(question.options) ? question.options : [];
-    if (question.type === "text") {
-      throw new Error(`Refinement question ${question.id} must use finite options`);
+    if (question.affectedArtifact !== step) {
+      throw new Error(`Refinement question ${question.id} must target ${step}`);
+    }
+
+    if (!questionPolicy.allowedDecisionTypes.includes(question.decisionType)) {
+      throw new Error(
+        `Refinement question ${question.id} uses disallowed decisionType "${question.decisionType}" for ${step}`
+      );
+    }
+
+    if (!question.label?.trim()) {
+      throw new Error(`Refinement question ${question.id} is missing label`);
     }
 
     if ((question.type === "select" || question.type === "multi-select") && options.length === 0) {
       throw new Error(`Refinement question ${question.id} is missing options`);
+    }
+
+    if (question.type === "boolean" && options.length > 0) {
+      throw new Error(`Refinement question ${question.id} must not provide options for boolean questions`);
     }
 
     if (!question.whyThisBlocks?.trim()) {
@@ -41,22 +71,68 @@ const validateQuestions = (
       throw new Error(`Refinement question ${question.id} has invalid optionHelp`);
     }
 
+    const normalizedOptions = options.map((option) => option.trim()).filter(Boolean);
+    if (normalizedOptions.length !== options.length) {
+      throw new Error(`Refinement question ${question.id} includes blank option values`);
+    }
+
+    if (new Set(normalizedOptions.map((option) => option.toLowerCase())).size !== normalizedOptions.length) {
+      throw new Error(`Refinement question ${question.id} includes duplicate options`);
+    }
+
+    if (normalizedOptions.some((option) => option.toLowerCase() === "other")) {
+      throw new Error(`Refinement question ${question.id} must not include "Other" in options`);
+    }
+
+    if (normalizedOptions.length > 0) {
+      const optionHelp = question.optionHelp ?? {};
+      const missingOptionHelp = normalizedOptions.filter((option) => !optionHelp[option]?.trim());
+      if (missingOptionHelp.length > 0) {
+        throw new Error(
+          `Refinement question ${question.id} is missing optionHelp for: ${missingOptionHelp.join(", ")}`
+        );
+      }
+
+      const extraOptionHelp = Object.keys(optionHelp).filter((option) => !options.includes(option));
+      if (extraOptionHelp.length > 0) {
+        throw new Error(
+          `Refinement question ${question.id} includes optionHelp for unknown options: ${extraOptionHelp.join(", ")}`
+        );
+      }
+    }
+
     if (question.recommendedOption && options.length > 0 && !options.includes(question.recommendedOption)) {
       throw new Error(`Refinement question ${question.id} recommendedOption must match one of the provided options`);
     }
+
+    if (question.allowCustomAnswer != null && typeof question.allowCustomAnswer !== "boolean") {
+      throw new Error(`Refinement question ${question.id} has invalid allowCustomAnswer`);
+    }
+
+    const normalizedQuestionText = normalizeQuestionText(question);
+    const forbiddenTerm = questionPolicy.forbiddenTerms.find((term) => normalizedQuestionText.includes(term));
+    if (forbiddenTerm) {
+      throw new Error(
+        `Refinement question ${question.id} includes forbidden ${step} theme "${forbiddenTerm}"`
+      );
+    }
   }
+
 };
 
 export const validatePhaseCheckResult = (
   result: PhaseCheckResult,
+  step: RefinementStep,
   maxQuestions: number,
   requiredQuestionCount = 0
 ): void => {
+  const questionPolicy = getQuestionPolicy(step);
+
   if (result.decision !== "proceed" && result.decision !== "ask") {
     throw new Error(`Phase-check decision must be "proceed" or "ask", received "${String(result.decision)}"`);
   }
 
-  validateQuestions(result.questions, maxQuestions);
+  validateQuestions(result.questions, step, maxQuestions);
 
   if (requiredQuestionCount > 0) {
     if (result.decision !== "ask") {
@@ -67,6 +143,14 @@ export const validatePhaseCheckResult = (
       throw new Error(
         `Phase-check result must include at least ${requiredQuestionCount} starter question${requiredQuestionCount === 1 ? "" : "s"} when starter questions are required`
       );
+    }
+
+    for (const decisionType of questionPolicy.requiredStarterDecisionTypes) {
+      if (!result.questions.some((question) => question.decisionType === decisionType)) {
+        throw new Error(
+          `Phase-check result for ${step} must include a ${decisionType} question in the first starter set`
+        );
+      }
     }
   }
 

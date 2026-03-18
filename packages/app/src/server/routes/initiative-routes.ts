@@ -29,13 +29,15 @@ const sendPlannerSse = async <T>(
   request: FastifyRequest,
   reply: FastifyReply,
   readyEvent: string,
-  run: (onToken: ProgressSink) => Promise<T>
+  run: (onToken: ProgressSink, signal: AbortSignal) => Promise<T>
 ): Promise<void> => {
   const sse = startSseSession(request, reply, readyEvent);
+  const controller = new AbortController();
+  request.raw.once("close", () => controller.abort());
   try {
     const result = await run(async (chunk) => {
       sse.send("planner-token", { chunk });
-    });
+    }, controller.signal);
     sse.send("planner-result", result);
     sse.send("planner-complete", { ok: true });
   } catch (error) {
@@ -54,6 +56,11 @@ export const registerInitiativeRoutes = (
   options: RegisterInitiativeRoutesOptions
 ): void => {
   const { runtime } = options;
+  const getRequestAbortSignal = (request: FastifyRequest): AbortSignal => {
+    const controller = new AbortController();
+    request.raw.once("close", () => controller.abort());
+    return controller.signal;
+  };
 
   app.get("/api/initiatives", async (_request, reply) => {
     await reply.send(listInitiatives(runtime));
@@ -125,7 +132,8 @@ export const registerInitiativeRoutes = (
         await requestInitiativeClarificationHelp(
           runtime,
           (request.params as { id: string }).id,
-          (request.body ?? {}) as { questionId?: string; note?: string }
+          (request.body ?? {}) as { questionId?: string; note?: string },
+          getRequestAbortSignal(request),
         )
       );
     } catch (error) {
@@ -174,7 +182,14 @@ export const registerInitiativeRoutes = (
   const registerPhaseCheck = (path: string, step: InitiativeArtifactStep): void => {
     app.post(path, async (request, reply) => {
       try {
-        await reply.send(await runInitiativePhaseCheck(runtime, (request.params as { id: string }).id, step));
+        await reply.send(
+          await runInitiativePhaseCheck(
+            runtime,
+            (request.params as { id: string }).id,
+            step,
+            getRequestAbortSignal(request),
+          ),
+        );
       } catch (error) {
         if (isHandlerError(error)) {
           await sendHandlerError(reply, error);
@@ -204,8 +219,8 @@ export const registerInitiativeRoutes = (
         throw error;
       }
 
-      await sendPlannerSse(request, reply, `planner-${step}-ready`, (onToken) =>
-        generateInitiativeArtifact(runtime, (request.params as { id: string }).id, step, onToken)
+      await sendPlannerSse(request, reply, `planner-${step}-ready`, (onToken, signal) =>
+        generateInitiativeArtifact(runtime, (request.params as { id: string }).id, step, onToken, signal)
       );
     });
   };
@@ -216,12 +231,13 @@ export const registerInitiativeRoutes = (
   registerPhaseGenerator("/api/initiatives/:id/generate-tech-spec", "tech-spec");
 
   app.post("/api/initiatives/:id/reviews/:kind/run", async (request, reply) => {
-    await sendPlannerSse(request, reply, `planner-review-${(request.params as { kind: string }).kind}-ready`, (onToken) =>
+    await sendPlannerSse(request, reply, `planner-review-${(request.params as { kind: string }).kind}-ready`, (onToken, signal) =>
       runInitiativeReview(
         runtime,
         (request.params as { id: string }).id,
         (request.params as { kind: string }).kind,
-        onToken
+        onToken,
+        signal,
       )
     );
   });
@@ -258,8 +274,8 @@ export const registerInitiativeRoutes = (
       throw error;
     }
 
-    await sendPlannerSse(request, reply, "planner-plan-ready", (onToken) =>
-      generateInitiativePlan(runtime, (request.params as { id: string }).id, onToken)
+    await sendPlannerSse(request, reply, "planner-plan-ready", (onToken, signal) =>
+      generateInitiativePlan(runtime, (request.params as { id: string }).id, onToken, signal)
     );
   });
 };

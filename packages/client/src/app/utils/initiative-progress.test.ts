@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ArtifactsSnapshot, Initiative, PlanningReviewArtifact, Ticket } from "../../types.js";
-import { getInitiativeProgressModel } from "./initiative-progress.js";
+import { getInitiativeProgressModel, getInitiativeResumeHref } from "./initiative-progress.js";
 import { getInitiativeQueueActionLabel } from "./ui-language.js";
 
 const baseInitiative: Initiative = {
@@ -35,17 +35,19 @@ const createSnapshot = ({
   initiative = baseInitiative,
   tickets = [],
   planningReviews = [],
+  specs = [],
 }: {
   initiative?: Initiative;
   tickets?: Ticket[];
   planningReviews?: PlanningReviewArtifact[];
+  specs?: ArtifactsSnapshot["specs"];
 } = {}): ArtifactsSnapshot => ({
   config: null,
   initiatives: [initiative],
   tickets,
   runs: [],
   runAttempts: [],
-  specs: [],
+  specs,
   planningReviews,
   ticketCoverageArtifacts: [],
 });
@@ -107,6 +109,67 @@ describe("getInitiativeProgressModel", () => {
     expect(progress.currentNodeState).toBe("active");
     expect(progress.currentReviewKind).toBeNull();
     expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Continue brief");
+  });
+
+  it("builds resume hrefs for active planning questions when no artifact exists", () => {
+    const snapshot = createSnapshot();
+    const progress = getInitiativeProgressModel(baseInitiative, snapshot);
+
+    expect(getInitiativeResumeHref(baseInitiative, progress, snapshot)).toBe(
+      `/initiative/${baseInitiative.id}?step=brief&surface=questions`,
+    );
+  });
+
+  it("builds resume hrefs for artifact review when the current planning step already has a document", () => {
+    const initiative: Initiative = {
+      ...baseInitiative,
+      workflow: {
+        ...baseInitiative.workflow,
+        steps: {
+          ...baseInitiative.workflow.steps,
+          brief: { status: "stale", updatedAt: "2026-03-16T10:05:00.000Z" },
+          "core-flows": { status: "ready", updatedAt: "2026-03-16T10:06:00.000Z" },
+        },
+        refinements: {
+          ...baseInitiative.workflow.refinements,
+          brief: {
+            ...baseInitiative.workflow.refinements.brief,
+            questions: [
+              {
+                id: "brief-user",
+                label: "Who is this for?",
+                type: "select",
+                whyThisBlocks: "The brief needs one clear audience.",
+                affectedArtifact: "brief",
+                decisionType: "user",
+                assumptionIfUnanswered: "This is for a solo note-taker.",
+                options: ["Just me", "A small team"],
+              },
+            ],
+            checkedAt: "2026-03-16T10:05:00.000Z",
+          },
+        },
+      },
+    };
+    const snapshot = createSnapshot({
+      initiative,
+      specs: [
+        {
+          id: `${initiative.id}:brief`,
+          initiativeId: initiative.id,
+          type: "brief",
+          title: "Brief",
+          sourcePath: "specflow/initiatives/initiative-12345678/brief.md",
+          createdAt: "2026-03-16T10:05:00.000Z",
+          updatedAt: "2026-03-16T10:05:00.000Z",
+        },
+      ],
+    });
+    const progress = getInitiativeProgressModel(initiative, snapshot);
+
+    expect(getInitiativeResumeHref(initiative, progress, snapshot)).toBe(
+      `/initiative/${initiative.id}?step=brief&surface=review`,
+    );
   });
 
   it.each([

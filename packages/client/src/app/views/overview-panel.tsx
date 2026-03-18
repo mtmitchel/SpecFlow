@@ -72,7 +72,7 @@ export const OverviewPanel = ({
       const currentNode = progress.nodes.find((node) => node.key === progress.currentKey);
       actions.push({
         id: initiative.id,
-        href: getInitiativeResumeHref(initiative, progress),
+        href: getInitiativeResumeHref(initiative, progress, snapshot),
         initiativeName: initiative.title,
         label: getInitiativeQueueActionLabel(initiative, progress),
         priority: currentNode?.state === "checkpoint" ? 1 : 2,
@@ -115,7 +115,7 @@ export const OverviewPanel = ({
         return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
       })
       .slice(0, 6);
-  }, [initiativeCards, snapshot.runs, snapshot.tickets]);
+  }, [initiativeCards, snapshot]);
   const queuedInitiativeIds = useMemo(
     () =>
       new Set(
@@ -195,7 +195,7 @@ export const OverviewPanel = ({
         <div className="action-queue-heading">Recent initiatives</div>
         <div className="initiative-card-grid">
         {visibleInitiativeCards.map(({ initiative, progress }) => (
-          <Link key={initiative.id} to={getInitiativeResumeHref(initiative, progress)} className="initiative-card">
+          <Link key={initiative.id} to={getInitiativeResumeHref(initiative, progress, snapshot)} className="initiative-card">
             <div className="initiative-card-top">
               <div>
                 <h3>{initiative.title}</h3>

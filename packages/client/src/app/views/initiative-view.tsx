@@ -47,10 +47,12 @@ export const InitiativeView = ({
     initiativeReviews,
     headerTitle,
     activeStep,
+    activeSurface,
     activeSpecStep,
     activeRefinement,
     activeStage,
     isBusy,
+    isDeletingInitiative,
     busyAction,
     drawerState,
     drafts,
@@ -76,10 +78,10 @@ export const InitiativeView = ({
     hasPhaseSpecificRefinementDecisions,
     unresolvedQuestionCount,
     nextStep,
-    unresolvedReviewsForActiveStep,
     autoQuestionLoadStep,
     autoQuestionLoadFailedStep,
     navigateToStep,
+    setActiveSurface,
     handleGenerateSpec,
     handleCheckAndAdvance,
     handleGenerateTickets,
@@ -235,18 +237,20 @@ export const InitiativeView = ({
     }
 
     return (
-        <PlanningSpecSection
-          initiativeId={initiative.id}
-          initiativeTitle={headerTitle}
-          activeSpecStep={activeSpecStep}
-          activeRefinement={activeRefinement}
+      <PlanningSpecSection
+        initiativeId={initiative.id}
+        initiativeTitle={headerTitle}
+        activeSpecStep={activeSpecStep}
+        activeSurface={activeSurface}
+        activeRefinement={activeRefinement}
         busyAction={busyAction}
         isBusy={isBusy}
+        isDeletingInitiative={isDeletingInitiative}
         hasActiveContent={hasActiveContent}
         hasRefinementQuestions={hasRefinementQuestions}
         hasPhaseSpecificRefinementDecisions={hasPhaseSpecificRefinementDecisions}
         unresolvedQuestionCount={unresolvedQuestionCount}
-        nextStep={unresolvedReviewsForActiveStep.length === 0 ? nextStep : null}
+        nextStep={nextStep}
         refinementAnswers={refinementAnswers}
         defaultAnswerQuestionIds={defaultAnswerQuestionIds}
         refinementAssumptions={refinementAssumptions}
@@ -255,17 +259,18 @@ export const InitiativeView = ({
           guidanceText={guidanceText}
           savedDrafts={savedDrafts}
           autoQuestionLoadStep={autoQuestionLoadStep}
-          autoQuestionLoadFailedStep={autoQuestionLoadFailedStep}
-          onRefresh={onRefresh}
-          navigateToStep={navigateToStep}
-          handleCheckAndAdvance={handleCheckAndAdvance}
-          handleRequestGuidance={handleRequestGuidance}
-          updateRefinementAnswer={updateRefinementAnswer}
-          deferRefinementQuestion={deferRefinementQuestion}
-          openEditDrawer={openEditDrawer}
-          renderSaveState={renderSaveState}
-        />
-      );
+        autoQuestionLoadFailedStep={autoQuestionLoadFailedStep}
+        onRefresh={onRefresh}
+        navigateToStep={navigateToStep}
+        setActiveSurface={setActiveSurface}
+        handleCheckAndAdvance={handleCheckAndAdvance}
+        handleRequestGuidance={handleRequestGuidance}
+        updateRefinementAnswer={updateRefinementAnswer}
+        deferRefinementQuestion={deferRefinementQuestion}
+        openEditDrawer={openEditDrawer}
+        renderSaveState={renderSaveState}
+      />
+    );
   };
 
   return (
@@ -282,6 +287,7 @@ export const InitiativeView = ({
             className="planning-icon-button planning-icon-button-danger"
             aria-label="Delete initiative"
             title="Delete initiative"
+            disabled={isDeletingInitiative}
             onClick={() => void handleDeleteInitiative()}
           >
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -298,6 +304,10 @@ export const InitiativeView = ({
             nodes={progressModel.nodes}
             selectedKey={activeStep}
             onNodeClick={(key) => {
+              if (isDeletingInitiative) {
+                return;
+              }
+
               if (INITIATIVE_WORKFLOW_STEPS.includes(key as InitiativePlanningStep)) {
                 const step = key as InitiativePlanningStep;
 
@@ -305,7 +315,7 @@ export const InitiativeView = ({
                   return;
                 }
 
-                navigateToStep(step);
+                navigateToStep(step, step === activeStep ? activeSurface : null);
                 return;
               }
 
@@ -323,7 +333,17 @@ export const InitiativeView = ({
       </div>
 
       <div className="planning-content-area">
-        {activeSpecStep ? (
+        {isDeletingInitiative ? (
+          <div className="planning-step-column planning-step-column-narrow">
+            <div className="status-loading-card planning-intake-loading planning-intake-loading-hero" role="status" aria-live="polite">
+              <span className="status-loading-spinner" aria-hidden="true" />
+              <div className="status-loading-copy">
+                <strong>Deleting initiative</strong>
+                <span>SpecFlow is stopping the current work and removing this initiative.</span>
+              </div>
+            </div>
+          </div>
+        ) : activeSpecStep ? (
           renderSpecWorkspace()
         ) : (
           <div className="planning-step-column planning-step-column-wide">
@@ -354,7 +374,7 @@ export const InitiativeView = ({
         )}
       </div>
 
-      {renderDrawer()}
+      {isDeletingInitiative ? null : renderDrawer()}
     </section>
   );
 };

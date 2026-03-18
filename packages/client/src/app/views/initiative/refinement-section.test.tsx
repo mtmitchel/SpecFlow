@@ -7,17 +7,18 @@ const activeRefinement: InitiativeRefinementState = {
   questions: [
     {
       id: "brief-problem",
-      label: "Which problem matters most in v1?",
+      label: "What primary problem should v1 solve?",
       type: "select",
       whyThisBlocks: "The brief cannot define the right scope until the primary problem is explicit.",
       affectedArtifact: "brief",
-      decisionType: "scope",
+      decisionType: "problem",
       assumptionIfUnanswered: "Focus on the user's primary note-taking problem.",
       options: ["Capture something quickly", "Find or organize things better"],
       optionHelp: {
         "Capture something quickly": "Use this when speed matters most."
       },
-      recommendedOption: null
+      recommendedOption: null,
+      allowCustomAnswer: true
     }
   ],
   answers: {
@@ -54,6 +55,8 @@ describe("RefinementSection", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Checking if the brief needs anything else");
     expect(screen.getByText("Stay here. More questions may appear, or the next step will unlock.")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveClass("planning-intake-loading-compact");
+    expect(screen.getByRole("status").closest(".planning-intake-flow")).toHaveClass("planning-intake-flow-loading");
   });
 
   it("uses a multiline field for custom other answers", () => {
@@ -66,8 +69,9 @@ describe("RefinementSection", () => {
           type: "boolean",
           whyThisBlocks: "This changes the architecture and scope of the first release.",
           affectedArtifact: "brief",
-          decisionType: "scope",
-          assumptionIfUnanswered: "Keep the first release local-first."
+          decisionType: "constraint",
+          assumptionIfUnanswered: "Keep the first release local-first.",
+          allowCustomAnswer: true
         }
       ],
       answers: {},
@@ -141,8 +145,41 @@ describe("RefinementSection", () => {
     );
 
     expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
-    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.queryByText("Who is this for first?")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+  });
+
+  it("does not show a custom answer affordance unless the question explicitly allows it", () => {
+    render(
+      <RefinementSection
+        activeSpecStep="brief"
+        activeRefinement={{
+          ...activeRefinement,
+          questions: [
+            {
+              ...activeRefinement.questions[0],
+              allowCustomAnswer: false,
+            },
+          ],
+        }}
+        refinementAnswers={{}}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="idle"
+        unresolvedQuestionCount={1}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        variant="survey"
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Other" })).not.toBeInTheDocument();
   });
 });

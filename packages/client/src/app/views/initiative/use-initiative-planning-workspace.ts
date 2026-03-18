@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   checkInitiativePhase,
-  fetchSpecDetail,
   generateInitiativeBrief,
   generateInitiativeCoreFlows,
   generateInitiativePlan,
@@ -11,8 +10,6 @@ import {
   overrideInitiativeReview,
   requestInitiativeClarificationHelp,
   runInitiativeReview,
-  saveInitiativeRefinement,
-  saveInitiativeSpecs,
   updateInitiativePhases
 } from "../../../api.js";
 import { deleteInitiative } from "../../../api/initiatives.js";
@@ -24,15 +21,22 @@ import type {
 } from "../../../types.js";
 import { useConfirm } from "../../context/confirm.js";
 import { useToast } from "../../context/toast.js";
+import {
+  buildInitiativeStepSearchParams,
+  type InitiativePlanningSurface,
+} from "../../utils/initiative-progress.js";
 import { getInitiativeDisplayTitle } from "../../utils/initiative-titles.js";
 import {
-  canOpenInitiativeStep,
-  getInitiativeBlockedStep,
-  getInitiativeResumeStep,
   getNextInitiativeStep,
-  INITIATIVE_WORKFLOW_LABELS,
   REVIEWS_BY_STEP
 } from "../../utils/initiative-workflow.js";
+import { resolveInitiativePlanningRouteState } from "./planning-route-state.js";
+import {
+  EMPTY_SPEC_DRAFTS,
+  useInitiativeLoadedSpecs,
+} from "./use-initiative-loaded-specs.js";
+import { useInitiativePlanningPersistence } from "./use-initiative-planning-persistence.js";
+import { type BusyActionResult, useCancellableBusyAction } from "./use-cancellable-busy-action.js";
 import {
   type PlanningDrawerState,
   type PlanningJourneyStage,
@@ -43,18 +47,8 @@ import {
   type SpecStep
 } from "./shared.js";
 
-const EMPTY_DRAFTS: Record<SpecStep, string> = {
-  brief: "",
-  "core-flows": "",
-  prd: "",
-  "tech-spec": ""
-};
-
 const EMPTY_DRAFT_SAVE_STATE: Record<SpecStep, SaveState> = {
-  brief: "idle",
-  "core-flows": "idle",
-  prd: "idle",
-  "tech-spec": "idle"
+  brief: "idle", "core-flows": "idle", prd: "idle", "tech-spec": "idle"
 };
 
 export const useInitiativePlanningWorkspace = (
@@ -68,9 +62,8 @@ export const useInitiativePlanningWorkspace = (
   const confirm = useConfirm();
   const initiative = snapshot.initiatives.find((item) => item.id === params.id) ?? null;
 
-  const [busyAction, setBusyAction] = useState<string | null>(null);
   const [editingStep, setEditingStep] = useState<SpecStep | null>(null);
-  const [drafts, setDrafts] = useState<Record<SpecStep, string>>(EMPTY_DRAFTS);
+  const [drafts, setDrafts] = useState<Record<SpecStep, string>>(EMPTY_SPEC_DRAFTS);
   const [draftSaveState, setDraftSaveState] = useState<Record<SpecStep, SaveState>>(EMPTY_DRAFT_SAVE_STATE);
   const [refinementAnswers, setRefinementAnswers] = useState<Record<string, string | string[] | boolean>>({});
   const [defaultAnswerQuestionIds, setDefaultAnswerQuestionIds] = useState<string[]>([]);
@@ -81,62 +74,15 @@ export const useInitiativePlanningWorkspace = (
   const [reviewOverrideKind, setReviewOverrideKind] = useState<PlanningReviewKind | null>(null);
   const [reviewOverrideReason, setReviewOverrideReason] = useState("");
   const [drawerState, setDrawerState] = useState<PlanningDrawerState>(null);
-  const [loadedSpecs, setLoadedSpecs] = useState<Record<SpecStep, string>>(EMPTY_DRAFTS);
+  const [isDeletingInitiative, setIsDeletingInitiative] = useState(false);
   const [autoQuestionLoadStep, setAutoQuestionLoadStep] = useState<SpecStep | null>(null);
   const [autoQuestionLoadFailedStep, setAutoQuestionLoadFailedStep] = useState<SpecStep | null>(null);
-
-  const specLoadSignature = useMemo(() => {
-    if (!initiative) {
-      return "";
-    }
-
-    return snapshot.specs
-      .filter((spec) => spec.initiativeId === initiative.id)
-      .map((spec) => `${spec.id}:${spec.updatedAt}`)
-      .sort()
-      .join("|");
-  }, [initiative, snapshot.specs]);
-
-  useEffect(() => {
-    if (!initiative) {
-      setLoadedSpecs(EMPTY_DRAFTS);
-      return;
-    }
-
-    let cancelled = false;
-    const controller = new AbortController();
-    const summaries = snapshot.specs.filter((spec) => spec.initiativeId === initiative.id);
-    const nextSpecs: Record<SpecStep, string> = { ...EMPTY_DRAFTS };
-
-    void Promise.all(summaries.map(async (summary) => fetchSpecDetail(summary.id, { signal: controller.signal })))
-      .then((specs) => {
-        if (cancelled) {
-          return;
-        }
-
-        for (const spec of specs) {
-          if (spec.type === "brief" || spec.type === "core-flows" || spec.type === "prd" || spec.type === "tech-spec") {
-            nextSpecs[spec.type] = spec.content;
-          }
-        }
-
-        setLoadedSpecs(nextSpecs);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoadedSpecs(EMPTY_DRAFTS);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [initiative, specLoadSignature, snapshot.specs]);
+  const { busyAction, isBusy, cancelBusyAction, withBusyAction } = useCancellableBusyAction();
+  const loadedSpecs = useInitiativeLoadedSpecs(initiative?.id ?? null, snapshot.specs);
 
   const savedDrafts = useMemo<Record<SpecStep, string>>(() => {
     if (!initiative) {
-      return EMPTY_DRAFTS;
+      return EMPTY_SPEC_DRAFTS;
     }
 
     return {
@@ -166,9 +112,10 @@ export const useInitiativePlanningWorkspace = (
     }));
   }, [editingStep, initiative, savedDrafts]);
 
-  const initiativeReviews = initiative
-    ? snapshot.planningReviews.filter((item) => item.initiativeId === initiative.id)
-    : [];
+  const initiativeReviews = useMemo(
+    () => (initiative ? snapshot.planningReviews.filter((item) => item.initiativeId === initiative.id) : []),
+    [initiative, snapshot.planningReviews],
+  );
   const getReview = (kind: PlanningReviewKind): PlanningReviewArtifact | undefined =>
     initiativeReviews.find((item) => item.kind === kind);
   const hasOutstandingReview = (kind: PlanningReviewKind): boolean => {
@@ -176,19 +123,29 @@ export const useInitiativePlanningWorkspace = (
     return Boolean(review && !isResolvedReview(review));
   };
 
-  const reviewBlockedStep = initiative ? getInitiativeBlockedStep(initiative.workflow, initiativeReviews) : null;
   const requestedStep = searchParams.get("step");
-  const resumeStep = initiative ? reviewBlockedStep ?? getInitiativeResumeStep(initiative.workflow) : "brief";
-  const activeStep: InitiativePlanningStep =
-    initiative && canOpenInitiativeStep(initiative.workflow, initiativeReviews, initiative.id, requestedStep)
-      ? requestedStep
-      : resumeStep;
+  const requestedSurface = searchParams.get("surface");
+  const routeState = useMemo(
+    () =>
+      initiative
+        ? resolveInitiativePlanningRouteState({
+            initiative,
+            planningReviews: initiativeReviews,
+            requestedStep,
+            requestedSurface,
+            specSummaries: snapshot.specs,
+          })
+        : null,
+    [initiative, initiativeReviews, requestedStep, requestedSurface, snapshot.specs],
+  );
+  const activeStep: InitiativePlanningStep = routeState?.activeStep ?? "brief";
+  const activeSurface: InitiativePlanningSurface = routeState?.activeSurface ?? "questions";
 
   useEffect(() => {
-    if (initiative && requestedStep !== activeStep) {
-      setSearchParams({ step: activeStep }, { replace: true });
+    if (initiative && routeState && searchParams.toString() !== routeState.canonicalSearchParams.toString()) {
+      setSearchParams(routeState.canonicalSearchParams, { replace: true });
     }
-  }, [activeStep, initiative, requestedStep, setSearchParams]);
+  }, [initiative, routeState, searchParams, setSearchParams]);
 
   const activeSpecStep: SpecStep | null = activeStep === "tickets" ? null : activeStep;
   const activeRefinement = initiative && activeSpecStep ? initiative.workflow.refinements[activeSpecStep] : null;
@@ -217,7 +174,7 @@ export const useInitiativePlanningWorkspace = (
     setRefinementAssumptions(activeRefinement.baseAssumptions);
     setGuidanceQuestionId(null);
     setGuidanceText(null);
-  }, [activeStep, refinementSignature]);
+  }, [activeRefinement, activeStep, refinementSignature]);
 
   const initiativeTickets = initiative
     ? snapshot.tickets.filter((ticket) => ticket.initiativeId === initiative.id)
@@ -239,9 +196,7 @@ export const useInitiativePlanningWorkspace = (
       : [];
   const headerTitle = initiative ? getInitiativeDisplayTitle(initiative.title, initiative.description) : "";
   const stepStatus = initiative?.workflow.steps[activeStep].status ?? "locked";
-  const isBusy = busyAction !== null;
   const hasActiveContent = activeSpecStep ? savedDrafts[activeSpecStep].trim().length > 0 : false;
-  const activeContent = activeSpecStep ? drafts[activeSpecStep] : "";
   const hasRefinementQuestions = Boolean(activeRefinement && activeRefinement.questions.length > 0);
   const hasPhaseSpecificRefinementDecisions = Boolean(
     activeRefinement &&
@@ -253,9 +208,6 @@ export const useInitiativePlanningWorkspace = (
       ).length
     : 0;
   const nextStep = getNextInitiativeStep(activeStep);
-  const unresolvedReviewsForActiveStep = activeSpecStep
-    ? []
-    : [];
   const ticketReviewsResolved =
     !ticketCoverageReview || ticketCoverageReview.status === "passed" || ticketCoverageReview.status === "overridden";
   const activeStage: PlanningJourneyStage =
@@ -269,7 +221,7 @@ export const useInitiativePlanningWorkspace = (
         ? !activeRefinement?.checkedAt || hasRefinementQuestions
           ? "consult"
           : "draft"
-        : stepStatus === "stale" || unresolvedReviewsForActiveStep.length > 0
+        : stepStatus === "stale"
           ? "checkpoint"
           : "complete";
 
@@ -278,7 +230,7 @@ export const useInitiativePlanningWorkspace = (
       return;
     }
 
-    if (drawerState.step === activeSpecStep || requestedStep === drawerState.step) {
+    if (drawerState.step === activeSpecStep) {
       return;
     }
 
@@ -291,116 +243,51 @@ export const useInitiativePlanningWorkspace = (
     }
   }, [activeSpecStep, drawerState, editingStep]);
 
-  useEffect(() => {
-    if (!initiative || !activeSpecStep || editingStep !== activeSpecStep) {
-      return;
-    }
-
-    const drawerIsEditingCurrentStep = drawerState?.type === "edit" && drawerState.step === activeSpecStep;
-
-    if (drafts[activeSpecStep] === savedDrafts[activeSpecStep]) {
-      return;
-    }
-
-    const timer = window.setTimeout(async () => {
-      setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "saving" }));
-      try {
-        await saveInitiativeSpecs(initiative.id, activeSpecStep, drafts[activeSpecStep]);
-        await onRefresh();
-        setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "saved" }));
-        if (!drawerIsEditingCurrentStep) {
-          setEditingStep(null);
-        }
-      } catch (error) {
-        showError((error as Error).message ?? `Failed to save ${INITIATIVE_WORKFLOW_LABELS[activeSpecStep]}`);
-        setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "error" }));
-      }
-    }, 700);
-
-    return () => window.clearTimeout(timer);
-  }, [activeSpecStep, drafts, drawerState, editingStep, initiative, onRefresh, savedDrafts, showError]);
-
-  const serverRefinementSignature = activeRefinement
-    ? JSON.stringify({
-        answers: activeRefinement.answers,
-        defaultAnswerQuestionIds: activeRefinement.defaultAnswerQuestionIds
-      })
-    : "";
-  const localRefinementSignature = JSON.stringify({
-    answers: refinementAnswers,
-    defaultAnswerQuestionIds
-  });
-
-  useEffect(() => {
-    if (!initiative || !activeSpecStep || !activeRefinement) {
-      return;
-    }
-
-    if (localRefinementSignature === serverRefinementSignature) {
-      return;
-    }
-
-    const timer = window.setTimeout(async () => {
-      setRefinementSaveState("saving");
-      try {
-        const result = await saveInitiativeRefinement(
-          initiative.id,
-          activeSpecStep,
-          refinementAnswers,
-          defaultAnswerQuestionIds
-        );
-        setRefinementAssumptions(result.assumptions);
-        await onRefresh();
-        setRefinementSaveState("saved");
-      } catch (error) {
-        showError((error as Error).message ?? "Failed to save answers");
-        setRefinementSaveState("error");
-      }
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [
+  useInitiativePlanningPersistence({
     activeRefinement,
     activeSpecStep,
     defaultAnswerQuestionIds,
+    drafts,
+    drawerState,
+    editingStep,
     initiative,
-    localRefinementSignature,
     onRefresh,
     refinementAnswers,
-    serverRefinementSignature,
-    showError
-  ]);
+    savedDrafts,
+    setDraftSaveState,
+    setEditingStep,
+    setRefinementAssumptions,
+    setRefinementSaveState,
+    showError,
+  });
 
-  const withBusyAction = useCallback(async (action: string, run: () => Promise<void>): Promise<boolean> => {
-    setBusyAction(action);
-    try {
-      await run();
-      return true;
-    } catch (error) {
-      showError((error as Error).message ?? "Initiative action failed");
-      return false;
-    } finally {
-      setBusyAction(null);
-    }
-  }, [showError]);
-
-  const navigateToStep = (step: InitiativePlanningStep): void => {
-    setSearchParams({ step });
+  const navigateToStep = (
+    step: InitiativePlanningStep,
+    surface?: InitiativePlanningSurface | null,
+  ): void => {
+    setSearchParams(buildInitiativeStepSearchParams(step, surface));
   };
 
-  const generateSpec = async (step: SpecStep): Promise<void> => {
+  const setActiveSurface = (surface: InitiativePlanningSurface): void => {
+    if (activeStep === "tickets") {
+      return;
+    }
+    navigateToStep(activeStep, surface);
+  };
+
+  const generateSpec = async (step: SpecStep, signal: AbortSignal): Promise<void> => {
     if (!initiative) {
       return;
     }
 
     await (
       step === "brief"
-        ? generateInitiativeBrief(initiative.id)
+        ? generateInitiativeBrief(initiative.id, { signal })
         : step === "core-flows"
-          ? generateInitiativeCoreFlows(initiative.id)
+          ? generateInitiativeCoreFlows(initiative.id, { signal })
           : step === "prd"
-            ? generateInitiativePrd(initiative.id)
-            : generateInitiativeTechSpec(initiative.id)
+            ? generateInitiativePrd(initiative.id, { signal })
+            : generateInitiativeTechSpec(initiative.id, { signal })
     );
 
     await onRefresh();
@@ -409,18 +296,19 @@ export const useInitiativePlanningWorkspace = (
   };
 
   const handleGenerateSpec = async (step: SpecStep): Promise<void> => {
-    await withBusyAction(`generate-${step}`, async () => {
-      await generateSpec(step);
+    await withBusyAction(`generate-${step}`, async (signal) => {
+      await generateSpec(step, signal);
+      navigateToStep(step, "review");
     });
   };
 
-  const handleCheckAndAdvance = useCallback(async (step: SpecStep): Promise<boolean> => {
+  const handleCheckAndAdvance = useCallback(async (step: SpecStep): Promise<BusyActionResult> => {
     if (!initiative) {
-      return false;
+      return "failed";
     }
 
-    return withBusyAction(`check-${step}`, async () => {
-      const result = await checkInitiativePhase(initiative.id, step);
+    return withBusyAction(`check-${step}`, async (signal) => {
+      const result = await checkInitiativePhase(initiative.id, step, { signal });
       await onRefresh();
       setRefinementAssumptions(result.assumptions);
     });
@@ -452,10 +340,10 @@ export const useInitiativePlanningWorkspace = (
 
     setAutoQuestionLoadStep(activeSpecStep);
 
-    void handleCheckAndAdvance(activeSpecStep).then((success) => {
+    void handleCheckAndAdvance(activeSpecStep).then((status) => {
       setAutoQuestionLoadStep((current) => (current === activeSpecStep ? null : current));
       setAutoQuestionLoadFailedStep((current) => {
-        if (success) {
+        if (status === "completed" || status === "cancelled") {
           return current === activeSpecStep ? null : current;
         }
 
@@ -479,9 +367,8 @@ export const useInitiativePlanningWorkspace = (
     if (!initiative) {
       return;
     }
-
-    await withBusyAction("generate-tickets", async () => {
-      await generateInitiativePlan(initiative.id);
+    await withBusyAction("generate-tickets", async (signal) => {
+      await generateInitiativePlan(initiative.id, { signal });
       await onRefresh();
     });
   };
@@ -491,8 +378,8 @@ export const useInitiativePlanningWorkspace = (
       return;
     }
 
-    await withBusyAction("refinement-help", async () => {
-      const result = await requestInitiativeClarificationHelp(initiative.id, questionId, "");
+    await withBusyAction("refinement-help", async (signal) => {
+      const result = await requestInitiativeClarificationHelp(initiative.id, questionId, "", { signal });
       setGuidanceQuestionId(questionId);
       setGuidanceText(result.guidance);
     });
@@ -503,8 +390,8 @@ export const useInitiativePlanningWorkspace = (
       return;
     }
 
-    await withBusyAction(`review-${kind}`, async () => {
-      const review = await runInitiativeReview(initiative.id, kind);
+    await withBusyAction(`review-${kind}`, async (signal) => {
+      const review = await runInitiativeReview(initiative.id, kind, { signal });
       await onRefresh();
       if (
         activeSpecStep &&
@@ -568,34 +455,6 @@ export const useInitiativePlanningWorkspace = (
     setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "idle" }));
   };
 
-  const openRefinementDrawer = async (step: SpecStep) => {
-    setReviewOverrideKind(null);
-    setReviewOverrideReason("");
-    setDrawerState({ type: "refinement", step });
-
-    if (!initiative) {
-      return;
-    }
-
-    const existingRefinement = initiative.workflow.refinements[step];
-    if (existingRefinement.questions.length > 0) {
-      return;
-    }
-
-    await withBusyAction(`check-${step}`, async () => {
-      const result = await checkInitiativePhase(initiative.id, step);
-      await onRefresh();
-      setRefinementAssumptions(result.assumptions);
-    });
-  };
-
-  const openDocumentDrawer = (step: SpecStep) => {
-    setEditingStep(null);
-    setReviewOverrideKind(null);
-    setReviewOverrideReason("");
-    setDrawerState({ type: "document", step });
-  };
-
   const openEditDrawer = (step: SpecStep) => {
     setReviewOverrideKind(null);
     setReviewOverrideReason("");
@@ -640,11 +499,21 @@ export const useInitiativePlanningWorkspace = (
     });
     if (!confirmed) return;
 
+    setIsDeletingInitiative(true);
+    setDrawerState(null);
+    setEditingStep(null);
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+    cancelBusyAction();
+    setAutoQuestionLoadStep(null);
+    setAutoQuestionLoadFailedStep(null);
+
     try {
       await deleteInitiative(initiative.id);
       await onRefresh();
       navigate("/");
     } catch (error) {
+      setIsDeletingInitiative(false);
       showError((error as Error).message);
     }
   };
@@ -689,19 +558,20 @@ export const useInitiativePlanningWorkspace = (
     drawerState,
     headerTitle,
     activeStep,
+    activeSurface,
     activeSpecStep,
     activeRefinement,
     getReview,
     stepStatus,
     isBusy,
+    isDeletingInitiative,
     hasActiveContent,
-    activeContent,
     hasRefinementQuestions,
     hasPhaseSpecificRefinementDecisions,
     unresolvedQuestionCount,
     nextStep,
-    unresolvedReviewsForActiveStep,
     navigateToStep,
+    setActiveSurface,
     handleDeleteInitiative,
     handleGenerateSpec,
     handleCheckAndAdvance,
@@ -719,8 +589,6 @@ export const useInitiativePlanningWorkspace = (
     setReviewOverride,
     clearReviewOverride,
     setReviewOverrideReason,
-    openRefinementDrawer,
-    openDocumentDrawer,
     openEditDrawer,
     closeDrawer
   };

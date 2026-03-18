@@ -7,6 +7,8 @@ import type {
   SpecGenInput,
   TriageInput
 } from "./types.js";
+import type { InitiativePlanningDecisionType } from "../types/entities.js";
+import { getQuestionPolicy, getPromptPolicy } from "./refinement-check-policy.js";
 
 export type PlannerJob =
   | "brief-check"
@@ -28,6 +30,27 @@ export interface PromptBuildResult {
   userPrompt: string;
 }
 
+const QUESTION_TYPES = ["select", "multi-select", "boolean"] as const satisfies readonly string[];
+const DECISION_TYPES: InitiativePlanningDecisionType[] = [
+  "problem",
+  "user",
+  "success",
+  "constraint",
+  "journey",
+  "branch",
+  "state",
+  "behavior",
+  "rule",
+  "scope",
+  "non-goal",
+  "architecture",
+  "data-flow",
+  "persistence",
+  "integration",
+  "risk",
+  "verification"
+];
+
 const outputContract = (job: PlannerJob): string => {
   switch (job) {
     case "brief-check":
@@ -39,7 +62,7 @@ const outputContract = (job: PlannerJob): string => {
         "{",
         '  "decision": "proceed|ask",',
         '  "questions": [',
-        '    { "id": "string", "label": "string", "whyThisBlocks": "string", "affectedArtifact": "brief|core-flows|prd|tech-spec", "decisionType": "scope|user|workflow|platform|data|security|integration|success-metric", "type": "text|select|multi-select|boolean", "assumptionIfUnanswered": "string", "options": ["string"], "optionHelp": { "option": "one sentence explanation" }, "recommendedOption": "string|null" }',
+        `    { "id": "string", "label": "string", "whyThisBlocks": "string", "affectedArtifact": "brief|core-flows|prd|tech-spec", "decisionType": "${DECISION_TYPES.join("|")}", "type": "${QUESTION_TYPES.join("|")}", "assumptionIfUnanswered": "string", "options": ["string"], "optionHelp": { "option": "one sentence explanation" }, "recommendedOption": "string|null", "allowCustomAnswer": true }`,
         "  ],",
         '  "assumptions": ["string"]',
         "}"
@@ -127,9 +150,11 @@ const getArtifactSections = (input: {
 const buildCheckPrompt = (
   systemPrompt: string,
   input: PhaseCheckInput,
-  maxQuestions: number,
   artifactDescription: string
 ): PromptBuildResult => {
+  const questionPolicy = getQuestionPolicy(input.phase);
+  const maxQuestions = questionPolicy.maxQuestions;
+  const promptPolicy = getPromptPolicy(input.phase);
   const requiresInitialConsultation = input.phase === "brief" && input.requiresInitialConsultation;
   const requiredStarterQuestionCount =
     input.phase !== "brief" ? (input.requiredStarterQuestionCount ?? 0) : 0;
@@ -143,7 +168,7 @@ const buildCheckPrompt = (
       ...(requiresInitialConsultation
         ? [
             '- This is the first required Brief consultation for a fresh initiative. You must return "ask".',
-            "- Ask exactly 4 short consultation questions that cover the primary problem, primary first-release user, success criteria, and hard constraints or platform/package targets.",
+            "- Ask exactly 4 short consultation questions that cover the primary problem, primary first-release user, success outcomes, and hard boundaries.",
             "- Do not return proceed or an empty questions array for this first Brief consultation."
           ]
         : requiresStarterQuestions
@@ -151,7 +176,7 @@ const buildCheckPrompt = (
               `- This is the first required ${artifactDescription} consultation before any ${artifactDescription.toLowerCase()} artifact exists. You must return "ask".`,
               `- Ask exactly ${requiredStarterQuestionCount} short blocker questions that will materially shape the first ${artifactDescription.toLowerCase()} draft.`,
               input.phase === "core-flows"
-                ? "- Cover three different decision areas: the primary user journey, a meaningful edge or destructive flow, and a product behavior or state rule that changes the flow map."
+                ? "- Cover three different decision areas: the primary user journey, a meaningful edge or destructive flow, and a state rule that changes the flow map."
                 : "- Cover distinct decision areas that would materially change the first draft.",
               `- Do not return proceed or an empty questions array for this first ${artifactDescription} consultation.`
             ]
@@ -161,13 +186,16 @@ const buildCheckPrompt = (
       `- You may ask at most ${maxQuestions} question${maxQuestions === 1 ? "" : "s"}.`,
       "- Keep the set as short as possible. Ask only the highest-leverage blocker questions.",
       "- If you ask, every question must explain why it blocks this artifact and include an assumptionIfUnanswered.",
-      '- Every question must use "select", "multi-select", or "boolean". Never use "text".',
+      '- Every question must use "select", "multi-select", or "boolean".',
       "- Prefer 2 to 5 options per question. Include a recommendedOption when one choice is clearly best.",
+      '- Do not include "Other" in options. Set allowCustomAnswer to true only when the user may reasonably need a custom answer outside the finite options.',
+      `- Allowed decisionType values for this artifact are: ${questionPolicy.allowedDecisionTypes.join(", ")}.`,
       ...(requiresInitialConsultation || requiresStarterQuestions
         ? []
         : ["- If you can proceed, return an empty questions array and include any explicit assumptions you are making."]),
       "- Do not ask broad discovery questions. Ask only about blockers for this artifact.",
       "- Phrase each question so the user can answer it quickly without reading a long explanation.",
+      ...promptPolicy.checkRules,
       ...getArtifactSections(input)
     ].join("\n\n")
   };
@@ -236,19 +264,19 @@ export const buildPlannerPrompt = (
   ].join("\n\n");
 
   if (job === "brief-check") {
-    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, 4, "Brief");
+    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, "Brief");
   }
 
   if (job === "core-flows-check") {
-    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, 2, "Core flows");
+    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, "Core flows");
   }
 
   if (job === "prd-check") {
-    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, 3, "PRD");
+    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, "PRD");
   }
 
   if (job === "tech-spec-check") {
-    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, 3, "Tech spec");
+    return buildCheckPrompt(systemPrompt, input as PhaseCheckInput, "Tech spec");
   }
 
   if (job === "clarify-help") {
@@ -282,6 +310,7 @@ export const buildPlannerPrompt = (
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Brief", [
       "Capture the problem, target user, goals, success criteria, scope, constraints, and explicit assumptions.",
       'Use a neutral top-level heading. If the initiative does not explicitly provide a product name, the heading must be exactly "# Brief". Never invent or assign a product, app, or code name.',
+      ...getPromptPolicy("brief").generationRules,
       'The traceOutline should include sections for "users", "goals", "constraints", "assumptions", and "success-criteria".'
     ]);
   }
@@ -289,6 +318,7 @@ export const buildPlannerPrompt = (
   if (job === "core-flows-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Core flows", [
       "Describe the primary user journeys, entry points, end states, branching paths, major screens or states, and important empty/loading/error states.",
+      ...getPromptPolicy("core-flows").generationRules,
       'The traceOutline should include sections for "actors", "flows", "steps", "states", and "edge-cases".'
     ]);
   }
@@ -296,6 +326,7 @@ export const buildPlannerPrompt = (
   if (job === "prd-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "PRD", [
       "Expand the product behavior, requirements, rules, scope boundaries, acceptance framing, and non-goals.",
+      ...getPromptPolicy("prd").generationRules,
       'The traceOutline should include sections for "requirements", "rules", "acceptance-criteria", and "non-goals".'
     ]);
   }
@@ -303,6 +334,7 @@ export const buildPlannerPrompt = (
   if (job === "tech-spec-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Tech spec", [
       "Cover architecture, major components, data flow, constraints, implementation approach, risks, and verification hooks.",
+      ...getPromptPolicy("tech-spec").generationRules,
       'The traceOutline should include sections for "components", "data-entities", "decisions", "risks", and "verification-hooks".'
     ]);
   }

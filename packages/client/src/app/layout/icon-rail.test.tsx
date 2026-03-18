@@ -111,6 +111,6 @@ describe("IconRail", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Local Notes" }));
-    expect(screen.getByTestId("location")).toHaveTextContent(`/initiative/${initiative.id}?step=brief`);
+    expect(screen.getByTestId("location")).toHaveTextContent(`/initiative/${initiative.id}?step=brief&surface=questions`);
   });
 });

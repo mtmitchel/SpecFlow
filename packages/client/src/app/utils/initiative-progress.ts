@@ -5,6 +5,7 @@ import type {
   PlanningReviewArtifact,
   PlanningReviewKind,
   Run,
+  SpecDocumentSummary,
   Ticket,
   TicketStatus,
 } from "../../types.js";
@@ -17,6 +18,7 @@ import {
 export type PipelineNodeKey = InitiativePlanningStep | "execute" | "verify" | "done";
 export type PipelineNodeZone = "planning" | "execution";
 export type PipelineNodeState = "future" | "active" | "checkpoint" | "complete" | "generating";
+export type InitiativePlanningSurface = "questions" | "review";
 
 export interface PipelineNodeModel {
   key: PipelineNodeKey;
@@ -39,9 +41,66 @@ export interface InitiativeProgressModel {
   nextTicket: Ticket | null;
 }
 
+const hasInitiativeArtifactSummary = (
+  specSummaries: SpecDocumentSummary[],
+  initiativeId: string,
+  step: InitiativePlanningStep,
+): boolean =>
+  step !== "tickets" &&
+  specSummaries.some((spec) => spec.initiativeId === initiativeId && spec.type === step);
+
+export const isInitiativePlanningSurface = (value: string | null): value is InitiativePlanningSurface =>
+  value === "questions" || value === "review";
+
+export const getInitiativePlanningSurface = (
+  initiative: Initiative,
+  specSummaries: SpecDocumentSummary[],
+  step: Exclude<InitiativePlanningStep, "tickets">,
+  preferredSurface?: InitiativePlanningSurface | null,
+): InitiativePlanningSurface => {
+  const hasArtifact = hasInitiativeArtifactSummary(specSummaries, initiative.id, step);
+  const canOpenQuestions = !hasArtifact || initiative.workflow.refinements[step].questions.length > 0;
+  const defaultSurface: InitiativePlanningSurface = hasArtifact ? "review" : "questions";
+
+  if (!preferredSurface) {
+    return defaultSurface;
+  }
+
+  if (preferredSurface === "review" && hasArtifact) {
+    return "review";
+  }
+
+  if (preferredSurface === "questions" && canOpenQuestions) {
+    return "questions";
+  }
+
+  return defaultSurface;
+};
+
+export const buildInitiativeStepSearchParams = (
+  step: InitiativePlanningStep,
+  surface?: InitiativePlanningSurface | null,
+): URLSearchParams => {
+  const params = new URLSearchParams();
+  params.set("step", step);
+
+  if (step !== "tickets" && surface) {
+    params.set("surface", surface);
+  }
+
+  return params;
+};
+
+export const buildInitiativeStepHref = (
+  initiativeId: string,
+  step: InitiativePlanningStep,
+  surface?: InitiativePlanningSurface | null,
+): string => `/initiative/${initiativeId}?${buildInitiativeStepSearchParams(step, surface).toString()}`;
+
 export const getInitiativeResumeHref = (
   initiative: Initiative,
   progress: InitiativeProgressModel,
+  snapshot: ArtifactsSnapshot,
 ): string => {
   if (progress.currentKey === "execute" || progress.currentKey === "verify") {
     return progress.nextTicket ? `/ticket/${progress.nextTicket.id}` : `/initiative/${initiative.id}?step=tickets`;
@@ -51,7 +110,15 @@ export const getInitiativeResumeHref = (
     return `/initiative/${initiative.id}?step=tickets`;
   }
 
-  return `/initiative/${initiative.id}?step=${progress.currentKey}`;
+  if (progress.currentKey === "tickets") {
+    return buildInitiativeStepHref(initiative.id, progress.currentKey);
+  }
+
+  return buildInitiativeStepHref(
+    initiative.id,
+    progress.currentKey,
+    getInitiativePlanningSurface(initiative, snapshot.specs, progress.currentKey),
+  );
 };
 
 export const PIPELINE_NODE_ORDER: PipelineNodeKey[] = [

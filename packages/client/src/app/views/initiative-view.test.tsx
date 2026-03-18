@@ -15,9 +15,9 @@ vi.mock("../../api.js", async () => {
   return {
     ...actual,
     fetchSpecDetail: (...args: unknown[]) => fetchSpecDetailMock(...args),
-    checkInitiativePhase: (...args: unknown[]) => checkInitiativePhaseMock(...args),
-    generateInitiativeBrief: (...args: unknown[]) => generateInitiativeBriefMock(...args),
-    generateInitiativeCoreFlows: (...args: unknown[]) => generateInitiativeCoreFlowsMock(...args),
+    checkInitiativePhase: (...args: unknown[]) => checkInitiativePhaseMock(args[0], args[1]),
+    generateInitiativeBrief: (...args: unknown[]) => generateInitiativeBriefMock(args[0]),
+    generateInitiativeCoreFlows: (...args: unknown[]) => generateInitiativeCoreFlowsMock(args[0]),
   };
 });
 
@@ -51,23 +51,23 @@ const initiative: Initiative = {
         questions: [
           {
             id: "brief-problem",
-            label: "Which problem matters most in v1?",
+            label: "What primary problem should v1 solve?",
             type: "select",
             whyThisBlocks: "One focused problem — not a feature list.",
             affectedArtifact: "brief",
-            decisionType: "scope",
+            decisionType: "problem",
             assumptionIfUnanswered: "Focus on the user's primary note-taking problem.",
             options: [
-              "Capture something quickly",
-              "Find or organize things better",
-              "Replace an existing tool or workflow",
-              "Support a platform-specific need",
-              "Other"
+              "Repeated work takes too many steps",
+              "Important information is hard to find again",
+              "Staying organized takes too much effort",
+              "The current tool or workflow no longer fits"
             ],
             optionHelp: {
-              "Capture something quickly": "Use this when speed matters most."
+              "Repeated work takes too many steps": "Use this when the main pain is friction in something people do often."
             },
-            recommendedOption: null
+            recommendedOption: null,
+            allowCustomAnswer: true
           },
         ],
         answers: {},
@@ -112,18 +112,18 @@ const coreFlowsQuestion = {
   type: "select" as const,
   whyThisBlocks: "The core flows need one primary path before they can be drafted.",
   affectedArtifact: "core-flows" as const,
-  decisionType: "workflow" as const,
+  decisionType: "journey" as const,
   assumptionIfUnanswered: "The app should optimize for fast capture first.",
   options: [
     "Capture first, organize later",
     "Browse existing notes first",
-    "Equal emphasis on capture and browsing",
-    "Other"
+    "Equal emphasis on capture and browsing"
   ],
   optionHelp: {
     "Capture first, organize later": "Use this when the app should open straight into quick note entry."
   },
-  recommendedOption: "Capture first, organize later"
+  recommendedOption: "Capture first, organize later",
+  allowCustomAnswer: true
 };
 
 const reviewSnapshot: ArtifactsSnapshot = {
@@ -272,7 +272,7 @@ const briefReviewSnapshot: ArtifactsSnapshot = {
           brief: {
             ...briefCompleteSnapshot.initiatives[0]!.workflow.refinements.brief,
             answers: {
-              "brief-problem": "Capture something quickly"
+              "brief-problem": "Repeated work takes too many steps"
             }
           }
         }
@@ -294,7 +294,7 @@ const readyToDraftSnapshot: ArtifactsSnapshot = {
             ...initiative.workflow.refinements.brief,
             questions: [],
             answers: {
-              "brief-problem": "Capture something quickly",
+              "brief-problem": "Repeated work takes too many steps",
             },
             checkedAt: "2026-03-16T12:15:00.000Z",
           },
@@ -501,12 +501,12 @@ describe("InitiativeView", () => {
     );
 
     expect(screen.queryByRole("heading", { name: "What do you want to build?" })).not.toBeInTheDocument();
-    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Generate brief" })).not.toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText("?step=brief")).toBeInTheDocument();
+      expect(screen.getByText("?step=brief&surface=questions")).toBeInTheDocument();
     });
   });
 
@@ -526,9 +526,9 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Capture something quickly/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
 
-    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.queryByText("Ready to draft the brief")).not.toBeInTheDocument();
     expect(checkInitiativePhaseMock).not.toHaveBeenCalled();
 
@@ -560,16 +560,19 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Capture something quickly/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect(screen.getByText("Checking if the brief needs anything else")).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("Which problem matters most in v1?")).not.toBeInTheDocument();
+    expect(screen.queryByText("What primary problem should v1 solve?")).not.toBeInTheDocument();
     expect(screen.getByText("Checking if the brief needs anything else").closest(".planning-survey-card")).toHaveClass(
       "planning-survey-card-compact",
+    );
+    expect(screen.getByText("Checking if the brief needs anything else").closest(".planning-survey-card")).toHaveClass(
+      "planning-survey-card-transient",
     );
 
     if (resolveCheck) {
@@ -606,7 +609,7 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Capture something quickly/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -638,7 +641,7 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Capture something quickly/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -844,7 +847,7 @@ describe("InitiativeView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
-    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Continue to core flows" })).not.toBeInTheDocument();
   });
@@ -863,9 +866,9 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Capture something quickly/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Repeated work takes too many steps/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Generate brief" })).not.toBeInTheDocument();
     expect(screen.queryByText("24 questions to answer")).not.toBeInTheDocument();
     expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
@@ -890,7 +893,7 @@ describe("InitiativeView", () => {
     expect(screen.queryByRole("menuitem", { name: "Move on anyway" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Revise answers" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit text" })).not.toBeInTheDocument();
-    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
   });
 
   it("lets the next phase stay active even if the previous planning review artifact is still unresolved", () => {

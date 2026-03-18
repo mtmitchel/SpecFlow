@@ -116,7 +116,7 @@ export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent
               key={initiative.id}
               type="button"
               className={`icon-rail-initiative${active ? " active" : ""}`}
-              onClick={() => navigate(getInitiativeResumeHref(initiative, progress))}
+              onClick={() => navigate(getInitiativeResumeHref(initiative, progress, snapshot))}
               aria-label={displayTitle}
               title={displayTitle}
             >

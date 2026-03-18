@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkInitiativePhase,
   generateInitiativeBrief,
@@ -6,12 +6,14 @@ import {
   generateInitiativePrd,
   generateInitiativeTechSpec
 } from "../../../api.js";
+import { isRequestCancelledError } from "../../../api/transport.js";
 import type { InitiativeArtifactStep, InitiativePlanningStep } from "../../../types.js";
 import { useToast } from "../../context/toast.js";
+import type { InitiativePlanningSurface } from "../../utils/initiative-progress.js";
 
 interface PhaseAutoAdvanceConfig {
   initiativeId: string | null;
-  navigateToStep: (step: InitiativePlanningStep) => void;
+  navigateToStep: (step: InitiativePlanningStep, surface?: InitiativePlanningSurface | null) => void;
   nextStep: InitiativePlanningStep | null;
   onRefresh: () => Promise<void>;
 }
@@ -26,23 +28,27 @@ type AutoAdvanceState = {
   step: InitiativeArtifactStep;
 } | null;
 
-const runPhaseGeneration = async (initiativeId: string, step: InitiativeArtifactStep): Promise<void> => {
+const runPhaseGeneration = async (
+  initiativeId: string,
+  step: InitiativeArtifactStep,
+  signal: AbortSignal,
+): Promise<void> => {
   if (step === "brief") {
-    await generateInitiativeBrief(initiativeId);
+    await generateInitiativeBrief(initiativeId, { signal });
     return;
   }
 
   if (step === "core-flows") {
-    await generateInitiativeCoreFlows(initiativeId);
+    await generateInitiativeCoreFlows(initiativeId, { signal });
     return;
   }
 
   if (step === "prd") {
-    await generateInitiativePrd(initiativeId);
+    await generateInitiativePrd(initiativeId, { signal });
     return;
   }
 
-  await generateInitiativeTechSpec(initiativeId);
+  await generateInitiativeTechSpec(initiativeId, { signal });
 };
 
 export const usePhaseAutoAdvance = ({
@@ -55,12 +61,24 @@ export const usePhaseAutoAdvance = ({
   const [autoAdvance, setAutoAdvance] = useState<AutoAdvanceState>(null);
   const [autoAdvanceFailedStep, setAutoAdvanceFailedStep] = useState<InitiativeArtifactStep | null>(null);
   const [autoAdvanceFailedStage, setAutoAdvanceFailedStage] = useState<"check" | "generate" | null>(null);
+  const autoAdvanceControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => autoAdvanceControllerRef.current?.abort(), []);
+
+  const cancelAutoAdvance = useCallback(() => {
+    autoAdvanceControllerRef.current?.abort();
+    autoAdvanceControllerRef.current = null;
+    setAutoAdvance(null);
+  }, []);
 
   const beginAutoAdvance = useCallback(async (step: InitiativeArtifactStep, options: AutoAdvanceOptions = {}) => {
     if (!initiativeId) {
       return;
     }
 
+    const controller = new AbortController();
+    autoAdvanceControllerRef.current?.abort();
+    autoAdvanceControllerRef.current = controller;
     const navigateOnSuccess = options.navigateOnSuccess ?? step !== "brief";
     setAutoAdvanceFailedStep(null);
     setAutoAdvanceFailedStage(null);
@@ -69,7 +87,7 @@ export const usePhaseAutoAdvance = ({
     try {
       if (!options.skipCheck) {
         setAutoAdvance({ step, stage: "check" });
-        const result = await checkInitiativePhase(initiativeId, step);
+        const result = await checkInitiativePhase(initiativeId, step, { signal: controller.signal });
         await onRefresh();
         if (result.decision === "ask") {
           return;
@@ -78,17 +96,26 @@ export const usePhaseAutoAdvance = ({
 
       failedStage = "generate";
       setAutoAdvance({ step, stage: "generate" });
-      await runPhaseGeneration(initiativeId, step);
+      await runPhaseGeneration(initiativeId, step, controller.signal);
       await onRefresh();
       if (navigateOnSuccess && nextStep) {
         navigateToStep(nextStep);
+      } else {
+        navigateToStep(step, "review");
       }
     } catch (error) {
+      if (isRequestCancelledError(error)) {
+        return;
+      }
+
       setAutoAdvanceFailedStep(step);
       setAutoAdvanceFailedStage(failedStage);
       showError((error as Error).message ?? "Failed to continue the phase");
     } finally {
-      setAutoAdvance(null);
+      if (autoAdvanceControllerRef.current === controller) {
+        autoAdvanceControllerRef.current = null;
+        setAutoAdvance(null);
+      }
     }
   }, [initiativeId, navigateToStep, nextStep, onRefresh, showError]);
 
@@ -97,6 +124,7 @@ export const usePhaseAutoAdvance = ({
     autoAdvanceFailedStep,
     autoAdvanceStep: autoAdvance?.step ?? null,
     beginAutoAdvance,
+    cancelAutoAdvance,
     isAutoGenerating: autoAdvance?.stage === "generate",
     isAutoPending: autoAdvance !== null
   };

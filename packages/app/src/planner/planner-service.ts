@@ -156,6 +156,7 @@ export class PlannerService {
 
     validatePhaseCheckResult(
       result,
+      input.step,
       CHECK_BUDGET_BY_STEP[input.step],
       phaseCheckInput.requiredStarterQuestionCount ?? 0
     );

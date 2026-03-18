@@ -103,6 +103,15 @@ Clarification is a refinement mechanism that can appear:
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
 
+For a fresh initiative, the required Brief intake always captures four framing decisions:
+
+- the primary problem
+- the primary user
+- the success qualities that should feel true if v1 works
+- the hard boundaries that constrain the first release
+
+Those four decisions must stay distinct. The intake should not restate the primary problem as a success criterion, and hard boundaries should not be phrased like implementation choices unless they are truly non-negotiable.
+
 ### Phase framing copy
 
 Use these descriptions wherever the app introduces a phase.

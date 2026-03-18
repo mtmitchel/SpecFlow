@@ -1,6 +1,6 @@
 import { parse, requestJson } from "./http";
 import { parseSseResult } from "./sse";
-import { transportRequest } from "./transport";
+import { transportRequest, type TransportRequestOptions } from "./transport";
 import type {
   InitiativePlanningQuestion,
   InitiativePlanningStep,
@@ -58,83 +58,104 @@ export const updateInitiative = async (
 
 export const checkInitiativePhase = async (
   initiativeId: string,
-  step: RefinementStep
+  step: RefinementStep,
+  options?: TransportRequestOptions,
 ): Promise<InitiativePhaseCheckResult> =>
   transportRequest(
     "initiatives.phaseCheck",
     { id: initiativeId, step },
-    () =>
+    (signal) =>
       requestJson(`/api/initiatives/${initiativeId}/${step}-check`, {
-        method: "POST"
-      })
+        method: "POST",
+        signal,
+      }),
+    undefined,
+    options,
   );
 
 export const generateInitiativeBrief = async (
-  initiativeId: string
+  initiativeId: string,
+  options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
   return transportRequest(
     "initiatives.generate.brief",
     { id: initiativeId },
-    async () => {
+    async (signal) => {
       const response = await fetch(`/api/initiatives/${initiativeId}/generate-brief`, {
-        method: "POST"
+        method: "POST",
+        signal,
       });
 
       return parseSseResult(response);
-    }
+    },
+    undefined,
+    options,
   );
 };
 
 export const generateInitiativeCoreFlows = async (
-  initiativeId: string
+  initiativeId: string,
+  options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
   return transportRequest(
     "initiatives.generate.coreFlows",
     { id: initiativeId },
-    async () => {
+    async (signal) => {
       const response = await fetch(`/api/initiatives/${initiativeId}/generate-core-flows`, {
-        method: "POST"
+        method: "POST",
+        signal,
       });
 
       return parseSseResult(response);
-    }
+    },
+    undefined,
+    options,
   );
 };
 
 export const generateInitiativePrd = async (
-  initiativeId: string
+  initiativeId: string,
+  options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
   return transportRequest(
     "initiatives.generate.prd",
     { id: initiativeId },
-    async () => {
+    async (signal) => {
       const response = await fetch(`/api/initiatives/${initiativeId}/generate-prd`, {
-        method: "POST"
+        method: "POST",
+        signal,
       });
 
       return parseSseResult(response);
-    }
+    },
+    undefined,
+    options,
   );
 };
 
 export const generateInitiativeTechSpec = async (
-  initiativeId: string
+  initiativeId: string,
+  options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
   return transportRequest(
     "initiatives.generate.techSpec",
     { id: initiativeId },
-    async () => {
+    async (signal) => {
       const response = await fetch(`/api/initiatives/${initiativeId}/generate-tech-spec`, {
-        method: "POST"
+        method: "POST",
+        signal,
       });
 
       return parseSseResult(response);
-    }
+    },
+    undefined,
+    options,
   );
 };
 
 export const generateInitiativePlan = async (
-  initiativeId: string
+  initiativeId: string,
+  options?: TransportRequestOptions,
 ): Promise<{
   phases: Array<{
     name: string;
@@ -152,13 +173,16 @@ export const generateInitiativePlan = async (
   return transportRequest(
     "initiatives.generatePlan",
     { id: initiativeId },
-    async () => {
+    async (signal) => {
       const response = await fetch(`/api/initiatives/${initiativeId}/generate-plan`, {
-        method: "POST"
+        method: "POST",
+        signal,
       });
 
       return parseSseResult(response);
-    }
+    },
+    undefined,
+    options,
   );
 };
 
@@ -204,19 +228,23 @@ export const saveInitiativeRefinement = async (
 export const requestInitiativeClarificationHelp = async (
   initiativeId: string,
   questionId: string,
-  note: string
+  note: string,
+  options?: TransportRequestOptions,
 ): Promise<{ guidance: string }> =>
   transportRequest(
     "initiatives.refinement.help",
     { id: initiativeId, body: { questionId, note } },
-    () =>
+    (signal) =>
       requestJson(`/api/initiatives/${initiativeId}/refinement/help`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ questionId, note })
-      })
+        body: JSON.stringify({ questionId, note }),
+        signal,
+      }),
+    undefined,
+    options,
   );
 
 export const deleteInitiative = async (initiativeId: string): Promise<void> => {
@@ -235,18 +263,22 @@ export const deleteInitiative = async (initiativeId: string): Promise<void> => {
 
 export const runInitiativeReview = async (
   initiativeId: string,
-  kind: PlanningReviewKind
+  kind: PlanningReviewKind,
+  options?: TransportRequestOptions,
 ): Promise<PlanningReviewArtifact> => {
   return transportRequest(
     "initiatives.review.run",
     { id: initiativeId, kind },
-    async () => {
+    async (signal) => {
       const response = await fetch(`/api/initiatives/${initiativeId}/reviews/${kind}/run`, {
-        method: "POST"
+        method: "POST",
+        signal,
       });
 
       return parseSseResult(response);
-    }
+    },
+    undefined,
+    options,
   );
 };
 

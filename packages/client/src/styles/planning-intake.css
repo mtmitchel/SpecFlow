@@ -128,6 +128,21 @@
   align-content: start;
 }
 
+.planning-intake-flow-loading {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.planning-intake-flow-loading .planning-survey-step-header,
+.planning-intake-flow-loading .planning-intake-progress,
+.planning-intake-flow-loading .planning-intake-loading-compact {
+  width: 100%;
+}
+
+.planning-intake-flow-loading .planning-intake-loading-compact {
+  justify-self: stretch;
+}
+
 .planning-intake-header {
   display: flex;
   justify-content: space-between;
@@ -173,6 +188,16 @@
 .planning-intake-loading {
   min-height: 0;
   max-width: 100%;
+}
+
+.planning-intake-loading-compact {
+  width: fit-content;
+  max-width: 100%;
+  justify-self: start;
+}
+
+.planning-intake-loading-compact .status-loading-copy {
+  max-width: 34rem;
 }
 
 .planning-intake-loading-hero {

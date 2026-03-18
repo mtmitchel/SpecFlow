@@ -32,7 +32,7 @@ npm run tauri dev
 
 `npm run setup:git-hooks` configures the repo's versioned `pre-commit` and `pre-push` hooks for this clone. The hooks enforce `git diff --cached --check`, block committed build outputs, and run the repo `check`/`test` gates before commits and pushes. They intentionally do not run desktop packaging; packaging stays a separate explicit step outside normal development.
 
-`npm run tauri dev` is the primary desktop development loop. It starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. During startup the desktop bridge waits for the first watched `packages/app/dist/sidecar.js` output instead of requiring a separate upfront build. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
+`npm run tauri dev` is the primary desktop development loop. It starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. During startup the desktop bridge waits for a fresh settled backend build under `packages/app/dist` before it spawns the Node sidecar, and later backend rebuilds are picked up by a bridge-owned sidecar restart before the next desktop request is sent. The dev stack now runs in raw terminal mode so closing the desktop window cleanly tears down the watched processes without the old spinner-heavy shutdown noise. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
 
 `npm run dev` is an alias for `npm run tauri dev`.
 

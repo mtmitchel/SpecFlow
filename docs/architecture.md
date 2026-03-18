@@ -17,7 +17,7 @@ Three packages share a single npm workspace root:
 | `packages/client` | React + Vite SPA | Browser / Tauri webview |
 | `packages/tauri` | Tauri v2 desktop shell and Rust bridge | Rust + Tauri |
 
-Desktop is the primary runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell without a separate upfront build step; the desktop bridge waits for the first watched `packages/app/dist/sidecar.js` output before spawning the sidecar. In desktop mode, the UI does not talk to Fastify and normal usage does not bind an HTTP port.
+Desktop is the primary runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell without a separate upfront build step; the desktop bridge waits for a fresh settled backend build under `packages/app/dist` before spawning the sidecar and hot-swaps to a fresh sidecar generation before the next request after a backend rebuild. In desktop mode, the UI does not talk to Fastify and normal usage does not bind an HTTP port.
 
 Legacy Fastify + browser mode is still supported for fallback and compatibility. `npm run dev:web` starts the watched app server on `127.0.0.1:3142` plus the Vite client with `/api` proxying, and `specflow ui --legacy-web` runs the Fastify + browser runtime from source.
 
@@ -33,7 +33,7 @@ The desktop runtime is split into three layers:
 2. The Tauri bridge in `packages/tauri`
 3. A persistent Node sidecar in `packages/app/src/sidecar.ts`
 
-The UI talks to Tauri through `invoke`, `Channel`, native dialog APIs, and Tauri events. Tauri spawns and manages the Node sidecar, forwards request/response traffic over line-delimited JSON, and forwards streamed sidecar notifications back to the webview.
+The UI talks to Tauri through `invoke`, `Channel`, native dialog APIs, and Tauri events. Tauri spawns and manages the Node sidecar, keeps desktop dev attached to the freshest backend `dist` generation, forwards request/response traffic over line-delimited JSON, and forwards streamed sidecar notifications back to the webview.
 
 The sidecar owns planning, verification, bundle export, store access, config updates, and GitHub issue import. Planner, verifier, bundle, store, and config logic remain in Node; Rust only owns desktop process management and transport bridging.
 

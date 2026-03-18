@@ -1,5 +1,6 @@
 import type {
   Initiative,
+  InitiativePlanningQuestion,
   InitiativeRefinementState
 } from "../types/entities.js";
 import type { PhaseCheckResult } from "./types.js";
@@ -14,31 +15,59 @@ const hasResolvedQuestion = (refinement: InitiativeRefinementState, questionId: 
   return hasAnswer || refinement.defaultAnswerQuestionIds.includes(questionId);
 };
 
+const assertStaticQuestionDefinition = (question: InitiativePlanningQuestion): InitiativePlanningQuestion => {
+  const options = question.options ?? [];
+  const optionHelp = question.optionHelp ?? {};
+
+  if ((question.type === "select" || question.type === "multi-select") && options.length === 0) {
+    throw new Error(`Required Brief question ${question.id} must define options`);
+  }
+
+  const missingOptionHelp = options.filter((option) => !optionHelp[option]?.trim());
+  if (missingOptionHelp.length > 0) {
+    throw new Error(
+      `Required Brief question ${question.id} is missing helper copy for option(s): ${missingOptionHelp.join(", ")}`
+    );
+  }
+
+  const extraOptionHelp = Object.keys(optionHelp).filter((option) => !options.includes(option));
+  if (extraOptionHelp.length > 0) {
+    throw new Error(
+      `Required Brief question ${question.id} has helper copy for unknown option(s): ${extraOptionHelp.join(", ")}`
+    );
+  }
+
+  return question;
+};
+
+const defineRequiredBriefQuestions = (
+  questions: InitiativePlanningQuestion[],
+): InitiativePlanningQuestion[] => questions.map(assertStaticQuestionDefinition);
+
 export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
   decision: "ask",
-  questions: [
+  questions: defineRequiredBriefQuestions([
     {
       id: "brief-problem",
-      label: "Which problem matters most in v1?",
+      label: "What primary problem should v1 solve?",
       type: "select",
       whyThisBlocks: "The brief cannot define the right scope until the primary problem is explicit.",
       affectedArtifact: "brief",
-      decisionType: "scope",
+      decisionType: "problem",
       options: [
-        "Capture something quickly",
-        "Find or organize things better",
-        "Replace an existing tool or workflow",
-        "Support a platform-specific need",
-        "Other"
+        "Repeated work takes too many steps",
+        "Important information is hard to find again",
+        "Staying organized takes too much effort",
+        "The current tool or workflow no longer fits",
       ],
       optionHelp: {
-        "Capture something quickly": "Use this when speed of creation is the main job.",
-        "Find or organize things better": "Use this when retrieval, structure, or cleanup matters most.",
-        "Replace an existing tool or workflow": "Use this when the goal is to cover a current workflow in a better way.",
-        "Support a platform-specific need": "Use this when the main value is doing the job well on a specific platform.",
-        Other: "Use this when none of the options fit cleanly."
+        "Repeated work takes too many steps": "Use this when the main pain is friction in something people do often.",
+        "Important information is hard to find again": "Use this when retrieval, recall, or rediscovery is the main pain.",
+        "Staying organized takes too much effort": "Use this when structure and cleanup feel heavier than they should.",
+        "The current tool or workflow no longer fits": "Use this when the main pain is mismatch with an existing process or product."
       },
       recommendedOption: null,
+      allowCustomAnswer: true,
       assumptionIfUnanswered:
         "Assume the first release focuses on the most urgent problem implied by the initiative description."
     },
@@ -49,75 +78,75 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       whyThisBlocks: "The brief cannot set goals or scope well without a clear primary user.",
       affectedArtifact: "brief",
       decisionType: "user",
-      options: ["Just me", "A small team I know", "An internal team or company", "A broad public audience", "Other"],
+      options: ["Just me", "A small team I know", "An internal team or company", "A broad public audience"],
       optionHelp: {
         "Just me": "Use this when the first release is mainly for your own workflow.",
         "A small team I know": "Use this when the users are a specific small group with shared needs.",
         "An internal team or company": "Use this when the users are within one org or business context.",
-        "A broad public audience": "Use this when the first release is meant for many unrelated users.",
-        Other: "Use this when the primary audience is more specific."
+        "A broad public audience": "Use this when the first release is meant for many unrelated users."
       },
       recommendedOption: null,
+      allowCustomAnswer: true,
       assumptionIfUnanswered:
         "Assume the first release targets the most obvious primary user implied by the initiative description."
     },
     {
       id: "brief-success",
-      label: "How should v1 success be judged?",
+      label: "What should feel true if v1 succeeds?",
       type: "multi-select",
       whyThisBlocks: "The brief needs explicit success criteria before it can define goals and tradeoffs.",
       affectedArtifact: "brief",
-      decisionType: "success-metric",
+      decisionType: "success",
       options: [
-        "Fast enough for everyday use",
-        "Reliable enough for real work",
-        "Easy to learn on first use",
-        "Works cleanly on the target platform",
-        "Matches or improves an existing workflow",
-        "Other"
+        "Feels fast in daily use",
+        "Feels trustworthy for real notes",
+        "Feels simple and focused",
+        "Is easy to learn on first use",
+        "Shows clear value right away"
       ],
       optionHelp: {
-        "Fast enough for everyday use": "Use this when speed or responsiveness is a key success bar.",
-        "Reliable enough for real work": "Use this when trust and consistency matter most.",
-        "Easy to learn on first use": "Use this when onboarding and clarity matter most.",
-        "Works cleanly on the target platform": "Use this when native fit or packaging matters most.",
-        "Matches or improves an existing workflow": "Use this when the goal is to replace a current process without losing capability.",
-        Other: "Use this when success depends on something more specific."
+        "Feels fast in daily use": "Use this when speed and responsiveness are central to the product promise.",
+        "Feels trustworthy for real notes": "Use this when consistency and trust matter most.",
+        "Feels simple and focused": "Use this when the product should stay lightweight instead of feeling bloated or noisy.",
+        "Is easy to learn on first use": "Use this when onboarding and clarity matter most.",
+        "Shows clear value right away": "Use this when the product needs to prove itself quickly in an early session."
       },
       recommendedOption: null,
+      allowCustomAnswer: true,
       assumptionIfUnanswered:
         "Assume success means the core workflow works reliably for the primary user without major blockers."
     },
     {
-      id: "brief-constraints-platform",
+      id: "brief-constraints",
       label: "Which constraints matter from day one?",
       type: "multi-select",
-      whyThisBlocks: "The brief needs known constraints and target platforms so it does not lock in the wrong scope.",
+      whyThisBlocks: "The brief needs hard boundaries so it does not lock in the wrong scope or promise the wrong solution.",
       affectedArtifact: "brief",
-      decisionType: "platform",
+      decisionType: "constraint",
       options: [
-        "Specific platform or package target",
+        "Specific desktop platform support",
         "Local-first or offline use",
+        "Plain files or portable storage",
         "Privacy or security requirements",
-        "Performance limits",
+        "Performance limits on typical hardware",
         "Integration with another tool",
-        "No extra constraints",
-        "Other"
+        "No extra constraints"
       ],
       optionHelp: {
-        "Specific platform or package target": "Use this when OS, device class, packaging, or runtime matters immediately.",
+        "Specific desktop platform support": "Use this when one desktop environment or OS support is non-negotiable in v1.",
         "Local-first or offline use": "Use this when the product must work well without a network connection.",
+        "Plain files or portable storage": "Use this when storage format portability or local ownership is a hard boundary.",
         "Privacy or security requirements": "Use this when data handling or access rules constrain the design.",
-        "Performance limits": "Use this when speed, resource use, or latency is a hard bar.",
+        "Performance limits on typical hardware": "Use this when memory, CPU, startup, or responsiveness is a hard bar.",
         "Integration with another tool": "Use this when another system shapes the solution.",
-        "No extra constraints": "Use this when the initiative description already covers the important limits.",
-        Other: "Use this when a different hard constraint matters."
+        "No extra constraints": "Use this when the initiative description already covers the important limits."
       },
       recommendedOption: null,
+      allowCustomAnswer: true,
       assumptionIfUnanswered:
         "Assume there are no extra hard constraints beyond the initiative description and prefer a narrow first-release platform scope."
     }
-  ],
+  ]),
   assumptions: []
 };
 

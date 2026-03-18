@@ -12,6 +12,21 @@ export interface TransportRequestOptions {
   signal?: AbortSignal;
 }
 
+export interface DesktopRuntimeStatus {
+  transport: "desktop";
+  sidecarPid: number | null;
+  runtimeGeneration: number;
+  buildFingerprint: string | null;
+  latestBuildPath: string | null;
+  restartCount: number;
+  restartPending: boolean;
+}
+
+export interface ArtifactsChangedPayload {
+  reason?: string;
+  [key: string]: unknown;
+}
+
 let requestCounter = 0;
 
 const nextRequestId = (): string => {
@@ -84,14 +99,24 @@ export const transportRequest = async <T>(
   return invokeDesktop<T>(method, params, onEvent, options);
 };
 
+export const isRequestCancelledError = (error: unknown): boolean => {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return true;
+  }
+
+  return error instanceof Error && error.message === "Request cancelled";
+};
+
 export const subscribeArtifactsChanged = async (
-  onRefresh: () => Promise<void> | void
+  onRefresh: () => Promise<void> | void,
+  onEvent?: (payload: ArtifactsChangedPayload) => void
 ): Promise<() => void> => {
   if (!isDesktopRuntime()) {
     return () => {};
   }
 
-  const unlisten = await listen("artifacts-changed", async () => {
+  const unlisten = await listen<ArtifactsChangedPayload>("artifacts-changed", async (event) => {
+    onEvent?.(event.payload ?? {});
     await onRefresh();
   });
 
@@ -107,6 +132,14 @@ export const chooseSavePath = async (defaultPath: string): Promise<string | null
 
   const selection = await save({ defaultPath });
   return typeof selection === "string" ? selection : null;
+};
+
+export const getDesktopRuntimeStatus = async (): Promise<DesktopRuntimeStatus | null> => {
+  if (!isDesktopRuntime()) {
+    return null;
+  }
+
+  return invoke<DesktopRuntimeStatus>("desktop_runtime_status");
 };
 
 const normalizeDesktopError = (error: unknown): Error => {

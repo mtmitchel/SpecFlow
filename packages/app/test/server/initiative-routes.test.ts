@@ -33,6 +33,11 @@ describe("initiative routes", () => {
       expect(
         (briefCheckPayload.questions as Array<{ type: string }>).every((question) => question.type !== "text")
       ).toBe(true);
+      expect(
+        (briefCheckPayload.questions as Array<{ options?: string[] }>).every(
+          (question) => !(question.options ?? []).includes("Other")
+        )
+      ).toBe(true);
     } finally {
       await fixture.cleanup();
     }

@@ -5,5 +5,5 @@ export const SpecView = () => {
   const nextType =
     type === "brief" || type === "core-flows" || type === "prd" || type === "tech-spec" ? type : "brief";
 
-  return <Navigate to={`/initiative/${id ?? ""}?step=${nextType}`} replace />;
+  return <Navigate to={`/initiative/${id ?? ""}?step=${nextType}&surface=review`} replace />;
 };

@@ -190,7 +190,7 @@ describe("PlannerService", () => {
                 label: "Which note flow should the first core flows draft optimize for?",
                 whyThisBlocks: "The first core flows draft needs one explicit primary path.",
                 affectedArtifact: "core-flows",
-                decisionType: "workflow",
+                decisionType: "journey",
                 type: "select",
                 assumptionIfUnanswered: "Optimize for fast note capture first.",
                 options: [
@@ -219,6 +219,206 @@ describe("PlannerService", () => {
           step: "core-flows"
         })
       ).rejects.toThrow("at least 3 starter questions");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("rejects PRD questions that drift into tech-spec decision types", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-prd-stage-fit-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-prd";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            decision: "ask",
+            questions: [
+              {
+                id: "prd-storage-model",
+                label: "Which storage engine should the app use?",
+                whyThisBlocks: "The PRD needs the storage architecture before it can move on.",
+                affectedArtifact: "prd",
+                decisionType: "architecture",
+                type: "select",
+                assumptionIfUnanswered: "Use a local embedded database.",
+                options: ["Flat files", "Embedded database"],
+                optionHelp: {
+                  "Flat files": "Use this when implementation should stay close to user-managed files.",
+                  "Embedded database": "Use this when the system should own indexing and structured queries."
+                },
+                recommendedOption: "Embedded database"
+              }
+            ],
+            assumptions: []
+          })
+        ]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "1122aabb"
+      });
+
+      const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      await expect(
+        planner.runPhaseCheckJob({
+          initiativeId: initiative.id,
+          step: "prd"
+        })
+      ).rejects.toThrow('disallowed decisionType "architecture" for prd');
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("rejects questions that include Other in the options contract", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-other-option-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-other";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            decision: "ask",
+            questions: [
+              {
+                id: "prd-scope",
+                label: "Which scope boundary matters most for v1?",
+                whyThisBlocks: "The PRD needs one explicit scope boundary.",
+                affectedArtifact: "prd",
+                decisionType: "scope",
+                type: "select",
+                assumptionIfUnanswered: "Keep the first release narrow.",
+                options: ["Single-user only", "Other"],
+                optionHelp: {
+                  "Single-user only": "Use this when collaboration should stay out of the first release.",
+                  Other: "Use this when another scope boundary matters more."
+                },
+                recommendedOption: null
+              }
+            ],
+            assumptions: []
+          })
+        ]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "7788ccdd"
+      });
+
+      const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      await expect(
+        planner.runPhaseCheckJob({
+          initiativeId: initiative.id,
+          step: "prd"
+        })
+      ).rejects.toThrow('must not include "Other" in options');
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("rejects questions that omit helper copy for one of the provided options", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-missing-option-help-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-option-help";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            decision: "ask",
+            questions: [
+              {
+                id: "prd-scope",
+                label: "Which product boundary matters most for v1?",
+                whyThisBlocks: "The PRD needs one explicit scope boundary.",
+                affectedArtifact: "prd",
+                decisionType: "scope",
+                type: "select",
+                assumptionIfUnanswered: "Keep the first release narrow.",
+                options: ["Single-user only", "Multi-user collaboration"],
+                optionHelp: {
+                  "Single-user only": "Use this when collaboration should stay out of the first release."
+                },
+                recommendedOption: null
+              }
+            ],
+            assumptions: []
+          })
+        ]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "ee99cc77"
+      });
+
+      const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      await expect(
+        planner.runPhaseCheckJob({
+          initiativeId: initiative.id,
+          step: "prd"
+        })
+      ).rejects.toThrow("missing optionHelp");
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });
@@ -266,7 +466,7 @@ describe("PlannerService", () => {
               label: "Which note flow should the first core flows draft optimize for?",
               whyThisBlocks: "The first core flows draft needs one explicit primary path.",
               affectedArtifact: "core-flows",
-              decisionType: "workflow",
+              decisionType: "journey",
               type: "select",
               assumptionIfUnanswered: "Optimize for fast note capture first.",
               options: [
@@ -284,7 +484,7 @@ describe("PlannerService", () => {
               label: "How should deletion work in the initial release?",
               whyThisBlocks: "Deletion behavior changes the flow map, states, and recovery paths.",
               affectedArtifact: "core-flows",
-              decisionType: "data",
+              decisionType: "branch",
               type: "select",
               assumptionIfUnanswered: "Use Trash with undo before permanent removal.",
               options: [
@@ -304,7 +504,7 @@ describe("PlannerService", () => {
               label: "Which workspace should open first when the app launches?",
               whyThisBlocks: "The launch destination changes the primary navigation and first-run flow.",
               affectedArtifact: "core-flows",
-              decisionType: "workflow",
+              decisionType: "state",
               type: "select",
               assumptionIfUnanswered: "Open the note list first and let users enter the editor from there.",
               options: [

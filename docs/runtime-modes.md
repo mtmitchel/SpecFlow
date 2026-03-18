@@ -24,7 +24,7 @@ What it does:
 1. Starts the `@specflow/app` TypeScript watcher
 2. Starts the Vite client dev server on `http://127.0.0.1:5173`
 3. Launches `tauri dev`
-4. Waits for the first watched `packages/app/dist/sidecar.js` output before spawning the desktop sidecar
+4. Waits for a fresh settled backend build under `packages/app/dist` before spawning the desktop sidecar
 
 Notes:
 
@@ -32,7 +32,9 @@ Notes:
 - `npm run tauri:dev` is a second alias for the same desktop-oriented dev flow
 - Development uses `packages/tauri/src-tauri/tauri.dev.conf.json`
 - The dev config disables `bundle.externalBin`, so desktop development does not require `packages/app/dist-sidecar/*`
-- The Tauri shell spawns the Node sidecar from `packages/app/dist/sidecar.js` after the watcher has produced it
+- The Tauri shell spawns the Node sidecar from `packages/app/dist/sidecar.js` after the watcher has produced a fresh settled build
+- The Rust bridge fingerprints the latest backend `dist/**/*.js` output in dev mode and hot-swaps to a fresh sidecar generation before the next request is dispatched after a rebuild
+- The dev stack runs under `concurrently --raw` so closing the desktop window tears down the watched processes without the old spinner-heavy shutdown output that made the terminal look stuck
 
 ## Desktop Packaging
 

@@ -3,20 +3,24 @@ import type {
   InitiativePlanningStep,
   InitiativeRefinementState
 } from "../../../types.js";
+import type { InitiativePlanningSurface } from "../../utils/initiative-progress.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
 import { getPlanningNextActionLabel } from "../../utils/ui-language.js";
 import { DocumentSummaryCard } from "./document-summary-card.js";
 import { RefinementSection } from "./refinement-section.js";
 import type { SaveState, SpecStep } from "./shared.js";
+import type { BusyActionResult } from "./use-cancellable-busy-action.js";
 import { usePhaseAutoAdvance } from "./use-phase-auto-advance.js";
 
 interface PlanningSpecSectionProps {
   initiativeId: string;
   initiativeTitle: string;
   activeSpecStep: SpecStep;
+  activeSurface: InitiativePlanningSurface;
   activeRefinement: InitiativeRefinementState | null;
   busyAction: string | null;
   isBusy: boolean;
+  isDeletingInitiative: boolean;
   hasActiveContent: boolean;
   hasRefinementQuestions: boolean;
   hasPhaseSpecificRefinementDecisions: boolean;
@@ -32,8 +36,9 @@ interface PlanningSpecSectionProps {
   autoQuestionLoadStep: SpecStep | null;
   autoQuestionLoadFailedStep: SpecStep | null;
   onRefresh: () => Promise<void>;
-  navigateToStep: (step: InitiativePlanningStep) => void;
-  handleCheckAndAdvance: (step: SpecStep) => Promise<boolean>;
+  navigateToStep: (step: InitiativePlanningStep, surface?: InitiativePlanningSurface | null) => void;
+  setActiveSurface: (surface: InitiativePlanningSurface) => void;
+  handleCheckAndAdvance: (step: SpecStep) => Promise<BusyActionResult>;
   handleRequestGuidance: (questionId: string) => void | Promise<void>;
   updateRefinementAnswer: (questionId: string, nextValue: string | string[] | boolean) => void;
   deferRefinementQuestion: (questionId: string) => void;
@@ -45,9 +50,11 @@ export const PlanningSpecSection = ({
   initiativeId,
   initiativeTitle,
   activeSpecStep,
+  activeSurface,
   activeRefinement,
   busyAction,
   isBusy,
+  isDeletingInitiative,
   hasActiveContent,
   hasRefinementQuestions,
   hasPhaseSpecificRefinementDecisions,
@@ -64,6 +71,7 @@ export const PlanningSpecSection = ({
   autoQuestionLoadFailedStep,
   onRefresh,
   navigateToStep,
+  setActiveSurface,
   handleCheckAndAdvance,
   handleRequestGuidance,
   updateRefinementAnswer,
@@ -71,15 +79,16 @@ export const PlanningSpecSection = ({
   openEditDrawer,
   renderSaveState
 }: PlanningSpecSectionProps) => {
-  const [showInlineSurvey, setShowInlineSurvey] = useState(false);
   const [surveyResumeKey, setSurveyResumeKey] = useState(0);
   const briefEntryStartedRef = useRef(false);
   const downstreamEntryGenerationRef = useRef<SpecStep | null>(null);
+  const previousSurfaceRef = useRef<InitiativePlanningSurface>(activeSurface);
   const {
     autoAdvanceFailedStage,
     autoAdvanceStep,
     autoAdvanceFailedStep,
     beginAutoAdvance,
+    cancelAutoAdvance: _cancelAutoAdvance,
     isAutoGenerating,
     isAutoPending
   } = usePhaseAutoAdvance({
@@ -89,9 +98,17 @@ export const PlanningSpecSection = ({
     onRefresh
   });
 
+  useEffect(() => {
+    if (!isDeletingInitiative) {
+      return;
+    }
+
+    _cancelAutoAdvance();
+  }, [_cancelAutoAdvance, isDeletingInitiative]);
+
   const refinementCheckedAt = activeRefinement?.checkedAt ?? null;
   const label = INITIATIVE_WORKFLOW_LABELS[activeSpecStep];
-  const showingInlineSurvey = showInlineSurvey && Boolean(activeRefinement?.questions.length);
+  const showingInlineSurvey = activeSurface === "questions" && Boolean(activeRefinement?.questions.length);
   const shouldAutoStartBrief =
     activeSpecStep === "brief" &&
     !hasActiveContent &&
@@ -103,11 +120,15 @@ export const PlanningSpecSection = ({
     !hasActiveContent &&
     !hasRefinementQuestions &&
     !hasPhaseSpecificRefinementDecisions &&
-    Boolean(refinementCheckedAt);
+        Boolean(refinementCheckedAt);
 
   useEffect(() => {
-    setShowInlineSurvey(false);
-  }, [activeSpecStep]);
+    if (activeSurface === "questions" && previousSurfaceRef.current !== "questions") {
+      setSurveyResumeKey((current) => current + 1);
+    }
+
+    previousSurfaceRef.current = activeSurface;
+  }, [activeSpecStep, activeSurface]);
 
   useEffect(() => {
     if (!shouldAutoStartBrief) {
@@ -170,6 +191,13 @@ export const PlanningSpecSection = ({
     autoAdvanceFailedStep === activeSpecStep &&
     autoAdvanceFailedStage === "generate" &&
     !hasActiveContent;
+  const showEntryLoadingFallback =
+    !hasActiveContent &&
+    !hasRefinementQuestions &&
+    !loadingQuestions &&
+    !generatingStep &&
+    !questionLoadFailed &&
+    !generationFailed;
 
   const renderSurveyCard = (
     content: ReactNode,
@@ -189,6 +217,23 @@ export const PlanningSpecSection = ({
       {content}
     </div>
   );
+
+  if (isDeletingInitiative) {
+    return (
+      <div className="planning-step-column planning-step-column-narrow">
+        {renderSurveyCard(
+          <div className="status-loading-card planning-intake-loading planning-intake-loading-hero" role="status" aria-live="polite">
+            <span className="status-loading-spinner" aria-hidden="true" />
+            <div className="status-loading-copy">
+              <strong>Deleting initiative</strong>
+              <span>SpecFlow is stopping the current work and removing this initiative.</span>
+            </div>
+          </div>,
+          { compact: true, transient: true }
+        )}
+      </div>
+    );
+  }
 
   if (!hasActiveContent) {
     if (activeRefinement && hasRefinementQuestions) {
@@ -218,13 +263,13 @@ export const PlanningSpecSection = ({
               onAnswerChange={updateRefinementAnswer}
               onAnswerLater={deferRefinementQuestion}
             />,
-            { compact: Boolean(loadingStateLabel) }
+            { compact: Boolean(loadingStateLabel), transient: Boolean(loadingStateLabel) }
           )}
         </div>
       );
     }
 
-    if (loadingQuestions) {
+    if (loadingQuestions || showEntryLoadingFallback) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
           {renderSurveyCard(
@@ -302,13 +347,10 @@ export const PlanningSpecSection = ({
     <div className={`planning-step-column${hasActiveContent ? " planning-step-column-wide" : " planning-step-column-narrow"}`}>
       {hasActiveContent && !showingInlineSurvey ? (
         <div className="planning-step-actions planning-step-actions-end">
-          {activeRefinement?.checkedAt || activeRefinement?.questions.length ? (
+          {activeRefinement?.questions.length ? (
             <button
               type="button"
-              onClick={() => {
-                setShowInlineSurvey(true);
-                setSurveyResumeKey((current) => current + 1);
-              }}
+              onClick={() => setActiveSurface("questions")}
               disabled={isBusy}
             >
               Back
@@ -340,7 +382,7 @@ export const PlanningSpecSection = ({
             variant="survey"
             surveyResumeKey={surveyResumeKey}
             surveyCompleteLabel={activeSpecStep === "brief" ? "Regenerate brief" : `Update ${label.toLowerCase()}`}
-            onBackToPreviousStep={() => setShowInlineSurvey(false)}
+            onBackToPreviousStep={() => setActiveSurface("review")}
             onCompleteSurvey={() => {
               void beginAutoAdvance(activeSpecStep, { navigateOnSuccess: false });
             }}

@@ -88,7 +88,7 @@ describe("OverviewPanel", () => {
     expect(screen.getByText("Pick up where you left off")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Continue brief.*Linux Notes/i })).toHaveAttribute(
       "href",
-      `/initiative/${initiative.id}?step=brief`
+      `/initiative/${initiative.id}?step=brief&surface=questions`
     );
     expect(screen.getByText("Verify quick task")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).not.toBeInTheDocument();

@@ -1,18 +1,27 @@
 export type InitiativeStatus = "draft" | "active" | "done";
 export type PhaseStatus = "active" | "complete";
-export type InitiativePlanningQuestionType = "text" | "select" | "multi-select" | "boolean";
+export type InitiativePlanningQuestionType = "select" | "multi-select" | "boolean";
 export type InitiativePlanningStep = "brief" | "core-flows" | "prd" | "tech-spec" | "tickets";
 export type InitiativeArtifactStep = Exclude<InitiativePlanningStep, "tickets">;
 export type InitiativePlanningStepStatus = "locked" | "ready" | "complete" | "stale";
 export type InitiativePlanningDecisionType =
-  | "scope"
+  | "problem"
   | "user"
-  | "workflow"
-  | "platform"
-  | "data"
-  | "security"
+  | "success"
+  | "constraint"
+  | "journey"
+  | "branch"
+  | "state"
+  | "behavior"
+  | "rule"
+  | "scope"
+  | "non-goal"
+  | "architecture"
+  | "data-flow"
+  | "persistence"
   | "integration"
-  | "success-metric";
+  | "risk"
+  | "verification";
 
 export interface InitiativePlanningQuestion {
   id: string;
@@ -25,6 +34,7 @@ export interface InitiativePlanningQuestion {
   options?: string[];
   optionHelp?: Record<string, string>;
   recommendedOption?: string | null;
+  allowCustomAnswer?: boolean;
 }
 
 export interface InitiativeWorkflowStep {

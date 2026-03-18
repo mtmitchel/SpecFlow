@@ -11,7 +11,11 @@ import { ConfirmProvider } from "./app/context/confirm";
 import { DetailWorkspace } from "./app/views/detail-workspace";
 import { CommandPalette } from "./app/layout/command-palette";
 import { SettingsModal } from "./app/layout/settings-modal";
-import { subscribeArtifactsChanged } from "./api/transport";
+import {
+  getDesktopRuntimeStatus,
+  isDesktopRuntime,
+  subscribeArtifactsChanged
+} from "./api/transport";
 
 const AppInner = () => {
   const { showError } = useToast();
@@ -30,6 +34,23 @@ const AppInner = () => {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [navigatorOpen, setNavigatorOpen] = useState(false);
 
+  const logDesktopRuntime = useCallback(async (reason: string): Promise<void> => {
+    if (!import.meta.env.DEV || !isDesktopRuntime()) {
+      return;
+    }
+
+    try {
+      const status = await getDesktopRuntimeStatus();
+      if (!status) {
+        return;
+      }
+
+      console.info("[desktop-runtime]", reason, status);
+    } catch (error) {
+      console.warn("[desktop-runtime]", reason, error);
+    }
+  }, []);
+
   const refreshArtifacts = useCallback(async (): Promise<void> => {
     try {
       const data = await fetchArtifacts();
@@ -44,10 +65,18 @@ const AppInner = () => {
   }, []);
 
   useEffect(() => {
+    void logDesktopRuntime("app-start");
+  }, [logDesktopRuntime]);
+
+  useEffect(() => {
     let cancelled = false;
     let unsubscribe = () => {};
 
-    void subscribeArtifactsChanged(refreshArtifacts).then((cleanup) => {
+    void subscribeArtifactsChanged(refreshArtifacts, (payload) => {
+      if (payload.reason === "sidecar-restart") {
+        void logDesktopRuntime("sidecar-restart");
+      }
+    }).then((cleanup) => {
       if (cancelled) {
         cleanup();
         return;
@@ -60,7 +89,7 @@ const AppInner = () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [refreshArtifacts]);
+  }, [logDesktopRuntime, refreshArtifacts]);
 
   // Cmd+K / Ctrl+K opens the command palette
   useEffect(() => {

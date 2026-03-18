@@ -1,3 +1,3 @@
 fn main() {
-  specflow_tauri_lib::run();
+    specflow_tauri_lib::run();
 }
