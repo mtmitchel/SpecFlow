@@ -97,9 +97,9 @@ Clarification is not a named top-level phase.
 Clarification is a refinement mechanism that can appear:
 
 - before the Brief, always as the required brief intake for a fresh initiative
-- before Core flows, as the required first consultation that locks the primary journey, a meaningful branch, and a flow condition that changes the map
-- before the PRD, as the required first scope-setting question before the initial PRD draft
-- before the Tech spec, as the required first architecture question before the initial Tech spec draft
+- before Core flows, as the required first consultation that locks the primary flow, a meaningful branch, and a flow condition that changes the map
+- before the PRD, as the required first scope-setting question before the initial PRD draft, with up to three additional targeted blockers when the product contract is still ambiguous
+- before the Tech spec, as the required first architecture question before the initial Tech spec draft, with up to four additional targeted blockers when implementation consequences are still ambiguous
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
 
@@ -112,15 +112,16 @@ For a fresh initiative, the required Brief intake always captures four framing d
 
 Those four decisions must stay distinct. The intake should not restate the primary problem as a success criterion, and hard boundaries should not be phrased like implementation choices unless they are truly non-negotiable.
 The option language should stay domain-neutral so the intake works for new products, reliability fixes, integrations, compliance work, and existing-system changes without signaling one product category by default.
+If a later stage must revisit one of those earlier concerns, it should do so explicitly as a downstream consequence rather than silently asking the same thing again with new wording.
 
 ### Phase framing copy
 
 Use these descriptions wherever the app introduces a phase.
 
 - `Brief`: Define the problem, audience, goals, and scope.
-- `Core flows`: Define the primary user journeys, branches, flow conditions, and failure paths.
-- `PRD`: Define the user-visible behavior, rules, priorities, and scope.
-- `Tech spec`: Define how it should be built, integrated, and operated.
+- `Core flows`: Define the primary flows, alternate paths, flow conditions, and failure or degraded paths.
+- `PRD`: Define the user-visible behavior, rules, priorities, scope, compatibility promises, and failure behavior.
+- `Tech spec`: Define how it should be built, integrated, operated, and validated for quality.
 - `Tickets`: Break the work into execution-ready steps.
 - `Runs`: Review delivery and verification for a ticket.
 

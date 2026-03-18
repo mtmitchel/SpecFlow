@@ -136,22 +136,22 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       affectedArtifact: "brief",
       decisionType: "constraint",
       options: [
-        "Specific desktop platform support",
-        "Local-first or offline use",
-        "Plain files or portable storage",
-        "Performance limits on typical hardware",
+        "Specific platform or operating environment support",
+        "Works offline or in unreliable network conditions",
+        "Portable or interoperable data handling",
+        "Performance or scale limits must hold from day one",
         "Must integrate with or extend an existing system",
         "Specific privacy, security, or compliance requirements"
       ],
       optionHelp: {
-        "Specific desktop platform support":
-          "Forces the Brief to treat supported environments as a hard launch boundary instead of a later expansion.",
-        "Local-first or offline use":
-          "Forces the Brief to treat disconnected use and local control as first-release requirements.",
-        "Plain files or portable storage":
-          "Forces the Brief to preserve portability, inspectability, or local ownership of stored data.",
-        "Performance limits on typical hardware":
-          "Forces the Brief to carry explicit performance bars into later scope and implementation decisions.",
+        "Specific platform or operating environment support":
+          "Forces the Brief to treat supported environments, deployment contexts, or operating conditions as a first-release boundary.",
+        "Works offline or in unreliable network conditions":
+          "Forces the Brief to treat disconnected or degraded-network behavior as a first-release requirement.",
+        "Portable or interoperable data handling":
+          "Forces the Brief to preserve portability, import/export expectations, or compatibility with existing data formats.",
+        "Performance or scale limits must hold from day one":
+          "Forces the Brief to carry explicit performance or scale bars into later product and implementation decisions.",
         "Must integrate with or extend an existing system":
           "Forces the Brief to respect another system's interfaces, workflows, or migration constraints from day one.",
         "Specific privacy, security, or compliance requirements":
@@ -160,7 +160,7 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume there are no extra hard constraints beyond the initiative description and prefer a narrow first-release platform scope."
+        "Assume there are no extra hard constraints beyond the initiative description and prefer the smallest viable first-release operating surface."
     }
   ]),
   assumptions: []

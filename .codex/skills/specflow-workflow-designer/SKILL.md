@@ -18,6 +18,7 @@ Improve the product workflow, not just the copy or the current state of one init
 ## Use this skill for
 - Groundwork structure and stage handoffs
 - Brief, Core flows, PRD, Tech spec, and Tickets flow design
+- how planning should work for UI, API, CLI, automation, and existing-system initiatives instead of only screen-based apps
 - first-run clarity and re-entry behavior
 - gating, review placement, and override-path design
 - command-palette entry points and routing between Quick Build and Groundwork
@@ -39,7 +40,7 @@ Improve the product workflow, not just the copy or the current state of one init
 ## Review lenses
 - `Entry`: is it obvious how the user starts the workflow?
 - `Progress`: is the current stage and next step obvious?
-- `Consultation`: does the planner ask the right questions at the right stage?
+- `Consultation`: does the planner ask the right questions at the right stage, and does the flow framing still work when the initiative is not a screen-based UI?
 - `Gating`: are blockers real and placed at the right moment?
 - `Re-entry`: can the user resume without losing context?
 - `Comprehension`: does the workflow read like a guided planning workspace instead of a document maze?

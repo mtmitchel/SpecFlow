@@ -19,9 +19,9 @@
 | Stage | Required artifact | First-draft consultation rule | What actually blocks the next artifact | What opens next |
 |---|---|---|---|---|
 | Brief | `brief.md` | required 4-question Brief intake | missing Brief artifact | Core flows |
-| Core flows | `core-flows.md` | required first consultation: journey, branch, flow condition | missing Core flows artifact | PRD |
-| PRD | `prd.md` | required first scope-setting question | missing PRD artifact | Tech spec |
-| Tech spec | `tech-spec.md` | required first architecture question | missing Tech spec artifact | Tickets |
+| Core flows | `core-flows.md` | required first consultation: primary flow, alternate/destructive path, flow condition | missing Core flows artifact | PRD |
+| PRD | `prd.md` | required first scope-setting question, then up to 3 more blockers | missing PRD artifact | Tech spec |
+| Tech spec | `tech-spec.md` | required first architecture question, then up to 4 more blockers | missing Tech spec artifact | Tickets |
 | Tickets | ticket plan plus coverage ledger | no starter consultation; planner generates from the spec set | unresolved `ticket-coverage-review` only matters before execution, not before ticket generation | Execution |
 
 Use these rules while checking Groundwork:

@@ -39,6 +39,7 @@ Key capabilities in the current version:
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
 - Shared initiative pipeline: Brief -> Core flows -> PRD -> Tech spec -> Tickets -> Execute -> Verify -> Done as one continuous visual model
 - Mandatory brief intake before the first brief is generated
+- Mandatory first-draft consultations for Core flows, PRD, and Tech spec with stage-specific budgets and decision types
 - Direct planning entry: `/new-initiative` flows straight into the shared Brief survey instead of a separate handoff mode
 - Persisted planning reviews and cross-checks remain available, but they no longer block artifact-to-artifact progression between Brief, Core flows, PRD, and Tech spec
 - Traceability-backed planning with artifact sidecar trace outlines

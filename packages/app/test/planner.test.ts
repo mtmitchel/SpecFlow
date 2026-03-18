@@ -212,8 +212,10 @@ describe("PlannerService", () => {
     expect(prompt.userPrompt).toContain('You must return "ask"');
     expect(prompt.userPrompt).toContain("first required PRD consultation");
     expect(prompt.userPrompt).toContain("Ask exactly 1 short blocker question");
-    expect(prompt.userPrompt).toContain("at most 3 questions");
-    expect(prompt.userPrompt).toContain("Allowed decisionType values for this artifact are: behavior, rule, scope, non-goal, priority");
+    expect(prompt.userPrompt).toContain("at most 4 questions");
+    expect(prompt.userPrompt).toContain(
+      "Allowed decisionType values for this artifact are: behavior, rule, scope, non-goal, priority, failure-mode, performance, compatibility"
+    );
     expect(prompt.userPrompt).not.toContain('Default to "proceed"');
   });
 
@@ -235,7 +237,8 @@ describe("PlannerService", () => {
     expect(prompt.userPrompt).toContain('You must return "ask"');
     expect(prompt.userPrompt).toContain("first required Tech spec consultation");
     expect(prompt.userPrompt).toContain("Ask exactly 1 short blocker question");
-    expect(prompt.userPrompt).toContain("at most 3 questions");
+    expect(prompt.userPrompt).toContain("at most 5 questions");
+    expect(prompt.userPrompt).toContain("quality-strategy");
     expect(prompt.userPrompt).toContain("performance, operations, compatibility, existing-system");
     expect(prompt.userPrompt).not.toContain('Default to "proceed"');
   });

@@ -23,6 +23,7 @@ export type InitiativePlanningDecisionType =
   | "persistence"
   | "integration"
   | "risk"
+  | "quality-strategy"
   | "verification"
   | "performance"
   | "operations"
@@ -41,6 +42,7 @@ export interface InitiativePlanningQuestion {
   optionHelp?: Record<string, string>;
   recommendedOption?: string | null;
   allowCustomAnswer?: boolean;
+  reopensQuestionIds?: string[];
 }
 
 export interface InitiativeWorkflowStep {

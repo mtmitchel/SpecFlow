@@ -6,6 +6,7 @@ import type {
   Ticket
 } from "../../types/entities.js";
 import { requiresInitialBriefConsultation } from "../brief-consultation.js";
+import { normalizeDecisionType } from "../decision-types.js";
 import { getRequiredStarterQuestionCount } from "../refinement-check-policy.js";
 import { getRefinementAssumptions } from "../workflow-state.js";
 import type {
@@ -48,7 +49,7 @@ const toRefinementHistoryEntry = (
     step,
     questionId: question.id,
     label: question.label,
-    decisionType: question.decisionType,
+    decisionType: normalizeDecisionType(question.decisionType),
     whyThisBlocks: question.whyThisBlocks,
     resolution:
       typeof answer === "boolean" ||

@@ -9,8 +9,8 @@ import type {
   SpecGenInput,
   TriageInput
 } from "./types.js";
-import type { InitiativePlanningDecisionType } from "../types/entities.js";
 import { getQuestionPolicy, getPromptPolicy } from "./refinement-check-policy.js";
+import { normalizeDecisionType, SUPPORTED_DECISION_TYPES } from "./decision-types.js";
 
 export type PlannerJob =
   | "brief-check"
@@ -33,31 +33,7 @@ export interface PromptBuildResult {
 }
 
 const QUESTION_TYPES = ["select", "multi-select", "boolean"] as const satisfies readonly string[];
-const DECISION_TYPES: InitiativePlanningDecisionType[] = [
-  "problem",
-  "user",
-  "success",
-  "constraint",
-  "journey",
-  "branch",
-  "state",
-  "failure-mode",
-  "behavior",
-  "rule",
-  "scope",
-  "non-goal",
-  "priority",
-  "architecture",
-  "data-flow",
-  "persistence",
-  "integration",
-  "risk",
-  "verification",
-  "performance",
-  "operations",
-  "compatibility",
-  "existing-system"
-];
+const DECISION_TYPES = SUPPORTED_DECISION_TYPES;
 
 const formatRefinementHistory = (history: RefinementHistoryEntry[]): string =>
   JSON.stringify(
@@ -97,7 +73,7 @@ const outputContract = (job: PlannerJob): string => {
         "{",
         '  "decision": "proceed|ask",',
         '  "questions": [',
-        `    { "id": "string", "label": "string", "whyThisBlocks": "string", "affectedArtifact": "brief|core-flows|prd|tech-spec", "decisionType": "${DECISION_TYPES.join("|")}", "type": "${QUESTION_TYPES.join("|")}", "assumptionIfUnanswered": "string", "options": ["string"], "optionHelp": { "option": "one sentence explanation" }, "recommendedOption": "string|null", "allowCustomAnswer": true }`,
+        `    { "id": "string", "label": "string", "whyThisBlocks": "string", "affectedArtifact": "brief|core-flows|prd|tech-spec", "decisionType": "${DECISION_TYPES.join("|")}", "type": "${QUESTION_TYPES.join("|")}", "assumptionIfUnanswered": "string", "options": ["string"], "optionHelp": { "option": "one sentence explanation" }, "recommendedOption": "string|null", "allowCustomAnswer": true, "reopensQuestionIds": ["prior-question-id"] }`,
         "  ],",
         '  "assumptions": ["string"]',
         "}"
@@ -194,6 +170,9 @@ const buildCheckPrompt = (
   artifactDescription: string
 ): PromptBuildResult => {
   const questionPolicy = getQuestionPolicy(input.phase);
+  const allowedDecisionTypes = Array.from(
+    new Set(questionPolicy.allowedDecisionTypes.map((decisionType) => normalizeDecisionType(decisionType)))
+  );
   const maxQuestions = questionPolicy.maxQuestions;
   const promptPolicy = getPromptPolicy(input.phase);
   const requiresInitialConsultation = input.phase === "brief" && input.requiresInitialConsultation;
@@ -230,12 +209,18 @@ const buildCheckPrompt = (
       '- Every question must use "select", "multi-select", or "boolean".',
       "- Prefer 2 to 5 options per question. Include a recommendedOption when one choice is clearly best.",
       '- Do not include "Other" in options. Set allowCustomAnswer to true only when the user may reasonably need a custom answer outside the finite options.',
-      `- Allowed decisionType values for this artifact are: ${questionPolicy.allowedDecisionTypes.join(", ")}.`,
+      `- Allowed decisionType values for this artifact are: ${allowedDecisionTypes.join(", ")}.`,
+      allowedDecisionTypes.includes("quality-strategy")
+        ? '- Use decisionType "quality-strategy" for testing, observability, and quality strategy questions. "verification" is a legacy alias only.'
+        : null,
       input.refinementHistory && input.refinementHistory.length > 0
         ? "- Do not repeat a concern already captured in refinement history. Reopen a prior concern only when a contradiction, missing dependency, or later-stage implementation consequence still blocks this artifact."
         : null,
       input.refinementHistory && input.refinementHistory.length > 0
-        ? "- Never ask the same decisionType about the same concern twice in one stage. If a narrower follow-up is unavoidable, make the distinction explicit in whyThisBlocks."
+        ? "- If you intentionally reopen an earlier-stage concern, include reopensQuestionIds with the earlier question ids and make the downstream consequence explicit in whyThisBlocks."
+        : null,
+      input.refinementHistory && input.refinementHistory.length > 0
+        ? "- Never ask the same concern twice in one stage. If a narrower follow-up is unavoidable, change the decision boundary rather than paraphrasing the earlier question."
         : null,
       ...(requiresInitialConsultation || requiresStarterQuestions
         ? []
@@ -364,7 +349,8 @@ export const buildPlannerPrompt = (
 
   if (job === "core-flows-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Core flows", [
-      "Describe the primary user journeys, entry points, end states, branching paths, major screens or states, and important empty/loading/error states.",
+      "Describe the primary flow, entry points, end states, alternate or destructive paths, flow conditions, and important empty/loading/error or degraded states.",
+      "The flow may be user-facing, operator-facing, or system/process-facing; do not assume a screen-based UI.",
       ...getPromptPolicy("core-flows").generationRules,
       'The traceOutline should include sections for "actors", "flows", "steps", "states", and "edge-cases".'
     ]);
@@ -372,7 +358,7 @@ export const buildPlannerPrompt = (
 
   if (job === "prd-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "PRD", [
-      "Expand the product behavior, requirements, rules, scope boundaries, acceptance framing, and non-goals.",
+      "Expand the product behavior, requirements, rules, failure behavior, scope boundaries, visible performance or compatibility promises, acceptance framing, and non-goals.",
       ...getPromptPolicy("prd").generationRules,
       'The traceOutline should include sections for "requirements", "rules", "acceptance-criteria", and "non-goals".'
     ]);

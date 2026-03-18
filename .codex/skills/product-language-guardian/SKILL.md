@@ -26,6 +26,8 @@ Keep SpecFlow speaking one coherent language across workflow docs, planning prom
 - `guided planning workspace` is the dominant mental model. Do not drift toward `intake questionnaire`, `document archive`, or `agent control panel`.
 - Keep the Brief intake decisions distinct: primary problem, primary user, success qualities, and hard boundaries.
 - Keep Brief intake language domain-neutral. The first questions must work for greenfield products, integrations, reliability fixes, compliance work, and existing-system changes.
+- Keep Core flows language usable for UI and non-UI initiatives. Prefer `primary flow`, `alternate path`, `flow condition`, and `failure or degraded path` over screen-only framing.
+- Keep `quality strategy` as the canonical planning term. Treat `verification` as a legacy internal alias unless the context is specifically the run verifier.
 - Keep `Coverage check`, `Verify work`, `Runs`, `Needs review`, and artifact names aligned with the product-language spec.
 - Use internal terms only where technical precision is necessary. Do not leak planner or storage vocabulary into default product copy.
 

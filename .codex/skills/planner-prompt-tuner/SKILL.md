@@ -1,6 +1,6 @@
 ---
 name: planner-prompt-tuner
-description: Improve SpecFlow's planner question policies, prompt boundaries, and artifact-generation instructions. Use when Codex needs to tune the Brief intake, refinement question budgets, starter requirements, decision-type taxonomy, forbidden-term boundaries, duplicate-question suppression, repo-context usage, or generation prompts for Brief, Core flows, PRD, Tech spec, planning reviews, or verification guidance. Do not use for generic prompt writing outside SpecFlow or for broad workflow redesign; use `specflow-workflow-designer` for product-flow questions.
+description: Improve SpecFlow's planner question policies, prompt boundaries, and artifact-generation instructions. Use when Codex needs to tune the Brief intake, refinement question budgets, starter requirements, decision-type taxonomy, forbidden-term boundaries, duplicate-question suppression, explicit reopen semantics, repo-context usage, or generation prompts for Brief, Core flows, PRD, Tech spec, planning reviews, or quality-strategy guidance. Do not use for generic prompt writing outside SpecFlow or for broad workflow redesign; use `specflow-workflow-designer` for product-flow questions.
 ---
 
 # Planner prompt tuner
@@ -20,7 +20,9 @@ Tune the planner as a structured contract, not as isolated prompt copy. Keep the
 - question budget and required-starter changes
 - stage-boundary and forbidden-term tuning
 - duplicate-question suppression and handoff context
+- explicit reopen semantics such as `reopensQuestionIds`
 - Brief intake option wording and helper-text quality
+- non-UI flow framing for Core flows
 - repo-context usage in planning prompts
 - generation prompt quality for Brief, Core flows, PRD, Tech spec, and reviews
 
@@ -34,7 +36,9 @@ Tune the planner as a structured contract, not as isolated prompt copy. Keep the
 - Prefer the smallest taxonomy change that closes the real gap.
 - Do not widen question budgets or allowed decision types without tightening stage boundaries and tests.
 - Protect the separation between Brief, Core flows, PRD, and Tech spec.
-- When a later stage reopens an earlier concern, require an explicit downstream consequence.
+- When a later stage reopens an earlier concern, require both an explicit downstream consequence and an explicit question reference.
+- Prefer canonical `quality-strategy` wording while keeping legacy `verification` inputs compatible.
+- Keep forbidden-term enforcement aligned to abstraction level, not SpecFlow-specific technology names that may be part of the user domain.
 
 ## Output
 - `Observed planner flaw`

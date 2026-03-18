@@ -19,6 +19,7 @@ Check the chain from planning artifacts to delivered work. Find where intent is 
 - spec-to-ticket coverage audits
 - trace-outline quality and sectioning problems
 - missing or duplicated coverage items
+- missing continuity for failure-mode, compatibility, or quality-strategy decisions across later stages
 - ticket scopes that do not match the covered spec items
 - bundle handoff gaps that drop critical acceptance context
 - verification results that cannot be traced back to the original spec intent
@@ -29,7 +30,7 @@ Check the chain from planning artifacts to delivered work. Find where intent is 
 - isolated implementation completion review
 
 ## Review workflow
-1. Establish the source intent: Brief, Core flows, PRD, Tech spec, or explicit decision doc.
+1. Establish the source intent: Brief, Core flows, PRD, Tech spec, or explicit decision doc. Call out whether failure paths, compatibility promises, and quality strategy are part of that intent.
 2. Check the trace outline: are the right facts captured and grouped cleanly?
 3. Check the coverage ledger: are important items missing, duplicated, or too vague?
 4. Check the tickets: do title, description, acceptance criteria, and file targets preserve the covered intent?

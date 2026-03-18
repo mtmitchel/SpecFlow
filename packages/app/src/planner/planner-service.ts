@@ -50,7 +50,7 @@ import {
   validateReviewRunResult,
   validateTriageResult
 } from "./internal/validators.js";
-import { CHECK_BUDGET_BY_STEP } from "./refinement-check-policy.js";
+import { canonicalizePlanningQuestion } from "./decision-types.js";
 import type { PlannerJob } from "./prompt-builder.js";
 import type {
   ClarifyHelpInput,
@@ -93,6 +93,35 @@ const REFINEMENT_JOB_BY_STEP: Record<
 
 const INITIAL_BRIEF_REVIEW_SUMMARY =
   "Brief intake resolved the blockers for the initial brief draft.";
+
+const PRD_REPO_CONTEXT_SIGNAL_TERMS = [
+  "existing system",
+  "existing-system",
+  "compatibility",
+  "compatible",
+  "migration",
+  "migrate",
+  "integrate",
+  "integration",
+  "extend"
+];
+
+const shouldIncludePrdRepoContext = (input: {
+  initiative: Initiative;
+  markdownByStep: Record<InitiativeArtifactStep, string>;
+  savedContext: Record<string, string | string[] | boolean>;
+}): boolean => {
+  const contextText = [
+    input.initiative.description,
+    input.markdownByStep.brief,
+    input.markdownByStep["core-flows"],
+    JSON.stringify(input.savedContext, null, 2)
+  ]
+    .join("\n")
+    .toLowerCase();
+
+  return PRD_REPO_CONTEXT_SIGNAL_TERMS.some((term) => contextText.includes(term));
+};
 
 export class PlannerService {
   private readonly rootDir: string;
@@ -138,8 +167,17 @@ export class PlannerService {
   ): Promise<PhaseCheckResult> {
     const initiative = this.requireInitiative(input.initiativeId);
     const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
+    const savedContext = getSavedContext(initiative, input.step);
     const repoContext =
-      input.step === "tech-spec"
+      input.step === "tech-spec" ||
+      (
+        input.step === "prd" &&
+        shouldIncludePrdRepoContext({
+          initiative,
+          markdownByStep,
+          savedContext
+        })
+      )
         ? await scanRepo(this.rootDir).catch(() => undefined)
         : undefined;
     const phaseCheckInput = buildPhaseCheckInput(initiative, input.step, markdownByStep, repoContext);
@@ -149,7 +187,7 @@ export class PlannerService {
         initiative,
         briefMarkdown: markdownByStep.brief
       });
-    const result = initialBriefConsultationRequired
+    const rawResult = initialBriefConsultationRequired
       ? buildRequiredBriefConsultationResult()
         : await this.executePlannerJob<PhaseCheckResult>(
           REFINEMENT_JOB_BY_STEP[input.step],
@@ -157,12 +195,14 @@ export class PlannerService {
           onToken,
           signal
         );
+    const result: PhaseCheckResult = {
+      ...rawResult,
+      questions: rawResult.questions.map((question) => canonicalizePlanningQuestion(question))
+    };
 
     validatePhaseCheckResult(
       result,
-      input.step,
-      CHECK_BUDGET_BY_STEP[input.step],
-      phaseCheckInput.requiredStarterQuestionCount ?? 0,
+      phaseCheckInput,
       initiative.workflow.refinements[input.step].questions
     );
 

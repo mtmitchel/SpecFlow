@@ -32,7 +32,8 @@ describe("planner prompt language", () => {
     );
 
     expect(prompt.userPrompt).toContain("at most 4 questions");
-    expect(prompt.userPrompt).toContain("Ask only about the shape of the user journey");
+    expect(prompt.userPrompt).toContain("Ask only about the shape of the primary flow");
+    expect(prompt.userPrompt).toContain("Do not assume a screen-based UI");
     expect(prompt.userPrompt).toContain("Do not ask about architecture, storage format, libraries");
     expect(prompt.userPrompt).toContain("Allowed decisionType values for this artifact are: journey, branch, state, failure-mode");
   });

@@ -1,35 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { InitiativePlanningQuestion, InitiativeRefinementState } from "../../../types.js";
+import { getDecisionTypeLabel } from "../../../planning-decision-types.js";
 import { MarkdownView } from "../../components/markdown-view.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
 import type { RefinementAnswer, SaveState, SpecStep } from "./shared.js";
 import { isQuestionAnswered } from "./shared.js";
-
-const QUESTION_DECISION_LABELS: Record<InitiativePlanningQuestion["decisionType"], string> = {
-  problem: "Problem",
-  success: "Success",
-  constraint: "Constraint",
-  journey: "Journey",
-  branch: "Branch",
-  state: "Flow condition",
-  "failure-mode": "Failure mode",
-  behavior: "Behavior",
-  rule: "Rule",
-  scope: "Scope",
-  user: "User",
-  "non-goal": "Non-goal",
-  priority: "Priority",
-  architecture: "Architecture",
-  "data-flow": "Data flow",
-  persistence: "Persistence",
-  integration: "Integration",
-  risk: "Risk",
-  verification: "Quality",
-  performance: "Performance",
-  operations: "Operations",
-  compatibility: "Compatibility",
-  "existing-system": "Existing system"
-};
 const CUSTOM_ANSWER_SENTINEL = "Other";
 
 const getAnswerPreview = (
@@ -488,7 +463,7 @@ export const RefinementSection = ({
                   </span>
                   {preview && !open ? <span className="planning-intake-question-preview">{preview}</span> : null}
                   {!compact ? (
-                    <span className="planning-intake-question-pill">{QUESTION_DECISION_LABELS[question.decisionType]}</span>
+                    <span className="planning-intake-question-pill">{getDecisionTypeLabel(question.decisionType)}</span>
                   ) : null}
                 </button>
 

@@ -232,7 +232,7 @@ createdAt: ISO8601
 updatedAt: ISO8601
 ```
 
-Planner refinement checks now consume both the flattened saved answers and the persisted refinement question history for the current and earlier stages. That lets later checks see the original blocker questions, avoid same-stage duplicate re-asks, and reopen an earlier concern only when a real downstream constraint still blocks the next artifact. Tech spec checks and generation can also receive lightweight repo context from the repo scanner when existing-system, compatibility, performance, or operations constraints matter.
+Planner refinement checks now consume both the flattened saved answers and the persisted refinement question history for the current and earlier stages. That lets later checks see the original blocker questions, avoid same-stage duplicate re-asks, and reopen an earlier concern only when a real downstream constraint still blocks the next artifact. Reopened questions now carry explicit `reopensQuestionIds` references so cross-stage follow-ups are structural instead of prompt-only. PRD checks can receive lightweight repo context when earlier artifacts already indicate existing-system or compatibility work, while Tech spec checks and generation continue to receive repo context when existing-system, compatibility, failure-handling, performance, quality-strategy, or operations constraints matter. The planner now treats `quality-strategy` as the canonical tech-spec decision type and accepts legacy `verification` values as a compatibility alias.
 
 **Ticket**
 ```yaml
