@@ -12,6 +12,7 @@ import {
   saveInitiativeSpec,
   updateInitiative
 } from "../runtime/handlers/initiative-handlers.js";
+import type { InitiativePlanningSurface } from "../types/entities.js";
 import { importGithubIssue } from "../runtime/handlers/import-handlers.js";
 import { getOperationStatus } from "../runtime/handlers/operation-handlers.js";
 import { getProviderModels, saveConfig, saveProviderKey } from "../runtime/handlers/provider-handlers.js";
@@ -221,6 +222,7 @@ const routeSidecarMethod = async (
         params.body as {
           answers?: Record<string, string | string[] | boolean>;
           defaultAnswerQuestionIds?: string[];
+          preferredSurface?: InitiativePlanningSurface | null;
         }
       );
     case "initiatives.refinement.help":

@@ -4,6 +4,7 @@ import { transportRequest, type TransportRequestOptions } from "./transport";
 import type {
   InitiativePlanningQuestion,
   InitiativePlanningStep,
+  InitiativePlanningSurface,
   PlanningReviewArtifact,
   PlanningReviewKind
 } from "../types";
@@ -210,18 +211,19 @@ export const saveInitiativeRefinement = async (
   initiativeId: string,
   step: RefinementStep,
   answers: Record<string, string | string[] | boolean>,
-  defaultAnswerQuestionIds: string[]
+  defaultAnswerQuestionIds: string[],
+  preferredSurface?: InitiativePlanningSurface | null,
 ): Promise<{ assumptions: string[] }> =>
   transportRequest(
     "initiatives.refinement.save",
-    { id: initiativeId, step, body: { answers, defaultAnswerQuestionIds } },
+    { id: initiativeId, step, body: { answers, defaultAnswerQuestionIds, preferredSurface } },
     () =>
       requestJson(`/api/initiatives/${initiativeId}/refinement/${step}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ answers, defaultAnswerQuestionIds })
+        body: JSON.stringify({ answers, defaultAnswerQuestionIds, preferredSurface })
       })
   );
 

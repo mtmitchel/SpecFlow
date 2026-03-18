@@ -18,7 +18,7 @@ import {
 import { isHandlerError } from "../../runtime/errors.js";
 import { sendHandlerError } from "../../runtime/handlers/shared.js";
 import type { ProgressSink, SpecFlowRuntime } from "../../runtime/types.js";
-import type { InitiativeArtifactStep, PlanningReviewKind } from "../../types/entities.js";
+import type { InitiativeArtifactStep, InitiativePlanningSurface, PlanningReviewKind } from "../../types/entities.js";
 import { startSseSession } from "../sse/session.js";
 
 export interface RegisterInitiativeRoutesOptions {
@@ -113,6 +113,7 @@ export const registerInitiativeRoutes = (
           (request.body ?? {}) as {
             answers?: Record<string, string | string[] | boolean>;
             defaultAnswerQuestionIds?: string[];
+            preferredSurface?: InitiativePlanningSurface | null;
           }
         )
       );

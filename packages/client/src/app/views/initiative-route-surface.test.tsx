@@ -155,6 +155,40 @@ describe("InitiativeRouteView planning surfaces", () => {
     expect(screen.getByText("A short summary.")).toBeInTheDocument();
   });
 
+  it("restores a bare initiative route to questions when that step last stayed on questions", async () => {
+    fetchSpecDetailMock.mockResolvedValueOnce(briefSpecDetail);
+
+    renderRoute(
+      {
+        ...createSnapshot([briefSpecSummary]),
+        initiatives: [
+          {
+            ...initiative,
+            workflow: {
+              ...initiative.workflow,
+              refinements: {
+                ...initiative.workflow.refinements,
+                brief: {
+                  ...initiative.workflow.refinements.brief,
+                  preferredSurface: "questions",
+                },
+              },
+            },
+          },
+        ],
+      },
+      `/initiative/${initiative.id}`,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/initiative/${initiative.id}?step=brief&surface=questions`,
+      );
+    });
+
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+  });
+
   it("returns Back from review to the questions surface instead of keeping the document view open", async () => {
     fetchSpecDetailMock.mockResolvedValueOnce(briefSpecDetail);
 

@@ -103,6 +103,30 @@ describe("initiative routes", () => {
     }
   });
 
+  it("persists the preferred planning surface with refinement answers", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const response = await fixture.server.app.inject({
+        method: "PATCH",
+        url: "/api/initiatives/initiative-11223344/refinement/brief",
+        payload: {
+          answers: { "brief-problem": "Automate work" },
+          defaultAnswerQuestionIds: [],
+          preferredSurface: "questions",
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().initiative.workflow.refinements.brief.preferredSurface).toBe("questions");
+      expect(fixture.store.initiatives.get("initiative-11223344")?.workflow.refinements.brief.preferredSurface).toBe(
+        "questions",
+      );
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("blocks later phases when previous phases are incomplete", async () => {
     const fixture = await createServerFixture();
 

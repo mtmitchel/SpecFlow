@@ -24,6 +24,7 @@ const createRefinementState = (): InitiativeRefinementState => ({
   answers: {},
   defaultAnswerQuestionIds: [],
   baseAssumptions: [],
+  preferredSurface: null,
   checkedAt: null
 });
 
@@ -92,6 +93,9 @@ const normalizeRefinement = (
     ? current.defaultAnswerQuestionIds
     : [],
   baseAssumptions: Array.isArray(current?.baseAssumptions) ? current.baseAssumptions : [],
+  preferredSurface: current?.preferredSurface === "questions" || current?.preferredSurface === "review"
+    ? current.preferredSurface
+    : null,
   checkedAt: current?.checkedAt ?? null
 });
 
@@ -273,6 +277,7 @@ export const updateRefinementState = (
     answers: input.answers ?? currentRefinement.answers,
     defaultAnswerQuestionIds: input.defaultAnswerQuestionIds ?? currentRefinement.defaultAnswerQuestionIds,
     baseAssumptions: input.baseAssumptions ?? currentRefinement.baseAssumptions,
+    preferredSurface: input.preferredSurface ?? currentRefinement.preferredSurface ?? null,
     checkedAt: input.checkedAt ?? currentRefinement.checkedAt
   };
   next.activeStep = getResumeStep(next);
@@ -309,6 +314,7 @@ export const completeWorkflowStep = (
 
   if (isRefinementStep(step)) {
     next.refinements[step].questions = [];
+    next.refinements[step].preferredSurface = "review";
     next.refinements[step].checkedAt = nowIso;
   }
 

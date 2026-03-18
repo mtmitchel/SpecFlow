@@ -1,7 +1,9 @@
 import type {
   ArtifactsSnapshot,
   Initiative,
+  InitiativeArtifactStep,
   InitiativePlanningStep,
+  InitiativePlanningSurface as SharedInitiativePlanningSurface,
   PlanningReviewArtifact,
   PlanningReviewKind,
   Run,
@@ -18,7 +20,7 @@ import {
 export type PipelineNodeKey = InitiativePlanningStep | "execute" | "verify" | "done";
 export type PipelineNodeZone = "planning" | "execution";
 export type PipelineNodeState = "future" | "active" | "checkpoint" | "complete" | "generating";
-export type InitiativePlanningSurface = "questions" | "review";
+export type InitiativePlanningSurface = SharedInitiativePlanningSurface;
 
 export interface PipelineNodeModel {
   key: PipelineNodeKey;
@@ -52,10 +54,18 @@ const hasInitiativeArtifactSummary = (
 export const isInitiativePlanningSurface = (value: string | null): value is InitiativePlanningSurface =>
   value === "questions" || value === "review";
 
+const getStoredInitiativePlanningSurface = (
+  initiative: Initiative,
+  step: InitiativeArtifactStep,
+): InitiativePlanningSurface | null => {
+  const preferredSurface = initiative.workflow.refinements[step].preferredSurface;
+  return preferredSurface === "questions" || preferredSurface === "review" ? preferredSurface : null;
+};
+
 export const getInitiativePlanningSurface = (
   initiative: Initiative,
   specSummaries: SpecDocumentSummary[],
-  step: Exclude<InitiativePlanningStep, "tickets">,
+  step: InitiativeArtifactStep,
   preferredSurface?: InitiativePlanningSurface | null,
 ): InitiativePlanningSurface => {
   const hasArtifact = hasInitiativeArtifactSummary(specSummaries, initiative.id, step);
@@ -64,16 +74,17 @@ export const getInitiativePlanningSurface = (
     initiative.workflow.refinements[step].questions.length > 0 ||
     (initiative.workflow.refinements[step].history?.length ?? 0) > 0;
   const defaultSurface: InitiativePlanningSurface = hasArtifact ? "review" : "questions";
+  const resolvedSurface = preferredSurface ?? getStoredInitiativePlanningSurface(initiative, step);
 
-  if (!preferredSurface) {
+  if (!resolvedSurface) {
     return defaultSurface;
   }
 
-  if (preferredSurface === "review" && hasArtifact) {
+  if (resolvedSurface === "review" && hasArtifact) {
     return "review";
   }
 
-  if (preferredSurface === "questions" && canOpenQuestions) {
+  if (resolvedSurface === "questions" && canOpenQuestions) {
     return "questions";
   }
 

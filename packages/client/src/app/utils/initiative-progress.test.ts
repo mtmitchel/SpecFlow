@@ -172,6 +172,59 @@ describe("getInitiativeProgressModel", () => {
     );
   });
 
+  it("restores the questions surface when a completed step last stayed in planning questions", () => {
+    const initiative: Initiative = {
+      ...baseInitiative,
+      workflow: {
+        ...baseInitiative.workflow,
+        steps: {
+          ...baseInitiative.workflow.steps,
+          brief: { status: "stale", updatedAt: "2026-03-16T10:05:00.000Z" },
+          "core-flows": { status: "ready", updatedAt: "2026-03-16T10:06:00.000Z" },
+        },
+        refinements: {
+          ...baseInitiative.workflow.refinements,
+          brief: {
+            ...baseInitiative.workflow.refinements.brief,
+            history: [
+              {
+                id: "brief-user",
+                label: "Who is this for?",
+                type: "select",
+                whyThisBlocks: "The brief needs one clear audience.",
+                affectedArtifact: "brief",
+                decisionType: "user",
+                assumptionIfUnanswered: "This is for a solo note-taker.",
+                options: ["Just me", "A small team"],
+              },
+            ],
+            preferredSurface: "questions",
+            checkedAt: "2026-03-16T10:05:00.000Z",
+          },
+        },
+      },
+    };
+    const snapshot = createSnapshot({
+      initiative,
+      specs: [
+        {
+          id: `${initiative.id}:brief`,
+          initiativeId: initiative.id,
+          type: "brief",
+          title: "Brief",
+          sourcePath: "specflow/initiatives/initiative-12345678/brief.md",
+          createdAt: "2026-03-16T10:05:00.000Z",
+          updatedAt: "2026-03-16T10:05:00.000Z",
+        },
+      ],
+    });
+    const progress = getInitiativeProgressModel(initiative, snapshot);
+
+    expect(getInitiativeResumeHref(initiative, progress, snapshot)).toBe(
+      `/initiative/${initiative.id}?step=brief&surface=questions`,
+    );
+  });
+
   it.each([
     {
       completedStep: "brief" as const,

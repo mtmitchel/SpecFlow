@@ -6,6 +6,7 @@ import { canEditStep, completeWorkflowStep, getRefinementAssumptions, invalidate
 import type {
   Initiative,
   InitiativeArtifactStep,
+  InitiativePlanningSurface,
   PlanningReviewArtifact,
 } from "../../types/entities.js";
 import type { ProgressSink, SpecFlowRuntime } from "../types.js";
@@ -109,6 +110,7 @@ export const saveInitiativeRefinement = async (
   body: {
     answers?: Record<string, string | string[] | boolean>;
     defaultAnswerQuestionIds?: string[];
+    preferredSurface?: InitiativePlanningSurface | null;
   }
 ) => {
   const initiative = readInitiative(runtime, initiativeId);
@@ -123,6 +125,9 @@ export const saveInitiativeRefinement = async (
     workflow: updateRefinementState(initiative.workflow, artifactStep, {
       answers: body.answers && typeof body.answers === "object" ? body.answers : {},
       defaultAnswerQuestionIds: Array.isArray(body.defaultAnswerQuestionIds) ? body.defaultAnswerQuestionIds : [],
+      preferredSurface: body.preferredSurface === "questions" || body.preferredSurface === "review"
+        ? body.preferredSurface
+        : null,
       checkedAt: initiative.workflow.refinements[artifactStep].checkedAt ?? nowIso
     }),
     updatedAt: nowIso

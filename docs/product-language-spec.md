@@ -102,7 +102,7 @@ Clarification is a refinement mechanism that can appear:
 - before the Tech spec, as the required first architecture question before the initial Tech spec draft, with up to four additional targeted blockers when implementation consequences are still ambiguous
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
-When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` means "return to this step's questions", not "leave the phase" or "start the intake over."
+When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` means "return to this step's questions", not "leave the phase" or "start the intake over." Resume behavior should remember that deliberate choice: artifact generation defaults the phase back to review, but if the user reopens the answered questions, Home and bare initiative routes should restore that questions surface until the user moves back to review.
 
 For a fresh initiative, the required Brief intake always captures four framing decisions:
 

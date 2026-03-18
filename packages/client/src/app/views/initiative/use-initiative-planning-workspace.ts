@@ -245,6 +245,7 @@ export const useInitiativePlanningWorkspace = (
 
   useInitiativePlanningPersistence({
     activeRefinement,
+    activeSurface,
     activeSpecStep,
     defaultAnswerQuestionIds,
     drafts,

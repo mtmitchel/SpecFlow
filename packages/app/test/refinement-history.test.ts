@@ -27,6 +27,7 @@ describe("refinement history persistence", () => {
       answers: {
         "brief-problem": "Automate work",
       },
+      preferredSurface: "questions",
       checkedAt: "2026-03-18T10:00:00.000Z",
     });
 
@@ -38,6 +39,7 @@ describe("refinement history persistence", () => {
 
     expect(completedWorkflow.refinements.brief.questions).toEqual([]);
     expect(completedWorkflow.refinements.brief.history).toHaveLength(1);
+    expect(completedWorkflow.refinements.brief.preferredSurface).toBe("review");
 
     const initiative: Initiative = {
       id: "initiative-1",

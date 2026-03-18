@@ -1,11 +1,12 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react";
 import { saveInitiativeRefinement, saveInitiativeSpecs } from "../../../api.js";
-import type { Initiative, InitiativeRefinementState } from "../../../types.js";
+import type { Initiative, InitiativePlanningSurface, InitiativeRefinementState } from "../../../types.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
 import type { PlanningDrawerState, SaveState, SpecStep } from "./shared.js";
 
 interface InitiativePlanningPersistenceConfig {
   activeRefinement: InitiativeRefinementState | null;
+  activeSurface: InitiativePlanningSurface | null;
   activeSpecStep: SpecStep | null;
   defaultAnswerQuestionIds: string[];
   drafts: Record<SpecStep, string>;
@@ -24,6 +25,7 @@ interface InitiativePlanningPersistenceConfig {
 
 export const useInitiativePlanningPersistence = ({
   activeRefinement,
+  activeSurface,
   activeSpecStep,
   defaultAnswerQuestionIds,
   drafts,
@@ -82,11 +84,13 @@ export const useInitiativePlanningPersistence = ({
     ? JSON.stringify({
         answers: activeRefinement.answers,
         defaultAnswerQuestionIds: activeRefinement.defaultAnswerQuestionIds,
+        preferredSurface: activeRefinement.preferredSurface ?? null,
       })
     : "";
   const localRefinementSignature = JSON.stringify({
     answers: refinementAnswers,
     defaultAnswerQuestionIds,
+    preferredSurface: activeSurface ?? null,
   });
 
   useEffect(() => {
@@ -102,6 +106,7 @@ export const useInitiativePlanningPersistence = ({
           activeSpecStep,
           refinementAnswers,
           defaultAnswerQuestionIds,
+          activeSurface,
         );
         setRefinementAssumptions(result.assumptions);
         await onRefresh();
@@ -115,6 +120,7 @@ export const useInitiativePlanningPersistence = ({
     return () => window.clearTimeout(timer);
   }, [
     activeRefinement,
+    activeSurface,
     activeSpecStep,
     defaultAnswerQuestionIds,
     initiative,
