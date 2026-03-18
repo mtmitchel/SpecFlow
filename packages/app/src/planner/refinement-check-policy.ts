@@ -46,6 +46,7 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
     checkRules: [
       "- Keep Brief questions at the framing level: primary problem, primary user, success outcomes, and hard boundaries.",
       "- Keep success outcomes distinct from hard boundaries. Do not ask the user to encode the same fact twice.",
+      "- Keep hard boundaries focused on non-negotiable limits such as platforms, offline behavior, portability, performance, or existing-system obligations.",
       "- Do not ask for detailed journeys, screen states, acceptance criteria, architecture, libraries, runtime choices, package targets, or implementation tactics in the Brief."
     ],
     generationRules: [
@@ -53,10 +54,10 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
     ]
   },
   "core-flows": {
-    maxQuestions: 3,
+    maxQuestions: 4,
     requiredStarterQuestionCount: 3,
     requiredStarterDecisionTypes: ["journey", "branch", "state"],
-    allowedDecisionTypes: ["journey", "branch", "state"],
+    allowedDecisionTypes: ["journey", "branch", "state", "failure-mode"],
     forbiddenTerms: [
       "architecture",
       "library",
@@ -83,19 +84,20 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "rpm"
     ],
     checkRules: [
-      "- Ask only about the shape of the user journey: primary path, meaningful branch or destructive path, and state rules that change the flow map.",
+      "- Ask only about the shape of the user journey: primary path, meaningful branch or destructive path, flow conditions that change the map, and failure or degraded paths when they materially affect the experience.",
+      '- Treat decisionType "state" as a flow condition, mode, or lifecycle rule that changes what path the user can take.',
       "- Do not ask about architecture, storage format, libraries, runtime/package targets, indexing strategy, or low-level timing/tuning unless the answer changes a user-visible state or branch."
     ],
     generationRules: [
-      "Focus on user journeys, states, branches, and state transitions.",
+      "Focus on user journeys, flow conditions, branches, failure paths, and state transitions.",
       "Do not specify architecture, storage internals, runtime/package choices, or low-level timing/tuning unless they change a user-visible state or branch."
     ]
   },
   prd: {
-    maxQuestions: 2,
-    requiredStarterQuestionCount: 0,
-    requiredStarterDecisionTypes: [],
-    allowedDecisionTypes: ["behavior", "rule", "scope", "non-goal"],
+    maxQuestions: 3,
+    requiredStarterQuestionCount: 1,
+    requiredStarterDecisionTypes: ["scope"],
+    allowedDecisionTypes: ["behavior", "rule", "scope", "non-goal", "priority"],
     forbiddenTerms: [
       "architecture",
       "library",
@@ -118,20 +120,34 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "rpm"
     ],
     checkRules: [
-      "- Ask only about user-visible product behavior, rules, scope boundaries, acceptance-relevant promises, and non-goals.",
+      "- Ask only about user-visible product behavior, governing rules, scope boundaries, v1 priorities, acceptance-relevant promises, and non-goals.",
+      '- Treat decisionType "rule" as the governing constraint on behavior, not a paraphrase of the same behavior question.',
+      "- The first PRD consultation must lock at least one explicit scope boundary before the first draft.",
+      "- Do not reopen a Brief constraint unless the missing detail materially changes the user-visible contract or v1 scope.",
       "- Do not ask about architecture, data model internals, libraries, runtime/package choices, deployment, or implementation mechanics.",
       "- Prefer proceed when the missing detail would not change the product contract seen by the user."
     ],
     generationRules: [
-      "Treat the PRD as the user-visible product contract for behavior, rules, scope boundaries, and non-goals.",
+      "Treat the PRD as the user-visible product contract for behavior, rules, scope boundaries, v1 priorities, and non-goals.",
       "Do not specify architecture, libraries, runtime/package choices, storage internals, or low-level implementation mechanics."
     ]
   },
   "tech-spec": {
-    maxQuestions: 2,
-    requiredStarterQuestionCount: 0,
-    requiredStarterDecisionTypes: [],
-    allowedDecisionTypes: ["architecture", "data-flow", "persistence", "integration", "risk", "verification"],
+    maxQuestions: 3,
+    requiredStarterQuestionCount: 1,
+    requiredStarterDecisionTypes: ["architecture"],
+    allowedDecisionTypes: [
+      "architecture",
+      "data-flow",
+      "persistence",
+      "integration",
+      "risk",
+      "verification",
+      "performance",
+      "operations",
+      "compatibility",
+      "existing-system"
+    ],
     forbiddenTerms: [
       "primary user",
       "persona",
@@ -145,13 +161,15 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "onboarding"
     ],
     checkRules: [
-      "- Ask only about implementation tradeoffs, architecture, components, data flow, persistence, integration boundaries, performance/security constraints, and verification hooks.",
+      "- Ask only about implementation tradeoffs, architecture, components, data flow, persistence, integration boundaries, performance constraints, operations and release concerns, compatibility or migration constraints, existing-system constraints, and quality strategy.",
+      "- The first Tech spec consultation must lock at least one architecture decision before the first draft.",
+      '- Treat decisionType "verification" as quality and verification strategy, not a request to restate product success criteria.',
       "- Do not re-ask primary user journeys, high-level product goals, or user-visible behavior already settled in the Brief, Core flows, or PRD unless those artifacts are contradictory or missing a critical implementation constraint.",
       "- Prefer proceed when earlier artifacts already define the product contract and the implementation path is clear enough to draft."
     ],
     generationRules: [
       "Treat the Tech spec as the implementation contract.",
-      "Reference earlier artifacts as inputs, then focus on architecture, components, data flow, persistence, integration boundaries, risks, and verification hooks.",
+      "Reference earlier artifacts as inputs, then focus on architecture, components, data flow, persistence, integration boundaries, existing-system constraints, compatibility or migration, performance, operations, risks, and quality strategy.",
       "Do not restate the full Brief, Core flows, or PRD except where a user-visible requirement constrains the implementation."
     ]
   }

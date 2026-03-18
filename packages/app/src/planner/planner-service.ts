@@ -138,7 +138,11 @@ export class PlannerService {
   ): Promise<PhaseCheckResult> {
     const initiative = this.requireInitiative(input.initiativeId);
     const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
-    const phaseCheckInput = buildPhaseCheckInput(initiative, input.step, markdownByStep);
+    const repoContext =
+      input.step === "tech-spec"
+        ? await scanRepo(this.rootDir).catch(() => undefined)
+        : undefined;
+    const phaseCheckInput = buildPhaseCheckInput(initiative, input.step, markdownByStep, repoContext);
     const initialBriefConsultationRequired =
       input.step === "brief" &&
       requiresInitialBriefConsultation({
@@ -158,7 +162,8 @@ export class PlannerService {
       result,
       input.step,
       CHECK_BUDGET_BY_STEP[input.step],
-      phaseCheckInput.requiredStarterQuestionCount ?? 0
+      phaseCheckInput.requiredStarterQuestionCount ?? 0,
+      initiative.workflow.refinements[input.step].questions
     );
 
     const nowIso = this.now().toISOString();
@@ -421,6 +426,10 @@ export class PlannerService {
   ): Promise<GeneratedPhaseResult> {
     const initiative = this.requireInitiative(initiativeId);
     const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
+    const repoContext =
+      step === "tech-spec"
+        ? await scanRepo(this.rootDir).catch(() => undefined)
+        : undefined;
     const isInitialBriefDraft = step === "brief" && markdownByStep.brief.trim().length === 0;
     if (
       step === "brief" &&
@@ -434,7 +443,7 @@ export class PlannerService {
 
     const result = await this.executePlannerJob<PhaseMarkdownResult>(
       job,
-      buildSpecGenerationInput(initiative, step, markdownByStep),
+      buildSpecGenerationInput(initiative, step, markdownByStep, repoContext),
       onToken,
       signal
     );
@@ -584,8 +593,11 @@ export class PlannerService {
       validatePhaseMarkdownResult,
       readSpecMarkdown: (specId) => this.store.readSpecMarkdown(specId),
       buildSpecGenerationInput: (currentInitiative, refinementStep) =>
-        getArtifactMarkdownMap(currentInitiative.id, (specId) => this.store.readSpecMarkdown(specId)).then((markdownByStep) =>
-          buildSpecGenerationInput(currentInitiative, refinementStep, markdownByStep)
+        Promise.all([
+          getArtifactMarkdownMap(currentInitiative.id, (specId) => this.store.readSpecMarkdown(specId)),
+          refinementStep === "tech-spec" ? scanRepo(this.rootDir).catch(() => undefined) : Promise.resolve(undefined)
+        ]).then(([markdownByStep, repoContext]) =>
+          buildSpecGenerationInput(currentInitiative, refinementStep, markdownByStep, repoContext)
         ),
       executePlannerJob: (job, payload, plannerOnToken) => this.executePlannerJob(job, payload, plannerOnToken, signal),
       upsertArtifactTrace: (trace) => this.store.upsertArtifactTrace(trace)

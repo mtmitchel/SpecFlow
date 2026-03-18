@@ -11,18 +11,24 @@ const QUESTION_DECISION_LABELS: Record<InitiativePlanningQuestion["decisionType"
   constraint: "Constraint",
   journey: "Journey",
   branch: "Branch",
-  state: "State",
+  state: "Flow condition",
+  "failure-mode": "Failure mode",
   behavior: "Behavior",
   rule: "Rule",
   scope: "Scope",
   user: "User",
   "non-goal": "Non-goal",
+  priority: "Priority",
   architecture: "Architecture",
   "data-flow": "Data flow",
   persistence: "Persistence",
   integration: "Integration",
   risk: "Risk",
-  verification: "Verification"
+  verification: "Quality",
+  performance: "Performance",
+  operations: "Operations",
+  compatibility: "Compatibility",
+  "existing-system": "Existing system"
 };
 const CUSTOM_ANSWER_SENTINEL = "Other";
 

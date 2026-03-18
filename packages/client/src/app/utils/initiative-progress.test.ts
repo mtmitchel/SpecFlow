@@ -314,7 +314,7 @@ describe("getInitiativeProgressModel", () => {
     expect(progress.nodes.find((node) => node.key === "tickets")?.state).toBe("checkpoint");
     expect(progress.currentNodeState).toBe("checkpoint");
     expect(progress.currentReviewKind).toBe("ticket-coverage-review");
-    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Review coverage");
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Coverage check");
   });
 
   it("moves into execute and verify based on ticket state", () => {

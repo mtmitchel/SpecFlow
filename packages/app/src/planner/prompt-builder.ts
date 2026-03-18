@@ -2,6 +2,8 @@ import type {
   ClarifyHelpInput,
   PhaseCheckInput,
   PlanInput,
+  PlannerRepoContext,
+  RefinementHistoryEntry,
   RefinementStep,
   ReviewRunInput,
   SpecGenInput,
@@ -39,17 +41,50 @@ const DECISION_TYPES: InitiativePlanningDecisionType[] = [
   "journey",
   "branch",
   "state",
+  "failure-mode",
   "behavior",
   "rule",
   "scope",
   "non-goal",
+  "priority",
   "architecture",
   "data-flow",
   "persistence",
   "integration",
   "risk",
-  "verification"
+  "verification",
+  "performance",
+  "operations",
+  "compatibility",
+  "existing-system"
 ];
+
+const formatRefinementHistory = (history: RefinementHistoryEntry[]): string =>
+  JSON.stringify(
+    history.map((entry) => ({
+      step: entry.step,
+      questionId: entry.questionId,
+      decisionType: entry.decisionType,
+      label: entry.label,
+      whyThisBlocks: entry.whyThisBlocks,
+      resolution: entry.resolution,
+      answer: entry.answer,
+      assumption: entry.assumption
+    })),
+    null,
+    2
+  );
+
+const formatRepoContext = (repoContext: PlannerRepoContext): string =>
+  JSON.stringify(
+    {
+      totalFiles: repoContext.totalFiles,
+      configSummary: repoContext.configSummary,
+      fileTree: repoContext.fileTree
+    },
+    null,
+    2
+  );
 
 const outputContract = (job: PlannerJob): string => {
   switch (job) {
@@ -131,6 +166,8 @@ const getArtifactSections = (input: {
   prdMarkdown?: string;
   techSpecMarkdown?: string;
   savedContext?: Record<string, string | string[] | boolean>;
+  refinementHistory?: RefinementHistoryEntry[];
+  repoContext?: PlannerRepoContext;
   traceOutlines?: Partial<Record<RefinementStep, { sections: Array<{ key: string; label: string; items: string[] }> }>>;
 }): string[] =>
   [
@@ -138,10 +175,14 @@ const getArtifactSections = (input: {
     input.savedContext && Object.keys(input.savedContext).length > 0
       ? `Saved refinement context:\n${JSON.stringify(input.savedContext, null, 2)}`
       : null,
+    input.refinementHistory && input.refinementHistory.length > 0
+      ? `Refinement history:\n${formatRefinementHistory(input.refinementHistory)}`
+      : null,
     input.briefMarkdown?.trim() ? `Brief:\n${input.briefMarkdown}` : null,
     input.coreFlowsMarkdown?.trim() ? `Core flows:\n${input.coreFlowsMarkdown}` : null,
     input.prdMarkdown?.trim() ? `PRD:\n${input.prdMarkdown}` : null,
     input.techSpecMarkdown?.trim() ? `Tech spec:\n${input.techSpecMarkdown}` : null,
+    input.repoContext ? `Repo context:\n${formatRepoContext(input.repoContext)}` : null,
     input.traceOutlines && Object.keys(input.traceOutlines).length > 0
       ? `Trace outlines:\n${JSON.stringify(input.traceOutlines, null, 2)}`
       : null
@@ -176,7 +217,7 @@ const buildCheckPrompt = (
               `- This is the first required ${artifactDescription} consultation before any ${artifactDescription.toLowerCase()} artifact exists. You must return "ask".`,
               `- Ask exactly ${requiredStarterQuestionCount} short blocker questions that will materially shape the first ${artifactDescription.toLowerCase()} draft.`,
               input.phase === "core-flows"
-                ? "- Cover three different decision areas: the primary user journey, a meaningful edge or destructive flow, and a state rule that changes the flow map."
+                ? "- Cover three different decision areas: the primary user journey, a meaningful edge or destructive flow, and a flow condition that changes the map."
                 : "- Cover distinct decision areas that would materially change the first draft.",
               `- Do not return proceed or an empty questions array for this first ${artifactDescription} consultation.`
             ]
@@ -190,6 +231,12 @@ const buildCheckPrompt = (
       "- Prefer 2 to 5 options per question. Include a recommendedOption when one choice is clearly best.",
       '- Do not include "Other" in options. Set allowCustomAnswer to true only when the user may reasonably need a custom answer outside the finite options.',
       `- Allowed decisionType values for this artifact are: ${questionPolicy.allowedDecisionTypes.join(", ")}.`,
+      input.refinementHistory && input.refinementHistory.length > 0
+        ? "- Do not repeat a concern already captured in refinement history. Reopen a prior concern only when a contradiction, missing dependency, or later-stage implementation consequence still blocks this artifact."
+        : null,
+      input.refinementHistory && input.refinementHistory.length > 0
+        ? "- Never ask the same decisionType about the same concern twice in one stage. If a narrower follow-up is unavoidable, make the distinction explicit in whyThisBlocks."
+        : null,
       ...(requiresInitialConsultation || requiresStarterQuestions
         ? []
         : ["- If you can proceed, return an empty questions array and include any explicit assumptions you are making."]),
@@ -197,7 +244,7 @@ const buildCheckPrompt = (
       "- Phrase each question so the user can answer it quickly without reading a long explanation.",
       ...promptPolicy.checkRules,
       ...getArtifactSections(input)
-    ].join("\n\n")
+    ].filter((value): value is string => Boolean(value)).join("\n\n")
   };
 };
 
@@ -333,9 +380,9 @@ export const buildPlannerPrompt = (
 
   if (job === "tech-spec-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Tech spec", [
-      "Cover architecture, major components, data flow, constraints, implementation approach, risks, and verification hooks.",
+      "Cover architecture, major components, data flow, constraints, implementation approach, risks, and quality strategy.",
       ...getPromptPolicy("tech-spec").generationRules,
-      'The traceOutline should include sections for "components", "data-entities", "decisions", "risks", and "verification-hooks".'
+      'The traceOutline should include sections for "components", "data-entities", "decisions", "risks", and "quality-strategy".'
     ]);
   }
 

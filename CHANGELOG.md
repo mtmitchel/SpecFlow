@@ -9,6 +9,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Changed
 
+**Planner workflow contract**
+- Brief intake is now domain-neutral instead of note-taking-specific
+- Core flows now allows one additional follow-up question beyond the required starter set
+- The first PRD draft now requires an explicit scope-setting consultation
+- The first Tech spec draft now requires an explicit architecture consultation
+- Planner checks and generation now receive persisted refinement history so later checks can avoid same-stage duplicate re-asks
+- Tech spec planning can consume lightweight repo context earlier for existing-system, compatibility, performance, and operations decisions
+
+**Product language and workflow docs**
+- Synced workflow docs, architecture docs, and product-language docs to the current consultation rules and coverage terminology
+- Standardized the planning-to-execution gate language around `Coverage check`
+- Rewrote repo-facing guidance in `CLAUDE.md` to match the current desktop-first runtime and planner behavior
+
+**Repo-local Codex skills**
+- Removed the generic repo-local skills that no longer matched SpecFlow's real workflow shape
+- Added `specflow-workflow-designer`, `planner-prompt-tuner`, and `traceability-delivery-auditor`
+- Narrowed `workflow-guide`, `product-language-guardian`, `ticket-readiness-checker`, and `verification-analyst` so each maps to a distinct current repo need
+
 **Desktop-first runtime**
 - SpecFlow now runs desktop-first through a Tauri v2 shell backed by a persistent Node sidecar
 - `packages/client` remains the React/Vite UI, `packages/app` remains the Node business-logic package, and `packages/tauri` now owns the desktop shell and bridge

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Planner Prompt Tuner"
+  short_description: "Tune SpecFlow planner prompts and policies"
+  default_prompt: "Use $planner-prompt-tuner to improve this SpecFlow planner question contract, prompt boundary, decision taxonomy, or artifact-generation prompt."

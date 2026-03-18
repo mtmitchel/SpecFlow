@@ -24,7 +24,7 @@ import { CaptureVerifySection } from "./ticket/capture-verify-section.js";
 import { VerificationResultsSection } from "./ticket/verification-results-section.js";
 import type { WorkflowPhase } from "./ticket/workflow.js";
 
-const COVERAGE_GATE_MESSAGE = "Review coverage before you run this ticket.";
+const COVERAGE_GATE_MESSAGE = "Resolve the coverage check before you run this ticket.";
 
 interface TicketPreflightIssue {
   tone: "warn";

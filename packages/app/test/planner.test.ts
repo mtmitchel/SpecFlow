@@ -56,6 +56,38 @@ const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   await writeFile(path.join(base, "AGENTS.md"), "team-rules: always include tests\n", "utf8");
 };
 
+const titleByStep = (step: "brief" | "core-flows" | "prd" | "tech-spec"): string => {
+  switch (step) {
+    case "brief":
+      return "Brief";
+    case "core-flows":
+      return "Core flows";
+    case "prd":
+      return "PRD";
+    case "tech-spec":
+      return "Tech spec";
+  }
+};
+
+const seedSpec = async (
+  store: ArtifactStore,
+  initiativeId: string,
+  step: "brief" | "core-flows" | "prd" | "tech-spec",
+  content: string
+): Promise<void> => {
+  const nowIso = "2026-02-27T20:00:00.000Z";
+  await store.upsertSpec({
+    id: `${initiativeId}:${step}`,
+    initiativeId,
+    type: step,
+    title: titleByStep(step),
+    content,
+    sourcePath: `specflow/initiatives/${initiativeId}/${step}.md`,
+    createdAt: nowIso,
+    updatedAt: nowIso
+  });
+};
+
 const mockProviderRegistryFetch: typeof fetch = async (input, init) => {
   void init;
   const url = typeof input === "string" ? input : input.url;
@@ -158,6 +190,53 @@ describe("PlannerService", () => {
     expect(prompt.userPrompt).toContain("first required Core flows consultation");
     expect(prompt.userPrompt).toContain("Ask exactly 3 short blocker questions");
     expect(prompt.userPrompt).toContain("Cover three different decision areas");
+    expect(prompt.userPrompt).toContain("at most 4 questions");
+    expect(prompt.userPrompt).toContain("failure-mode");
+    expect(prompt.userPrompt).not.toContain('Default to "proceed"');
+  });
+
+  it("marks the first PRD check as required starter questions when no artifact exists yet", () => {
+    const prompt = buildPlannerPrompt(
+      "prd-check",
+      {
+        initiativeDescription: "Build auth",
+        phase: "prd",
+        briefMarkdown: "# Brief",
+        coreFlowsMarkdown: "# Core flows",
+        savedContext: {},
+        requiredStarterQuestionCount: 1
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain('You must return "ask"');
+    expect(prompt.userPrompt).toContain("first required PRD consultation");
+    expect(prompt.userPrompt).toContain("Ask exactly 1 short blocker question");
+    expect(prompt.userPrompt).toContain("at most 3 questions");
+    expect(prompt.userPrompt).toContain("Allowed decisionType values for this artifact are: behavior, rule, scope, non-goal, priority");
+    expect(prompt.userPrompt).not.toContain('Default to "proceed"');
+  });
+
+  it("marks the first tech-spec check as required starter questions when no artifact exists yet", () => {
+    const prompt = buildPlannerPrompt(
+      "tech-spec-check",
+      {
+        initiativeDescription: "Build auth",
+        phase: "tech-spec",
+        briefMarkdown: "# Brief",
+        coreFlowsMarkdown: "# Core flows",
+        prdMarkdown: "# PRD",
+        savedContext: {},
+        requiredStarterQuestionCount: 1
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain('You must return "ask"');
+    expect(prompt.userPrompt).toContain("first required Tech spec consultation");
+    expect(prompt.userPrompt).toContain("Ask exactly 1 short blocker question");
+    expect(prompt.userPrompt).toContain("at most 3 questions");
+    expect(prompt.userPrompt).toContain("performance, operations, compatibility, existing-system");
     expect(prompt.userPrompt).not.toContain('Default to "proceed"');
   });
 
@@ -219,6 +298,235 @@ describe("PlannerService", () => {
           step: "core-flows"
         })
       ).rejects.toThrow("at least 3 starter questions");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("rejects first PRD consultations that skip the required starter scope question", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-prd-starter-check-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-prd-starter";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+      const plannerForInitiative = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "prdst001"
+      });
+      const initiative = await plannerForInitiative.createDraftInitiative({ description: "Build auth" });
+      await seedSpec(store, initiative.id, "brief", "# Brief");
+      await seedSpec(store, initiative.id, "core-flows", "# Core flows");
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            decision: "ask",
+            questions: [],
+            assumptions: []
+          })
+        ]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:10:00.000Z"),
+        idGenerator: () => "prdst002"
+      });
+
+      await expect(
+        planner.runPhaseCheckJob({
+          initiativeId: initiative.id,
+          step: "prd"
+        })
+      ).rejects.toThrow("at least 1 starter question");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("rejects first tech-spec consultations that skip the required starter architecture question", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-tech-spec-starter-check-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-tech-starter";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const plannerForInitiative = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "techst01"
+      });
+      const initiative = await plannerForInitiative.createDraftInitiative({ description: "Build auth" });
+      await seedSpec(store, initiative.id, "brief", "# Brief");
+      await seedSpec(store, initiative.id, "core-flows", "# Core flows");
+      await seedSpec(store, initiative.id, "prd", "# PRD");
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            decision: "ask",
+            questions: [],
+            assumptions: []
+          })
+        ]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:15:00.000Z"),
+        idGenerator: () => "techst02"
+      });
+
+      await expect(
+        planner.runPhaseCheckJob({
+          initiativeId: initiative.id,
+          step: "tech-spec"
+        })
+      ).rejects.toThrow("at least 1 starter question");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("rejects same-stage duplicate questions when a later check re-asks the same PRD concern", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-duplicate-prd-question-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-prd-duplicate";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const plannerForInitiative = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "dupprd01"
+      });
+      const initiative = await plannerForInitiative.createDraftInitiative({ description: "Build auth" });
+      await store.upsertInitiative({
+        ...initiative,
+        workflow: updateRefinementState(initiative.workflow, "prd", {
+          questions: [
+            {
+              id: "prd-scope-boundary",
+              label: "Which v1 scope boundary matters most?",
+              whyThisBlocks: "The PRD needs one explicit scope boundary.",
+              affectedArtifact: "prd",
+              decisionType: "scope",
+              type: "select",
+              assumptionIfUnanswered: "Keep the first release single-user only.",
+              options: ["Single-user only", "No external integrations in v1"],
+              optionHelp: {
+                "Single-user only": "Keeps the product contract focused on one user's workflow first.",
+                "No external integrations in v1": "Keeps the first release narrow and avoids integration promises."
+              },
+              recommendedOption: "Single-user only"
+            }
+          ],
+          answers: {
+            "prd-scope-boundary": "Single-user only"
+          },
+          checkedAt: "2026-02-27T20:10:00.000Z"
+        }),
+        updatedAt: "2026-02-27T20:10:00.000Z"
+      });
+      await seedSpec(store, initiative.id, "brief", "# Brief");
+      await seedSpec(store, initiative.id, "core-flows", "# Core flows");
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            decision: "ask",
+            questions: [
+              {
+                id: "prd-scope-boundary-follow-up",
+                label: "Which v1 scope boundary matters most right now?",
+                whyThisBlocks: "The PRD still needs one explicit scope boundary.",
+                affectedArtifact: "prd",
+                decisionType: "scope",
+                type: "select",
+                assumptionIfUnanswered: "Keep the first release single-user only.",
+                options: ["Single-user only", "No external integrations in v1"],
+                optionHelp: {
+                  "Single-user only": "Keeps the product contract focused on one user's workflow first.",
+                  "No external integrations in v1": "Keeps the first release narrow and avoids integration promises."
+                },
+                recommendedOption: "Single-user only"
+              }
+            ],
+            assumptions: []
+          })
+        ]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:15:00.000Z"),
+        idGenerator: () => "dupprd02"
+      });
+
+      await expect(
+        planner.runPhaseCheckJob({
+          initiativeId: initiative.id,
+          step: "prd"
+        })
+      ).rejects.toThrow("repeats already-asked prd concern");
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });
@@ -534,6 +842,27 @@ describe("PlannerService", () => {
         JSON.stringify(reviewResult("Core flows review")),
         JSON.stringify(reviewResult("Brief/core flows cross-check")),
         JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "prd-scope-boundary",
+              label: "Which scope boundary matters most for v1?",
+              whyThisBlocks: "The PRD needs one explicit scope boundary before the first draft.",
+              affectedArtifact: "prd",
+              decisionType: "scope",
+              type: "select",
+              assumptionIfUnanswered: "Keep the first release single-user only.",
+              options: ["Single-user only", "No external integrations in v1"],
+              optionHelp: {
+                "Single-user only": "Keeps the user-visible product contract focused on one primary workflow first.",
+                "No external integrations in v1": "Keeps the first release narrow and avoids integration promises."
+              },
+              recommendedOption: "Single-user only"
+            }
+          ],
+          assumptions: []
+        }),
+        JSON.stringify({
           decision: "proceed",
           questions: [],
           assumptions: []
@@ -544,6 +873,30 @@ describe("PlannerService", () => {
         }),
         JSON.stringify(reviewResult("PRD review")),
         JSON.stringify(reviewResult("Core flows/PRD cross-check")),
+        JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "tech-architecture",
+              label: "Which implementation shape should anchor the first release?",
+              whyThisBlocks: "The Tech spec needs one architecture decision before it can define the rest of the implementation plan.",
+              affectedArtifact: "tech-spec",
+              decisionType: "architecture",
+              type: "select",
+              assumptionIfUnanswered: "Use one desktop app with a local sidecar and local persistence.",
+              options: [
+                "Single desktop app with local runtime",
+                "Desktop shell with a separate remote backend"
+              ],
+              optionHelp: {
+                "Single desktop app with local runtime": "Keeps the first release local-first and narrows the implementation boundary.",
+                "Desktop shell with a separate remote backend": "Introduces a split deployment and remote-service boundary from the start."
+              },
+              recommendedOption: "Single desktop app with local runtime"
+            }
+          ],
+          assumptions: []
+        }),
         JSON.stringify({
           decision: "proceed",
           questions: [],
@@ -643,9 +996,19 @@ describe("PlannerService", () => {
         initiativeId: initiative.id,
         step: "prd"
       });
+      await resolvePhaseConsultation(store, initiative.id, "prd", ["prd-scope-boundary"]);
+      await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "prd"
+      });
       await planner.runPrdJob({
         initiativeId: initiative.id
       });
+      await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "tech-spec"
+      });
+      await resolvePhaseConsultation(store, initiative.id, "tech-spec", ["tech-architecture"]);
       await planner.runPhaseCheckJob({
         initiativeId: initiative.id,
         step: "tech-spec"
@@ -658,7 +1021,7 @@ describe("PlannerService", () => {
 
       expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
       expect(store.planningReviews.get(`${initiative.id}:brief-review`)?.status).toBe("passed");
-      expect(mockClient.requests).toHaveLength(19);
+      expect(mockClient.requests).toHaveLength(21);
       expect(mockClient.requests[0]?.userPrompt).toContain('Default to "proceed"');
       for (const req of mockClient.requests) {
         expect(req.systemPrompt).toContain("team-rules: always include tests");

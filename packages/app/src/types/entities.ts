@@ -12,16 +12,22 @@ export type InitiativePlanningDecisionType =
   | "journey"
   | "branch"
   | "state"
+  | "failure-mode"
   | "behavior"
   | "rule"
   | "scope"
   | "non-goal"
+  | "priority"
   | "architecture"
   | "data-flow"
   | "persistence"
   | "integration"
   | "risk"
-  | "verification";
+  | "verification"
+  | "performance"
+  | "operations"
+  | "compatibility"
+  | "existing-system";
 
 export interface InitiativePlanningQuestion {
   id: string;

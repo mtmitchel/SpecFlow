@@ -1,22 +1,12 @@
 # SpecFlow process reference
 
-## Table of contents
-- Source files
-- Workflow selection
-- Groundwork gate matrix
-- Milestone Run gate matrix
-- Quick Build rules
-- Drift Audit rules
-- State inspection paths
-- Response pattern
-
 ## Source files
 - `docs/workflows.md`: user-facing workflow definitions and happy paths
-- `docs/product-language-spec.md`: canonical user-facing terms and status language
-- `packages/app/src/planner/workflow-contract.ts`: planning steps, review kinds, prerequisite rules, resolved-review logic
-- `packages/app/src/planner/execution-gates.ts`: initiative coverage gate that blocks initiative-linked ticket execution
+- `docs/product-language-spec.md`: canonical user-facing terms and phase/status language
+- `packages/app/src/planner/workflow-contract.ts`: planning steps, prerequisite rules, and review status helpers
+- `packages/app/src/planner/execution-gates.ts`: the real initiative coverage gate for initiative-linked ticket execution
 - `packages/app/src/io/paths.ts`: on-disk artifact paths
-- `packages/app/src/store/internal/loaders.ts`: file names actually loaded into memory
+- `packages/app/src/store/internal/loaders.ts`: filenames actually loaded into memory
 
 ## Workflow selection
 - Use `Groundwork` when the user is shaping or checking an initiative artifact set.
@@ -24,22 +14,22 @@
 - Use `Quick Build` when the user is planning a single focused task without full initiative decomposition.
 - Use `Drift Audit` when the user is reviewing an existing diff, branch, commit range, or file snapshot.
 
-## Groundwork gate matrix
+## Groundwork state matrix
 
-| Stage | Required artifact | Reviews that must be resolved for the stage to be considered complete | What opens next |
-|---|---|---|---|
-| Brief | `brief.md` | `brief-review` | Core flows |
-| Core flows | `core-flows.md` | `core-flows-review`, `brief-core-flows-crosscheck` | PRD |
-| PRD | `prd.md` | `prd-review`, `core-flows-prd-crosscheck` | Tech spec |
-| Tech spec | `tech-spec.md` | `tech-spec-review`, `prd-tech-spec-crosscheck`, `spec-set-review` | Tickets |
-| Tickets | ticket plan plus coverage ledger | `ticket-coverage-review` | Execution |
+| Stage | Required artifact | First-draft consultation rule | What actually blocks the next artifact | What opens next |
+|---|---|---|---|---|
+| Brief | `brief.md` | required 4-question Brief intake | missing Brief artifact | Core flows |
+| Core flows | `core-flows.md` | required first consultation: journey, branch, flow condition | missing Core flows artifact | PRD |
+| PRD | `prd.md` | required first scope-setting question | missing PRD artifact | Tech spec |
+| Tech spec | `tech-spec.md` | required first architecture question | missing Tech spec artifact | Tickets |
+| Tickets | ticket plan plus coverage ledger | no starter consultation; planner generates from the spec set | unresolved `ticket-coverage-review` only matters before execution, not before ticket generation | Execution |
 
 Use these rules while checking Groundwork:
-- Entering a planning step depends on the previous step's required reviews being resolved.
-- Reviews resolve only when their status is `passed` or `overridden`.
-- Missing, `blocked`, or `stale` reviews still block progression.
-- Editing an upstream artifact can make downstream reviews stale and require reruns.
-- Ticket creation is not enough. Initiative execution still stays blocked until the coverage check is resolved.
+- Moving to the next planning artifact is primarily gated by the prior artifact existing and the workflow step being unlocked.
+- Planning reviews and cross-checks remain important, but they are secondary review artifacts instead of hard blockers between Brief, Core flows, PRD, and Tech spec.
+- Missing, `blocked`, or `stale` reviews matter when the user asks about review health or artifact quality, but they do not automatically stop the next artifact from opening.
+- Editing an upstream artifact can still make downstream reviews stale.
+- Ticket creation is not enough. Initiative execution still stays blocked until the coverage check is resolved or explicitly overridden.
 
 ## Milestone Run gate matrix
 
@@ -90,15 +80,9 @@ Use these rules while checking Milestone Run:
 ### Decisions
 - `specflow/decisions/*.md`: durable planning decisions that may explain why the current artifact set looks the way it does
 
-Use these inspection shortcuts:
-- If the user asks what comes next for an initiative, inspect `initiative.yaml`, required artifact files, and the review files for the current and previous stages.
-- If the user asks why a ticket cannot start, inspect the ticket YAML, its `blockedBy` field, and the initiative's `ticket-coverage-review`.
-- If the user asks why a run failed, inspect the latest `verification.json` before answering.
-
 ## Response pattern
-Return concrete workflow guidance in this order:
 - `Current stage`: the active workflow and step
 - `Complete`: what is already resolved
-- `Blocking`: the missing artifact, unresolved review, dependency, or failed verification signal
+- `Blocking`: the real blocker, or explicitly say there is no blocking gate
 - `Next action`: the exact action to take in SpecFlow
 - `Override path`: only when the product supports override for that situation

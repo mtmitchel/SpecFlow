@@ -50,3 +50,18 @@ Key capabilities in the current version:
 - Real streaming progress for LLM operations through transport adapters: Tauri channels in desktop mode and SSE in legacy web mode
 - GitHub Issue import via `POST /api/import/github-issue`
 - Ticket dependencies with automatic inter-phase wiring and enforced status transitions
+
+## Repo-local Codex skills
+
+The repo-local skills under `.codex/skills/` are intended to match the current SpecFlow workflow and architecture, not generic planning advice.
+
+| Skill | Use it for |
+|---|---|
+| `architecture-reviewer` | Review changes against package boundaries, shared contracts, and documented architecture ownership |
+| `product-language-guardian` | Keep workflow, artifact, and UI language aligned with the canonical SpecFlow vocabulary |
+| `workflow-guide` | Inspect a real initiative, ticket, or run and explain the next valid step, blocker, or override path |
+| `ticket-readiness-checker` | Decide whether a ticket is precise enough to implement and verify safely |
+| `verification-analyst` | Judge whether delivered work actually satisfies the original ticket, run, and acceptance baseline |
+| `specflow-workflow-designer` | Design or critique the end-user SpecFlow workflow itself, especially planning, handoff, and review flow behavior |
+| `planner-prompt-tuner` | Improve planner question policies, prompt boundaries, consultation quality, and stage handoff behavior |
+| `traceability-delivery-auditor` | Audit the chain from specs to coverage to tickets to bundles to verification results |

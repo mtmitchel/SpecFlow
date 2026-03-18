@@ -1,160 +1,132 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working in this repository. It should match the current repo behavior, but the repo-root [AGENTS.md](./AGENTS.md) remains the stronger and more complete source of truth.
 
-## Build and Development Commands
+## Build and development commands
 
 ```bash
-npm install                # install all workspaces
-npm run build              # build client (Vite) then server (tsc) -- order matters
-npm run check              # type-check both packages (tsc --noEmit); no build output
-npm test                   # run backend and client Vitest suites
-npm run ui                 # build + start local server with UI
-
-# Client dev server with hot-reload (does NOT start the backend)
-npm run -w @specflow/client dev
+npm install
+npm run setup:git-hooks
+npm run lint
+npm run check
+npm test
+npm run tauri dev
+npm run dev
+npm run dev:web
+npm run ui
+npm run ui:web
+npm run package:desktop
 
 # Client tests only
 npm run -w @specflow/client test
 
-# Single test file (run from packages/app/)
+# Single backend test file (run from packages/app/)
 npx vitest run test/artifact-store.test.ts
 
-# Single test by name pattern (run from packages/app/)
+# Single backend test by name pattern (run from packages/app/)
 npx vitest run -t "pattern"
 
-# Watch mode (run from packages/app/)
-npx vitest
-
-# Type-check only (no emit)
+# Type-check only
 npx tsc -p packages/app/tsconfig.json --noEmit
 npx tsc -p packages/client/tsconfig.json --noEmit
-
-# Direct CLI (after build)
-node packages/app/dist/cli.js ui --no-open
-node packages/app/dist/cli.js export-bundle --ticket <ticket-id> --agent codex-cli
-node packages/app/dist/cli.js verify --ticket <ticket-id>
 ```
 
-There is no linter or formatter configured. Style is enforced by `.editorconfig` (UTF-8, LF, final newline, trim trailing whitespace).
+Notes:
+- `npm run tauri dev` is the primary development loop. `npm run dev` is an alias.
+- `npm run ui` runs the CLI from source, prefers an existing packaged desktop binary if present, and falls back to legacy web mode only when no desktop binary exists.
+- `npm run check` runs ESLint, both TypeScript checks, and the UI dedupe gate.
+- `npm run package:desktop` is explicit packaging, not part of the normal dev loop.
 
 ## Architecture
 
-Monorepo with two npm workspaces:
+SpecFlow is a desktop-first npm workspace with three packages:
 
-- **packages/app** -- Fastify v5 backend + Commander.js CLI. Compiles with `tsc` to `dist/`. Uses `"type": "module"` with **NodeNext** module resolution (imports must use `.js` extensions even for `.ts` source).
-- **packages/client** -- React 19 + React Router v7 + Vite 7. Uses **Bundler** module resolution with `noEmit: true`; Vite handles bundling. Built output served as static files by the Fastify server. No `.js` extensions needed in imports.
+- `packages/app`: Node business logic, shared runtime handlers, CLI commands, sidecar entrypoint, legacy Fastify runtime, planner, verifier, bundle export, and store logic
+- `packages/client`: React + Vite UI with desktop and legacy-web transport adapters
+- `packages/tauri`: Tauri v2 shell and Rust bridge that manages the Node sidecar in desktop mode
 
-### Data layer
+Normal desktop use is:
 
-All data is flat YAML/JSON files on disk under `specflow/` (gitignored runtime directory). There is no database.
+`React UI -> Tauri bridge -> Node sidecar`
 
-- `ArtifactStore` (packages/app/src/store/artifact-store.ts) loads everything into memory at startup, serves reads from in-memory Maps, and writes atomically (tmp + rename). Concurrent `reloadFromDisk()` calls are serialized (coalesced) via a `reloadInFlight` guard to prevent interleaved map mutations.
-- Reload assembly is delegated to `packages/app/src/store/internal/reload.ts`, and planner-owned YAML artifacts are validated in `packages/app/src/store/internal/planning-artifact-validation.ts` before the in-memory maps are replaced.
-- Staged commit model: long operations write to `runs/<id>/_tmp/<op-id>/` first, then `commitRunOperation()` moves files to their final location. Write locks prevent concurrent ops on the same run. The file watcher is suppressed for the entire commit critical section (cp + manifest write + upsertRun + reload).
-- chokidar watches `specflow/` for external edits and triggers debounced `reloadFromDisk()`.
+Legacy web fallback remains:
 
-### Server structure
+`React UI -> Fastify HTTP/SSE -> shared runtime handlers`
 
-`createSpecFlowServer()` (packages/app/src/server/create-server.ts) is the composition root. It wires together:
-- `ArtifactStore` -- data access
-- `PlannerService` -- LLM-powered spec/plan generation
-- `BundleGenerator` -- export bundles for AI agents
-- `VerifierService` + `DiffEngine` -- acceptance verification against diffs
-- Route files in `src/server/routes/` (one file per domain; run routes are split into `run-query-routes.ts` and `run-audit-routes.ts`)
+## Data and store model
 
-Planning workflow metadata is shared between server and client via `packages/app/src/planner/workflow-contract.ts`. Initiative execution gating for coverage checks is centralized in `packages/app/src/planner/execution-gates.ts` and reused by ticket status transitions and bundle export.
+All runtime data lives under `specflow/` as YAML/Markdown/JSON files. There is no database.
 
-SSE streaming uses raw Fastify response hijacking (`reply.hijack()` + writing to `reply.raw`), not a plugin.
+- `ArtifactStore` loads the workspace into in-memory Maps and persists through staged writes plus reloads.
+- Long operations write into `runs/<id>/_tmp/<op-id>/` first, then commit into final locations.
+- Planner-owned YAML artifacts are validated before replacing the in-memory snapshot.
+- External edits under `specflow/` are watched and reloaded.
 
-### Client structure
+## Planning workflow
 
-Single state atom pattern: `AppInner` in App.tsx holds an `ArtifactsSnapshot` (config, initiatives, tickets, runs, runAttempts, specs, planning reviews, traces, ticket coverage artifacts). No Redux/Zustand. Mutations do targeted `setSnapshot` updates; `refreshArtifacts()` does a full reload.
+The planning flow is:
 
-API layer: thin wrappers over `fetch` in `src/api/`. `http.ts` provides `requestJson<T>()` and throws `ApiError` with status and structured message on non-2xx.
+`Brief -> Core flows -> PRD -> Tech spec -> Tickets`
 
-Pages use `useToast()` for error display. Destructive actions use `useConfirm()` for async confirmation dialogs. Root wraps: `<ErrorBoundary><ToastProvider><ConfirmProvider><AppInner/></ConfirmProvider></ToastProvider></ErrorBoundary>`.
+Important current rules:
+- Fresh initiatives always begin with a required four-question Brief intake.
+- The first Core flows draft requires a short starter consultation that covers journey, branch, and flow condition.
+- The first PRD draft requires at least one explicit scope-setting question.
+- The first Tech spec draft requires at least one architecture question.
+- Planning reviews remain important, but they are secondary artifacts rather than hard blockers between Brief, Core flows, PRD, and Tech spec.
+- `ticket-coverage-review` is the real planning-to-execution gate for initiative-linked tickets.
 
-Reusable hooks in `src/app/hooks/`: `useDirtyForm` (unsaved changes warning via click-intercept + beforeunload; does NOT use `useBlocker` since the app uses `<BrowserRouter>`, not a data router), `useVerificationStream` (SSE EventSource with reconnection), `useCapturePreview` (diff preview with debounced refresh), `useExportWorkflow` (export/copy/fix-forward state), `useTreeNavigation` (keyboard nav for navigator tree).
+Planner question policy lives in:
+- `packages/app/src/planner/refinement-check-policy.ts`
+- `packages/app/src/planner/brief-consultation.ts`
+- `packages/app/src/planner/prompt-builder.ts`
+- `packages/app/src/planner/internal/validators.ts`
+- `packages/app/src/planner/internal/context.ts`
 
-`TicketView` is decomposed into sub-components in `src/app/views/ticket/`: `ExportSection`, `CaptureVerifySection`, `VerificationResultsSection`, `OverridePanel`. Shared presentation components `WorkflowSection` and `WorkflowStepper` live in `src/app/components/`.
+## Client structure
 
-`InitiativeView` delegates orchestration to `src/app/views/initiative/use-initiative-planning-workspace.ts` and renders extracted sections from `src/app/views/initiative/` (`artifact-reviews-section.tsx`, `refinement-section.tsx`, `tickets-step-section.tsx`, `planning-review-card.tsx`). There is no runtime Mermaid component in the client build.
+- `App.tsx` owns the top-level `ArtifactsSnapshot` and refreshes persisted state.
+- `src/api/transport.ts` switches between Tauri desktop transport and legacy web transport.
+- `src/app/views/initiative/` owns the planning workspace sections and orchestration hooks.
+- `src/app/views/ticket/` owns bundle export, capture, verification, and override presentation.
+- `src/app/layout/` owns the workspace shell, rail, navigator, and command palette.
 
-`CommandPalette` delegates to mode sub-components: `PaletteSearchMode`, `PaletteQuickTaskMode`, `PaletteGithubImportMode` in `src/app/layout/`. `SettingsModal` delegates model picking to `ModelCombobox` in `src/app/components/`.
+## Conventions
 
-The `+ New` button in the navigator navigates to `/new` (creation chooser page with New Initiative and Quick Task cards). Quick Task has a standalone page at `/new-quick-task` (`QuickTaskPage` component). The navigator does NOT use a dropdown menu or open the command palette for creation actions.
+- Use `.js` extensions in imports in `packages/app` source.
+- Do not annotate React component return types with `: JSX.Element`.
+- Use shared types from `packages/app/src/types/` and `packages/client/src/types.ts`; do not duplicate cross-module shapes.
+- Never use native browser confirmation dialogs. Use `useConfirm()`.
+- Treat duplicated or near-duplicated UI meaning as a defect. `npm run check` enforces this.
+- Use design tokens from `packages/client/src/styles/base.css`; do not hardcode repeated visual values.
 
-Shared utility `parseScopeCsv` in `src/app/utils/scope-paths.ts` is used by ticket-view, audit-panel, and capture/verify components.
+## Testing
 
-### LLM integration
+- Backend tests live in `packages/app/test/`.
+- Client tests live under `packages/client/src/**/*.test.tsx`.
+- Before finishing meaningful work, run `npm run check` and `npm test`.
+- Desktop packaging and full manual desktop click-through are separate tasks; do not assume they were run unless explicitly stated.
 
-`HttpLlmClient` (packages/app/src/llm/client.ts) supports Anthropic, OpenAI, and OpenRouter with real SSE streaming. Provider-specific SSE parsing is handled by `parseStreamingSse()` in `packages/app/src/llm/sse-parser.ts` with `ANTHROPIC_SSE_CONFIG` and `OPENAI_SSE_CONFIG` config objects. Provider is selected at runtime from `specflow/config.yaml`; API keys come from `.env` vars or the config's `apiKey` field. The server never returns raw keys in responses (redacted to `hasApiKey: boolean`). OpenAI requests use `max_completion_tokens` (not deprecated `max_tokens`) and omit `temperature` for models that only support the default.
-
-### Store internals
-
-`ArtifactStore` delegates to extracted helpers in `store/internal/`: `artifact-writer.ts` handles writing staged operation artifacts, `reload.ts` rebuilds typed in-memory snapshots from disk, `planning-artifact-validation.ts` validates planner-owned persisted YAML, `spec-utils.ts` maps spec types to filenames, and `watcher.ts` encapsulates the chokidar watcher with debounced reload queue logic.
-
-## Key Conventions
-
-- **Entity IDs**: format `prefix-{8 hex chars}` (e.g. `ticket-aabbccdd`, `run-aabb1122`). Validated by `isValidEntityId()` in `packages/app/src/server/validation.ts`.
-- **Input validation**: all route params/inputs must use helpers from `validation.ts` (`isValidEntityId`, `isContainedPath`, `isValidGitRef`, `sanitizeSseEventName`). No ad-hoc checks.
-- **Ticket entities** require `blockedBy: string[]` and `blocks: string[]` fields. Older YAML files are normalized to empty arrays in `loadTickets`. Always include both when creating Ticket literals.
-- **React components**: do NOT annotate return types with `: JSX.Element` (removed in `@types/react@19`). Use `ConfigSavePayload` for writes, `Config` for reads. `AgentTarget` is the shared agent selection type.
-- **File names**: kebab-case.
-- **No duplicate UI meaning**: never repeat the same action, state, explanation, or option in nearby UI. Exact duplicates and near-duplicates are defects. `npm run check` includes a hard UI dedupe gate; do not bypass it.
-- **No native browser dialogs**: never use `window.confirm()`, `window.alert()`, or `window.prompt()`. Use `useConfirm()` from `src/app/context/confirm.tsx` for confirmation flows. Destructive actions (deletes, discards) must await confirmation before proceeding.
-- **No native `<select>` elements**: use custom styled dropdowns to ensure dark-theme consistency. Native `<select>` and `<option>` ignore CSS background/color on many platforms.
-- **Ellipsis in UI copy**: never use `...` (ellipsis) in static copy such as placeholders, labels, or empty-state messages. Ellipsis is reserved exclusively for loading/progress states (e.g. "Creating", "Importing"). Placeholder text should read naturally without trailing dots (e.g. `"Search tickets"` not `"Search tickets..."`).
-- **CSS design tokens**: all visual values must use tokens from `base.css`. Never hardcode `border-radius`, `font-size` (for small text), `box-shadow`, or disabled/hover opacity.
-  - **Border radius**: `--radius-xs` (6px), `--radius-sm` (4px), `--radius-md` (8px), `--radius-lg` (12px), `--radius-pill` (999px).
-  - **Typography**: `--font-caption` (0.75rem), `--font-sm` (0.82rem), `--font-body-sm` (0.88rem). Larger sizes (0.9rem+) remain explicit.
-  - **Shadows**: `--shadow-md`, `--shadow-lg`, `--shadow-drawer`.
-  - **Disabled opacity**: always `0.5`. **Hover opacity**: always `0.85`.
-  - **Button padding**: compact tier (`0.3rem 0.6rem`) for inline/pill buttons, standard tier (`0.45rem 0.75rem`) for primary/form buttons.
-  - **Input padding**: `0.4rem 0.6rem` for all form inputs.
-  - **Transitions**: never use `transition: all`; list explicit properties.
-- **CSS utility classes** (in `shared-ui.css`): `.text-muted-sm`, `.text-muted-caption`, `.heading-reset`, `.textarea-sm` (140px), `.textarea-md` (220px), `.textarea-lg` (420px). Use these instead of inline `style` props for common patterns.
-- **Code quality**: if you encounter errors or failing tests in areas you touch, fix them even if you didn't introduce them. Run `npm run check`, `npm test`, and `npm run build` before considering work complete.
-
-## Test Infrastructure
-
-Backend tests live in `packages/app/test/`. The server test fixture (`test/helpers/server-fixture.ts`) creates a temp directory with the full `specflow/` layout, seeds entities, instantiates a real server with a mocked `fetchImpl`, and provides `cleanup()` for teardown. LLM streaming tests mock SSE with `ReadableStream` in the standard SSE wire format.
-
-Client tests live under `packages/client/src/**/*.test.tsx` and use Vitest + React Testing Library with `packages/client/src/test/setup.ts`. Current coverage includes the tickets-step coverage review card and the ticket execution-gating banner.
-
-## GitHub Access
+## GitHub access
 
 Use the local wrapper as the only GitHub MCP entrypoint:
 
 - MCP server name: `github`
 - Backing command: `/home/mason/bin/mcp-github-server`
 
-Run this auth gate before any GitHub read or write:
+Auth gate before any GitHub read or write:
 
-- `~/bin/mcp-github-server --auth-check`
-- Exit `0`: proceed
-- Non-zero: stop and read stderr. Do not continue with GitHub operations.
+```bash
+~/bin/mcp-github-server --auth-check
+```
 
-Useful wrapper commands:
+Do not use Docker GitHub auth or `gh auth status` as the gate.
 
-- `~/bin/mcp-github-server --preflight`
-- `~/bin/mcp-github-server --health-check`
-- `~/bin/mcp-github-server --clear-cache`
-- `~/bin/mcp-github-server --force-refresh`
+## Read next
 
-Auth model:
-
-- Token source of truth: Bitwarden Secrets Manager (`bws`)
-- Runtime cache: kernel keyring (`keyctl`), key `github-mcp-token`, TTL 24h
-- The wrapper exports `GITHUB_PERSONAL_ACCESS_TOKEN` and `GITHUB_TOKEN` only for the launched MCP process
-
-Do not use:
-
-- Docker GitHub auth via MCP_DOCKER
-- `gh auth status` as the auth gate
-- Any GitHub path other than the wrapper above
-
-## AGENTS.md
-
-`AGENTS.md` at the repo root contains full coding guidelines, source layout maps, and security rules. The server also reads it at runtime (via `repoInstructionFile` in config) and injects it into planner and verifier prompts. Consult it for detailed source layout, commit conventions, and the GitHub issue workflow.
+- [AGENTS.md](./AGENTS.md)
+- [README.md](./README.md)
+- [docs/runtime-modes.md](./docs/runtime-modes.md)
+- [docs/architecture.md](./docs/architecture.md)
+- [docs/workflows.md](./docs/workflows.md)
+- [docs/product-language-spec.md](./docs/product-language-spec.md)

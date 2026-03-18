@@ -1,6 +1,7 @@
 import type {
   Initiative,
   InitiativeArtifactStep,
+  InitiativePlanningQuestion,
   SpecDocumentSummary,
   Ticket
 } from "../../types/entities.js";
@@ -9,6 +10,8 @@ import { getRequiredStarterQuestionCount } from "../refinement-check-policy.js";
 import { getRefinementAssumptions } from "../workflow-state.js";
 import type {
   PhaseCheckInput,
+  PlannerRepoContext,
+  RefinementHistoryEntry,
   RefinementStep,
   SpecGenInput
 } from "../types.js";
@@ -33,6 +36,70 @@ export const getSavedContext = (
   return context;
 };
 
+const toRefinementHistoryEntry = (
+  step: RefinementStep,
+  question: InitiativePlanningQuestion,
+  refinement: Initiative["workflow"]["refinements"][RefinementStep]
+): RefinementHistoryEntry => {
+  const answer = refinement.answers[question.id];
+  const usedDefault = refinement.defaultAnswerQuestionIds.includes(question.id) && answer === undefined;
+
+  return {
+    step,
+    questionId: question.id,
+    label: question.label,
+    decisionType: question.decisionType,
+    whyThisBlocks: question.whyThisBlocks,
+    resolution:
+      typeof answer === "boolean" ||
+      (typeof answer === "string" && answer.trim().length > 0) ||
+      (Array.isArray(answer) && answer.some((value) => value.trim().length > 0))
+        ? "answered"
+        : usedDefault
+          ? "defaulted"
+          : "unanswered",
+    answer:
+      typeof answer === "boolean" ||
+      typeof answer === "string" ||
+      Array.isArray(answer)
+        ? answer
+        : null,
+    assumption: usedDefault ? question.assumptionIfUnanswered : null
+  };
+};
+
+export const getRefinementHistory = (
+  initiative: Initiative,
+  step: RefinementStep
+): RefinementHistoryEntry[] => {
+  const history: RefinementHistoryEntry[] = [];
+
+  for (const phase of ["brief", "core-flows", "prd", "tech-spec"] as const) {
+    const refinement = initiative.workflow.refinements[phase];
+    for (const question of refinement.questions) {
+      history.push(toRefinementHistoryEntry(phase, question, refinement));
+    }
+    if (phase === step) {
+      break;
+    }
+  }
+
+  return history;
+};
+
+const hasExistingRefinementState = (
+  initiative: Initiative,
+  step: RefinementStep
+): boolean => {
+  const refinement = initiative.workflow.refinements[step];
+
+  return (
+    refinement.questions.length > 0 ||
+    Object.keys(refinement.answers).length > 0 ||
+    refinement.defaultAnswerQuestionIds.length > 0
+  );
+};
+
 export const getArtifactMarkdownMap = (
   initiativeId: string,
   readSpecMarkdown: (specId: string) => Promise<string>
@@ -52,7 +119,8 @@ export const getArtifactMarkdownMap = (
 export const buildPhaseCheckInput = (
   initiative: Initiative,
   step: RefinementStep,
-  markdownByStep: Record<InitiativeArtifactStep, string>
+  markdownByStep: Record<InitiativeArtifactStep, string>,
+  repoContext?: PlannerRepoContext
 ): PhaseCheckInput => ({
   initiativeDescription: initiative.description,
   phase: step,
@@ -60,6 +128,8 @@ export const buildPhaseCheckInput = (
   coreFlowsMarkdown: markdownByStep["core-flows"],
   prdMarkdown: markdownByStep.prd,
   savedContext: getSavedContext(initiative, step),
+  refinementHistory: getRefinementHistory(initiative, step),
+  repoContext,
   requiresInitialConsultation:
     step === "brief"
       ? requiresInitialBriefConsultation({
@@ -68,11 +138,9 @@ export const buildPhaseCheckInput = (
         })
       : false,
   requiredStarterQuestionCount:
-    step === "core-flows" &&
-    !markdownByStep["core-flows"].trim() &&
-    initiative.workflow.refinements["core-flows"].questions.length === 0 &&
-    Object.keys(initiative.workflow.refinements["core-flows"].answers).length === 0 &&
-    initiative.workflow.refinements["core-flows"].defaultAnswerQuestionIds.length === 0
+    step !== "brief" &&
+    !markdownByStep[step].trim() &&
+    !hasExistingRefinementState(initiative, step)
       ? getRequiredStarterQuestionCount(step)
       : 0
 });
@@ -80,15 +148,18 @@ export const buildPhaseCheckInput = (
 export const buildSpecGenerationInput = (
   initiative: Initiative,
   step: RefinementStep,
-  markdownByStep: Record<InitiativeArtifactStep, string>
+  markdownByStep: Record<InitiativeArtifactStep, string>,
+  repoContext?: PlannerRepoContext
 ): SpecGenInput => ({
   initiativeDescription: initiative.description,
   savedContext: getSavedContext(initiative, step),
+  refinementHistory: getRefinementHistory(initiative, step),
   assumptions: getRefinementAssumptions(initiative.workflow, step),
   briefMarkdown: step === "brief" ? undefined : markdownByStep.brief,
   coreFlowsMarkdown: step === "brief" || step === "core-flows" ? undefined : markdownByStep["core-flows"],
   prdMarkdown: step === "tech-spec" ? markdownByStep.prd : undefined,
-  techSpecMarkdown: step === "tech-spec" ? markdownByStep["tech-spec"] : undefined
+  techSpecMarkdown: step === "tech-spec" ? markdownByStep["tech-spec"] : undefined,
+  repoContext
 });
 
 export const requireSpecMarkdown = (

@@ -9,7 +9,7 @@ description: Review engineering tickets for execution readiness before implement
 Decide whether a ticket is ready to implement without hidden product decisions, unsafe assumptions, or unverifiable acceptance criteria. Catch ambiguity before execution starts and turn weak tickets into concrete revisions.
 
 ## Quick start
-1. Read the ticket first, then load only the surrounding context needed to judge it: linked spec, initiative, related tickets, API contracts, design notes, or existing behavior.
+1. Read the ticket first, then load only the surrounding context needed to judge it: linked spec, covered spec items, file targets, initiative context, related tickets, API contracts, design notes, or existing behavior.
 2. Determine the work type: feature, bug fix, refactor, migration, integration, UI change, or mixed work.
 3. Review the ticket against `references/readiness-rubric.md`.
 4. Mark each issue as `blocking`, `major`, or `minor`.
@@ -39,6 +39,7 @@ Prefer explicit artifact evidence over inference. If a decision is not written i
 - Confirm what is in scope, out of scope, and intentionally unchanged.
 - Flag tickets that bundle unrelated workstreams or hide follow-up work inside vague phrases such as `support`, `handle`, or `clean up`.
 - Require explicit sequencing when the ticket depends on other tickets, migrations, data backfills, or rollout steps.
+- For initiative-linked tickets, require the covered spec items and file targets to point at the same implementable change rather than two different scopes.
 
 ### 3) Test behavior precision
 - Require concrete states, transitions, inputs, outputs, and failure handling where behavior changes.
@@ -49,6 +50,7 @@ Prefer explicit artifact evidence over inference. If a decision is not written i
 - Confirm how completion will be proven: tests, manual checks, screenshots, logs, diffs, or measurable outputs.
 - Reject acceptance criteria that only restate implementation steps without observable outcomes.
 - Require unhappy-path verification when the change can fail, reject input, or partially apply.
+- Require verifier-ready acceptance criteria: each criterion should be observable in a diff, runtime behavior, or test evidence without guessing what success means.
 
 ### 5) Produce the readiness review
 Return:

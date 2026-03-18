@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workflow Designer"
+  short_description: "Design the SpecFlow user workflow"
+  default_prompt: "Use $specflow-workflow-designer to critique or redesign this SpecFlow workflow, planning handoff, gate, or re-entry flow for the end user."

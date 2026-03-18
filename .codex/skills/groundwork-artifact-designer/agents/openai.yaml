@@ -1,4 +1,0 @@
-interface:
-  display_name: "Groundwork Artifact Designer"
-  short_description: "Turn rough ideas into foundation artifacts"
-  default_prompt: "Use $groundwork-artifact-designer to turn this rough idea into a coherent groundwork artifact set or pressure-test an existing one for missing scope, flows, and requirements."

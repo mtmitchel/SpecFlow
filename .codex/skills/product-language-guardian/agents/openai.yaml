@@ -1,4 +1,4 @@
 interface:
   display_name: "Product Language Guardian"
   short_description: "Keep product terminology consistent"
-  default_prompt: "Use $product-language-guardian to audit this brief, spec, ticket, or UI copy for terminology drift and rewrite it to match the canonical product language."
+  default_prompt: "Use $product-language-guardian to audit this SpecFlow workflow copy, prompt, spec, ticket, or UI text for terminology drift, domain bias, and concept overlap, then rewrite it to match the canonical product language."

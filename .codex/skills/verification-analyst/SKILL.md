@@ -10,7 +10,7 @@ Verify that delivered work matches the agreed baseline. Make deviations, missing
 
 ## Quick start
 1. Collect the baseline: original plan, spec, ticket, acceptance criteria, prior commitments, and explicit non-goals.
-2. Collect implementation evidence: changed files, diffs, test results, logs, screenshots, generated artifacts, and reviewer notes.
+2. Collect implementation evidence: changed files, diffs, run attempts, verification output, drift flags, bundle contents, test results, logs, screenshots, generated artifacts, and reviewer notes.
 3. Compare each concrete commitment to what was actually delivered.
 4. Separate exact matches, partial matches, omissions, substitutions, and unverifiable claims.
 5. Call out only material deviations: changes that affect behavior, correctness, risk, coverage, or release readiness.
@@ -38,6 +38,7 @@ Use when claims were made without strong proof. Confirm which claims are demonst
 ### 2. Gather evidence before judging
 - Read the actual outputs, not summaries alone.
 - Prefer primary evidence: diffs, source files, test output, runtime behavior, screenshots, generated artifacts, and logs.
+- In SpecFlow, prefer the latest run attempt, `verification.json`, drift flags, and bundle manifest over paraphrased status summaries.
 - Treat statements like "implemented" or "should work" as claims until verified.
 - Note missing evidence explicitly.
 
@@ -54,7 +55,7 @@ Use when claims were made without strong proof. Confirm which claims are demonst
 - If a deviation appears intentional, state whether it was documented and whether the rationale is acceptable.
 
 ### 5. Check unresolved failures
-- Surface failing or skipped tests, broken builds, TODOs left in place, placeholders, dead branches, unhandled states, missing migrations, undocumented configuration, or manual steps still required.
+- Surface failing or skipped tests, broken builds, TODOs left in place, placeholders, dead branches, unhandled states, missing migrations, undocumented configuration, drift warnings, or manual steps still required.
 - Treat "works except for X" as not done unless the baseline explicitly excluded X.
 - Do not let a successful happy path hide regression risk or missing edge-case coverage.
 

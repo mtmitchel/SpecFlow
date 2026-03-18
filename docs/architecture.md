@@ -232,6 +232,8 @@ createdAt: ISO8601
 updatedAt: ISO8601
 ```
 
+Planner refinement checks now consume both the flattened saved answers and the persisted refinement question history for the current and earlier stages. That lets later checks see the original blocker questions, avoid same-stage duplicate re-asks, and reopen an earlier concern only when a real downstream constraint still blocks the next artifact. Tech spec checks and generation can also receive lightweight repo context from the repo scanner when existing-system, compatibility, performance, or operations constraints matter.
+
 **Ticket**
 ```yaml
 id: string

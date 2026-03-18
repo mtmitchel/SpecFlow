@@ -97,9 +97,9 @@ Clarification is not a named top-level phase.
 Clarification is a refinement mechanism that can appear:
 
 - before the Brief, always as the required brief intake for a fresh initiative
-- before Core flows, when the core journey or state model is unclear
-- before the PRD, when product behavior is still unclear
-- before the Tech spec, when implementation tradeoffs need resolution
+- before Core flows, as the required first consultation that locks the primary journey, a meaningful branch, and a flow condition that changes the map
+- before the PRD, as the required first scope-setting question before the initial PRD draft
+- before the Tech spec, as the required first architecture question before the initial Tech spec draft
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
 
@@ -111,15 +111,16 @@ For a fresh initiative, the required Brief intake always captures four framing d
 - the hard boundaries that constrain the first release
 
 Those four decisions must stay distinct. The intake should not restate the primary problem as a success criterion, and hard boundaries should not be phrased like implementation choices unless they are truly non-negotiable.
+The option language should stay domain-neutral so the intake works for new products, reliability fixes, integrations, compliance work, and existing-system changes without signaling one product category by default.
 
 ### Phase framing copy
 
 Use these descriptions wherever the app introduces a phase.
 
 - `Brief`: Define the problem, audience, goals, and scope.
-- `Core flows`: Define the primary user journeys and states.
-- `PRD`: Define how the product should work.
-- `Tech spec`: Define how it should be built.
+- `Core flows`: Define the primary user journeys, branches, flow conditions, and failure paths.
+- `PRD`: Define the user-visible behavior, rules, priorities, and scope.
+- `Tech spec`: Define how it should be built, integrated, and operated.
 - `Tickets`: Break the work into execution-ready steps.
 - `Runs`: Review delivery and verification for a ticket.
 

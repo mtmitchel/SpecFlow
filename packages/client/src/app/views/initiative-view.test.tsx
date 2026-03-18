@@ -29,6 +29,8 @@ vi.mock("../context/confirm.js", () => ({
   useConfirm: () => vi.fn().mockResolvedValue(false)
 }));
 
+const briefProblemOption = "Automate or speed up a repetitive process";
+
 const initiative: Initiative = {
   id: "initiative-12345678",
   title: "Note App for Linux Fedora",
@@ -58,13 +60,15 @@ const initiative: Initiative = {
             decisionType: "problem",
             assumptionIfUnanswered: "Focus on the user's primary note-taking problem.",
             options: [
-              "Repeated work takes too many steps",
-              "Important information is hard to find again",
-              "Staying organized takes too much effort",
-              "The current tool or workflow no longer fits"
+              briefProblemOption,
+              "Replace or improve an existing tool or workflow",
+              "Build something new that does not exist yet",
+              "Fix reliability, correctness, or data quality issues",
+              "Meet a new requirement, standard, or constraint"
             ],
             optionHelp: {
-              "Repeated work takes too many steps": "Use this when the main pain is friction in something people do often."
+              [briefProblemOption]:
+                "Pushes the Brief to prioritize workflow efficiency and measure success by reduced effort or time."
             },
             recommendedOption: null,
             allowCustomAnswer: true
@@ -272,7 +276,7 @@ const briefReviewSnapshot: ArtifactsSnapshot = {
           brief: {
             ...briefCompleteSnapshot.initiatives[0]!.workflow.refinements.brief,
             answers: {
-              "brief-problem": "Repeated work takes too many steps"
+              "brief-problem": briefProblemOption
             }
           }
         }
@@ -294,7 +298,7 @@ const readyToDraftSnapshot: ArtifactsSnapshot = {
             ...initiative.workflow.refinements.brief,
             questions: [],
             answers: {
-              "brief-problem": "Repeated work takes too many steps",
+              "brief-problem": briefProblemOption,
             },
             checkedAt: "2026-03-16T12:15:00.000Z",
           },
@@ -526,7 +530,7 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") }));
 
     expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.queryByText("Ready to draft the brief")).not.toBeInTheDocument();
@@ -560,7 +564,7 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -609,7 +613,7 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -641,7 +645,7 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Repeated work takes too many steps/i }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
@@ -868,7 +872,7 @@ describe("InitiativeView", () => {
 
     expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Repeated work takes too many steps/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Generate brief" })).not.toBeInTheDocument();
     expect(screen.queryByText("24 questions to answer")).not.toBeInTheDocument();
     expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();

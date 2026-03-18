@@ -8,6 +8,7 @@ describe("planner prompt language", () => {
       {
         initiativeDescription: "Build a lightweight offline-first note-taking app",
         savedContext: {},
+        refinementHistory: [],
         assumptions: []
       },
       "team-rules: always include tests"
@@ -17,22 +18,23 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain("Never invent or assign a product, app, or code name");
   });
 
-  it("keeps the core-flows check aligned to the three-question budget and flow-only framing", () => {
+  it("keeps the core-flows check aligned to the expanded budget and flow-only framing", () => {
     const prompt = buildPlannerPrompt(
       "core-flows-check",
       {
         initiativeDescription: "Build a lightweight offline-first note-taking app",
         phase: "core-flows",
         briefMarkdown: "# Brief",
-        savedContext: {}
+        savedContext: {},
+        refinementHistory: []
       },
       "team-rules: always include tests"
     );
 
-    expect(prompt.userPrompt).toContain("at most 3 questions");
+    expect(prompt.userPrompt).toContain("at most 4 questions");
     expect(prompt.userPrompt).toContain("Ask only about the shape of the user journey");
     expect(prompt.userPrompt).toContain("Do not ask about architecture, storage format, libraries");
-    expect(prompt.userPrompt).toContain("Allowed decisionType values for this artifact are: journey, branch, state");
+    expect(prompt.userPrompt).toContain("Allowed decisionType values for this artifact are: journey, branch, state, failure-mode");
   });
 
   it("separates PRD and tech-spec refinement questions", () => {
@@ -62,8 +64,10 @@ describe("planner prompt language", () => {
     );
 
     expect(prdPrompt.userPrompt).toContain("Ask only about user-visible product behavior");
+    expect(prdPrompt.userPrompt).toContain("The first PRD consultation must lock at least one explicit scope boundary");
     expect(prdPrompt.userPrompt).toContain("Do not ask about architecture, data model internals, libraries");
     expect(techSpecPrompt.userPrompt).toContain("Ask only about implementation tradeoffs, architecture, components, data flow");
+    expect(techSpecPrompt.userPrompt).toContain("The first Tech spec consultation must lock at least one architecture decision");
     expect(techSpecPrompt.userPrompt).toContain("Do not re-ask primary user journeys");
   });
 
@@ -73,6 +77,7 @@ describe("planner prompt language", () => {
       {
         initiativeDescription: "Build a lightweight offline-first note-taking app",
         savedContext: {},
+        refinementHistory: [],
         assumptions: [],
         briefMarkdown: "# Brief",
         coreFlowsMarkdown: "# Core flows"
@@ -85,6 +90,7 @@ describe("planner prompt language", () => {
       {
         initiativeDescription: "Build a lightweight offline-first note-taking app",
         savedContext: {},
+        refinementHistory: [],
         assumptions: [],
         briefMarkdown: "# Brief",
         coreFlowsMarkdown: "# Core flows",
@@ -97,6 +103,7 @@ describe("planner prompt language", () => {
     expect(prdPrompt.userPrompt).toContain("Do not specify architecture, libraries, runtime/package choices");
     expect(techSpecPrompt.userPrompt).toContain("Treat the Tech spec as the implementation contract");
     expect(techSpecPrompt.userPrompt).toContain("Do not restate the full Brief, Core flows, or PRD");
+    expect(techSpecPrompt.userPrompt).toContain("quality strategy");
   });
 
   it("keeps the phase-check output contract aligned to finite option questions", () => {

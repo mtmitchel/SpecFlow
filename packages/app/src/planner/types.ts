@@ -1,5 +1,6 @@
 import type {
   ArtifactTraceOutlineSection,
+  InitiativePlanningDecisionType,
   InitiativePlanningQuestion,
   InitiativePlanningQuestionType,
   InitiativePlanningStep,
@@ -10,6 +11,24 @@ import type {
 export type PlannerQuestionType = InitiativePlanningQuestionType;
 export type PlannerQuestion = InitiativePlanningQuestion;
 export type RefinementStep = Extract<InitiativePlanningStep, "brief" | "core-flows" | "prd" | "tech-spec">;
+export type RefinementHistoryResolution = "answered" | "defaulted" | "unanswered";
+
+export interface RefinementHistoryEntry {
+  step: RefinementStep;
+  questionId: string;
+  label: string;
+  decisionType: InitiativePlanningDecisionType;
+  whyThisBlocks: string;
+  resolution: RefinementHistoryResolution;
+  answer: string | string[] | boolean | null;
+  assumption: string | null;
+}
+
+export interface PlannerRepoContext {
+  fileTree: string;
+  totalFiles: number;
+  configSummary: string;
+}
 
 export interface PhaseCheckResult {
   decision: "proceed" | "ask";
@@ -85,6 +104,8 @@ export interface PhaseCheckInput {
   coreFlowsMarkdown?: string;
   prdMarkdown?: string;
   savedContext?: Record<string, string | string[] | boolean>;
+  refinementHistory?: RefinementHistoryEntry[];
+  repoContext?: PlannerRepoContext;
   requiresInitialConsultation?: boolean;
   requiredStarterQuestionCount?: number;
 }
@@ -92,11 +113,13 @@ export interface PhaseCheckInput {
 export interface SpecGenInput {
   initiativeDescription: string;
   savedContext: Record<string, string | string[] | boolean>;
+  refinementHistory: RefinementHistoryEntry[];
   assumptions: string[];
   briefMarkdown?: string;
   coreFlowsMarkdown?: string;
   prdMarkdown?: string;
   techSpecMarkdown?: string;
+  repoContext?: PlannerRepoContext;
 }
 
 export interface PlanInput {
@@ -106,11 +129,7 @@ export interface PlanInput {
   prdMarkdown: string;
   techSpecMarkdown: string;
   coverageItems: TicketCoverageItem[];
-  repoContext?: {
-    fileTree: string;
-    totalFiles: number;
-    configSummary: string;
-  };
+  repoContext?: PlannerRepoContext;
 }
 
 export interface TriageInput {

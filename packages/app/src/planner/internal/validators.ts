@@ -7,6 +7,7 @@ import type {
   ReviewRunResult,
   TriageResult
 } from "../types.js";
+import type { InitiativePlanningQuestion } from "../../types/entities.js";
 import { getQuestionPolicy } from "../refinement-check-policy.js";
 
 const normalizeQuestionText = (question: PhaseCheckResult["questions"][number]): string =>
@@ -20,12 +21,108 @@ const normalizeQuestionText = (question: PhaseCheckResult["questions"][number]):
     .join(" ")
     .toLowerCase();
 
+const DUPLICATE_QUESTION_STOPWORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "be",
+  "by",
+  "do",
+  "for",
+  "from",
+  "how",
+  "if",
+  "in",
+  "is",
+  "it",
+  "of",
+  "on",
+  "or",
+  "should",
+  "the",
+  "to",
+  "v1",
+  "what",
+  "which",
+  "who"
+]);
+
+const normalizeQuestionLabel = (label: string): string =>
+  label
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getQuestionTokens = (label: string): string[] =>
+  normalizeQuestionLabel(label)
+    .split(" ")
+    .filter((token) => token.length > 1 && !DUPLICATE_QUESTION_STOPWORDS.has(token));
+
+const getTokenOverlapRatio = (left: string[], right: string[]): number => {
+  if (left.length === 0 || right.length === 0) {
+    return 0;
+  }
+
+  const rightSet = new Set(right);
+  const overlap = left.filter((token) => rightSet.has(token)).length;
+  return overlap / Math.min(left.length, right.length);
+};
+
+const getNormalizedOptions = (question: InitiativePlanningQuestion): string[] =>
+  (question.options ?? [])
+    .map((option: string) => option.toLowerCase().trim())
+    .filter(Boolean)
+    .sort();
+
+const isDuplicateConcern = (
+  question: InitiativePlanningQuestion,
+  priorQuestion: InitiativePlanningQuestion
+): boolean => {
+  if (question.decisionType !== priorQuestion.decisionType) {
+    return false;
+  }
+
+  const normalizedLabel = normalizeQuestionLabel(question.label);
+  const normalizedPriorLabel = normalizeQuestionLabel(priorQuestion.label);
+
+  if (
+    normalizedLabel.length > 0 &&
+    normalizedPriorLabel.length > 0 &&
+    (
+      normalizedLabel === normalizedPriorLabel ||
+      normalizedLabel.includes(normalizedPriorLabel) ||
+      normalizedPriorLabel.includes(normalizedLabel)
+    )
+  ) {
+    return true;
+  }
+
+  const tokenOverlapRatio = getTokenOverlapRatio(
+    getQuestionTokens(question.label),
+    getQuestionTokens(priorQuestion.label)
+  );
+  if (tokenOverlapRatio >= 0.8) {
+    return true;
+  }
+
+  const options = getNormalizedOptions(question);
+  const priorOptions = getNormalizedOptions(priorQuestion);
+  if (options.length > 0 && options.join("|") === priorOptions.join("|") && tokenOverlapRatio >= 0.5) {
+    return true;
+  }
+
+  return false;
+};
+
 const validateQuestions = (
   questions: PhaseCheckResult["questions"],
   step: RefinementStep,
-  maxQuestions: number
+  maxQuestions: number,
+  priorQuestions: InitiativePlanningQuestion[] = []
 ): void => {
   const questionPolicy = getQuestionPolicy(step);
+  const seenQuestions: InitiativePlanningQuestion[] = [...priorQuestions];
 
   if (!Array.isArray(questions)) {
     throw new Error("Phase-check result missing questions array");
@@ -116,6 +213,15 @@ const validateQuestions = (
         `Refinement question ${question.id} includes forbidden ${step} theme "${forbiddenTerm}"`
       );
     }
+
+    const duplicateQuestion = seenQuestions.find((priorQuestion) => isDuplicateConcern(question, priorQuestion));
+    if (duplicateQuestion) {
+      throw new Error(
+        `Refinement question ${question.id} repeats already-asked ${step} concern from ${duplicateQuestion.id}`
+      );
+    }
+
+    seenQuestions.push(question);
   }
 
 };
@@ -124,7 +230,8 @@ export const validatePhaseCheckResult = (
   result: PhaseCheckResult,
   step: RefinementStep,
   maxQuestions: number,
-  requiredQuestionCount = 0
+  requiredQuestionCount = 0,
+  priorQuestions: InitiativePlanningQuestion[] = []
 ): void => {
   const questionPolicy = getQuestionPolicy(step);
 
@@ -132,7 +239,7 @@ export const validatePhaseCheckResult = (
     throw new Error(`Phase-check decision must be "proceed" or "ask", received "${String(result.decision)}"`);
   }
 
-  validateQuestions(result.questions, step, maxQuestions);
+  validateQuestions(result.questions, step, maxQuestions, priorQuestions);
 
   if (requiredQuestionCount > 0) {
     if (result.decision !== "ask") {

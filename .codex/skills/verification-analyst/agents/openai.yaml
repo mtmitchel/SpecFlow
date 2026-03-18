@@ -1,4 +1,4 @@
 interface:
   display_name: "Verification Analyst"
   short_description: "Audit delivered work against the original plan"
-  default_prompt: "Use $verification-analyst to compare this implementation against the original plan and report material deviations, unresolved failures, confidence, and a done-or-not-done verdict."
+  default_prompt: "Use $verification-analyst to compare this implementation or SpecFlow run against the original plan, verification output, and drift evidence, then report material deviations, unresolved failures, confidence, and a done-or-not-done verdict."

@@ -194,7 +194,7 @@ describe("TicketView", () => {
       ]
     });
 
-    expect(screen.getByText("Review coverage before you run this ticket.")).toBeInTheDocument();
+    expect(screen.getByText("Resolve the coverage check before you run this ticket.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open tickets" })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=tickets`
@@ -227,7 +227,7 @@ describe("TicketView", () => {
     });
 
     expect(
-      screen.queryByText("Review coverage before you run this ticket.")
+      screen.queryByText("Resolve the coverage check before you run this ticket.")
     ).not.toBeInTheDocument();
   });
 });

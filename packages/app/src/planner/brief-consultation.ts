@@ -55,16 +55,23 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       affectedArtifact: "brief",
       decisionType: "problem",
       options: [
-        "Repeated work takes too many steps",
-        "Important information is hard to find again",
-        "Staying organized takes too much effort",
-        "The current tool or workflow no longer fits",
+        "Automate or speed up a repetitive process",
+        "Replace or improve an existing tool or workflow",
+        "Build something new that does not exist yet",
+        "Fix reliability, correctness, or data quality issues",
+        "Meet a new requirement, standard, or constraint"
       ],
       optionHelp: {
-        "Repeated work takes too many steps": "Use this when the main pain is friction in something people do often.",
-        "Important information is hard to find again": "Use this when retrieval, recall, or rediscovery is the main pain.",
-        "Staying organized takes too much effort": "Use this when structure and cleanup feel heavier than they should.",
-        "The current tool or workflow no longer fits": "Use this when the main pain is mismatch with an existing process or product."
+        "Automate or speed up a repetitive process":
+          "Pushes the Brief to prioritize workflow efficiency and measure success by reduced effort or time.",
+        "Replace or improve an existing tool or workflow":
+          "Pushes the Brief to compare against today's approach and define what must improve or stay compatible.",
+        "Build something new that does not exist yet":
+          "Pushes the Brief to define the first usable slice, core promise, and adoption risk of a new offering.",
+        "Fix reliability, correctness, or data quality issues":
+          "Pushes the Brief to define what is failing today and what reliable behavior must be restored.",
+        "Meet a new requirement, standard, or constraint":
+          "Pushes the Brief to encode the non-negotiable requirement and the scope limits it creates."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
@@ -80,10 +87,10 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       decisionType: "user",
       options: ["Just me", "A small team I know", "An internal team or company", "A broad public audience"],
       optionHelp: {
-        "Just me": "Use this when the first release is mainly for your own workflow.",
-        "A small team I know": "Use this when the users are a specific small group with shared needs.",
-        "An internal team or company": "Use this when the users are within one org or business context.",
-        "A broad public audience": "Use this when the first release is meant for many unrelated users."
+        "Just me": "Pushes the Brief to optimize for one user's workflow without team coordination overhead.",
+        "A small team I know": "Pushes the Brief to support a specific group with shared context and lightweight coordination needs.",
+        "An internal team or company": "Pushes the Brief to reflect organizational constraints, shared processes, and business context.",
+        "A broad public audience": "Pushes the Brief to favor general clarity, onboarding, and looser assumptions about user context."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
@@ -98,18 +105,23 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       affectedArtifact: "brief",
       decisionType: "success",
       options: [
-        "Feels fast in daily use",
-        "Feels trustworthy for real notes",
+        "Core workflow is noticeably faster than the current approach",
+        "Handles real data reliably without manual intervention",
         "Feels simple and focused",
         "Is easy to learn on first use",
         "Shows clear value right away"
       ],
       optionHelp: {
-        "Feels fast in daily use": "Use this when speed and responsiveness are central to the product promise.",
-        "Feels trustworthy for real notes": "Use this when consistency and trust matter most.",
-        "Feels simple and focused": "Use this when the product should stay lightweight instead of feeling bloated or noisy.",
-        "Is easy to learn on first use": "Use this when onboarding and clarity matter most.",
-        "Shows clear value right away": "Use this when the product needs to prove itself quickly in an early session."
+        "Core workflow is noticeably faster than the current approach":
+          "Pushes the Brief to set speed or effort reduction as a first-release quality bar.",
+        "Handles real data reliably without manual intervention":
+          "Pushes the Brief to treat correctness, resilience, and trust in everyday use as a core success quality.",
+        "Feels simple and focused":
+          "Pushes the Brief to keep the first release narrow and avoid features that dilute the main job.",
+        "Is easy to learn on first use":
+          "Pushes the Brief to value low-friction onboarding, clear labels, and a short path to first success.",
+        "Shows clear value right away":
+          "Pushes the Brief to define a short time-to-value and make the first session prove the product's benefit."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
@@ -127,19 +139,23 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
         "Specific desktop platform support",
         "Local-first or offline use",
         "Plain files or portable storage",
-        "Privacy or security requirements",
         "Performance limits on typical hardware",
-        "Integration with another tool",
-        "No extra constraints"
+        "Must integrate with or extend an existing system",
+        "Specific privacy, security, or compliance requirements"
       ],
       optionHelp: {
-        "Specific desktop platform support": "Use this when one desktop environment or OS support is non-negotiable in v1.",
-        "Local-first or offline use": "Use this when the product must work well without a network connection.",
-        "Plain files or portable storage": "Use this when storage format portability or local ownership is a hard boundary.",
-        "Privacy or security requirements": "Use this when data handling or access rules constrain the design.",
-        "Performance limits on typical hardware": "Use this when memory, CPU, startup, or responsiveness is a hard bar.",
-        "Integration with another tool": "Use this when another system shapes the solution.",
-        "No extra constraints": "Use this when the initiative description already covers the important limits."
+        "Specific desktop platform support":
+          "Forces the Brief to treat supported environments as a hard launch boundary instead of a later expansion.",
+        "Local-first or offline use":
+          "Forces the Brief to treat disconnected use and local control as first-release requirements.",
+        "Plain files or portable storage":
+          "Forces the Brief to preserve portability, inspectability, or local ownership of stored data.",
+        "Performance limits on typical hardware":
+          "Forces the Brief to carry explicit performance bars into later scope and implementation decisions.",
+        "Must integrate with or extend an existing system":
+          "Forces the Brief to respect another system's interfaces, workflows, or migration constraints from day one.",
+        "Specific privacy, security, or compliance requirements":
+          "Forces the Brief to treat data handling, access control, or regulatory obligations as hard boundaries."
       },
       recommendedOption: null,
       allowCustomAnswer: true,

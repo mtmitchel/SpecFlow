@@ -11,7 +11,7 @@ const REVIEW_ACTION_LABELS: Record<PlanningReviewKind, string> = {
   "prd-tech-spec-crosscheck": "Review tech spec",
   "tech-spec-review": "Review tech spec",
   "spec-set-review": "Review plan",
-  "ticket-coverage-review": "Review coverage"
+  "ticket-coverage-review": "Coverage check"
 };
 
 export const getPlanningStepName = (step: InitiativePlanningStep): string =>

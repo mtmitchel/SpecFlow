@@ -1,0 +1,4 @@
+interface:
+  display_name: "Traceability Auditor"
+  short_description: "Audit spec-to-ticket-to-delivery integrity"
+  default_prompt: "Use $traceability-delivery-auditor to audit where SpecFlow is losing intent between specs, coverage, tickets, bundles, and verification."
