@@ -54,6 +54,19 @@ export const OverviewPanel = ({
         continue;
       }
 
+      if (progress.resumeTicket) {
+        actions.push({
+          id: `${initiative.id}:${progress.resumeTicket.id}`,
+          href: `/ticket/${progress.resumeTicket.id}`,
+          initiativeName: initiative.title,
+          label: getInitiativeQueueActionLabel(initiative, progress),
+          priority: progress.resumeTicket.status === "verify" ? 3 : 4,
+          updatedAt: progress.resumeTicket.updatedAt,
+          tone: progress.resumeTicket.status === "verify" ? "verify" : "execution",
+        });
+        continue;
+      }
+
       if (progress.currentKey === "execute" || progress.currentKey === "verify") {
         if (progress.nextTicket) {
           actions.push({

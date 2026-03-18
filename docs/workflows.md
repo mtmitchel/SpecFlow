@@ -68,9 +68,10 @@ Related docs:
     - **Re-export with Findings** -- generates a new bundle pre-loaded with failure context and remediation hints (quick-fix mode). A "Re-verify Now" button appears after the fix bundle is ready.
     - **Override to Done** -- two-step safeguard: user enters a required reason, then confirms *"I accept risk"*; reason + confirmation are logged in run history.
 13. Run history is grouped by ticket with expandable attempts, so retries remain auditable without clutter. The ticket page keeps the initiative pipeline visible as orientation chrome, but the ticket remains the primary object.
-14. If an operation is recovered as `abandoned`, `superseded`, or `failed`, Runs and Ticket detail show a status badge with guided retry actions.
-15. Phase guidance is soft. Users can start next-phase tickets early, but SpecFlow shows the warning in the ticket preflight instead of scattering it across multiple banners.
-16. When all tickets in a phase are Done, the phase collapses with a complete indicator.
+14. Resume and re-entry should return initiative work to the active ticket, not to a run report. Explicit run-detail visits remain historical drill-down only; they do not replace the initiative's execution resume target.
+15. If an operation is recovered as `abandoned`, `superseded`, or `failed`, Runs and Ticket detail show a status badge with guided retry actions.
+16. Phase guidance is soft. Users can start next-phase tickets early, but SpecFlow shows the warning in the ticket preflight instead of scattering it across multiple banners.
+17. When all tickets in a phase are Done, the phase collapses with a complete indicator.
 
 **Exit:** All phases complete -> Initiative is marked Done.
 

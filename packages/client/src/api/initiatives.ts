@@ -39,6 +39,7 @@ export const updateInitiative = async (
     title: string;
     description: string;
     phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>;
+    resumeTicketId: string | null;
   }>
 ): Promise<void> => {
   await transportRequest(

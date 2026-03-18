@@ -15,12 +15,14 @@ import { RunView } from "./run-view.js";
 const fetchRunDetailMock = vi.fn();
 const fetchRunAttemptDetailMock = vi.fn();
 const fetchRunProgressMock = vi.fn();
+const updateInitiativeMock = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../../api.js", () => ({
   fetchRunDetail: (...args: unknown[]) => fetchRunDetailMock(...args),
   fetchRunAttemptDetail: (...args: unknown[]) => fetchRunAttemptDetailMock(...args),
   fetchRunProgress: (...args: unknown[]) => fetchRunProgressMock(...args),
   fetchRunDiff: vi.fn(),
+  updateInitiative: (...args: unknown[]) => updateInitiativeMock(...args),
 }));
 
 vi.mock("../components/diff-viewer.js", () => ({
@@ -29,6 +31,10 @@ vi.mock("../components/diff-viewer.js", () => ({
 
 vi.mock("../components/audit-panel.js", () => ({
   AuditPanel: () => <div>AuditPanel</div>,
+}));
+
+vi.mock("../context/toast.js", () => ({
+  useToast: () => ({ showError: vi.fn() }),
 }));
 
 const initiative: Initiative = {
@@ -162,6 +168,7 @@ describe("RunView", () => {
                 planningReviews={[] as PlanningReviewArtifact[]}
                 runs={[run]}
                 ticketCoverageArtifacts={[] as TicketCoverageArtifact[]}
+                onRefresh={vi.fn(async () => undefined)}
               />
             }
           />
@@ -178,5 +185,8 @@ describe("RunView", () => {
     expect(screen.getByText("Files")).toBeInTheDocument();
     expect(screen.getByText("Implemented the execution gate and updated tests.")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Back to ticket" }).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(updateInitiativeMock).toHaveBeenCalledWith(initiative.id, { resumeTicketId: ticket.id });
+    });
   });
 });

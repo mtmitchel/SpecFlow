@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -12,8 +12,12 @@ import type {
 } from "../../types.js";
 import { TicketView } from "./ticket-view.js";
 
+const fetchOperationStatusMock = vi.fn().mockResolvedValue(null);
+const updateInitiativeMock = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("../../api.js", () => ({
-  fetchOperationStatus: vi.fn().mockResolvedValue(null)
+  fetchOperationStatus: (...args: unknown[]) => fetchOperationStatusMock(...args),
+  updateInitiative: (...args: unknown[]) => updateInitiativeMock(...args),
 }));
 
 vi.mock("../context/toast.js", () => ({
@@ -176,6 +180,29 @@ const renderView = ({
 };
 
 describe("TicketView", () => {
+  it("persists the initiative resume ticket when the user opens an initiative-backed ticket", async () => {
+    renderView({
+      planningReviews: [
+        {
+          id: `${initiative.id}:ticket-coverage-review`,
+          initiativeId: initiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage is clear.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:30:00.000Z",
+          updatedAt: "2026-03-16T10:30:00.000Z"
+        }
+      ]
+    });
+
+    await waitFor(() => {
+      expect(updateInitiativeMock).toHaveBeenCalledWith(initiative.id, { resumeTicketId: ticket.id });
+    });
+  });
+
   it("shows the coverage gate banner and covered spec items when execution is blocked", () => {
     renderView({
       planningReviews: [

@@ -55,6 +55,7 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
           planningReviews={snapshot.planningReviews}
           runs={snapshot.runs}
           ticketCoverageArtifacts={snapshot.ticketCoverageArtifacts}
+          onRefresh={onRefresh}
         />
       }
     />

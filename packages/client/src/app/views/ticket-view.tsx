@@ -23,6 +23,7 @@ import { ExportSection } from "./ticket/export-section.js";
 import { CaptureVerifySection } from "./ticket/capture-verify-section.js";
 import { VerificationResultsSection } from "./ticket/verification-results-section.js";
 import type { WorkflowPhase } from "./ticket/workflow.js";
+import { usePersistInitiativeResumeTicket } from "./use-persist-initiative-resume-ticket.js";
 
 const COVERAGE_GATE_MESSAGE = "Resolve the coverage check before you run this ticket.";
 
@@ -131,6 +132,15 @@ export const TicketView = ({
     });
   }, [run?.activeOperationId]);
 
+  const initiative = ticket?.initiativeId ? initiatives.find((item) => item.id === ticket.initiativeId) ?? null : null;
+  usePersistInitiativeResumeTicket({
+    initiativeId: initiative?.id ?? null,
+    resumeTicketId: ticket?.initiativeId ? ticket.id : null,
+    currentResumeTicketId: initiative?.workflow.resumeTicketId,
+    onRefresh,
+    showError,
+  });
+
   if (!ticket) {
     return (
       <section>
@@ -142,7 +152,6 @@ export const TicketView = ({
   const phaseWarning = findPhaseWarning(ticket, initiatives, tickets);
   const blockerTickets = (ticket.blockedBy ?? []).map((id) => tickets.find((t) => t.id === id)).filter(Boolean) as typeof tickets;
   const hasUnfinishedBlockers = blockerTickets.some((t) => t.status !== "done");
-  const initiative = ticket.initiativeId ? initiatives.find((item) => item.id === ticket.initiativeId) ?? null : null;
   const coverageReview =
     ticket.initiativeId
       ? planningReviews.find((item) => item.id === `${ticket.initiativeId}:ticket-coverage-review`) ?? null

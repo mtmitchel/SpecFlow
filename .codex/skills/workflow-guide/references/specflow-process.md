@@ -30,6 +30,7 @@ Use these rules while checking Groundwork:
 - Missing, `blocked`, or `stale` reviews matter when the user asks about review health or artifact quality, but they do not automatically stop the next artifact from opening.
 - Completed planning steps retain their asked-question history. Review `Back` should reopen that step's answered survey inline, and the final survey action should switch to `Regenerate` or `Update` rather than acting like a fresh intake.
 - Resume behavior should restore the last meaningful surface for the current phase: review by default after generation, or questions when the user intentionally reopened that phase for revision.
+- Initiative execution resume should restore the active initiative ticket when one exists. Explicit run-detail visits stay historical and should not replace the ticket as the default execution re-entry target.
 - If a later-stage blocker reopens an earlier concern, expect the question to reference the earlier blocker explicitly and the UI to show that earlier question/answer context inline.
 - Editing an upstream artifact can still make downstream reviews stale.
 - Ticket creation is not enough. Initiative execution still stays blocked until the coverage check is resolved or explicitly overridden.

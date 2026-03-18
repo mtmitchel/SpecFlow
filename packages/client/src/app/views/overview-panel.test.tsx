@@ -94,4 +94,70 @@ describe("OverviewPanel", () => {
     expect(screen.queryByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("Continue brief")).toHaveLength(1);
   });
+
+  it("uses the stored initiative ticket as the resume target when execution intent exists", () => {
+    const executionInitiative: Initiative = {
+      ...initiative,
+      workflow: {
+        ...initiative.workflow,
+        activeStep: "tickets",
+        resumeTicketId: "initiative-ticket",
+        steps: {
+          brief: { status: "complete", updatedAt: "2026-03-16T10:00:00.000Z" },
+          "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
+          prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
+          "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
+        },
+      },
+      ticketIds: ["initiative-ticket"],
+    };
+    const initiativeTicket: Ticket = {
+      id: "initiative-ticket",
+      initiativeId: executionInitiative.id,
+      phaseId: null,
+      title: "Execution ticket",
+      description: "Resume execution here.",
+      status: "in-progress",
+      acceptanceCriteria: [],
+      implementationPlan: "",
+      fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
+      runId: null,
+      createdAt: "2026-03-16T10:22:00.000Z",
+      updatedAt: "2026-03-16T10:22:00.000Z",
+    };
+    const executionSnapshot: ArtifactsSnapshot = {
+      ...snapshot,
+      initiatives: [executionInitiative],
+      tickets: [initiativeTicket],
+      planningReviews: [
+        {
+          id: `${executionInitiative.id}:ticket-coverage-review`,
+          initiativeId: executionInitiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage check passes.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:25:00.000Z",
+          updatedAt: "2026-03-16T10:25:00.000Z",
+        },
+      ],
+    };
+
+    render(
+      <MemoryRouter>
+        <OverviewPanel snapshot={executionSnapshot} onOpenCommandPalette={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /Continue ticket.*Linux Notes/i })).toHaveAttribute(
+      "href",
+      "/ticket/initiative-ticket",
+    );
+  });
 });

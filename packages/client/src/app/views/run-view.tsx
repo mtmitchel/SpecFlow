@@ -20,7 +20,9 @@ import { DiffViewer } from "../components/diff-viewer.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { AuditPanel } from "../components/audit-panel.js";
 import { Pipeline } from "../components/pipeline.js";
+import { useToast } from "../context/toast.js";
 import { getInitiativeProgressModel } from "../utils/initiative-progress.js";
+import { usePersistInitiativeResumeTicket } from "./use-persist-initiative-resume-ticket.js";
 
 const RunReportCard = ({
   title,
@@ -46,15 +48,18 @@ export const RunView = ({
   planningReviews,
   runs,
   ticketCoverageArtifacts,
+  onRefresh,
 }: {
   initiatives: Initiative[];
   tickets: Ticket[];
   planningReviews: PlanningReviewArtifact[];
   runs: Run[];
   ticketCoverageArtifacts: TicketCoverageArtifact[];
+  onRefresh: () => Promise<void>;
 }) => {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showError } = useToast();
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [committedAttemptDetail, setCommittedAttemptDetail] = useState<RunAttemptDetail | null>(null);
   const [attemptLoading, setAttemptLoading] = useState(false);
@@ -266,6 +271,15 @@ export const RunView = ({
     };
   }, [detail?.run.id, detail?.run.status]);
 
+  const initiative = detail?.ticket?.initiativeId ? initiatives.find((item) => item.id === detail.ticket?.initiativeId) ?? null : null;
+  usePersistInitiativeResumeTicket({
+    initiativeId: initiative?.id ?? null,
+    resumeTicketId: detail?.ticket?.initiativeId ? detail.ticket.id : null,
+    currentResumeTicketId: initiative?.workflow.resumeTicketId,
+    onRefresh,
+    showError,
+  });
+
   if (loading) {
     return (
       <section>
@@ -294,7 +308,6 @@ export const RunView = ({
     ...(detail.committed?.bundleManifest?.requiredFiles ?? []),
     ...(detail.committed?.bundleManifest?.contextFiles ?? [])
   ];
-  const initiative = detail.ticket?.initiativeId ? initiatives.find((item) => item.id === detail.ticket?.initiativeId) ?? null : null;
   const progressModel = initiative
     ? getInitiativeProgressModel(
         initiative,

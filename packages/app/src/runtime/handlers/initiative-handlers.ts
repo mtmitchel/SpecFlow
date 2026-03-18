@@ -2,7 +2,14 @@ import {
   BRIEF_CONSULTATION_REQUIRED_MESSAGE,
   requiresInitialBriefConsultation
 } from "../../planner/brief-consultation.js";
-import { canEditStep, completeWorkflowStep, getRefinementAssumptions, invalidateWorkflowFromStep, updateRefinementState } from "../../planner/workflow-state.js";
+import {
+  canEditStep,
+  completeWorkflowStep,
+  getRefinementAssumptions,
+  invalidateWorkflowFromStep,
+  setWorkflowResumeTicket,
+  updateRefinementState
+} from "../../planner/workflow-state.js";
 import type {
   Initiative,
   InitiativeArtifactStep,
@@ -77,19 +84,36 @@ export const updateInitiative = async (
     title: string;
     description: string;
     phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>;
+    resumeTicketId: string | null;
   }>
 ) => {
   const initiative = readInitiative(runtime, initiativeId);
   const nextDescription = body.description ?? initiative.description;
   const descriptionChanged = nextDescription !== initiative.description;
+  const nextResumeTicketId =
+    body.resumeTicketId === undefined
+      ? undefined
+      : typeof body.resumeTicketId === "string" && body.resumeTicketId.trim().length > 0
+        ? body.resumeTicketId.trim()
+        : null;
+  if (nextResumeTicketId) {
+    const resumeTicket = runtime.store.tickets.get(nextResumeTicketId);
+    if (!resumeTicket || resumeTicket.initiativeId !== initiative.id) {
+      throw badRequest("resumeTicketId must reference a ticket in this initiative");
+    }
+  }
   const nowIso = new Date().toISOString();
+  const nextWorkflow = descriptionChanged ? invalidateWorkflowFromStep(initiative.workflow, "brief") : initiative.workflow;
 
   const updated = {
     ...initiative,
     title: body.title ?? initiative.title,
     description: nextDescription,
     phases: body.phases ?? initiative.phases,
-    workflow: descriptionChanged ? invalidateWorkflowFromStep(initiative.workflow, "brief") : initiative.workflow,
+    workflow:
+      nextResumeTicketId !== undefined
+        ? setWorkflowResumeTicket(nextWorkflow, nextResumeTicketId)
+        : nextWorkflow,
     updatedAt: nowIso
   };
 

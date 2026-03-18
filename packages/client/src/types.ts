@@ -64,6 +64,7 @@ export interface InitiativeRefinementState {
 
 export interface InitiativeWorkflow {
   activeStep: InitiativePlanningStep;
+  resumeTicketId?: string | null;
   steps: Record<InitiativePlanningStep, InitiativeWorkflowStep>;
   refinements: Record<InitiativeArtifactStep, InitiativeRefinementState>;
 }

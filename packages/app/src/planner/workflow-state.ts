@@ -33,6 +33,7 @@ const isRefinementStep = (step: InitiativePlanningStep): step is RefinementStep 
 
 export const createInitiativeWorkflow = (): InitiativeWorkflow => ({
   activeStep: "brief",
+  resumeTicketId: null,
   steps: {
     brief: createStepState("ready"),
     "core-flows": createStepState("locked"),
@@ -142,6 +143,9 @@ export const normalizeInitiativeWorkflow = (
   }
 
   normalized.activeStep = getResumeStep(normalized);
+  normalized.resumeTicketId = typeof workflow.resumeTicketId === "string" && workflow.resumeTicketId.trim().length > 0
+    ? workflow.resumeTicketId
+    : null;
   return normalized;
 };
 
@@ -248,6 +252,7 @@ const cloneRefinements = (workflow: InitiativeWorkflow): InitiativeWorkflow["ref
 
 const createWorkflowDraft = (workflow: InitiativeWorkflow): InitiativeWorkflow => ({
   activeStep: workflow.activeStep,
+  resumeTicketId: workflow.resumeTicketId ?? null,
   steps: {
     brief: { ...workflow.steps.brief },
     "core-flows": { ...workflow.steps["core-flows"] },
@@ -371,3 +376,12 @@ export const invalidateWorkflowFromStep = (
 };
 
 export const getArtifactStepFromSpecType = (type: InitiativeArtifactStep): InitiativePlanningStep => type;
+
+export const setWorkflowResumeTicket = (
+  workflow: InitiativeWorkflow,
+  ticketId: string | null,
+): InitiativeWorkflow => {
+  const next = createWorkflowDraft(workflow);
+  next.resumeTicketId = ticketId;
+  return next;
+};

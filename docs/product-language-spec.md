@@ -475,6 +475,8 @@ Avoid:
 - `Capture Results`
 - `Verification Results` as the only framing
 
+Resume behavior should treat the ticket as the primary execution object. If an initiative-backed ticket is the active work item, Home and initiative shortcuts should reopen that ticket. Run detail should reopen only when the user explicitly opens history.
+
 ### Run page
 
 The run page should answer:

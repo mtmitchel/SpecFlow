@@ -76,10 +76,26 @@ export const getPlanningReviewActionLabel = (
   step: InitiativePlanningStep
 ): string => reviewKind ? REVIEW_ACTION_LABELS[reviewKind] : `Review ${getPlanningStepName(step)}`;
 
+const getInitiativeTicketActionLabel = (ticket: Ticket): string => {
+  if (ticket.status === "verify") {
+    return "Verify ticket";
+  }
+
+  if (ticket.status === "in-progress") {
+    return "Continue ticket";
+  }
+
+  return "Open ticket";
+};
+
 export const getInitiativeQueueActionLabel = (
   initiative: Initiative,
   progress: InitiativeProgressModel
 ): string => {
+  if (progress.resumeTicket) {
+    return getInitiativeTicketActionLabel(progress.resumeTicket);
+  }
+
   if (progress.currentKey === "done") {
     return "Done";
   }

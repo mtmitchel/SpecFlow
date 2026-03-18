@@ -103,6 +103,24 @@ describe("initiative routes", () => {
     }
   });
 
+  it("persists an initiative resume ticket that belongs to the same initiative", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const response = await fixture.server.app.inject({
+        method: "PATCH",
+        url: "/api/initiatives/initiative-11223344",
+        payload: { resumeTicketId: "ticket-aabbccdd" }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().initiative.workflow.resumeTicketId).toBe("ticket-aabbccdd");
+      expect(fixture.store.initiatives.get("initiative-11223344")?.workflow.resumeTicketId).toBe("ticket-aabbccdd");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("persists the preferred planning surface with refinement answers", async () => {
     const fixture = await createServerFixture();
 

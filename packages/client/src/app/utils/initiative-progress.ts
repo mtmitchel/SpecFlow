@@ -34,6 +34,7 @@ export interface InitiativeProgressModel {
   currentNodeState: PipelineNodeState;
   currentReviewKind: PlanningReviewKind | null;
   nodes: PipelineNodeModel[];
+  resumeTicket: Ticket | null;
   ticketProgress: {
     done: number;
     total: number;
@@ -58,7 +59,7 @@ const getStoredInitiativePlanningSurface = (
   initiative: Initiative,
   step: InitiativeArtifactStep,
 ): InitiativePlanningSurface | null => {
-  const preferredSurface = initiative.workflow.refinements[step].preferredSurface;
+  const preferredSurface = initiative.workflow.refinements[step]?.preferredSurface;
   return preferredSurface === "questions" || preferredSurface === "review" ? preferredSurface : null;
 };
 
@@ -69,10 +70,11 @@ export const getInitiativePlanningSurface = (
   preferredSurface?: InitiativePlanningSurface | null,
 ): InitiativePlanningSurface => {
   const hasArtifact = hasInitiativeArtifactSummary(specSummaries, initiative.id, step);
+  const refinement = initiative.workflow.refinements[step];
   const canOpenQuestions =
     !hasArtifact ||
-    initiative.workflow.refinements[step].questions.length > 0 ||
-    (initiative.workflow.refinements[step].history?.length ?? 0) > 0;
+    (refinement?.questions.length ?? 0) > 0 ||
+    (refinement?.history?.length ?? 0) > 0;
   const defaultSurface: InitiativePlanningSurface = hasArtifact ? "review" : "questions";
   const resolvedSurface = preferredSurface ?? getStoredInitiativePlanningSurface(initiative, step);
 
@@ -116,8 +118,8 @@ export const getInitiativeResumeHref = (
   progress: InitiativeProgressModel,
   snapshot: ArtifactsSnapshot,
 ): string => {
-  if (progress.currentKey === "execute" || progress.currentKey === "verify") {
-    return progress.nextTicket ? `/ticket/${progress.nextTicket.id}` : `/initiative/${initiative.id}?step=tickets`;
+  if (progress.resumeTicket) {
+    return `/ticket/${progress.resumeTicket.id}`;
   }
 
   if (progress.currentKey === "done") {
@@ -126,6 +128,10 @@ export const getInitiativeResumeHref = (
 
   if (progress.currentKey === "tickets") {
     return buildInitiativeStepHref(initiative.id, progress.currentKey);
+  }
+
+  if (progress.currentKey === "execute" || progress.currentKey === "verify") {
+    return buildInitiativeStepHref(initiative.id, "tickets");
   }
 
   return buildInitiativeStepHref(
@@ -208,6 +214,15 @@ const sortTickets = (tickets: Ticket[]): Ticket[] =>
     return new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime();
   });
 
+const getStoredResumeTicket = (initiative: Initiative, initiativeTickets: Ticket[]): Ticket | null => {
+  const resumeTicketId = initiative.workflow.resumeTicketId;
+  if (!resumeTicketId) {
+    return null;
+  }
+
+  return initiativeTickets.find((ticket) => ticket.id === resumeTicketId) ?? null;
+};
+
 const getExecutionCurrentKey = (
   initiativeTickets: Ticket[],
   planningReadyForExecution: boolean,
@@ -260,6 +275,17 @@ export const getInitiativeProgressModel = (
   const executionCurrentKey = getExecutionCurrentKey(initiativeTickets, planningReadyForExecution);
   const visibleExecutionKey = blockedPlanningStep ? null : executionCurrentKey;
   const currentKey = overrides?.currentKey ?? blockedPlanningStep ?? visibleExecutionKey ?? resumePlanningStep;
+  const storedResumeTicket = getStoredResumeTicket(initiative, initiativeTickets);
+  const resumeTicket =
+    currentKey === "verify"
+      ? nextTicket ?? null
+      : currentKey === "execute"
+        ? storedResumeTicket && storedResumeTicket.status !== "done"
+          ? storedResumeTicket
+          : nextTicket ?? null
+        : currentKey === "tickets" && !ticketsCheckpoint && storedResumeTicket && storedResumeTicket.status !== "done"
+          ? storedResumeTicket
+          : null;
 
   const nodes = PIPELINE_NODE_ORDER.map<PipelineNodeModel>((key) => {
     const zone: PipelineNodeZone = EXECUTION_NODE_KEYS.includes(key) ? "execution" : "planning";
@@ -344,6 +370,7 @@ export const getInitiativeProgressModel = (
     currentNodeState,
     currentReviewKind,
     nodes,
+    resumeTicket,
     ticketProgress,
     initiativeTickets,
     initiativeRuns,

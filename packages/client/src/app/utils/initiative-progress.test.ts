@@ -225,6 +225,123 @@ describe("getInitiativeProgressModel", () => {
     );
   });
 
+  it("restores the stored initiative ticket when execution has not started yet", () => {
+    const initiative: Initiative = {
+      ...baseInitiative,
+      workflow: {
+        ...baseInitiative.workflow,
+        activeStep: "tickets",
+        resumeTicketId: "ticket-ready",
+        steps: {
+          brief: { status: "complete", updatedAt: "2026-03-16T10:00:00.000Z" },
+          "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
+          prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
+          "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
+        },
+      },
+      ticketIds: ["ticket-ready"],
+    };
+    const readyTicket: Ticket = {
+      id: "ticket-ready",
+      initiativeId: initiative.id,
+      phaseId: null,
+      title: "Ready ticket",
+      description: "Resume this ticket.",
+      status: "ready",
+      acceptanceCriteria: [],
+      implementationPlan: "",
+      fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
+      runId: null,
+      createdAt: "2026-03-16T10:21:00.000Z",
+      updatedAt: "2026-03-16T10:21:00.000Z",
+    };
+
+    const snapshot = createSnapshot({
+      initiative,
+      tickets: [readyTicket],
+      planningReviews: [
+        {
+          id: `${initiative.id}:ticket-coverage-review`,
+          initiativeId: initiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage check passes.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:25:00.000Z",
+          updatedAt: "2026-03-16T10:25:00.000Z",
+        },
+      ],
+    });
+    const progress = getInitiativeProgressModel(initiative, snapshot);
+
+    expect(progress.resumeTicket?.id).toBe("ticket-ready");
+    expect(getInitiativeResumeHref(initiative, progress, snapshot)).toBe("/ticket/ticket-ready");
+  });
+
+  it("falls back to the next initiative ticket when execution is active without a stored resume ticket", () => {
+    const initiative: Initiative = {
+      ...baseInitiative,
+      workflow: {
+        ...baseInitiative.workflow,
+        activeStep: "tickets",
+        steps: {
+          brief: { status: "complete", updatedAt: "2026-03-16T10:00:00.000Z" },
+          "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
+          prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
+          "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
+        },
+      },
+      ticketIds: ["ticket-ready"],
+    };
+    const readyTicket: Ticket = {
+      id: "ticket-ready",
+      initiativeId: initiative.id,
+      phaseId: null,
+      title: "Ready ticket",
+      description: "Resume this ticket.",
+      status: "ready",
+      acceptanceCriteria: [],
+      implementationPlan: "",
+      fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
+      runId: null,
+      createdAt: "2026-03-16T10:21:00.000Z",
+      updatedAt: "2026-03-16T10:21:00.000Z",
+    };
+
+    const snapshot = createSnapshot({
+      initiative,
+      tickets: [readyTicket],
+      planningReviews: [
+        {
+          id: `${initiative.id}:ticket-coverage-review`,
+          initiativeId: initiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage check passes.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:25:00.000Z",
+          updatedAt: "2026-03-16T10:25:00.000Z",
+        },
+      ],
+    });
+    const progress = getInitiativeProgressModel(initiative, snapshot);
+
+    expect(progress.resumeTicket?.id).toBe("ticket-ready");
+    expect(getInitiativeResumeHref(initiative, progress, snapshot)).toBe("/ticket/ticket-ready");
+  });
+
   it.each([
     {
       completedStep: "brief" as const,

@@ -13,6 +13,7 @@ export {
   runInitiativeReview,
   saveInitiativeRefinement,
   saveInitiativeSpecs,
+  updateInitiative,
   updateInitiativePhases
 } from "./api/initiatives";
 
