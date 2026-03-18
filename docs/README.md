@@ -35,6 +35,7 @@ All four workflows remain functional: Groundwork, Milestone Run, Quick Build, an
 Key capabilities in the current version:
 
 - Action-oriented home: an Up next queue plus initiative cards with inline progress instead of a counts dashboard
+- Durable re-entry: Home and initiative resume restore the last meaningful planning surface or active initiative ticket; run detail stays historical unless the user explicitly opens it
 - Expandable sidebar workspace: slim icon rail for primary navigation that expands in place to reveal labels and the active initiative hierarchy
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
 - Shared initiative pipeline: Brief -> Core flows -> PRD -> Tech spec -> Tickets -> Execute -> Verify -> Done as one continuous visual model

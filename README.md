@@ -112,6 +112,7 @@ If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup mig
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
 - **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved coverage checks block export and execution until the user reruns or overrides the check.
 - **Action-oriented home**: the landing view is an Up next queue plus initiative cards with inline progress, so the first screen answers what needs attention now instead of showing aggregate counts.
+- **Durable re-entry**: initiative resume links restore the last meaningful planning surface or active initiative ticket, while run detail stays explicit history instead of hijacking the default resume target.
 - **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals labels plus the active initiative hierarchy.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Direct planning entry**: `/new-initiative` flows directly into the shared Brief survey instead of bouncing through a separate handoff mode.

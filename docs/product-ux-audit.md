@@ -16,19 +16,31 @@ The main problem is not visual polish. It is orchestration and state exposure. T
 
 ### Top 5 product and UX problems
 
-1. The planning flow is fragmented across separate route modes, inline states, drawers, review surfaces, and auto-advance logic instead of behaving like one continuous guided workflow.
-2. The UI leaks internal state and workflow machinery into the experience. Users see too many intermediate `check`, `review`, `ready`, `override`, and `move on anyway` states.
-3. Navigation is over-instrumented and under-prioritized. Home, pipeline, breadcrumbs, icon rail, expanded sidebar, drawers, ticket links, and run links all compete to answer orientation.
-4. Execution and audit are functionally strong but interactionally too technical. The app often reads like a tool for operating its own engine rather than a product helping the user finish work.
-5. Resume and re-entry behavior is not trustworthy enough. The app derives the next surface from workflow state, review state, tickets, and query params, but does not preserve a stable “last meaningful place” mental model.
+1. Navigation authority is still split across Home, the sidebar, the pipeline, breadcrumbs, and in-view status treatment. The user can resume correctly more often now, but the shell still asks them to infer which surface is in charge.
+2. Tickets still mix planning handoff, readiness, management, and history. The page is better grounded than before, but the planning-to-execution transition is not framed clearly enough as one deliberate handoff.
+3. Ticket execution is functionally strong but still too technical in the default path. Advanced bundle, diff, and verification mechanics still compete with the primary user decision at each stage.
+4. Run detail and audit are still too coupled. Historical review and guided change review are closer than before, but they still read more like embedded tooling than a clean product flow.
+5. Transition and state messaging are uneven across shell, planning, execution, and audit. Resume and re-entry are materially better now, but the final UX still needs more consistent explanation of what is happening, why, and what comes next.
 
 ### Top 5 highest-leverage improvements
 
-1. Replace the current planning-phase UI branching with one explicit per-phase state machine: `questions`, `checking`, `drafting`, `reviewing`, `done`.
-2. Remove planning-phase checkpoint interruptions as primary screens. Keep reviews secondary unless they truly block progression.
-3. Rebuild the app shell around one stable hierarchy: `Home -> Initiative -> Phase/Ticket -> Run`.
-4. Reframe execution and audit around user decisions, not backend mechanics.
-5. Standardize transition states so the user always knows what is happening, why, and what happens next.
+1. Rebuild the shell around one stable hierarchy: `Home -> Initiative -> Phase/Ticket -> Run`.
+2. Reframe Tickets as the explicit planning-to-execution handoff.
+3. Simplify ticket execution around the three user decisions that matter most.
+4. Separate historical run inspection from guided audit review.
+5. Finish the cross-surface copy and transition-state alignment pass.
+
+## Status update
+
+Several of the highest-risk workflow flaws from the first audit have already landed on `main`:
+
+- planning phases now use a much more consistent shared state model instead of fragmented special-case handoff routes
+- review `Back` can reopen the answered question history inline for targeted revisions
+- planner stage boundaries and question contracts are substantially tighter
+- planning re-entry now restores the last meaningful planning surface
+- initiative execution re-entry now restores the active initiative ticket, and run detail stays explicit history rather than replacing that resume target
+
+The remaining work is narrower than the original audit implied. The main product risk is now shell authority and downstream execution/audit productization, not whether planning itself has a coherent spine.
 
 ## Audit scope and assumptions
 
@@ -84,12 +96,12 @@ The main problem is not visual polish. It is orchestration and state exposure. T
 
 **User goal:** understand what matters now and resume or start work fast.
 
-**Current experience:** Home combines an `In progress` queue, initiative cards, an icon rail, an expandable sidebar, a pipeline in downstream views, breadcrumbs, and a command palette.
+**Current experience:** Home now combines a stronger `Up next` queue, initiative cards with clearer resume targets, an icon rail, an expandable sidebar, a pipeline in downstream views, breadcrumbs, and a command palette.
 
 **Friction points:**
 
 - too many orientation systems
-- no single authoritative answer to “where am I?” and “what should I do next?”
+- the queue is clearer than it was, but the shell still does not give one consistently authoritative answer to “where am I?” and “what should I do next?”
 - the expanded sidebar behaves more like a secondary context layer than a stable information architecture
 
 **UX and system risk:** the app feels denser than necessary before the user even starts work.
@@ -121,16 +133,14 @@ Make the sidebar a stable object navigator. Keep the pipeline as in-context orie
 
 **User goal:** answer just enough to ground the brief.
 
-**Current experience:** the product now uses the shared planning surface for Brief, with a survey card, auto-start checks, inline revision, and compact loading states reused by downstream phases.
+**Current experience:** the product now uses the shared planning surface for Brief, with a survey card, inline revision, durable answered-question history, and resume behavior that can return to either review or the reopened questions surface.
 
 **Friction points:**
 
-- hidden automatic checks
-- special-case handoff logic
-- multiple representations of the same survey state
-- known regressions around huge cards, blank states, premature advancement, and inconsistent back behavior
+- some shell-level framing still makes the first-run flow feel denser than the phase loop itself
+- the strongest remaining complexity is in how planning status is narrated around the surface, not inside the Brief interaction itself
 
-**UX and system risk:** the first planning phase does not behave like a trustworthy, durable pattern.
+**UX and system risk:** the first planning phase is now much more durable, but the surrounding shell still needs to reinforce that simplicity instead of reintroducing competing explanations.
 
 **Recommended redesign direction:** brief intake should become standard phase state, not route state. Always use the same loop:
 
@@ -282,9 +292,9 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 
 ### Workflow problems
 
-- The app has the right high-level workflow but the wrong interaction granularity.
-- Planning phases behave like a sequence of exceptions rather than one repeatable pattern.
-- The system still stops on intermediate “ready” states where it should either keep asking questions or land on the generated artifact.
+- The app has the right high-level workflow and the planning phases are materially more repeatable than they were.
+- The remaining workflow problem is downstream: Tickets, execution, and audit still expose too much product-internal machinery in the default path.
+- Some shell surfaces still narrate workflow state in parallel instead of deferring to one primary object and action.
 
 ### Information architecture problems
 
@@ -306,17 +316,9 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 
 ### State-model problems
 
-- The planning workspace carries too many overlapping state models:
-  - workflow state
-  - active step
-  - refinement state
-  - draft state
-  - drawer state
-  - auto-load state
-  - busy action state
-  - inline survey state
-  - query-param route state
-- The user-facing result is unpredictability.
+- Planning-phase state is substantially cleaner than it was at the start of this audit.
+- The remaining state-model risk is now split across shell authority, execution resume intent, history surfaces, and transition messaging.
+- The user-facing result is improved, but not yet fully simplified once they leave the planning phases.
 
 ### Navigation problems
 
@@ -332,23 +334,20 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 
 ### Resume, back, and recovery problems
 
-- The app derives where to send the user from workflow progress and gates, but does not preserve enough task intent.
-- `Back` is inconsistent across planning, document review, drawers, ticket history, and run detail.
-- Recovery states exist in the system model but are not yet fully translated into clear recovery paths in the UX.
+- Planning re-entry and initiative execution resume now preserve much more task intent than before.
+- The remaining gap is consistency on lower-value historical surfaces and recovery moments, especially where ticket, run, and audit flows still overlap.
+- Recovery states exist in the system model, but not every degraded or historical path is translated into one obvious next step yet.
 
 ## Prioritized findings
 
 | Severity | Area | Issue | Why it matters | Recommended fix | Expected impact |
 |---|---|---|---|---|---|
-| Critical | Planning workflow | Separate handoff route for brief intake | Breaks continuity in the highest-value first-run flow | Eliminate special handoff mode and fold brief intake into the standard planning workspace | Higher trust and lower workflow fragility |
-| Critical | State model | Too many visible planning substates | Users see internal orchestration instead of a clean journey | Replace planning branching with one explicit per-phase state machine | Major reduction in confusion and regressions |
-| Critical | Review model | Planning checkpoints interrupt too often | Drafting feels blocked by internal QA mechanics | Make reviews secondary unless they truly block progression | Cleaner mental model and faster flow |
-| High | Navigation | Too many parallel navigation systems | Users cannot tell which surface is authoritative | Rebuild shell around one hierarchy: `Home -> Initiative -> Phase/Ticket -> Run` | Better orientation and re-entry |
-| High | Downstream planning | Core flows, PRD, and Tech spec do not mirror Brief cleanly | Users cannot predict what happens after answering questions | Make all artifact phases use the same survey -> check -> review pattern | Better learnability and repeat usage |
-| High | Execution UX | Ticket flow exposes too much engine detail | Raises cognitive load at the point of action | Keep the 3-step structure but hide advanced mechanics behind disclosure | Faster execution and verification |
-| High | Audit UX | Drift audit is too tool-like | Feels bolted on, not productized | Turn audit into a guided review flow with a default path and advanced options secondary | Better usability and adoption |
-| Medium | Tickets phase | Coverage check is conceptually right but poorly framed | Weakens planning-to-execution handoff | Reframe Tickets as readiness handoff, not mixed management view | Better execution start clarity |
-| Medium | Home | Up next and initiative cards are useful but not sufficiently hierarchical | Resume and browse compete | Strengthen queue as primary and recent initiatives as secondary | Faster restart of work |
+| High | Navigation | Too many parallel navigation systems still compete for authority | Users can resume more reliably, but still have to infer which shell element is primary | Rebuild shell around one hierarchy: `Home -> Initiative -> Phase/Ticket -> Run` | Better orientation and lower navigation noise |
+| High | Tickets phase | Tickets still reads as a mixed planning-management surface | Weakens the planning-to-execution handoff | Reframe Tickets as readiness handoff, not mixed management view | Better execution start clarity |
+| High | Execution UX | Ticket flow still exposes too much engine detail | Raises cognitive load at the point of action | Keep the 3-step structure but hide advanced mechanics behind disclosure | Faster execution and verification |
+| High | Audit UX | Drift audit is still too tool-like in the default framing | Feels bolted on, not productized | Turn audit into a guided review flow with a default path and advanced options secondary | Better usability and adoption |
+| Medium | Transition copy | State and waiting messages are still uneven across surfaces | Users still have to parse system mechanics instead of user intent in some states | Finish the cross-surface product-language pass | Better trust and fewer “what now?” moments |
+| Medium | Resume and recovery | Resume is stronger, but lower-value history and recovery paths still need clearer defaults | Historical surfaces can still compete with active work in edge cases | Keep active work primary and make history clearly secondary | Better re-entry and failure recovery |
 | Medium | Activation | Environment readiness is under-signaled | First-run and blocked states feel disconnected from setup | Surface provider/model/key readiness contextually | Lower setup friction |
 
 ## Streamlined target workflow
@@ -486,27 +485,25 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 
 ## Implementation roadmap
 
-### Phase 1: critical fixes
+### Landed since the first audit pass
 
-- unify brief intake into the standard planning workspace
-- replace current planning-phase branching with one explicit per-phase state model
-- remove planning-phase checkpoint interruptions from the primary journey
-- fix resume and back behavior around artifact review and question flows
-- standardize compact loading and checking cards
+- unified brief intake into the standard planning workspace
+- replaced planning-phase branching with a more explicit shared per-phase model
+- removed planning-phase checkpoint interruptions from the primary journey
+- fixed review `Back` and planning-surface re-entry around artifact review and question flows
+- introduced stronger persisted resume intent for planning surfaces and active initiative tickets
 
-### Phase 2: workflow cleanup
+### Remaining workflow cleanup
 
-- make all artifact phases behave the same
-- redesign Home and sidebar for clearer hierarchy and resume behavior
-- simplify the Tickets phase into a clean planning-to-execution handoff
-- clean up labels and transition copy to match the product language spec
+- redesign Home and sidebar for clearer hierarchy and authority
+- reframe the Tickets phase into a clean planning-to-execution handoff
+- clean up labels and transition copy to match the product language spec across shell, tickets, runs, and audit
 
-### Phase 3: deeper product improvements
+### Remaining deeper product improvements
 
-- productize audit as a guided review flow
 - simplify execution-stage advanced controls with progressive disclosure
+- productize audit as a guided review flow distinct from historical run detail
 - improve settings and activation visibility across the app
-- introduce stronger persisted resume intent and historical context rules
 
 ## Validation plan
 
@@ -526,7 +523,7 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 - a new user can start an initiative and reach reviewed Brief without confusion
 - moving from Brief to Core flows does not produce dead-end or ambiguous intermediate screens
 - revising answers after artifact generation is understandable and reversible
-- resuming an initiative from Home lands the user in the expected place
+- resuming an initiative from Home lands the user in the expected active planning surface or initiative ticket
 - exporting, verifying, failing, retrying, and completing a ticket does not require understanding backend mechanics
 
 ### Signals the redesign is working
