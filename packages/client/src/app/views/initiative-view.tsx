@@ -11,6 +11,7 @@ import {
 } from "../utils/initiative-workflow.js";
 import { getInitiativeProgressModel, type PipelineNodeKey } from "../utils/initiative-progress.js";
 import { getPlanningStageCopy } from "../utils/ui-language.js";
+import { buildReopenedQuestionContext } from "./initiative/refinement-history.js";
 import { PlanningSpecSection } from "./initiative/planning-spec-section.js";
 import { RefinementSection } from "./initiative/refinement-section.js";
 import { SAVE_STATE_LABELS, type SaveState } from "./initiative/shared.js";
@@ -116,6 +117,10 @@ export const InitiativeView = ({
         : null,
     [activeStep, generatingKey, initiative, snapshot]
   );
+  const reopenedQuestionContext = useMemo(
+    () => buildReopenedQuestionContext(initiative),
+    [initiative],
+  );
   if (!initiative || !progressModel) {
     return (
       <section>
@@ -180,6 +185,7 @@ export const InitiativeView = ({
               <RefinementSection
                 activeSpecStep={drawerState.step}
                 activeRefinement={activeRefinement}
+                reopenedQuestionContext={reopenedQuestionContext}
                 refinementAnswers={refinementAnswers}
                 defaultAnswerQuestionIds={defaultAnswerQuestionIds}
                 refinementAssumptions={refinementAssumptions}
@@ -243,6 +249,7 @@ export const InitiativeView = ({
         activeSpecStep={activeSpecStep}
         activeSurface={activeSurface}
         activeRefinement={activeRefinement}
+        reopenedQuestionContext={reopenedQuestionContext}
         busyAction={busyAction}
         isBusy={isBusy}
         isDeletingInitiative={isDeletingInitiative}

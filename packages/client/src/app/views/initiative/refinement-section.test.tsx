@@ -182,4 +182,55 @@ describe("RefinementSection", () => {
 
     expect(screen.queryByRole("button", { name: "Other" })).not.toBeInTheDocument();
   });
+
+  it("shows earlier-question context when a blocker reopens a prior decision", () => {
+    render(
+      <RefinementSection
+        activeSpecStep="prd"
+        activeRefinement={{
+          ...activeRefinement,
+          questions: [
+            {
+              id: "prd-compatibility",
+              label: "What compatibility promise should v1 keep for existing imports?",
+              type: "select",
+              whyThisBlocks: "The PRD needs to say what existing data must still work after launch.",
+              affectedArtifact: "prd",
+              decisionType: "compatibility",
+              assumptionIfUnanswered: "Keep existing imports readable in v1.",
+              options: ["Support current import files", "Require a one-time migration"],
+              reopensQuestionIds: ["brief-problem"],
+            },
+          ],
+          answers: {},
+        }}
+        reopenedQuestionContext={{
+          "brief-problem": {
+            questionId: "brief-problem",
+            stepLabel: "Brief",
+            questionLabel: "What primary problem should v1 solve?",
+            resolutionLabel: "Earlier answer: Capture something quickly",
+          },
+        }}
+        refinementAnswers={{}}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="idle"
+        unresolvedQuestionCount={1}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        variant="survey"
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Reopening an earlier decision")).toBeInTheDocument();
+    expect(screen.getByText("Brief: What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("Earlier answer: Capture something quickly")).toBeInTheDocument();
+  });
 });

@@ -43,6 +43,7 @@ Improve the product workflow, not just the copy or the current state of one init
 - `Consultation`: does the planner ask the right questions at the right stage, and does the flow framing still work when the initiative is not a screen-based UI?
 - `Gating`: are blockers real and placed at the right moment?
 - `Re-entry`: can the user resume without losing context?
+- `Revision`: can review `Back` reopen the answered survey for targeted revisions, and do reopened blockers show earlier provenance clearly?
 - `Comprehension`: does the workflow read like a guided planning workspace instead of a document maze?
 
 ## Output

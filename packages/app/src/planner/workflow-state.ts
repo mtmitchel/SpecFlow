@@ -20,6 +20,7 @@ const createStepState = (status: InitiativePlanningStepStatus): InitiativeWorkfl
 
 const createRefinementState = (): InitiativeRefinementState => ({
   questions: [],
+  history: [],
   answers: {},
   defaultAnswerQuestionIds: [],
   baseAssumptions: [],
@@ -73,6 +74,14 @@ const normalizeRefinement = (
     : Array.isArray(legacyQuestions)
       ? legacyQuestions
       : [],
+  history:
+    current?.history && Array.isArray(current.history)
+      ? current.history
+      : Array.isArray(current?.questions)
+        ? current.questions
+        : Array.isArray(legacyQuestions)
+          ? legacyQuestions
+          : [],
   answers:
     current?.answers && typeof current.answers === "object"
       ? current.answers
@@ -202,6 +211,7 @@ const cloneRefinements = (workflow: InitiativeWorkflow): InitiativeWorkflow["ref
   brief: {
     ...workflow.refinements.brief,
     questions: [...workflow.refinements.brief.questions],
+    history: [...(workflow.refinements.brief.history ?? [])],
     answers: { ...workflow.refinements.brief.answers },
     defaultAnswerQuestionIds: [...workflow.refinements.brief.defaultAnswerQuestionIds],
     baseAssumptions: [...workflow.refinements.brief.baseAssumptions]
@@ -209,6 +219,7 @@ const cloneRefinements = (workflow: InitiativeWorkflow): InitiativeWorkflow["ref
   "core-flows": {
     ...workflow.refinements["core-flows"],
     questions: [...workflow.refinements["core-flows"].questions],
+    history: [...(workflow.refinements["core-flows"].history ?? [])],
     answers: { ...workflow.refinements["core-flows"].answers },
     defaultAnswerQuestionIds: [...workflow.refinements["core-flows"].defaultAnswerQuestionIds],
     baseAssumptions: [...workflow.refinements["core-flows"].baseAssumptions]
@@ -216,6 +227,7 @@ const cloneRefinements = (workflow: InitiativeWorkflow): InitiativeWorkflow["ref
   prd: {
     ...workflow.refinements.prd,
     questions: [...workflow.refinements.prd.questions],
+    history: [...(workflow.refinements.prd.history ?? [])],
     answers: { ...workflow.refinements.prd.answers },
     defaultAnswerQuestionIds: [...workflow.refinements.prd.defaultAnswerQuestionIds],
     baseAssumptions: [...workflow.refinements.prd.baseAssumptions]
@@ -223,6 +235,7 @@ const cloneRefinements = (workflow: InitiativeWorkflow): InitiativeWorkflow["ref
   "tech-spec": {
     ...workflow.refinements["tech-spec"],
     questions: [...workflow.refinements["tech-spec"].questions],
+    history: [...(workflow.refinements["tech-spec"].history ?? [])],
     answers: { ...workflow.refinements["tech-spec"].answers },
     defaultAnswerQuestionIds: [...workflow.refinements["tech-spec"].defaultAnswerQuestionIds],
     baseAssumptions: [...workflow.refinements["tech-spec"].baseAssumptions]
@@ -247,12 +260,20 @@ export const updateRefinementState = (
   input: Partial<InitiativeRefinementState>
 ): InitiativeWorkflow => {
   const next = createWorkflowDraft(workflow);
+  const currentRefinement = next.refinements[step];
+  const nextQuestions = input.questions ?? currentRefinement.questions;
+  const nextHistoryById = new Map((currentRefinement.history ?? []).map((question) => [question.id, question]));
+  for (const question of nextQuestions) {
+    nextHistoryById.set(question.id, question);
+  }
+
   next.refinements[step] = {
-    questions: input.questions ?? next.refinements[step].questions,
-    answers: input.answers ?? next.refinements[step].answers,
-    defaultAnswerQuestionIds: input.defaultAnswerQuestionIds ?? next.refinements[step].defaultAnswerQuestionIds,
-    baseAssumptions: input.baseAssumptions ?? next.refinements[step].baseAssumptions,
-    checkedAt: input.checkedAt ?? next.refinements[step].checkedAt
+    questions: nextQuestions,
+    history: input.history ?? Array.from(nextHistoryById.values()),
+    answers: input.answers ?? currentRefinement.answers,
+    defaultAnswerQuestionIds: input.defaultAnswerQuestionIds ?? currentRefinement.defaultAnswerQuestionIds,
+    baseAssumptions: input.baseAssumptions ?? currentRefinement.baseAssumptions,
+    checkedAt: input.checkedAt ?? currentRefinement.checkedAt
   };
   next.activeStep = getResumeStep(next);
   return next;

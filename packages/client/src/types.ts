@@ -53,6 +53,7 @@ export interface InitiativeWorkflowStep {
 
 export interface InitiativeRefinementState {
   questions: InitiativePlanningQuestion[];
+  history?: InitiativePlanningQuestion[];
   answers: Record<string, string | string[] | boolean>;
   defaultAnswerQuestionIds: string[];
   baseAssumptions: string[];

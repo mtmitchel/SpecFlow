@@ -59,7 +59,10 @@ export const getInitiativePlanningSurface = (
   preferredSurface?: InitiativePlanningSurface | null,
 ): InitiativePlanningSurface => {
   const hasArtifact = hasInitiativeArtifactSummary(specSummaries, initiative.id, step);
-  const canOpenQuestions = !hasArtifact || initiative.workflow.refinements[step].questions.length > 0;
+  const canOpenQuestions =
+    !hasArtifact ||
+    initiative.workflow.refinements[step].questions.length > 0 ||
+    (initiative.workflow.refinements[step].history?.length ?? 0) > 0;
   const defaultSurface: InitiativePlanningSurface = hasArtifact ? "review" : "questions";
 
   if (!preferredSurface) {

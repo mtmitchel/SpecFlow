@@ -74,14 +74,38 @@ const initiative: Initiative = {
             allowCustomAnswer: true
           },
         ],
+        history: [
+          {
+            id: "brief-problem",
+            label: "What primary problem should v1 solve?",
+            type: "select",
+            whyThisBlocks: "One focused problem — not a feature list.",
+            affectedArtifact: "brief",
+            decisionType: "problem",
+            assumptionIfUnanswered: "Focus on the user's primary note-taking problem.",
+            options: [
+              briefProblemOption,
+              "Replace or improve an existing tool or workflow",
+              "Build something new that does not exist yet",
+              "Fix reliability, correctness, or data quality issues",
+              "Meet a new requirement, standard, or constraint"
+            ],
+            optionHelp: {
+              [briefProblemOption]:
+                "Pushes the Brief to prioritize workflow efficiency and measure success by reduced effort or time."
+            },
+            recommendedOption: null,
+            allowCustomAnswer: true
+          },
+        ],
         answers: {},
         defaultAnswerQuestionIds: [],
         baseAssumptions: [],
         checkedAt: "2026-03-16T12:05:00.000Z",
       },
-      "core-flows": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
-      prd: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
-      "tech-spec": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null }
+      "core-flows": { questions: [], history: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
+      prd: { questions: [], history: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
+      "tech-spec": { questions: [], history: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null }
     }
   },
   createdAt: "2026-03-16T12:00:00.000Z",
@@ -247,7 +271,16 @@ const briefCompleteSnapshot: ArtifactsSnapshot = {
           "tech-spec": { status: "locked", updatedAt: null },
           tickets: { status: "locked", updatedAt: null }
         },
-        refinements: initiative.workflow.refinements
+        refinements: {
+          ...initiative.workflow.refinements,
+          brief: {
+            ...initiative.workflow.refinements.brief,
+            questions: [],
+            answers: {
+              "brief-problem": briefProblemOption,
+            },
+          },
+        }
       }
     }
   ],
@@ -326,6 +359,7 @@ const coreFlowsQuestionSnapshot: ArtifactsSnapshot = {
           ...initiative.workflow.refinements,
           "core-flows": {
             questions: [coreFlowsQuestion],
+            history: [coreFlowsQuestion],
             answers: {},
             defaultAnswerQuestionIds: [],
             baseAssumptions: [],
@@ -355,6 +389,7 @@ const coreFlowsReadyToGenerateSnapshot: ArtifactsSnapshot = {
           ...initiative.workflow.refinements,
           "core-flows": {
             questions: [],
+            history: [coreFlowsQuestion],
             answers: {
               [coreFlowsQuestion.id]: "Capture first, organize later"
             },
@@ -397,6 +432,7 @@ const prdReadySnapshot: ArtifactsSnapshot = {
           ...initiative.workflow.refinements,
           "core-flows": {
             questions: [],
+            history: [coreFlowsQuestion],
             answers: {
               [coreFlowsQuestion.id]: "Capture first, organize later"
             },

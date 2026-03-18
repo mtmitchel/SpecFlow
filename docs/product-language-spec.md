@@ -102,6 +102,7 @@ Clarification is a refinement mechanism that can appear:
 - before the Tech spec, as the required first architecture question before the initial Tech spec draft, with up to four additional targeted blockers when implementation consequences are still ambiguous
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
+When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` means "return to this step's questions", not "leave the phase" or "start the intake over."
 
 For a fresh initiative, the required Brief intake always captures four framing decisions:
 
@@ -113,6 +114,7 @@ For a fresh initiative, the required Brief intake always captures four framing d
 Those four decisions must stay distinct. The intake should not restate the primary problem as a success criterion, and hard boundaries should not be phrased like implementation choices unless they are truly non-negotiable.
 The option language should stay domain-neutral so the intake works for new products, reliability fixes, integrations, compliance work, and existing-system changes without signaling one product category by default.
 If a later stage must revisit one of those earlier concerns, it should do so explicitly as a downstream consequence rather than silently asking the same thing again with new wording.
+When that happens, the UI should name the earlier step and question it is reopening so the user understands why the blocker came back.
 
 ### Phase framing copy
 

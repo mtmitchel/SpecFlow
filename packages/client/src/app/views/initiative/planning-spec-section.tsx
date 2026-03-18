@@ -8,6 +8,7 @@ import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
 import { getPlanningNextActionLabel } from "../../utils/ui-language.js";
 import { DocumentSummaryCard } from "./document-summary-card.js";
 import { RefinementSection } from "./refinement-section.js";
+import type { ReopenedQuestionContext } from "./refinement-history.js";
 import type { SaveState, SpecStep } from "./shared.js";
 import type { BusyActionResult } from "./use-cancellable-busy-action.js";
 import { usePhaseAutoAdvance } from "./use-phase-auto-advance.js";
@@ -18,6 +19,7 @@ interface PlanningSpecSectionProps {
   activeSpecStep: SpecStep;
   activeSurface: InitiativePlanningSurface;
   activeRefinement: InitiativeRefinementState | null;
+  reopenedQuestionContext?: Record<string, ReopenedQuestionContext>;
   busyAction: string | null;
   isBusy: boolean;
   isDeletingInitiative: boolean;
@@ -52,6 +54,7 @@ export const PlanningSpecSection = ({
   activeSpecStep,
   activeSurface,
   activeRefinement,
+  reopenedQuestionContext = {},
   busyAction,
   isBusy,
   isDeletingInitiative,
@@ -108,7 +111,8 @@ export const PlanningSpecSection = ({
 
   const refinementCheckedAt = activeRefinement?.checkedAt ?? null;
   const label = INITIATIVE_WORKFLOW_LABELS[activeSpecStep];
-  const showingInlineSurvey = activeSurface === "questions" && Boolean(activeRefinement?.questions.length);
+  const hasQuestionHistory = Boolean((activeRefinement?.history?.length ?? 0) > 0);
+  const showingInlineSurvey = activeSurface === "questions" && hasQuestionHistory;
   const shouldAutoStartBrief =
     activeSpecStep === "brief" &&
     !hasActiveContent &&
@@ -243,6 +247,7 @@ export const PlanningSpecSection = ({
             <RefinementSection
               activeSpecStep={activeSpecStep}
               activeRefinement={activeRefinement}
+              reopenedQuestionContext={reopenedQuestionContext}
               refinementAnswers={refinementAnswers}
               defaultAnswerQuestionIds={defaultAnswerQuestionIds}
               refinementAssumptions={refinementAssumptions}
@@ -347,7 +352,7 @@ export const PlanningSpecSection = ({
     <div className={`planning-step-column${hasActiveContent ? " planning-step-column-wide" : " planning-step-column-narrow"}`}>
       {hasActiveContent && !showingInlineSurvey ? (
         <div className="planning-step-actions planning-step-actions-end">
-          {activeRefinement?.questions.length ? (
+          {hasQuestionHistory ? (
             <button
               type="button"
               onClick={() => setActiveSurface("questions")}
@@ -369,6 +374,7 @@ export const PlanningSpecSection = ({
           <RefinementSection
             activeSpecStep={activeSpecStep}
             activeRefinement={activeRefinement}
+            reopenedQuestionContext={reopenedQuestionContext}
             refinementAnswers={refinementAnswers}
             defaultAnswerQuestionIds={defaultAnswerQuestionIds}
             refinementAssumptions={refinementAssumptions}

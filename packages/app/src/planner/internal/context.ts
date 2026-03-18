@@ -77,7 +77,7 @@ export const getRefinementHistory = (
 
   for (const phase of ["brief", "core-flows", "prd", "tech-spec"] as const) {
     const refinement = initiative.workflow.refinements[phase];
-    for (const question of refinement.questions) {
+    for (const question of refinement.history ?? refinement.questions) {
       history.push(toRefinementHistoryEntry(phase, question, refinement));
     }
     if (phase === step) {

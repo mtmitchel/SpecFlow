@@ -3,271 +3,16 @@ import type { InitiativePlanningQuestion, InitiativeRefinementState } from "../.
 import { getDecisionTypeLabel } from "../../../planning-decision-types.js";
 import { MarkdownView } from "../../components/markdown-view.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
-import type { RefinementAnswer, SaveState, SpecStep } from "./shared.js";
+import { RefinementField } from "./refinement-fields.js";
+import type { ReopenedQuestionContext } from "./refinement-history.js";
+import { getAnswerPreview, getFirstOpenQuestionId, getResumeQuestionId } from "./refinement-question-utils.js";
+import type { SaveState, SpecStep } from "./shared.js";
 import { isQuestionAnswered } from "./shared.js";
-const CUSTOM_ANSWER_SENTINEL = "Other";
-
-const getAnswerPreview = (
-  question: InitiativePlanningQuestion,
-  value: RefinementAnswer,
-  usingDefault: boolean,
-): string | null => {
-  if (usingDefault) {
-    return question.assumptionIfUnanswered;
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-
-  if (Array.isArray(value)) {
-    const resolvedValues = value.map((item) => item.trim()).filter(Boolean);
-    return resolvedValues.length > 0 ? resolvedValues.join(", ") : null;
-  }
-
-  return null;
-};
-
-const getFirstOpenQuestionId = (
-  activeRefinement: InitiativeRefinementState,
-  refinementAnswers: Record<string, string | string[] | boolean>,
-  defaultAnswerQuestionIds: string[],
-): string | null => {
-  const firstUnresolved = activeRefinement.questions.find(
-    (question) =>
-      !isQuestionAnswered(refinementAnswers[question.id]) && !defaultAnswerQuestionIds.includes(question.id),
-  );
-
-  return firstUnresolved?.id ?? activeRefinement.questions[0]?.id ?? null;
-};
-
-const getResumeQuestionId = (
-  activeRefinement: InitiativeRefinementState,
-  refinementAnswers: Record<string, string | string[] | boolean>,
-  defaultAnswerQuestionIds: string[],
-): string | null => {
-  const firstUnresolved = activeRefinement.questions.find(
-    (question) =>
-      !isQuestionAnswered(refinementAnswers[question.id]) && !defaultAnswerQuestionIds.includes(question.id),
-  );
-  if (firstUnresolved) {
-    return firstUnresolved.id;
-  }
-
-  return activeRefinement.questions[activeRefinement.questions.length - 1]?.id ?? null;
-};
-
-const OtherAnswerField = ({
-  value,
-  onChange
-}: {
-  value: string;
-  onChange: (nextValue: string) => void;
-}) => (
-  <textarea
-    className="multiline textarea-sm"
-    value={value}
-    placeholder="Add a custom answer"
-    rows={4}
-    onChange={(event) => onChange(event.target.value)}
-  />
-);
-
-const SelectChoiceCards = ({
-  question,
-  value,
-  onChange
-}: {
-  question: InitiativePlanningQuestion;
-  value: string | undefined;
-  onChange: (nextValue: string) => void;
-}) => {
-  const options = question.options ?? [];
-  const currentValue = value ?? "";
-  const hasCustomValue = currentValue !== "" && !options.includes(currentValue) && currentValue !== CUSTOM_ANSWER_SENTINEL;
-  const otherSelected =
-    question.allowCustomAnswer === true &&
-    (currentValue === CUSTOM_ANSWER_SENTINEL || hasCustomValue);
-
-  return (
-    <div className="clarification-option-list">
-      {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          className={`clarification-option-card clarification-option-button${currentValue === option ? " selected" : ""}`}
-          onClick={() => onChange(option)}
-        >
-          <div className="clarification-option-header">
-            <span>{option}</span>
-            {question.recommendedOption === option ? (
-              <span className="clarification-option-badge">Recommended</span>
-            ) : null}
-          </div>
-          {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
-        </button>
-      ))}
-      {question.allowCustomAnswer ? (
-        <>
-          <button
-            type="button"
-            className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
-            onClick={() => onChange(hasCustomValue ? currentValue : CUSTOM_ANSWER_SENTINEL)}
-          >
-            <div className="clarification-option-header">
-              <span>Other</span>
-            </div>
-            <p>Use a custom answer if none of these options fit.</p>
-          </button>
-          {otherSelected ? (
-            <OtherAnswerField
-              value={hasCustomValue ? currentValue : ""}
-              onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
-            />
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
-};
-
-const RefinementField = ({
-  question,
-  value,
-  onChange
-}: {
-  question: InitiativePlanningQuestion;
-  value: RefinementAnswer;
-  onChange: (nextValue: string | string[] | boolean) => void;
-}) => {
-  if (question.type === "boolean") {
-    const otherSelected = typeof value === "string";
-    return (
-      <div className="clarification-option-list">
-        {[
-          { label: "Yes", value: true, description: "Use this when the feature or constraint should be included." },
-          { label: "No", value: false, description: "Use this when it should stay out of scope or off by default." }
-        ].map((option) => (
-          <button
-            key={option.label}
-            type="button"
-            className={`clarification-option-card clarification-option-button${value === option.value ? " selected" : ""}`}
-            onClick={() => onChange(option.value)}
-          >
-            <div className="clarification-option-header">
-              <span>{option.label}</span>
-            </div>
-            <p>{option.description}</p>
-          </button>
-        ))}
-        {question.allowCustomAnswer ? (
-          <>
-            <button
-              type="button"
-              className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
-              onClick={() => onChange(typeof value === "string" && value.trim() ? value : CUSTOM_ANSWER_SENTINEL)}
-            >
-              <div className="clarification-option-header">
-                <span>Other</span>
-              </div>
-              <p>Use a custom answer if yes or no does not fit.</p>
-            </button>
-            {otherSelected ? (
-              <OtherAnswerField
-                value={typeof value === "string" && value !== CUSTOM_ANSWER_SENTINEL ? value : ""}
-                onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
-              />
-            ) : null}
-          </>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (question.type === "select") {
-    return (
-      <SelectChoiceCards
-        question={question}
-        value={typeof value === "string" ? value : undefined}
-        onChange={onChange}
-      />
-    );
-  }
-
-  if (question.type === "multi-select") {
-    const selected = Array.isArray(value) ? value : [];
-    const options = question.options ?? [];
-    const customValues = selected.filter((item) => !options.includes(item) && item !== CUSTOM_ANSWER_SENTINEL);
-    const hasOther =
-      question.allowCustomAnswer === true &&
-      (selected.includes(CUSTOM_ANSWER_SENTINEL) || customValues.length > 0);
-
-    return (
-      <div className="clarification-option-list">
-        {options.map((option) => (
-          <label key={option} className="clarification-option-card clarification-option-checkbox">
-            <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <input
-                type="checkbox"
-                checked={selected.includes(option)}
-                onChange={(event) => {
-                  if (event.target.checked) {
-                    onChange([...selected, option]);
-                  } else {
-                    onChange(selected.filter((item) => item !== option));
-                  }
-                }}
-              />
-              <span>{option}</span>
-            </span>
-            {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
-          </label>
-        ))}
-        {question.allowCustomAnswer ? (
-          <>
-            <label className="clarification-option-card clarification-option-checkbox">
-              <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={hasOther}
-                  onChange={(event) => {
-                    if (event.target.checked) {
-                      onChange([...selected.filter((item) => options.includes(item)), CUSTOM_ANSWER_SENTINEL]);
-                    } else {
-                      onChange(selected.filter((item) => options.includes(item)));
-                    }
-                  }}
-                />
-                <span>Other</span>
-              </span>
-              <p>Use a custom answer if none of these options fit.</p>
-            </label>
-            {hasOther ? (
-              <OtherAnswerField
-                value={customValues[0] ?? ""}
-                onChange={(nextValue) => {
-                  const baseValues = selected.filter((item) => options.includes(item));
-                  onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, CUSTOM_ANSWER_SENTINEL]);
-                }}
-              />
-            ) : null}
-          </>
-        ) : null}
-      </div>
-    );
-  }
-
-  return null;
-};
 
 interface RefinementSectionProps {
   activeSpecStep: SpecStep;
   activeRefinement: InitiativeRefinementState;
+  reopenedQuestionContext?: Record<string, ReopenedQuestionContext>;
   refinementAnswers: Record<string, string | string[] | boolean>;
   defaultAnswerQuestionIds: string[];
   refinementAssumptions: string[];
@@ -293,6 +38,7 @@ interface RefinementSectionProps {
 export const RefinementSection = ({
   activeSpecStep,
   activeRefinement,
+  reopenedQuestionContext = {},
   refinementAnswers,
   defaultAnswerQuestionIds,
   refinementAssumptions,
@@ -313,51 +59,62 @@ export const RefinementSection = ({
   onAnswerChange,
   onAnswerLater
 }: RefinementSectionProps) => {
+  const visibleQuestions = useMemo(
+    () => (activeRefinement.questions.length > 0 ? activeRefinement.questions : (activeRefinement.history ?? [])),
+    [activeRefinement.history, activeRefinement.questions],
+  );
+  const visibleRefinement = useMemo<InitiativeRefinementState>(
+    () => ({
+      ...activeRefinement,
+      questions: visibleQuestions,
+    }),
+    [activeRefinement, visibleQuestions],
+  );
   const [openQuestionId, setOpenQuestionId] = useState<string | null>(() =>
-    getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds),
+    getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds),
   );
   const compact = variant !== "full";
   const questionDeck = variant === "survey" || variant === "compact";
   const survey = variant === "survey";
 
-  const resolvedQuestionCount = activeRefinement.questions.length - unresolvedQuestionCount;
+  const resolvedQuestionCount = visibleQuestions.length - unresolvedQuestionCount;
   const completionPercent =
-    activeRefinement.questions.length === 0
+    visibleQuestions.length === 0
       ? 0
-      : Math.round((resolvedQuestionCount / activeRefinement.questions.length) * 100);
+      : Math.round((resolvedQuestionCount / visibleQuestions.length) * 100);
 
   useEffect(() => {
     if (openQuestionId === null) {
       if (questionDeck && unresolvedQuestionCount > 0) {
-        setOpenQuestionId(getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
+        setOpenQuestionId(getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
       }
       return;
     }
 
-    const hasOpenQuestion = activeRefinement.questions.some((question) => question.id === openQuestionId);
+    const hasOpenQuestion = visibleQuestions.some((question) => question.id === openQuestionId);
     if (hasOpenQuestion) {
       return;
     }
 
-    setOpenQuestionId(getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
-  }, [activeRefinement, defaultAnswerQuestionIds, openQuestionId, questionDeck, refinementAnswers, unresolvedQuestionCount]);
+    setOpenQuestionId(getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
+  }, [defaultAnswerQuestionIds, openQuestionId, questionDeck, refinementAnswers, unresolvedQuestionCount, visibleQuestions, visibleRefinement]);
 
   useEffect(() => {
     if (!survey || surveyResumeKey === 0) {
       return;
     }
 
-    setOpenQuestionId(getResumeQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
-  }, [activeRefinement, defaultAnswerQuestionIds, refinementAnswers, survey, surveyResumeKey]);
+    setOpenQuestionId(getResumeQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
+  }, [defaultAnswerQuestionIds, refinementAnswers, survey, surveyResumeKey, visibleRefinement]);
 
   const questionIds = useMemo(
-    () => activeRefinement.questions.map((question) => question.id),
-    [activeRefinement.questions],
+    () => visibleQuestions.map((question) => question.id),
+    [visibleQuestions],
   );
   const currentQuestion = questionDeck
     ? openQuestionId === null
       ? null
-      : activeRefinement.questions.find((question) => question.id === openQuestionId) ?? null
+      : visibleQuestions.find((question) => question.id === openQuestionId) ?? null
     : null;
   const currentQuestionIndex = currentQuestion ? questionIds.indexOf(currentQuestion.id) : -1;
   const previousQuestionId = currentQuestionIndex > 0 ? questionIds[currentQuestionIndex - 1] ?? null : null;
@@ -367,8 +124,38 @@ export const RefinementSection = ({
       : null;
   const surveyStepLabel =
     questionDeck && currentQuestionIndex >= 0
-      ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + activeRefinement.questions.length}`
+      ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + visibleQuestions.length}`
       : null;
+
+  const renderReopenedQuestionContext = (question: InitiativePlanningQuestion): ReactNode => {
+    if (!question.reopensQuestionIds?.length) {
+      return null;
+    }
+
+    const reopenedQuestions = question.reopensQuestionIds
+      .map((questionId) => reopenedQuestionContext[questionId])
+      .filter((context): context is ReopenedQuestionContext => Boolean(context));
+
+    if (reopenedQuestions.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="planning-inline-note planning-inline-note-reopen">
+        <div className="planning-reopen-context-copy">
+          <strong>Reopening an earlier decision</strong>
+          <ul className="planning-reopen-context-list">
+            {reopenedQuestions.map((context) => (
+              <li key={context.questionId}>
+                <span>{context.stepLabel}: {context.questionLabel}</span>
+                {context.resolutionLabel ? <span>{context.resolutionLabel}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -379,13 +166,13 @@ export const RefinementSection = ({
       {questionDeck ? (
         <div className="planning-survey-step-header">
           {surveyStepLabel ? <span className="planning-survey-card-step">{surveyStepLabel}</span> : null}
-          {saveStateIndicator}
+              {saveStateIndicator}
         </div>
       ) : !compact ? (
         <div className="planning-intake-header">
           <div>
             <div className="planning-intake-title">
-              {activeRefinement.questions.length} question{activeRefinement.questions.length === 1 ? "" : "s"} before the{" "}
+              {visibleQuestions.length} question{visibleQuestions.length === 1 ? "" : "s"} before the{" "}
               {INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()}
             </div>
             <p className="planning-intake-copy">
@@ -394,7 +181,7 @@ export const RefinementSection = ({
           </div>
           <div className="planning-intake-meta">
             <span>
-              {resolvedQuestionCount}/{activeRefinement.questions.length} resolved
+              {resolvedQuestionCount}/{visibleQuestions.length} resolved
             </span>
             {saveStateIndicator}
           </div>
@@ -429,7 +216,7 @@ export const RefinementSection = ({
 
       {!questionDeck ? (
         <div className="planning-intake-question-list">
-          {activeRefinement.questions.map((question, index) => {
+          {visibleQuestions.map((question, index) => {
             const usingDefault =
               defaultAnswerQuestionIds.includes(question.id) && !isQuestionAnswered(refinementAnswers[question.id]);
             const preview = getAnswerPreview(question, refinementAnswers[question.id], usingDefault);
@@ -470,6 +257,7 @@ export const RefinementSection = ({
                 {open ? (
                   <div className="planning-intake-question-panel">
                     <p className="planning-intake-question-support">{question.whyThisBlocks}</p>
+                    {renderReopenedQuestionContext(question)}
                     <RefinementField
                       question={question}
                       value={refinementAnswers[question.id]}
@@ -534,6 +322,7 @@ export const RefinementSection = ({
         <div className="planning-survey-question">
           <h3 className="planning-survey-question-title">{currentQuestion.label}</h3>
           <p className="planning-survey-question-copy">{currentQuestion.whyThisBlocks}</p>
+          {renderReopenedQuestionContext(currentQuestion)}
           <RefinementField
             question={currentQuestion}
             value={refinementAnswers[currentQuestion.id]}

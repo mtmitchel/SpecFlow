@@ -55,6 +55,20 @@ const initiative: Initiative = {
             allowCustomAnswer: true,
           },
         ],
+        history: [
+          {
+            id: "brief-problem",
+            label: "What primary problem should v1 solve?",
+            type: "select",
+            whyThisBlocks: "One focused problem, not a feature list.",
+            affectedArtifact: "brief",
+            decisionType: "problem",
+            assumptionIfUnanswered: "Focus on the primary note-taking problem.",
+            options: ["Capture quickly", "Organize better"],
+            recommendedOption: null,
+            allowCustomAnswer: true,
+          },
+        ],
         answers: {},
         defaultAnswerQuestionIds: [],
         baseAssumptions: [],
@@ -156,5 +170,51 @@ describe("InitiativeRouteView planning surfaces", () => {
     });
 
     expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+  });
+
+  it("can reopen the question surface from persisted history even after active questions are cleared", async () => {
+    fetchSpecDetailMock.mockResolvedValueOnce(briefSpecDetail);
+
+    renderRoute(
+      {
+        ...createSnapshot([briefSpecSummary]),
+        initiatives: [
+          {
+            ...initiative,
+            workflow: {
+              ...initiative.workflow,
+              steps: {
+                ...initiative.workflow.steps,
+                brief: { status: "complete", updatedAt: "2026-03-16T12:10:00.000Z" },
+                "core-flows": { status: "ready", updatedAt: null },
+              },
+              refinements: {
+                ...initiative.workflow.refinements,
+                brief: {
+                  ...initiative.workflow.refinements.brief,
+                  questions: [],
+                  answers: {
+                    "brief-problem": "Capture quickly",
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      `/initiative/${initiative.id}?step=brief&surface=review`,
+    );
+
+    const backButton = await screen.findByRole("button", { name: "Back" });
+    fireEvent.click(backButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        `/initiative/${initiative.id}?step=brief&surface=questions`,
+      );
+    });
+
+    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeInTheDocument();
   });
 });

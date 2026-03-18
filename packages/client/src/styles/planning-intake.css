@@ -226,6 +226,35 @@
   color: var(--warning-text);
 }
 
+.planning-inline-note-reopen {
+  align-items: flex-start;
+  border-color: var(--accent-border);
+  background: rgba(72, 203, 255, 0.08);
+}
+
+.planning-reopen-context-copy {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.planning-reopen-context-copy strong {
+  font-size: var(--font-body-sm);
+  color: var(--text);
+}
+
+.planning-reopen-context-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--muted);
+}
+
+.planning-reopen-context-list li {
+  display: grid;
+  gap: 0.12rem;
+}
+
 .planning-intake-question-list {
   display: grid;
   gap: 0.65rem;
