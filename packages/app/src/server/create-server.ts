@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { createSpecFlowRuntime } from "../runtime/create-runtime.js";
 import type { CreateSpecFlowRuntimeOptions, SpecFlowRuntime } from "../runtime/types.js";
@@ -29,17 +29,6 @@ export interface SpecFlowServer {
   start: () => Promise<string>;
   close: () => Promise<void>;
 }
-
-const sendNotImplemented = async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-  await reply.code(501).send({
-    error: "Not Implemented",
-    message: "This route is scaffolded and will be implemented by a later ticket"
-  });
-};
-
-const registerStubbedApiRoutes = (app: FastifyInstance): void => {
-  app.post("/api/runs", sendNotImplemented);
-};
 
 export const createSpecFlowServer = async (
   options: CreateSpecFlowServerOptions
@@ -89,8 +78,6 @@ export const createSpecFlowServer = async (
   registerRunAuditRoutes(app, { runtime });
   registerOperationRoutes(app, { runtime });
   registerImportRoutes(app, { runtime });
-
-  registerStubbedApiRoutes(app);
 
   return {
     app,

@@ -15,7 +15,6 @@ describe("server runtime routes", () => {
       expect(statusBody.protocolVersion).toBe(PROTOCOL_VERSION);
       expect(statusBody.capabilities).toMatchObject({
         artifacts: true,
-        plannerSse: true,
         verifySse: true,
         runStateSnapshot: true,
         exportBundle: true,

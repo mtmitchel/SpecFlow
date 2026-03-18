@@ -37,6 +37,12 @@ describe("run routes", () => {
       });
       expect(bundleZipResponse.statusCode).toBe(200);
       expect(bundleZipResponse.headers["content-type"]).toContain("application/zip");
+
+      const removedStubResponse = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/runs"
+      });
+      expect(removedStubResponse.statusCode).toBe(404);
     } finally {
       await fixture.cleanup();
     }
