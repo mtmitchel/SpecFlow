@@ -9,7 +9,7 @@ SpecFlow is a local-first desktop-first tool for a **solo non-developer who uses
 The tool's value proposition is: **turn a vague idea into structured planning artifacts, break those into ordered tickets, generate agent-ready prompt bundles, then verify the agent's output against acceptance criteria.**
 
 The four workflows are:
-1. **Groundwork** -- describe idea -> required brief intake for fresh initiatives -> AI creates Brief / Core flows / PRD / Tech spec with targeted blocker questions only when needed -> AI runs review gates and cross-checks -> AI generates phased ticket plan
+1. **Groundwork** -- describe idea -> required brief intake for fresh initiatives -> AI creates Brief / Core flows / PRD / Tech spec with targeted blocker questions only when needed -> AI can run planning reviews and cross-checks as secondary artifacts -> AI generates phased ticket plan
 2. **Milestone Run** -- export ticket as agent prompt -> user runs agent -> capture results -> AI verifies against criteria -> pass/fail with remediation hints
 3. **Quick Build** -- single-task shortcut (describe -> AI triages -> ticket -> export -> verify)
 4. **Drift Audit** -- point at a diff, AI categorizes findings (bug/security/performance/etc.)
@@ -20,7 +20,7 @@ The four workflows are:
 - `docs/workflows.md` -- all four workflows step by step
 - `packages/app/src/planner/prompt-builder.ts` -- the actual LLM prompts that generate blocker questions, artifacts, reviews, traces, and plans
 - `packages/app/src/planner/planner-service.ts` -- orchestration of planner jobs
-- `packages/app/src/planner/planning-reviews.ts` -- required review gates and cross-check ownership
+- `packages/app/src/planner/planning-reviews.ts` -- planning review and cross-check ownership
 - `packages/app/src/planner/workflow-state.ts` -- phase progression, refinement state, and stale invalidation
 - `packages/app/src/verify/internal/prompt.ts` -- the verifier prompt that checks agent output
 - `packages/client/src/app/views/initiative-creator.tsx` -- the UI flow for creating an initiative

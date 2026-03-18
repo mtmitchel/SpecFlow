@@ -1,5 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import type { ArtifactsSnapshot, Initiative } from "../../types.js";
+import type { ArtifactsSnapshot } from "../../types.js";
+import { getInitiativeProgressModel, getInitiativeResumeHref } from "../utils/initiative-progress.js";
+import { getInitiativeDisplayTitle } from "../utils/initiative-titles.js";
 
 interface IconRailProps {
   onOpenCommandPalette: () => void;
@@ -8,8 +10,8 @@ interface IconRailProps {
   snapshot: ArtifactsSnapshot;
 }
 
-const getMonogram = (initiative: Initiative): string => {
-  const tokens = initiative.title
+const getMonogram = (title: string): string => {
+  const tokens = title
     .split(/\s+/)
     .map((token) => token[0]?.toUpperCase())
     .filter(Boolean)
@@ -106,18 +108,20 @@ export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent
       <div className="icon-rail-group icon-rail-initiatives" aria-label="Initiative shortcuts">
         {initiatives.map((initiative) => {
           const active = activeInitiativeId === initiative.id;
+          const displayTitle = getInitiativeDisplayTitle(initiative.title, initiative.description);
+          const progress = getInitiativeProgressModel(initiative, snapshot);
 
           return (
             <button
               key={initiative.id}
               type="button"
               className={`icon-rail-initiative${active ? " active" : ""}`}
-              onClick={() => navigate(`/initiative/${initiative.id}`)}
-              aria-label={initiative.title}
-              title={initiative.title}
+              onClick={() => navigate(getInitiativeResumeHref(initiative, progress))}
+              aria-label={displayTitle}
+              title={displayTitle}
             >
-              <span className="icon-rail-initiative-mark">{getMonogram(initiative)}</span>
-              <span className="icon-rail-initiative-label">{initiative.title}</span>
+              <span className="icon-rail-initiative-mark">{getMonogram(displayTitle)}</span>
+              <span className="icon-rail-initiative-label">{displayTitle}</span>
             </button>
           );
         })}

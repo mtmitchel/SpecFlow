@@ -11,7 +11,7 @@
   align-items: center;
   gap: 0.55rem;
   color: var(--text);
-  font-size: 1.05rem;
+  font-size: 1rem;
   opacity: 0.7;
 }
 
@@ -26,8 +26,8 @@
 
 .planning-topbar {
   display: grid;
-  gap: 1.15rem;
-  padding: 1.25rem 1.75rem 1.35rem;
+  gap: 0.95rem;
+  padding: 1rem 1.35rem 1.1rem;
   border: 1px solid rgba(152, 188, 220, 0.16);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(16, 24, 38, 0.62), rgba(16, 24, 38, 0.48));
@@ -44,12 +44,50 @@
 .planning-topbar-row {
   display: flex;
   justify-content: space-between;
-  gap: 1.25rem;
+  gap: 1rem;
   align-items: center;
 }
 
 .planning-topbar-pipeline {
   padding: 0;
+}
+
+.planning-topbar .pipeline-node {
+  gap: 0.5rem;
+  min-width: 86px;
+}
+
+.planning-topbar .pipeline-segment-has-connector::before {
+  top: 0.48rem;
+}
+
+.planning-topbar .pipeline-dot {
+  width: 9px;
+  height: 9px;
+}
+
+.planning-topbar .pipeline-node-complete .pipeline-dot {
+  width: 11px;
+  height: 11px;
+}
+
+.planning-topbar .pipeline-node-active .pipeline-dot,
+.planning-topbar .pipeline-node-selected .pipeline-dot,
+.planning-topbar .pipeline-node-checkpoint .pipeline-dot,
+.planning-topbar .pipeline-node-generating .pipeline-dot {
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 0 0 6px rgba(72, 203, 255, 0.12);
+}
+
+.planning-topbar .pipeline-node-execution.pipeline-node-active .pipeline-dot,
+.planning-topbar .pipeline-node-execution.pipeline-node-selected .pipeline-dot,
+.planning-topbar .pipeline-node-execution.pipeline-node-generating .pipeline-dot {
+  box-shadow: 0 0 0 6px rgba(184, 156, 255, 0.12);
+}
+
+.planning-topbar .pipeline-label {
+  font-size: 0.92rem;
 }
 
 .planning-content-area {
@@ -128,6 +166,10 @@
   justify-content: center;
 }
 
+.planning-step-actions-end {
+  justify-content: flex-end;
+}
+
 .planning-entry-counter {
   color: var(--muted);
   font-size: var(--font-body-sm);
@@ -154,24 +196,68 @@
   align-items: flex-start;
 }
 
-.planning-step-header {
+.planning-document-card-header {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.planning-step-title-row {
-  display: flex;
   align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
+  gap: 1rem;
+  min-height: 2.25rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--panel-border);
 }
 
-.planning-step-title-row h2 {
+.planning-document-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.planning-document-card-title {
   margin: 0;
-  font-size: 1.48rem;
-  line-height: 1.2;
+  flex: 1;
+  font-size: 1.75rem;
+  line-height: 1.15;
+}
+
+.planning-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-button);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.planning-icon-button:hover {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.planning-icon-button-danger {
+  border-color: var(--danger-border);
+  color: var(--danger-text-muted);
+  background: transparent;
+}
+
+.planning-icon-button-danger:hover {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.planning-icon-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .planning-step-copy {
@@ -180,29 +266,6 @@
   font-size: 1.08rem;
   line-height: 1.6;
   max-width: 44rem;
-}
-
-.planning-step-status {
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent-border-subtle);
-  padding: 0.2rem 0.72rem;
-  font-size: 1rem;
-  color: var(--accent-text-light);
-  background: var(--accent-bg-subtle);
-}
-
-.planning-step-status-complete {
-  border-color: var(--success-border);
-  color: var(--success-text);
-  background: var(--success-bg);
-}
-
-.planning-step-status-checkpoint {
-  border-color: var(--warning-border);
-  color: var(--warning-text);
-  background: var(--warning-bg);
 }
 
 .planning-view-toggle {
@@ -374,7 +437,7 @@
   padding: 1rem;
 }
 
-.planning-topbar .btn-danger-subtle,
+.planning-topbar .planning-icon-button,
 .planning-entry-card-footer button,
 .planning-step-actions button,
 .side-drawer-header-actions button {
@@ -382,6 +445,13 @@
   padding: 0.76rem 1.05rem;
   border-radius: var(--radius-md);
   font-size: 1rem;
+}
+
+.planning-topbar .planning-icon-button {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
 }
 
 .planning-entry-card .multiline,
@@ -433,7 +503,6 @@
 
 @media (max-width: 1000px) {
   .planning-topbar-row,
-  .planning-step-header,
   .side-drawer-header {
     flex-direction: column;
   }

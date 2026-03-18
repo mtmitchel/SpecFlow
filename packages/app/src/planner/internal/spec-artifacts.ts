@@ -13,6 +13,10 @@ import {
   buildTicketCoverageItems,
   getTicketCoverageArtifactId
 } from "../ticket-coverage.js";
+import {
+  extractInitiativeTitleFromBriefMarkdown,
+  shouldReplaceInitiativeTitle
+} from "./initiative-title-sync.js";
 import { completeWorkflowStep } from "../workflow-state.js";
 import type {
   PhaseMarkdownResult,
@@ -135,8 +139,15 @@ export const persistPhaseMarkdown = async (input: {
   upsertArtifactTrace: (trace: ArtifactTraceOutline) => Promise<void>;
   markPlanningArtifactsStale: (initiativeId: string, step: InitiativeArtifactStep) => Promise<void>;
 }): Promise<void> => {
+  const nextInitiativeTitle =
+    input.step === "brief" &&
+    shouldReplaceInitiativeTitle(input.initiative.title, input.initiative.description)
+      ? extractInitiativeTitleFromBriefMarkdown(input.result.markdown) ?? input.initiative.title
+      : input.initiative.title;
+
   const updatedInitiative: Initiative = {
     ...input.initiative,
+    title: nextInitiativeTitle,
     status: "active",
     specIds: Array.from(new Set([...input.initiative.specIds, `${input.initiative.id}:${input.step}`])),
     workflow: completeWorkflowStep(input.initiative.workflow, input.step, input.nowIso),

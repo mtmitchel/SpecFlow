@@ -41,7 +41,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
     try {
       const result = await createInitiative(description.trim());
       await onRefresh();
-      navigate(`/initiative/${result.initiativeId}?step=brief&handoff=created`);
+      navigate(`/initiative/${result.initiativeId}?step=brief`);
     } catch (err) {
       showError((err as Error).message ?? "Failed to create initiative");
     } finally {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   checkInitiativePhase,
@@ -31,7 +31,6 @@ import {
   getInitiativeResumeStep,
   getNextInitiativeStep,
   INITIATIVE_WORKFLOW_LABELS,
-  REQUIRED_REVIEWS_BEFORE_STEP,
   REVIEWS_BY_STEP
 } from "../../utils/initiative-workflow.js";
 import {
@@ -83,6 +82,8 @@ export const useInitiativePlanningWorkspace = (
   const [reviewOverrideReason, setReviewOverrideReason] = useState("");
   const [drawerState, setDrawerState] = useState<PlanningDrawerState>(null);
   const [loadedSpecs, setLoadedSpecs] = useState<Record<SpecStep, string>>(EMPTY_DRAFTS);
+  const [autoQuestionLoadStep, setAutoQuestionLoadStep] = useState<SpecStep | null>(null);
+  const [autoQuestionLoadFailedStep, setAutoQuestionLoadFailedStep] = useState<SpecStep | null>(null);
 
   const specLoadSignature = useMemo(() => {
     if (!initiative) {
@@ -170,6 +171,10 @@ export const useInitiativePlanningWorkspace = (
     : [];
   const getReview = (kind: PlanningReviewKind): PlanningReviewArtifact | undefined =>
     initiativeReviews.find((item) => item.kind === kind);
+  const hasOutstandingReview = (kind: PlanningReviewKind): boolean => {
+    const review = getReview(kind);
+    return Boolean(review && !isResolvedReview(review));
+  };
 
   const reviewBlockedStep = initiative ? getInitiativeBlockedStep(initiative.workflow, initiativeReviews) : null;
   const requestedStep = searchParams.get("step");
@@ -238,6 +243,10 @@ export const useInitiativePlanningWorkspace = (
   const hasActiveContent = activeSpecStep ? savedDrafts[activeSpecStep].trim().length > 0 : false;
   const activeContent = activeSpecStep ? drafts[activeSpecStep] : "";
   const hasRefinementQuestions = Boolean(activeRefinement && activeRefinement.questions.length > 0);
+  const hasPhaseSpecificRefinementDecisions = Boolean(
+    activeRefinement &&
+      (Object.keys(activeRefinement.answers).length > 0 || activeRefinement.defaultAnswerQuestionIds.length > 0)
+  );
   const unresolvedQuestionCount = activeRefinement
     ? activeRefinement.questions.filter(
         (question) => !isQuestionResolved(question, refinementAnswers, defaultAnswerQuestionIds)
@@ -245,11 +254,8 @@ export const useInitiativePlanningWorkspace = (
     : 0;
   const nextStep = getNextInitiativeStep(activeStep);
   const unresolvedReviewsForActiveStep = activeSpecStep
-    ? REVIEWS_BY_STEP[activeSpecStep].filter((kind) => !isResolvedReview(getReview(kind)))
+    ? []
     : [];
-  const blockingReviewBeforeActiveStep = REQUIRED_REVIEWS_BEFORE_STEP(activeStep).find(
-    (kind) => !isResolvedReview(getReview(kind))
-  );
   const ticketReviewsResolved =
     !ticketCoverageReview || ticketCoverageReview.status === "passed" || ticketCoverageReview.status === "overridden";
   const activeStage: PlanningJourneyStage =
@@ -365,16 +371,18 @@ export const useInitiativePlanningWorkspace = (
     showError
   ]);
 
-  const withBusyAction = async (action: string, run: () => Promise<void>) => {
+  const withBusyAction = useCallback(async (action: string, run: () => Promise<void>): Promise<boolean> => {
     setBusyAction(action);
     try {
       await run();
+      return true;
     } catch (error) {
       showError((error as Error).message ?? "Initiative action failed");
+      return false;
     } finally {
       setBusyAction(null);
     }
-  };
+  }, [showError]);
 
   const navigateToStep = (step: InitiativePlanningStep): void => {
     setSearchParams({ step });
@@ -385,23 +393,19 @@ export const useInitiativePlanningWorkspace = (
       return;
     }
 
-    const result =
+    await (
       step === "brief"
-        ? await generateInitiativeBrief(initiative.id)
+        ? generateInitiativeBrief(initiative.id)
         : step === "core-flows"
-          ? await generateInitiativeCoreFlows(initiative.id)
+          ? generateInitiativeCoreFlows(initiative.id)
           : step === "prd"
-            ? await generateInitiativePrd(initiative.id)
-            : await generateInitiativeTechSpec(initiative.id);
+            ? generateInitiativePrd(initiative.id)
+            : generateInitiativeTechSpec(initiative.id)
+    );
 
     await onRefresh();
     setEditingStep(null);
     setDraftSaveState((current) => ({ ...current, [step]: "saved" }));
-    const followingStep = getNextInitiativeStep(step);
-    const reviewsResolved = result.reviews.every((review) => review.status === "passed" || review.status === "overridden");
-    if (followingStep && reviewsResolved) {
-      navigateToStep(followingStep);
-    }
   };
 
   const handleGenerateSpec = async (step: SpecStep): Promise<void> => {
@@ -410,17 +414,66 @@ export const useInitiativePlanningWorkspace = (
     });
   };
 
-  const handleCheckAndAdvance = async (step: SpecStep): Promise<void> => {
+  const handleCheckAndAdvance = useCallback(async (step: SpecStep): Promise<boolean> => {
     if (!initiative) {
-      return;
+      return false;
     }
 
-    await withBusyAction(`check-${step}`, async () => {
+    return withBusyAction(`check-${step}`, async () => {
       const result = await checkInitiativePhase(initiative.id, step);
       await onRefresh();
       setRefinementAssumptions(result.assumptions);
     });
-  };
+  }, [initiative, onRefresh, withBusyAction]);
+
+  const shouldAutoLoadEntryQuestions = Boolean(
+    initiative &&
+      activeSpecStep &&
+      activeSpecStep !== "brief" &&
+      !hasActiveContent &&
+      !hasRefinementQuestions &&
+      !hasPhaseSpecificRefinementDecisions
+  );
+
+  useEffect(() => {
+    if (!initiative || !activeSpecStep) {
+      return;
+    }
+
+    if (!shouldAutoLoadEntryQuestions) {
+      setAutoQuestionLoadStep((current) => (current === activeSpecStep ? null : current));
+      setAutoQuestionLoadFailedStep((current) => (current === activeSpecStep ? null : current));
+      return;
+    }
+
+    if (busyAction || autoQuestionLoadStep === activeSpecStep || autoQuestionLoadFailedStep === activeSpecStep) {
+      return;
+    }
+
+    setAutoQuestionLoadStep(activeSpecStep);
+
+    void handleCheckAndAdvance(activeSpecStep).then((success) => {
+      setAutoQuestionLoadStep((current) => (current === activeSpecStep ? null : current));
+      setAutoQuestionLoadFailedStep((current) => {
+        if (success) {
+          return current === activeSpecStep ? null : current;
+        }
+
+        return activeSpecStep;
+      });
+    });
+  }, [
+    activeRefinement?.checkedAt,
+    activeSpecStep,
+    autoQuestionLoadFailedStep,
+    autoQuestionLoadStep,
+    busyAction,
+    handleCheckAndAdvance,
+    hasActiveContent,
+    hasRefinementQuestions,
+    initiative,
+    shouldAutoLoadEntryQuestions
+  ]);
 
   const handleGenerateTickets = async (): Promise<void> => {
     if (!initiative) {
@@ -478,7 +531,7 @@ export const useInitiativePlanningWorkspace = (
       const remainingUnresolved =
         activeSpecStep
           ? REVIEWS_BY_STEP[activeSpecStep].filter(
-              (reviewKind) => reviewKind !== kind && !isResolvedReview(getReview(reviewKind))
+              (reviewKind) => reviewKind !== kind && hasOutstandingReview(reviewKind)
             )
           : [];
       setReviewOverrideKind(null);
@@ -515,12 +568,6 @@ export const useInitiativePlanningWorkspace = (
     setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "idle" }));
   };
 
-  const openReviewDrawer = (step: SpecStep, reviewKind: PlanningReviewKind) => {
-    setReviewOverrideKind(null);
-    setReviewOverrideReason("");
-    setDrawerState({ type: "review", step, reviewKind });
-  };
-
   const openRefinementDrawer = async (step: SpecStep) => {
     setReviewOverrideKind(null);
     setReviewOverrideReason("");
@@ -540,19 +587,6 @@ export const useInitiativePlanningWorkspace = (
       await onRefresh();
       setRefinementAssumptions(result.assumptions);
     });
-  };
-
-  const selectReviewInDrawer = (reviewKind: PlanningReviewKind) => {
-    setDrawerState((current) =>
-      current?.type === "review"
-        ? {
-            ...current,
-            reviewKind
-          }
-        : current
-    );
-    setReviewOverrideKind(null);
-    setReviewOverrideReason("");
   };
 
   const openDocumentDrawer = (step: SpecStep) => {
@@ -663,14 +697,16 @@ export const useInitiativePlanningWorkspace = (
     hasActiveContent,
     activeContent,
     hasRefinementQuestions,
+    hasPhaseSpecificRefinementDecisions,
     unresolvedQuestionCount,
     nextStep,
     unresolvedReviewsForActiveStep,
-    blockingReviewBeforeActiveStep,
     navigateToStep,
     handleDeleteInitiative,
     handleGenerateSpec,
     handleCheckAndAdvance,
+    autoQuestionLoadStep,
+    autoQuestionLoadFailedStep,
     handleGenerateTickets,
     handleRequestGuidance,
     handleRunReview,
@@ -683,9 +719,7 @@ export const useInitiativePlanningWorkspace = (
     setReviewOverride,
     clearReviewOverride,
     setReviewOverrideReason,
-    openReviewDrawer,
     openRefinementDrawer,
-    selectReviewInDrawer,
     openDocumentDrawer,
     openEditDrawer,
     closeDrawer

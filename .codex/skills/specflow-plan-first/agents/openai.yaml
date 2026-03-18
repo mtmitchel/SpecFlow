@@ -1,0 +1,4 @@
+interface:
+  display_name: "SpecFlow Plan-First"
+  short_description: "Route requests into SpecFlow workflows"
+  default_prompt: "Use $specflow-plan-first to decide whether this request belongs in Groundwork, Quick Build, Milestone Run, Drift Audit, or direct execution, then structure the next step."

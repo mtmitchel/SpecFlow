@@ -7,6 +7,7 @@ Documentation for SpecFlow.
 | File | What it covers |
 |---|---|
 | [`product-brief.md`](product-brief.md) | Problem statement, goals, success criteria, non-goals |
+| [`product-ux-audit.md`](product-ux-audit.md) | End-to-end product, workflow, and UX audit with prioritized findings, target journey, and redesign roadmap |
 | [`product-language-spec.md`](product-language-spec.md) | Canonical product vocabulary, phase language, status labels, CTA rules, empty states, and transition messaging |
 | [`workflows.md`](workflows.md) | Four user workflows (Groundwork, Milestone Run, Quick Build, Drift Audit) with step-by-step flows and state diagrams |
 | [`architecture.md`](architecture.md) | Technical architecture: package structure, data model, component responsibilities, API surface, sequence diagrams |
@@ -38,8 +39,8 @@ Key capabilities in the current version:
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
 - Shared initiative pipeline: Brief -> Core flows -> PRD -> Tech spec -> Tickets -> Execute -> Verify -> Done as one continuous visual model
 - Mandatory brief intake before the first brief is generated
-- Inline creator handoff: `/new-initiative` flows directly into required brief intake in the same screen
-- Persisted review gates and cross-checks across planning artifacts
+- Direct planning entry: `/new-initiative` flows straight into the shared Brief survey instead of a separate handoff mode
+- Persisted planning reviews and cross-checks remain available, but they no longer block artifact-to-artifact progression between Brief, Core flows, PRD, and Tech spec
 - Traceability-backed planning with artifact sidecar trace outlines
 - Spec-driven ticket planning with repo context scanning (grounded file targets)
 - Coverage checks that can block initiative ticket export and execution until gaps are resolved or explicitly overridden

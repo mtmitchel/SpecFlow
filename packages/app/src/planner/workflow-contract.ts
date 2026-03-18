@@ -77,15 +77,6 @@ export const getArtifactStepsFrom = (step: InitiativeArtifactStep): InitiativeAr
 export const getReviewsOwnedByArtifactStep = (step: InitiativeArtifactStep): PlanningReviewKind[] =>
   REVIEWS_BY_ARTIFACT_STEP[step];
 
-export const getReviewsRequiredBeforePlanningStep = (step: InitiativePlanningStep): PlanningReviewKind[] => {
-  const prerequisite = getPrerequisitePlanningStep(step);
-  if (!prerequisite || prerequisite === "tickets") {
-    return [];
-  }
-
-  return REVIEWS_BY_ARTIFACT_STEP[prerequisite];
-};
-
 export const getPrerequisitePlanningStep = (step: InitiativePlanningStep): InitiativePlanningStep | null => {
   const index = PLANNING_STEPS.indexOf(step);
   if (index <= 0) {

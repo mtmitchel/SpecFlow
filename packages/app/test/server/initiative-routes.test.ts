@@ -153,4 +153,70 @@ describe("initiative routes", () => {
       await fixture.cleanup();
     }
   });
+
+  it("does not block PRD generation when core flow reviews are unresolved", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      await fixture.store.upsertInitiative({
+        ...fixture.initiative,
+        workflow: {
+          ...fixture.initiative.workflow,
+          activeStep: "prd",
+          steps: {
+            brief: { status: "complete", updatedAt: fixture.initiative.updatedAt },
+            "core-flows": { status: "complete", updatedAt: fixture.initiative.updatedAt },
+            prd: { status: "ready", updatedAt: null },
+            "tech-spec": { status: "locked", updatedAt: null },
+            tickets: { status: "locked", updatedAt: null }
+          }
+        },
+        updatedAt: fixture.initiative.updatedAt
+      });
+
+      const coreFlowsReview = fixture.store.planningReviews.get("initiative-11223344:core-flows-review");
+      const crosscheckReview = fixture.store.planningReviews.get("initiative-11223344:core-flows-prd-crosscheck");
+      if (!coreFlowsReview || !crosscheckReview) {
+        throw new Error("Expected fixture planning reviews to exist");
+      }
+
+      await fixture.store.upsertPlanningReview({
+        ...coreFlowsReview,
+        status: "blocked",
+        summary: "Core flows still need review.",
+        findings: [
+          {
+            id: "finding-core-flows-1",
+            type: "blocker",
+            message: "A review artifact is still unresolved.",
+            relatedArtifacts: ["core-flows"]
+          }
+        ],
+        updatedAt: fixture.initiative.updatedAt
+      });
+      await fixture.store.upsertPlanningReview({
+        ...crosscheckReview,
+        status: "blocked",
+        summary: "Cross-check still needs review.",
+        findings: [
+          {
+            id: "finding-core-flows-prd-1",
+            type: "blocker",
+            message: "The cross-check artifact is still unresolved.",
+            relatedArtifacts: ["core-flows", "prd"]
+          }
+        ],
+        updatedAt: fixture.initiative.updatedAt
+      });
+
+      const response = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/initiatives/initiative-11223344/generate-prd"
+      });
+
+      expect(response.statusCode).toBe(200);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
 });

@@ -6,7 +6,30 @@ import { createSpecFlowRuntime } from "./runtime/create-runtime.js";
 import type { SidecarFailure, SidecarRequest } from "./runtime/sidecar-contract.js";
 import { dispatchSidecarRequest, isMutatingSidecarMethod } from "./sidecar/dispatcher.js";
 
-const REQUEST_TTL_MS = 5 * 60_000;
+const DEFAULT_REQUEST_TTL_MS = 5 * 60_000;
+const LONG_REQUEST_TTL_MS = 10 * 60_000;
+
+// Planner generation/review and verification flows can chain multiple internal jobs.
+// Their aggregate budget can exceed the default request window even when each child job
+// stays within its own timeout, so they need a longer sidecar allowance.
+const usesLongRequestTimeout = (method: string): boolean =>
+  method === "audit.run" ||
+  method === "import.githubIssue" ||
+  method === "initiatives.phaseCheck" ||
+  method === "initiatives.refinement.help" ||
+  method === "initiatives.generate.brief" ||
+  method === "initiatives.generate.coreFlows" ||
+  method === "initiatives.generate.prd" ||
+  method === "initiatives.generate.techSpec" ||
+  method === "initiatives.review.run" ||
+  method === "initiatives.generatePlan" ||
+  method === "tickets.create" ||
+  method === "tickets.exportBundle" ||
+  method === "tickets.exportFixBundle" ||
+  method === "tickets.captureResults";
+
+const getRequestTtlMs = (method: string): number =>
+  usesLongRequestTimeout(method) ? LONG_REQUEST_TTL_MS : DEFAULT_REQUEST_TTL_MS;
 
 const writeMessage = (message: unknown): void => {
   process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -93,7 +116,7 @@ const main = async (): Promise<void> => {
     inflight.set(request.id, controller);
     const requestTimeout = setTimeout(() => {
       controller.abort(new RequestCancelledError("Request timed out"));
-    }, REQUEST_TTL_MS);
+    }, getRequestTtlMs(request.method));
 
     const runDispatch = async (): Promise<void> => {
       await dispatchSidecarRequest(runtime, request, writeMessage, controller.signal);

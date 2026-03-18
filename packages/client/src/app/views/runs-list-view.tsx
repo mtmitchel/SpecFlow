@@ -67,8 +67,13 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
 
       {loading ? (
         <div className="aggregate-empty">
-          <p>Loading runs...</p>
-
+          <div className="status-loading-card" role="status" aria-live="polite">
+            <span className="status-loading-spinner" aria-hidden="true" />
+            <div className="status-loading-copy">
+              <strong>Loading runs</strong>
+              <span>SpecFlow is collecting the latest execution and audit history.</span>
+            </div>
+          </div>
         </div>
       ) : runs.length === 0 ? (
         <div className="aggregate-empty">

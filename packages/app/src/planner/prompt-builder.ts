@@ -131,6 +131,9 @@ const buildCheckPrompt = (
   artifactDescription: string
 ): PromptBuildResult => {
   const requiresInitialConsultation = input.phase === "brief" && input.requiresInitialConsultation;
+  const requiredStarterQuestionCount =
+    input.phase !== "brief" ? (input.requiredStarterQuestionCount ?? 0) : 0;
+  const requiresStarterQuestions = requiredStarterQuestionCount > 0;
 
   return {
     systemPrompt,
@@ -143,6 +146,15 @@ const buildCheckPrompt = (
             "- Ask exactly 4 short consultation questions that cover the primary problem, primary first-release user, success criteria, and hard constraints or platform/package targets.",
             "- Do not return proceed or an empty questions array for this first Brief consultation."
           ]
+        : requiresStarterQuestions
+          ? [
+              `- This is the first required ${artifactDescription} consultation before any ${artifactDescription.toLowerCase()} artifact exists. You must return "ask".`,
+              `- Ask exactly ${requiredStarterQuestionCount} short blocker questions that will materially shape the first ${artifactDescription.toLowerCase()} draft.`,
+              input.phase === "core-flows"
+                ? "- Cover three different decision areas: the primary user journey, a meaningful edge or destructive flow, and a product behavior or state rule that changes the flow map."
+                : "- Cover distinct decision areas that would materially change the first draft.",
+              `- Do not return proceed or an empty questions array for this first ${artifactDescription} consultation.`
+            ]
         : [
             '- Default to "proceed". Ask questions only when missing information would materially change the current artifact and would be costly to unwind later.'
           ]),
@@ -151,7 +163,7 @@ const buildCheckPrompt = (
       "- If you ask, every question must explain why it blocks this artifact and include an assumptionIfUnanswered.",
       '- Every question must use "select", "multi-select", or "boolean". Never use "text".',
       "- Prefer 2 to 5 options per question. Include a recommendedOption when one choice is clearly best.",
-      ...(requiresInitialConsultation
+      ...(requiresInitialConsultation || requiresStarterQuestions
         ? []
         : ["- If you can proceed, return an empty questions array and include any explicit assumptions you are making."]),
       "- Do not ask broad discovery questions. Ask only about blockers for this artifact.",
@@ -269,6 +281,7 @@ export const buildPlannerPrompt = (
   if (job === "brief-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Brief", [
       "Capture the problem, target user, goals, success criteria, scope, constraints, and explicit assumptions.",
+      'Use a neutral top-level heading. If the initiative does not explicitly provide a product name, the heading must be exactly "# Brief". Never invent or assign a product, app, or code name.',
       'The traceOutline should include sections for "users", "goals", "constraints", "assumptions", and "success-criteria".'
     ]);
   }

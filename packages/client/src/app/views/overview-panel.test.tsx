@@ -75,20 +75,23 @@ const snapshot: ArtifactsSnapshot = {
 };
 
 describe("OverviewPanel", () => {
-  it("shows a ranked up-next queue and initiative cards driven by workflow progress", () => {
+  it("shows one clear resume action, then secondary work and recent initiatives", () => {
     render(
       <MemoryRouter>
         <OverviewPanel snapshot={snapshot} onOpenCommandPalette={vi.fn()} />
       </MemoryRouter>
     );
 
-    expect(screen.getByText("In progress")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review brief.*Linux Notes/i })).toHaveAttribute(
+    expect(screen.getByText("Resume")).toBeInTheDocument();
+    expect(screen.getByText("Also moving")).toBeInTheDocument();
+    expect(screen.getByText("Recent initiatives")).toBeInTheDocument();
+    expect(screen.getByText("Pick up where you left off")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Continue brief.*Linux Notes/i })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=brief`
     );
     expect(screen.getByText("Verify quick task")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Review brief")).toHaveLength(1);
+    expect(screen.getAllByText("Continue brief")).toHaveLength(1);
   });
 });

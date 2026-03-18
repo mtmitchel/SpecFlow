@@ -7,6 +7,11 @@
   padding: 0.55rem 0 2.5rem;
 }
 
+.journey-home-section {
+  display: grid;
+  gap: 0.95rem;
+}
+
 .action-queue {
   display: grid;
   gap: 0.95rem;
@@ -22,6 +27,14 @@
 .action-queue-list {
   display: grid;
   gap: 0.7rem;
+}
+
+.action-queue-kicker {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .action-queue-row {
@@ -46,6 +59,10 @@
 .action-queue-row.featured {
   border-color: var(--accent-border);
   background: linear-gradient(180deg, rgba(72, 203, 255, 0.12), rgba(16, 24, 38, 0.92));
+}
+
+.action-queue-row-resume {
+  padding: 1.35rem 1.45rem;
 }
 
 .action-queue-row-review {

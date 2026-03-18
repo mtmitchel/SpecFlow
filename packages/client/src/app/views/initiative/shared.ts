@@ -21,7 +21,6 @@ export interface ReviewQuestion {
 }
 export type PlanningJourneyStage = "consult" | "draft" | "checkpoint" | "complete";
 export type PlanningDrawerState =
-  | { type: "review"; step: SpecStep; reviewKind: PlanningReviewKind }
   | { type: "refinement"; step: SpecStep }
   | { type: "document"; step: SpecStep }
   | { type: "edit"; step: SpecStep }

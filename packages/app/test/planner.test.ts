@@ -93,9 +93,10 @@ const mockProviderRegistryFetch: typeof fetch = async (input, init) => {
   throw new Error(`Unexpected fetch request: ${url}`);
 };
 
-const resolveBriefConsultation = async (
+const resolvePhaseConsultation = async (
   store: ArtifactStore,
   initiativeId: string,
+  step: "brief" | "core-flows" | "prd" | "tech-spec",
   defaultAnswerQuestionIds: string[]
 ): Promise<void> => {
   const initiative = store.initiatives.get(initiativeId);
@@ -105,13 +106,19 @@ const resolveBriefConsultation = async (
 
   await store.upsertInitiative({
     ...initiative,
-    workflow: updateRefinementState(initiative.workflow, "brief", {
+    workflow: updateRefinementState(initiative.workflow, step, {
       defaultAnswerQuestionIds,
-      checkedAt: initiative.workflow.refinements.brief.checkedAt ?? "2026-02-27T20:00:00.000Z"
+      checkedAt: initiative.workflow.refinements[step].checkedAt ?? "2026-02-27T20:00:00.000Z"
     }),
     updatedAt: "2026-02-27T20:00:00.000Z"
   });
 };
+
+const resolveBriefConsultation = async (
+  store: ArtifactStore,
+  initiativeId: string,
+  defaultAnswerQuestionIds: string[]
+): Promise<void> => resolvePhaseConsultation(store, initiativeId, "brief", defaultAnswerQuestionIds);
 
 describe("PlannerService", () => {
   it("marks the first brief-check prompt as required starter consultation", () => {
@@ -131,6 +138,97 @@ describe("PlannerService", () => {
     expect(prompt.userPrompt).toContain('You must return "ask"');
     expect(prompt.userPrompt).toContain("Ask exactly 4 short consultation questions");
     expect(prompt.userPrompt).toContain('Every question must use "select", "multi-select", or "boolean"');
+  });
+
+  it("marks the first core-flows check as required starter questions when no artifact exists yet", () => {
+    const prompt = buildPlannerPrompt(
+      "core-flows-check",
+      {
+        initiativeDescription: "Build auth",
+        phase: "core-flows",
+        briefMarkdown: "# Brief",
+        coreFlowsMarkdown: "",
+        savedContext: {},
+        requiredStarterQuestionCount: 3
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain('You must return "ask"');
+    expect(prompt.userPrompt).toContain("first required Core flows consultation");
+    expect(prompt.userPrompt).toContain("Ask exactly 3 short blocker questions");
+    expect(prompt.userPrompt).toContain("Cover three different decision areas");
+    expect(prompt.userPrompt).not.toContain('Default to "proceed"');
+  });
+
+  it("rejects first core-flows consultations that return fewer than three starter questions", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-core-flows-check-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-core-flows";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: new MockLlmClient([
+          JSON.stringify({
+            decision: "ask",
+            questions: [
+              {
+                id: "core-flow-primary-path",
+                label: "Which note flow should the first core flows draft optimize for?",
+                whyThisBlocks: "The first core flows draft needs one explicit primary path.",
+                affectedArtifact: "core-flows",
+                decisionType: "workflow",
+                type: "select",
+                assumptionIfUnanswered: "Optimize for fast note capture first.",
+                options: [
+                  "Capture first",
+                  "Browse first"
+                ],
+                optionHelp: {
+                  "Capture first": "Use this when the first draft should start from creating a note.",
+                  "Browse first": "Use this when the first draft should start from navigating existing notes."
+                },
+                recommendedOption: "Capture first"
+              }
+            ],
+            assumptions: []
+          })
+        ]),
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "def67890"
+      });
+
+      const initiative = await planner.createDraftInitiative({ description: "Build auth" });
+      await expect(
+        planner.runPhaseCheckJob({
+          initiativeId: initiative.id,
+          step: "core-flows"
+        })
+      ).rejects.toThrow("at least 3 starter questions");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
   });
 
   it("includes AGENTS.md content in prompts for phase checks, phase generation, plan, and triage", async () => {
@@ -159,6 +257,70 @@ describe("PlannerService", () => {
         JSON.stringify({
           markdown: "# Brief",
           traceOutline: traceOutline("Brief")
+        }),
+        JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "core-flow-primary-path",
+              label: "Which note flow should the first core flows draft optimize for?",
+              whyThisBlocks: "The first core flows draft needs one explicit primary path.",
+              affectedArtifact: "core-flows",
+              decisionType: "workflow",
+              type: "select",
+              assumptionIfUnanswered: "Optimize for fast note capture first.",
+              options: [
+                "Capture first",
+                "Browse first"
+              ],
+              optionHelp: {
+                "Capture first": "Use this when the first draft should start from creating a note.",
+                "Browse first": "Use this when the first draft should start from navigating existing notes."
+              },
+              recommendedOption: "Capture first"
+            },
+            {
+              id: "core-flow-delete-behavior",
+              label: "How should deletion work in the initial release?",
+              whyThisBlocks: "Deletion behavior changes the flow map, states, and recovery paths.",
+              affectedArtifact: "core-flows",
+              decisionType: "data",
+              type: "select",
+              assumptionIfUnanswered: "Use Trash with undo before permanent removal.",
+              options: [
+                "Trash with undo",
+                "Permanent delete",
+                "Trash with scheduled purge"
+              ],
+              optionHelp: {
+                "Trash with undo": "Use this when recovery should stay in the first release.",
+                "Permanent delete": "Use this when simple deletion matters more than recoverability.",
+                "Trash with scheduled purge": "Use this when recovery matters but cleanup should stay automatic."
+              },
+              recommendedOption: "Trash with undo"
+            },
+            {
+              id: "core-flow-default-view",
+              label: "Which workspace should open first when the app launches?",
+              whyThisBlocks: "The launch destination changes the primary navigation and first-run flow.",
+              affectedArtifact: "core-flows",
+              decisionType: "workflow",
+              type: "select",
+              assumptionIfUnanswered: "Open the note list first and let users enter the editor from there.",
+              options: [
+                "Note list first",
+                "Editor first",
+                "Restore last open view"
+              ],
+              optionHelp: {
+                "Note list first": "Use this when browsing and finding notes should anchor the app.",
+                "Editor first": "Use this when immediate writing should be the default experience.",
+                "Restore last open view": "Use this when repeat use should pick up where the user left off."
+              },
+              recommendedOption: "Note list first"
+            }
+          ],
+          assumptions: []
         }),
         JSON.stringify({
           decision: "proceed",
@@ -265,6 +427,15 @@ describe("PlannerService", () => {
         initiativeId: initiative.id,
         step: "core-flows"
       });
+      await resolvePhaseConsultation(store, initiative.id, "core-flows", [
+        "core-flow-primary-path",
+        "core-flow-delete-behavior",
+        "core-flow-default-view"
+      ]);
+      await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "core-flows"
+      });
       await planner.runCoreFlowsJob({
         initiativeId: initiative.id
       });
@@ -287,7 +458,7 @@ describe("PlannerService", () => {
 
       expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
       expect(store.planningReviews.get(`${initiative.id}:brief-review`)?.status).toBe("passed");
-      expect(mockClient.requests).toHaveLength(18);
+      expect(mockClient.requests).toHaveLength(19);
       expect(mockClient.requests[0]?.userPrompt).toContain('Default to "proceed"');
       for (const req of mockClient.requests) {
         expect(req.systemPrompt).toContain("team-rules: always include tests");

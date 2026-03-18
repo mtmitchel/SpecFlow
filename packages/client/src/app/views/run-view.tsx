@@ -269,7 +269,13 @@ export const RunView = ({
   if (loading) {
     return (
       <section>
-        <p>Loading run detail...</p>
+        <div className="status-loading-card" role="status" aria-live="polite">
+          <span className="status-loading-spinner" aria-hidden="true" />
+          <div className="status-loading-copy">
+            <strong>Loading run detail</strong>
+            <span>SpecFlow is pulling together the latest execution history and verification results.</span>
+          </div>
+        </div>
       </section>
     );
   }
@@ -382,7 +388,15 @@ export const RunView = ({
 
             {showAuditPanel ? <AuditPanel runId={detail.run.id} defaultScopePaths={detail.ticket?.fileTargets ?? []} /> : null}
 
-            {attemptLoading ? <p className="ticket-empty-note">Loading committed attempt...</p> : null}
+            {attemptLoading ? (
+              <div className="status-loading-card" role="status" aria-live="polite">
+                <span className="status-loading-spinner" aria-hidden="true" />
+                <div className="status-loading-copy">
+                  <strong>Loading committed attempt</strong>
+                  <span>SpecFlow is fetching the saved run summary for this attempt.</span>
+                </div>
+              </div>
+            ) : null}
             {attemptError ? <p className="ticket-empty-note">{attemptError}</p> : null}
             <MarkdownView content={committedAttemptDetail?.agentSummary || "(no summary provided)"} />
           </RunReportCard>
@@ -395,7 +409,12 @@ export const RunView = ({
             ) : (
               <div className="button-row">
                 <button type="button" onClick={() => void loadDiff("primary")} disabled={primaryDiffLoading}>
-                  {primaryDiffLoading ? "Loading diff..." : "Load diff"}
+                  {primaryDiffLoading ? (
+                    <span className="btn-loading">
+                      <span className="status-loading-spinner" aria-hidden="true" />
+                      <span className="loading-label-pulse">Loading diff...</span>
+                    </span>
+                  ) : "Load diff"}
                 </button>
               </div>
             )}
@@ -419,7 +438,12 @@ export const RunView = ({
                     }
                   }}
                 >
-                  {showDrift ? "Hide diff" : driftDiffLoading ? "Loading diff..." : "Show diff"}
+                  {showDrift ? "Hide diff" : driftDiffLoading ? (
+                    <span className="btn-loading">
+                      <span className="status-loading-spinner" aria-hidden="true" />
+                      <span className="loading-label-pulse">Loading drift diff...</span>
+                    </span>
+                  ) : "Show diff"}
                 </button>
               </div>
               {showDrift && driftDiff ? <DiffViewer title="Drift diff" diff={driftDiff} /> : null}

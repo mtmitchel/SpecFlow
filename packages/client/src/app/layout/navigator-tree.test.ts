@@ -80,9 +80,11 @@ const snapshot: ArtifactsSnapshot = {
 describe("buildNavigatorTree", () => {
   it("builds a project-focused tree without aggregate ticket or run links", () => {
     const tree = buildNavigatorTree(snapshot);
+    const initiativeNode = tree.find((node) => node.type === "initiative");
 
     expect(tree.some((node) => node.type === "aggregate-link")).toBe(false);
     expect(tree.some((node) => node.type === "initiative")).toBe(true);
     expect(tree.some((node) => node.type === "quick-tasks-header")).toBe(true);
+    expect(initiativeNode?.path).toBe(`/ticket/${initiativeTicket.id}`);
   });
 });

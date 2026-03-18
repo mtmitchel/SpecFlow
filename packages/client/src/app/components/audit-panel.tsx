@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createTicketFromAuditFinding,
@@ -83,13 +83,6 @@ export const AuditPanel = ({
     }
   }, [runId, mode, branch, fromCommit, toCommit, scopeInput, scopeTouched, widenedInput, showError]);
 
-  const executeAuditRef = useRef(executeAudit);
-  executeAuditRef.current = executeAudit;
-
-  useEffect(() => {
-    void executeAuditRef.current();
-  }, [runId]);
-
   return (
     <div className="panel">
       <h3>Drift Audit</h3>
@@ -132,11 +125,16 @@ export const AuditPanel = ({
 
       <div className="button-row">
         <button type="button" onClick={() => void executeAudit()} disabled={busy}>
-          {busy ? "Running..." : "Run Audit"}
+          {busy ? (
+            <span className="btn-loading">
+              <span className="status-loading-spinner" aria-hidden="true" />
+              <span className="loading-label-pulse">Running audit...</span>
+            </span>
+          ) : "Run Audit"}
         </button>
       </div>
 
-      {!report ? <p>No audit report yet.</p> : null}
+      {!report ? <p>Choose the diff source, adjust scope if needed, and run the audit when you're ready.</p> : null}
       {report ? (
         <div className="audit-layout">
           <div>

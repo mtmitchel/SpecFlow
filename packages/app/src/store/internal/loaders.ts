@@ -36,6 +36,8 @@ import {
   parsePlanningReviewArtifact,
   parseTicketCoverageArtifact
 } from "./planning-artifact-validation.js";
+import { extractSpecSummaryTitle } from "./spec-summary-titles.js";
+import { shouldReplaceInitiativeTitle } from "../../planner/internal/initiative-title-sync.js";
 
 export const loadInitiatives = async (input: {
   rootDir: string;
@@ -53,7 +55,7 @@ export const loadInitiatives = async (input: {
       continue;
     }
 
-    input.initiatives.set(initiative.id, initiative);
+    let briefSummaryTitle: string | null = null;
 
     const docTuples: Array<{ fileName: string; type: SpecDocument["type"]; title: string }> = [
       { fileName: "brief.md", type: "brief", title: "Brief" },
@@ -68,19 +70,36 @@ export const loadInitiatives = async (input: {
         continue;
       }
 
+      const markdown = await readFile(filePath, "utf8");
       const fileStat = await stat(filePath);
       const specId = `${initiative.id}:${doc.type}`;
+      const summaryTitle = extractSpecSummaryTitle(doc.type, markdown, doc.title);
+
+      if (doc.type === "brief") {
+        briefSummaryTitle = summaryTitle;
+      }
 
       input.specs.set(specId, {
         id: specId,
         initiativeId: initiative.id,
         type: doc.type,
-        title: doc.title,
+        title: summaryTitle,
         sourcePath: filePath,
         createdAt: fileStat.birthtime.toISOString(),
         updatedAt: fileStat.mtime.toISOString()
       });
     }
+
+    const normalizedInitiative =
+      briefSummaryTitle &&
+      shouldReplaceInitiativeTitle(initiative.title, initiative.description)
+        ? {
+            ...initiative,
+            title: briefSummaryTitle,
+          }
+        : initiative;
+
+    input.initiatives.set(normalizedInitiative.id, normalizedInitiative);
 
     const reviewFileNames = await listFileNames(initiativeReviewsDir(input.rootDir, id));
     for (const fileName of reviewFileNames) {

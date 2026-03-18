@@ -8,11 +8,6 @@ import {
   notFound
 } from "../errors.js";
 import { getTicketExecutionGate } from "../../planner/execution-gates.js";
-import {
-  REVIEW_KIND_LABELS,
-  getReviewsRequiredBeforeStep,
-  isReviewResolved
-} from "../../planner/planning-reviews.js";
 import type { InitiativePlanningStep } from "../../types/entities.js";
 import { PLANNING_STEP_LABELS } from "../../planner/workflow-contract.js";
 import { isValidEntityId } from "../../server/validation.js";
@@ -60,19 +55,6 @@ export const requireCoverageReviewResolved = (runtime: SpecFlowRuntime, ticket: 
     message: gate.message,
     reviewKind: gate.reviewKind
   });
-};
-
-export const requireResolvedReviews = (
-  runtime: SpecFlowRuntime,
-  initiative: Initiative,
-  step: InitiativePlanningStep
-): void => {
-  for (const kind of getReviewsRequiredBeforeStep(step)) {
-    const review = runtime.store.planningReviews.get(`${initiative.id}:${kind}`);
-    if (!review || !isReviewResolved(review.status)) {
-      throw conflict(`${stepLabel(step)} is not ready until "${REVIEW_KIND_LABELS[kind]}" is resolved`);
-    }
-  }
 };
 
 export const requirePlanningReviewKind = (kind: string): PlanningReviewKind => {

@@ -5,6 +5,7 @@ import type {
   Ticket
 } from "../../types/entities.js";
 import { requiresInitialBriefConsultation } from "../brief-consultation.js";
+import { getRequiredStarterQuestionCount } from "../refinement-check-policy.js";
 import { getRefinementAssumptions } from "../workflow-state.js";
 import type {
   PhaseCheckInput,
@@ -65,7 +66,15 @@ export const buildPhaseCheckInput = (
           initiative,
           briefMarkdown: markdownByStep.brief
         })
-      : false
+      : false,
+  requiredStarterQuestionCount:
+    step === "core-flows" &&
+    !markdownByStep["core-flows"].trim() &&
+    initiative.workflow.refinements["core-flows"].questions.length === 0 &&
+    Object.keys(initiative.workflow.refinements["core-flows"].answers).length === 0 &&
+    initiative.workflow.refinements["core-flows"].defaultAnswerQuestionIds.length === 0
+      ? getRequiredStarterQuestionCount(step)
+      : 0
 });
 
 export const buildSpecGenerationInput = (

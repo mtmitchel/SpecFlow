@@ -112,7 +112,12 @@ export const TicketsStepSection = ({
               onClick={() => void onGenerateTickets()}
             >
               {busyAction === "generate-tickets"
-                ? "Generating..."
+                ? (
+                  <span className="btn-loading">
+                    <span className="status-loading-spinner" aria-hidden="true" />
+                    <span className="loading-label-pulse">Generating tickets...</span>
+                  </span>
+                )
                 : initiative.workflow.steps.tickets.status === "stale"
                   ? "Refresh tickets"
                   : "Generate tickets"}

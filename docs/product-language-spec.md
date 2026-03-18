@@ -549,7 +549,7 @@ The app should not rename the same concept from screen to screen.
 These screens carry the most product-language risk and should stay aligned first when the UI changes.
 
 1. [initiative-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative-view.tsx)
-2. [initiative-handoff-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative-handoff-view.tsx)
+2. [planning-spec-section.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative/planning-spec-section.tsx)
 3. [initiative-creator.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/initiative-creator.tsx)
 4. [overview-panel.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/overview-panel.tsx)
 5. [ticket-view.tsx](/home/mason/Projects/SpecFlow/packages/client/src/app/views/ticket-view.tsx)

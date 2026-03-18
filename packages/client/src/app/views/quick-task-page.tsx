@@ -35,7 +35,7 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
       if (result.decision === "ok") {
         navigate(`/ticket/${result.ticketId}`);
       } else {
-        navigate(`/initiative/${result.initiativeId}?step=brief&handoff=quick-task`);
+        navigate(`/initiative/${result.initiativeId}?step=brief`);
       }
     } catch (error) {
       showError((error as Error).message ?? "Quick task failed");

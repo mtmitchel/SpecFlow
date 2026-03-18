@@ -1,4 +1,5 @@
 import type { ArtifactsSnapshot, Initiative, Ticket, TicketStatus } from "../../types.js";
+import { getInitiativeProgressModel, getInitiativeResumeHref } from "../utils/initiative-progress.js";
 import { getInitiativeDisplayTitle } from "../utils/initiative-titles.js";
 
 export type NavigatorNodeType =
@@ -41,6 +42,8 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
 
   for (const initiative of initiatives) {
     const initiativeTickets = tickets.filter((t) => t.initiativeId === initiative.id);
+    const initiativeProgress = getInitiativeProgressModel(initiative, snapshot);
+    const initiativePath = getInitiativeResumeHref(initiative, initiativeProgress);
 
     const children: NavigatorNode[] = [];
 
@@ -55,7 +58,7 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
           id: `phase-${phase.id}`,
           type: "phase",
           label: phase.name,
-          path: `/initiative/${initiative.id}`,
+          path: `/initiative/${initiative.id}?step=tickets`,
           status: phase.status,
           children: phaseChildren
         });
@@ -77,7 +80,7 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
       id: `initiative-${initiative.id}`,
       type: "initiative",
       label: getInitiativeDisplayTitle(initiative.title, initiative.description),
-      path: `/initiative/${initiative.id}`,
+      path: initiativePath,
       status: statusDotClass(initiative.status),
       children
     });

@@ -113,7 +113,13 @@ const AppInner = () => {
     return (
       <div className="loading">
         <div className="loading-brand">SF</div>
-        <div className="loading-text">Starting SpecFlow</div>
+        <div className="status-loading-card" role="status" aria-live="polite">
+          <span className="status-loading-spinner" aria-hidden="true" />
+          <div className="status-loading-copy">
+            <strong>Starting SpecFlow</strong>
+            <span>Loading your workspace and reconnecting the local runtime.</span>
+          </div>
+        </div>
       </div>
     );
   }

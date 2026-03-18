@@ -45,7 +45,7 @@ const snapshot: ArtifactsSnapshot = {
 
 const LocationProbe = () => {
   const location = useLocation();
-  return <div data-testid="location">{location.pathname}</div>;
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
 };
 
 describe("IconRail", () => {
@@ -95,5 +95,22 @@ describe("IconRail", () => {
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByText("Local Notes")).toBeInTheDocument();
     expect(screen.getByText("Navigator")).toBeInTheDocument();
+  });
+
+  it("opens initiative shortcuts at the current meaningful step instead of the bare initiative route", () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <LocationProbe />
+        <IconRail
+          snapshot={snapshot}
+          navigatorOpen={false}
+          onOpenCommandPalette={vi.fn()}
+          navigatorContent={<div>Navigator</div>}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Local Notes" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(`/initiative/${initiative.id}?step=brief`);
   });
 });

@@ -1,6 +1,5 @@
 import type {
   InitiativeArtifactStep,
-  InitiativePlanningStep,
   PlanningReviewArtifact,
   PlanningReviewKind
 } from "../types/entities.js";
@@ -11,7 +10,6 @@ import {
   REVIEWS_BY_ARTIFACT_STEP as REQUIRED_REVIEWS_BY_COMPLETED_STEP,
   getArtifactStepsFrom,
   getReviewsOwnedByArtifactStep,
-  getReviewsRequiredBeforePlanningStep,
   isReviewResolved
 } from "./workflow-contract.js";
 
@@ -20,9 +18,6 @@ export { isReviewResolved };
 
 export const getReviewsOwnedByStep = (step: InitiativeArtifactStep): PlanningReviewKind[] =>
   getReviewsOwnedByArtifactStep(step);
-
-export const getReviewsRequiredBeforeStep = (step: InitiativePlanningStep): PlanningReviewKind[] =>
-  getReviewsRequiredBeforePlanningStep(step);
 
 export const isReviewBlocking = (review: PlanningReviewArtifact | undefined): boolean =>
   !review || !isReviewResolved(review.status);

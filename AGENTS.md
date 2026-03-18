@@ -333,6 +333,14 @@ When reporting completed work, include:
 - what is not done: anything from the acceptance criteria that remains incomplete
 - known risks: anything uncertain or likely to need follow-up
 
+Every substantive assistant response must end with a `Next steps` section.
+
+- That section must name one recommended action, written in imperative language.
+- It must say who should do it if that is not obvious.
+- It must explain why that action is the correct immediate move.
+- Do not end with vague closures such as a grade, status note, finding list, or phrases like `if you want` / `we could also`.
+- Do not use option dumps. The close must present one concrete recommendation, not a loose list of possible next actions.
+
 Do not omit failures. Do not say "tests pass" without real output. Do not say "should work."
 
 ## 15. Commit and PR Guidelines

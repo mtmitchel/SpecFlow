@@ -49,13 +49,26 @@ const validateQuestions = (
 
 export const validatePhaseCheckResult = (
   result: PhaseCheckResult,
-  maxQuestions: number
+  maxQuestions: number,
+  requiredQuestionCount = 0
 ): void => {
   if (result.decision !== "proceed" && result.decision !== "ask") {
     throw new Error(`Phase-check decision must be "proceed" or "ask", received "${String(result.decision)}"`);
   }
 
   validateQuestions(result.questions, maxQuestions);
+
+  if (requiredQuestionCount > 0) {
+    if (result.decision !== "ask") {
+      throw new Error('Phase-check decision must be "ask" when starter questions are required');
+    }
+
+    if (result.questions.length < requiredQuestionCount) {
+      throw new Error(
+        `Phase-check result must include at least ${requiredQuestionCount} starter question${requiredQuestionCount === 1 ? "" : "s"} when starter questions are required`
+      );
+    }
+  }
 
   if (!Array.isArray(result.assumptions)) {
     throw new Error("Phase-check result missing assumptions array");

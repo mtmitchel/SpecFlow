@@ -13,7 +13,6 @@ import { badRequest, conflict } from "../errors.js";
 import {
   readInitiative,
   requirePlanningReviewKind,
-  requireResolvedReviews,
   stepLabel,
   structuredPlannerError
 } from "./shared.js";
@@ -174,7 +173,6 @@ export const saveInitiativeSpec = async (
   if (!canEditStep(initiative.workflow, step)) {
     throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
   }
-  requireResolvedReviews(runtime, initiative, step);
 
   const content = body.content?.trim() ?? "";
   if (!content) {
@@ -228,7 +226,6 @@ export const runInitiativePhaseCheck = async (
   if (!canEditStep(initiative.workflow, step)) {
     throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
   }
-  requireResolvedReviews(runtime, initiative, step);
 
   try {
     return await runtime.plannerService.runPhaseCheckJob({ initiativeId, step }, undefined, signal);
@@ -251,7 +248,6 @@ const runGenerator = async (
   if (!canEditStep(initiative.workflow, step)) {
     throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
   }
-  requireResolvedReviews(runtime, initiative, step);
 
   if (!hasCheckedPhase(initiative, step)) {
     throw conflict(`Run ${stepLabel(step)} checks before creating this artifact`);
@@ -284,7 +280,6 @@ export const validateInitiativeArtifactGeneration = (
   if (!canEditStep(initiative.workflow, step)) {
     throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
   }
-  requireResolvedReviews(runtime, initiative, step);
 
   if (!hasCheckedPhase(initiative, step)) {
     throw conflict(`Run ${stepLabel(step)} checks before creating this artifact`);
@@ -361,7 +356,6 @@ export const validateInitiativePlanGeneration = (
   if (!canEditStep(initiative.workflow, "tickets")) {
     throw conflict("Tickets are not ready until the tech spec is done");
   }
-  requireResolvedReviews(runtime, initiative, "tickets");
 
   const ticketsStatus = initiative.workflow.steps.tickets.status;
   if (ticketsStatus === "complete") {

@@ -25,7 +25,7 @@ export const getPlanningQuestionActionLabel = (
     return step === "brief" ? "Answer a few questions" : `Answer ${getPlanningStepName(step)} questions`;
   }
 
-  return "Change inputs";
+  return "Revise answers";
 };
 
 export const getPlanningGenerateActionLabel = (
@@ -36,9 +36,15 @@ export const getPlanningGenerateActionLabel = (
 export const getPlanningNextActionLabel = (step: InitiativePlanningStep): string =>
   step === "tickets" ? "Continue to tickets" : `Continue to ${getPlanningStepName(step)}`;
 
+export const getPlanningResumeActionLabel = (step: InitiativePlanningStep): string =>
+  step === "tickets" ? "Continue tickets" : `Continue ${getPlanningStepName(step)}`;
+
 export const getPlanningStageCopy = (
   step: InitiativePlanningStep,
-  stage: "consult" | "draft" | "checkpoint" | "complete"
+  stage: "consult" | "draft" | "checkpoint" | "complete",
+  options?: {
+    readyToGenerate?: boolean;
+  }
 ): string | null => {
   if (stage === "consult") {
     return step === "brief"
@@ -47,6 +53,12 @@ export const getPlanningStageCopy = (
   }
 
   if (stage === "draft") {
+    if (options?.readyToGenerate) {
+      return step === "brief"
+        ? "Brief intake is complete. No more context is required right now. Generate the brief when you're ready."
+        : `Inputs are complete. No more context is required right now. Generate the ${getPlanningStepName(step)} when you're ready.`;
+    }
+
     return step === "tickets"
       ? "Break the work into tickets when the plan feels stable."
       : `Generate the ${getPlanningStepName(step)} when you're ready.`;
@@ -90,6 +102,10 @@ export const getInitiativeQueueActionLabel = (
 
   if (progress.currentKey === "brief" && !initiative.workflow.refinements.brief.checkedAt) {
     return "Answer a few questions";
+  }
+
+  if (initiative.workflow.steps[progress.currentKey].status === "stale") {
+    return getPlanningResumeActionLabel(progress.currentKey);
   }
 
   return getPlanningNextActionLabel(progress.currentKey);

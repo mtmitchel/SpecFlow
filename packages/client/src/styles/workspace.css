@@ -150,6 +150,13 @@
   transform: scale(0.8);
 }
 
+.icon-rail.open .icon-rail-initiative-mark {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  transform: scale(0.8);
+}
+
 .icon-rail.open .icon-rail-logo-label {
   margin-left: 0;
 }

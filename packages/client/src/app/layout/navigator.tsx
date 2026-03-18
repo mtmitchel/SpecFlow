@@ -260,13 +260,6 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
 
   return (
     <div className="navigator">
-      {activeInitiativeNode ? (
-        <div className="navigator-section">
-          <div className="navigator-section-label">Current initiative</div>
-          <div className="navigator-section-title">{activeInitiativeNode.label}</div>
-        </div>
-      ) : null}
-
       {contentNodes.length > 0 ? (
         <div role="tree" aria-label="Project navigator" className="navigator-tree">
           {contentNodes.map(renderItem)}

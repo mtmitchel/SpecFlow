@@ -86,6 +86,7 @@ export interface PhaseCheckInput {
   prdMarkdown?: string;
   savedContext?: Record<string, string | string[] | boolean>;
   requiresInitialConsultation?: boolean;
+  requiredStarterQuestionCount?: number;
 }
 
 export interface SpecGenInput {

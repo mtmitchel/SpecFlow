@@ -61,7 +61,7 @@ describe("getInitiativeProgressModel", () => {
     expect(getInitiativeQueueActionLabel(baseInitiative, progress)).toBe("Answer a few questions");
   });
 
-  it("shows a planning checkpoint when brief review is unresolved", () => {
+  it("keeps brief stale active when it needs more work, without exposing a planning review gate", () => {
     const initiative: Initiative = {
       ...baseInitiative,
       workflow: {
@@ -70,6 +70,13 @@ describe("getInitiativeProgressModel", () => {
           ...baseInitiative.workflow.steps,
           brief: { status: "stale", updatedAt: "2026-03-16T10:05:00.000Z" },
           "core-flows": { status: "ready", updatedAt: "2026-03-16T10:06:00.000Z" },
+        },
+        refinements: {
+          ...baseInitiative.workflow.refinements,
+          brief: {
+            ...baseInitiative.workflow.refinements.brief,
+            checkedAt: "2026-03-16T10:05:00.000Z",
+          },
         },
       },
     };
@@ -96,36 +103,36 @@ describe("getInitiativeProgressModel", () => {
     );
 
     expect(progress.currentKey).toBe("brief");
-    expect(progress.nodes.find((node) => node.key === "brief")?.state).toBe("checkpoint");
-    expect(progress.currentNodeState).toBe("checkpoint");
-    expect(progress.currentReviewKind).toBe("brief-review");
-    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Review brief");
+    expect(progress.nodes.find((node) => node.key === "brief")?.state).toBe("active");
+    expect(progress.currentNodeState).toBe("active");
+    expect(progress.currentReviewKind).toBeNull();
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Continue brief");
   });
 
   it.each([
     {
-      blockedStep: "brief" as const,
+      completedStep: "brief" as const,
       nextStep: "core-flows" as const,
       reviewKind: "brief-review" as const,
     },
     {
-      blockedStep: "core-flows" as const,
+      completedStep: "core-flows" as const,
       nextStep: "prd" as const,
       reviewKind: "core-flows-review" as const,
     },
     {
-      blockedStep: "prd" as const,
+      completedStep: "prd" as const,
       nextStep: "tech-spec" as const,
       reviewKind: "prd-review" as const,
     },
     {
-      blockedStep: "tech-spec" as const,
+      completedStep: "tech-spec" as const,
       nextStep: "tickets" as const,
       reviewKind: "tech-spec-review" as const,
     },
   ])(
-    "keeps $blockedStep current when its review is still unresolved after completion",
-    ({ blockedStep, nextStep, reviewKind }) => {
+    "continues to $nextStep even when $completedStep still has an unresolved planning review artifact",
+    ({ completedStep, nextStep, reviewKind }) => {
       const steps: Initiative["workflow"]["steps"] = {
         brief: { status: "locked", updatedAt: null },
         "core-flows": { status: "locked", updatedAt: null },
@@ -167,7 +174,7 @@ describe("getInitiativeProgressModel", () => {
               status: "blocked",
               summary: "Still blocked.",
               findings: [],
-              sourceUpdatedAts: { [blockedStep]: "2026-03-16T10:20:00.000Z" },
+              sourceUpdatedAts: { [completedStep]: "2026-03-16T10:20:00.000Z" },
               overrideReason: null,
               reviewedAt: "2026-03-16T10:31:00.000Z",
               updatedAt: "2026-03-16T10:31:00.000Z",
@@ -176,10 +183,11 @@ describe("getInitiativeProgressModel", () => {
         }),
       );
 
-      expect(progress.currentKey).toBe(blockedStep);
-      expect(progress.currentNodeState).toBe("checkpoint");
-      expect(progress.nodes.find((node) => node.key === blockedStep)?.state).toBe("checkpoint");
-      expect(progress.nodes.find((node) => node.key === nextStep)?.state).toBe("future");
+      expect(progress.currentKey).toBe(nextStep);
+      expect(progress.currentNodeState).toBe("active");
+      expect(progress.nodes.find((node) => node.key === completedStep)?.state).toBe("complete");
+      expect(progress.nodes.find((node) => node.key === nextStep)?.state).toBe("active");
+      expect(progress.currentReviewKind).toBeNull();
     },
   );
 

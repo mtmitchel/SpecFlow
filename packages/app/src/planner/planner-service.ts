@@ -50,6 +50,7 @@ import {
   validateReviewRunResult,
   validateTriageResult
 } from "./internal/validators.js";
+import { CHECK_BUDGET_BY_STEP } from "./refinement-check-policy.js";
 import type { PlannerJob } from "./prompt-builder.js";
 import type {
   ClarifyHelpInput,
@@ -88,13 +89,6 @@ const REFINEMENT_JOB_BY_STEP: Record<
   "core-flows": "core-flows-check",
   prd: "prd-check",
   "tech-spec": "tech-spec-check"
-};
-
-const CHECK_BUDGET_BY_STEP: Record<RefinementStep, number> = {
-  brief: 4,
-  "core-flows": 2,
-  prd: 3,
-  "tech-spec": 3
 };
 
 const INITIAL_BRIEF_REVIEW_SUMMARY =
@@ -144,6 +138,7 @@ export class PlannerService {
   ): Promise<PhaseCheckResult> {
     const initiative = this.requireInitiative(input.initiativeId);
     const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
+    const phaseCheckInput = buildPhaseCheckInput(initiative, input.step, markdownByStep);
     const initialBriefConsultationRequired =
       input.step === "brief" &&
       requiresInitialBriefConsultation({
@@ -154,12 +149,16 @@ export class PlannerService {
       ? buildRequiredBriefConsultationResult()
         : await this.executePlannerJob<PhaseCheckResult>(
           REFINEMENT_JOB_BY_STEP[input.step],
-          buildPhaseCheckInput(initiative, input.step, markdownByStep),
+          phaseCheckInput,
           onToken,
           signal
         );
 
-    validatePhaseCheckResult(result, CHECK_BUDGET_BY_STEP[input.step]);
+    validatePhaseCheckResult(
+      result,
+      CHECK_BUDGET_BY_STEP[input.step],
+      phaseCheckInput.requiredStarterQuestionCount ?? 0
+    );
 
     const nowIso = this.now().toISOString();
     await this.store.upsertInitiative({

@@ -12,7 +12,36 @@ use tauri_plugin_shell::ShellExt;
 use tokio::sync::{oneshot, Mutex};
 use tokio::time::sleep;
 
-const PENDING_REQUEST_TTL: Duration = Duration::from_secs(300);
+const DEFAULT_PENDING_REQUEST_TTL: Duration = Duration::from_secs(330);
+const LONG_PENDING_REQUEST_TTL: Duration = Duration::from_secs(630);
+
+fn uses_long_pending_timeout(method: &str) -> bool {
+    matches!(
+        method,
+        "audit.run"
+            | "import.githubIssue"
+            | "initiatives.phaseCheck"
+            | "initiatives.refinement.help"
+            | "initiatives.generate.brief"
+            | "initiatives.generate.coreFlows"
+            | "initiatives.generate.prd"
+            | "initiatives.generate.techSpec"
+            | "initiatives.review.run"
+            | "initiatives.generatePlan"
+            | "tickets.create"
+            | "tickets.exportBundle"
+            | "tickets.exportFixBundle"
+            | "tickets.captureResults"
+    )
+}
+
+fn pending_request_ttl(method: &str) -> Duration {
+    if uses_long_pending_timeout(method) {
+        LONG_PENDING_REQUEST_TTL
+    } else {
+        DEFAULT_PENDING_REQUEST_TTL
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SidecarRequest {
@@ -102,8 +131,11 @@ async fn sidecar_request(
 
     let runtime_for_timeout = state.runtime.clone();
     let request_id_for_timeout = request.id.clone();
+    // Keep the bridge timeout slightly above the Node sidecar timeout so the
+    // sidecar can surface the more specific backend error whenever possible.
+    let pending_ttl = pending_request_ttl(&request.method);
     tauri::async_runtime::spawn(async move {
-        sleep(PENDING_REQUEST_TTL).await;
+        sleep(pending_ttl).await;
         let pending = {
             let mut pending = runtime_for_timeout.pending.lock().await;
             pending.remove(&request_id_for_timeout)

@@ -98,4 +98,51 @@ describe("RefinementSection", () => {
     const customAnswerField = screen.getByPlaceholderText("Add a custom answer");
     expect(customAnswerField.tagName).toBe("TEXTAREA");
   });
+
+  it("uses the single-question survey layout for compact phase refinements", () => {
+    const multiQuestionRefinement: InitiativeRefinementState = {
+      ...activeRefinement,
+      questions: [
+        activeRefinement.questions[0],
+        {
+          id: "brief-user",
+          label: "Who is this for first?",
+          type: "select",
+          whyThisBlocks: "The brief needs a clear primary user before it can define scope.",
+          affectedArtifact: "brief",
+          decisionType: "user",
+          assumptionIfUnanswered: "Start with one primary user group.",
+          options: ["Just me", "A small team I know"],
+        },
+      ],
+      answers: {},
+      checkedAt: null,
+    };
+
+    render(
+      <RefinementSection
+        activeSpecStep="core-flows"
+        activeRefinement={multiQuestionRefinement}
+        refinementAnswers={{}}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="idle"
+        unresolvedQuestionCount={2}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        variant="compact"
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
+    expect(screen.getByText("Which problem matters most in v1?")).toBeInTheDocument();
+    expect(screen.queryByText("Who is this for first?")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+  });
 });

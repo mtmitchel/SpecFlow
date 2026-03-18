@@ -11,7 +11,6 @@ import type {
 import {
   getInitiativeBlockedStep,
   INITIATIVE_WORKFLOW_LABELS,
-  REVIEWS_BY_STEP,
   getInitiativeResumeStep,
 } from "./initiative-workflow.js";
 
@@ -39,6 +38,21 @@ export interface InitiativeProgressModel {
   initiativeRuns: Run[];
   nextTicket: Ticket | null;
 }
+
+export const getInitiativeResumeHref = (
+  initiative: Initiative,
+  progress: InitiativeProgressModel,
+): string => {
+  if (progress.currentKey === "execute" || progress.currentKey === "verify") {
+    return progress.nextTicket ? `/ticket/${progress.nextTicket.id}` : `/initiative/${initiative.id}?step=tickets`;
+  }
+
+  if (progress.currentKey === "done") {
+    return `/initiative/${initiative.id}?step=tickets`;
+  }
+
+  return `/initiative/${initiative.id}?step=${progress.currentKey}`;
+};
 
 export const PIPELINE_NODE_ORDER: PipelineNodeKey[] = [
   "brief",
@@ -81,7 +95,7 @@ const getOwnedReviewKinds = (step: InitiativePlanningStep): PlanningReviewKind[]
     return [TICKET_COVERAGE_REVIEW_KIND];
   }
 
-  return REVIEWS_BY_STEP[step];
+  return [];
 };
 
 const getOwnedReviews = (
@@ -203,7 +217,7 @@ export const getInitiativeProgressModel = (
     const planningKey = key as InitiativePlanningStep;
     const workflowStep = initiative.workflow.steps[planningKey];
     const ownedReviews = getOwnedReviews(planningReviews, initiative.id, planningKey);
-    const hasCheckpoint = workflowStep.status === "stale" || ownedReviews.some((review) => !isResolvedReview(review));
+    const hasCheckpoint = ownedReviews.some((review) => !isResolvedReview(review));
 
     let state: PipelineNodeState = "future";
     if (workflowStep.status === "complete" && !hasCheckpoint) {

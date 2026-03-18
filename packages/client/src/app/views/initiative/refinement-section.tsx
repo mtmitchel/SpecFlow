@@ -55,6 +55,22 @@ const getFirstOpenQuestionId = (
   return firstUnresolved?.id ?? activeRefinement.questions[0]?.id ?? null;
 };
 
+const getResumeQuestionId = (
+  activeRefinement: InitiativeRefinementState,
+  refinementAnswers: Record<string, string | string[] | boolean>,
+  defaultAnswerQuestionIds: string[],
+): string | null => {
+  const firstUnresolved = activeRefinement.questions.find(
+    (question) =>
+      !isQuestionAnswered(refinementAnswers[question.id]) && !defaultAnswerQuestionIds.includes(question.id),
+  );
+  if (firstUnresolved) {
+    return firstUnresolved.id;
+  }
+
+  return activeRefinement.questions[activeRefinement.questions.length - 1]?.id ?? null;
+};
+
 const OtherAnswerField = ({
   value,
   onChange
@@ -264,7 +280,10 @@ interface RefinementSectionProps {
   loadingStateLabel?: string | null;
   variant?: "full" | "compact" | "survey";
   leadingStepCount?: number;
+  surveyResumeKey?: number;
+  surveyCompleteLabel?: string;
   onBackToPreviousStep?: () => void;
+  onCompleteSurvey?: () => void;
   onRequestGuidance: (questionId: string) => void | Promise<void>;
   onAnswerChange: (questionId: string, nextValue: string | string[] | boolean) => void;
   onAnswerLater: (questionId: string) => void;
@@ -285,7 +304,10 @@ export const RefinementSection = ({
   loadingStateLabel = null,
   variant = "full",
   leadingStepCount = 0,
+  surveyResumeKey = 0,
+  surveyCompleteLabel = "Continue",
   onBackToPreviousStep,
+  onCompleteSurvey,
   onRequestGuidance,
   onAnswerChange,
   onAnswerLater
@@ -294,6 +316,7 @@ export const RefinementSection = ({
     getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds),
   );
   const compact = variant !== "full";
+  const questionDeck = variant === "survey" || variant === "compact";
   const survey = variant === "survey";
 
   const resolvedQuestionCount = activeRefinement.questions.length - unresolvedQuestionCount;
@@ -304,7 +327,7 @@ export const RefinementSection = ({
 
   useEffect(() => {
     if (openQuestionId === null) {
-      if (survey && unresolvedQuestionCount > 0) {
+      if (questionDeck && unresolvedQuestionCount > 0) {
         setOpenQuestionId(getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
       }
       return;
@@ -316,13 +339,21 @@ export const RefinementSection = ({
     }
 
     setOpenQuestionId(getFirstOpenQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
-  }, [activeRefinement, defaultAnswerQuestionIds, openQuestionId, refinementAnswers, survey, unresolvedQuestionCount]);
+  }, [activeRefinement, defaultAnswerQuestionIds, openQuestionId, questionDeck, refinementAnswers, unresolvedQuestionCount]);
+
+  useEffect(() => {
+    if (!survey || surveyResumeKey === 0) {
+      return;
+    }
+
+    setOpenQuestionId(getResumeQuestionId(activeRefinement, refinementAnswers, defaultAnswerQuestionIds));
+  }, [activeRefinement, defaultAnswerQuestionIds, refinementAnswers, survey, surveyResumeKey]);
 
   const questionIds = useMemo(
     () => activeRefinement.questions.map((question) => question.id),
     [activeRefinement.questions],
   );
-  const currentQuestion = survey
+  const currentQuestion = questionDeck
     ? openQuestionId === null
       ? null
       : activeRefinement.questions.find((question) => question.id === openQuestionId) ?? null
@@ -334,13 +365,13 @@ export const RefinementSection = ({
       ? questionIds[currentQuestionIndex + 1] ?? null
       : null;
   const surveyStepLabel =
-    currentQuestionIndex >= 0
+    questionDeck && currentQuestionIndex >= 0
       ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + activeRefinement.questions.length}`
       : null;
 
   return (
-    <div className={`planning-intake-flow${compact ? " planning-intake-flow-compact" : ""}${survey ? " planning-intake-flow-survey" : ""}`}>
-      {survey ? (
+    <div className={`planning-intake-flow${compact ? " planning-intake-flow-compact" : ""}${questionDeck ? " planning-intake-flow-survey" : ""}`}>
+      {questionDeck ? (
         <div className="planning-survey-step-header">
           {surveyStepLabel ? <span className="planning-survey-card-step">{surveyStepLabel}</span> : null}
           {saveStateIndicator}
@@ -370,9 +401,9 @@ export const RefinementSection = ({
       </div>
 
       {loadingStateLabel ? (
-        <div className="planning-intake-loading" role="status" aria-live="polite">
-          <span className="planning-intake-loading-dot" aria-hidden="true" />
-          <div className="planning-intake-loading-copy">
+        <div className="status-loading-card planning-intake-loading" role="status" aria-live="polite">
+          <span className="status-loading-spinner" aria-hidden="true" />
+          <div className="status-loading-copy">
             <strong>{loadingStateLabel}</strong>
             <span>Stay here. More questions may appear, or the next step will unlock.</span>
           </div>
@@ -387,7 +418,7 @@ export const RefinementSection = ({
         </div>
       ) : null}
 
-      {!survey ? (
+      {!questionDeck ? (
         <div className="planning-intake-question-list">
           {activeRefinement.questions.map((question, index) => {
             const usingDefault =
@@ -490,7 +521,7 @@ export const RefinementSection = ({
         </div>
       ) : null}
 
-      {survey && currentQuestion ? (
+      {questionDeck && currentQuestion ? (
         <div className="planning-survey-question">
           <h3 className="planning-survey-question-title">{currentQuestion.label}</h3>
           <p className="planning-survey-question-copy">{currentQuestion.whyThisBlocks}</p>
@@ -501,19 +532,21 @@ export const RefinementSection = ({
           />
 
           <div className="button-row planning-intake-question-actions">
-            <button
-              type="button"
-              onClick={() => {
-                if (previousQuestionId) {
-                  setOpenQuestionId(previousQuestionId);
-                  return;
-                }
+            {previousQuestionId || onBackToPreviousStep ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (previousQuestionId) {
+                    setOpenQuestionId(previousQuestionId);
+                    return;
+                  }
 
-                onBackToPreviousStep?.();
-              }}
-            >
-              Back
-            </button>
+                  onBackToPreviousStep?.();
+                }}
+              >
+                Back
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => {
@@ -532,6 +565,7 @@ export const RefinementSection = ({
               type="button"
               className="btn-primary"
               disabled={
+                isBusy ||
                 !defaultAnswerQuestionIds.includes(currentQuestion.id) &&
                 !isQuestionAnswered(refinementAnswers[currentQuestion.id])
               }
@@ -541,10 +575,16 @@ export const RefinementSection = ({
                   return;
                 }
 
+                if (onCompleteSurvey) {
+                  setOpenQuestionId(null);
+                  onCompleteSurvey();
+                  return;
+                }
+
                 setOpenQuestionId(null);
               }}
             >
-              Continue
+              {nextQuestionId ? "Continue" : surveyCompleteLabel}
             </button>
           </div>
         </div>

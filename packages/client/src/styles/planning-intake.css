@@ -1,6 +1,9 @@
 /* Planning intake and survey */
 .planning-survey-deck {
   display: grid;
+  align-items: start;
+  justify-items: end;
+  grid-auto-rows: min-content;
 }
 
 .planning-survey-card {
@@ -12,6 +15,10 @@
     radial-gradient(circle at top right, rgba(72, 203, 255, 0.06), transparent 22%),
     linear-gradient(180deg, rgba(18, 27, 40, 0.95), rgba(13, 20, 31, 0.97));
   box-shadow: var(--shadow-lg);
+  align-content: start;
+  align-self: start;
+  min-height: 0;
+  height: auto;
 }
 
 .planning-survey-card-active {
@@ -20,6 +27,57 @@
   width: min(100%, 780px);
   margin-left: auto;
   padding: 1.5rem 1.6rem;
+  align-content: start;
+  justify-self: end;
+}
+
+.planning-survey-card-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
+  min-height: 0;
+  height: auto;
+}
+
+.planning-survey-card-retry {
+  gap: 0;
+  width: fit-content;
+  min-width: 0;
+  max-width: min(100%, 22rem);
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+  justify-self: center;
+}
+
+.planning-survey-card-transient {
+  width: fit-content;
+  min-width: 0;
+  max-width: min(100%, 56rem);
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+  justify-self: center;
+}
+
+.planning-survey-card-transient .status-loading-card {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.planning-survey-card-transient .status-loading-copy {
+  max-width: 40rem;
+}
+
+.planning-survey-card-compact .planning-survey-step-header {
+  min-height: 0;
 }
 
 .planning-survey-step-header {
@@ -27,6 +85,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  min-height: 1.5rem;
+}
+
+.planning-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 4.75rem;
+  min-height: 1.25rem;
+  white-space: nowrap;
 }
 
 .planning-survey-card-step {
@@ -57,6 +125,7 @@
 .planning-intake-flow-survey {
   display: grid;
   gap: 1.1rem;
+  align-content: start;
 }
 
 .planning-intake-header {
@@ -102,39 +171,17 @@
 }
 
 .planning-intake-loading {
-  display: flex;
-  gap: 0.9rem;
-  align-items: flex-start;
-  padding: 1rem 1.1rem;
-  border: 1px solid rgba(72, 203, 255, 0.22);
-  border-radius: var(--radius-md);
-  background: rgba(20, 35, 55, 0.4);
+  min-height: 0;
+  max-width: 100%;
 }
 
-.planning-intake-loading-dot {
-  width: 0.9rem;
-  height: 0.9rem;
-  margin-top: 0.2rem;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 0 rgba(72, 203, 255, 0.4);
-  animation: intake-pulse 1.4s ease-in-out infinite;
+.planning-intake-loading-hero {
+  align-items: center;
 }
 
-.planning-intake-loading-copy {
-  display: grid;
-  gap: 0.18rem;
-}
-
-.planning-intake-loading-copy strong {
-  font-size: 1.06rem;
-  font-weight: 600;
-}
-
-.planning-intake-loading-copy span {
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.55;
+.planning-intake-loading-hero .status-loading-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .planning-inline-note {
@@ -275,6 +322,7 @@
   display: grid;
   gap: 1.15rem;
   padding-top: 0.15rem;
+  align-content: start;
 }
 
 .planning-survey-question-title {
@@ -294,6 +342,7 @@
 .planning-survey-finish {
   display: grid;
   gap: 1rem;
+  align-content: start;
 }
 
 .planning-survey-finish-copy {
@@ -312,19 +361,6 @@
   line-height: 1.55;
 }
 
-@keyframes intake-pulse {
-  0%,
-  100% {
-    opacity: 0.75;
-    box-shadow: 0 0 0 0 rgba(72, 203, 255, 0.18);
-  }
-
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 0 8px rgba(72, 203, 255, 0);
-  }
-}
-
 @media (max-width: 1000px) {
   .planning-intake-header {
     flex-direction: column;
@@ -336,6 +372,7 @@
     width: 100%;
     margin: 0;
     transform: none;
+    min-height: auto;
   }
 }
 

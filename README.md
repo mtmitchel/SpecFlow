@@ -108,13 +108,13 @@ If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup mig
 
 - **Pipeline-centered planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, and Tickets with one persistent initiative pipeline visible across Home, creation, planning, ticket, and run views.
 - **Mandatory brief intake**: fresh initiatives always begin with a short consultation before the first brief is generated, so the product does not hallucinate scope, users, or success criteria from a single paragraph.
-- **Review gates and cross-checks**: every major artifact can be reviewed for gaps and cross-checked against adjacent artifacts before the next planning step opens.
+- **Planning reviews and cross-checks**: every major artifact can still be reviewed for gaps and cross-checked against adjacent artifacts, but those reviews are secondary artifacts instead of primary blockers between Brief, Core flows, PRD, and Tech spec.
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
 - **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved coverage checks block export and execution until the user reruns or overrides the check.
 - **Action-oriented home**: the landing view is an Up next queue plus initiative cards with inline progress, so the first screen answers what needs attention now instead of showing aggregate counts.
 - **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals labels plus the active initiative hierarchy.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
-- **Inline initiative handoff**: `/new-initiative` flows directly into required brief intake in the same screen instead of bouncing through separate creation and planning views.
+- **Direct planning entry**: `/new-initiative` flows directly into the shared Brief survey instead of bouncing through a separate handoff mode.
 - **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents. Desktop mode saves ZIP bundles through the native file picker instead of an HTTP download anchor.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
 - **Fix-forward loop**: failed verification auto-enriches the re-export bundle with failure context; one-click re-export and re-verify.

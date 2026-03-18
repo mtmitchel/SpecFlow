@@ -14,7 +14,6 @@ import {
   REVIEWS_BY_ARTIFACT_STEP,
   TICKET_REVIEW_KINDS,
   getNextPlanningStep,
-  getReviewsRequiredBeforePlanningStep,
   isReviewResolved
 } from "../../../../app/src/planner/workflow-contract.js";
 
@@ -24,11 +23,9 @@ export const INITIATIVE_WORKFLOW_LABELS: Record<InitiativePlanningStep, string> 
 export const REVIEW_KIND_LABELS: Record<PlanningReviewKind, string> = SHARED_REVIEW_KIND_LABELS;
 export const REVIEWS_BY_STEP: Record<InitiativeArtifactStep, PlanningReviewKind[]> = REVIEWS_BY_ARTIFACT_STEP;
 export const TICKETS_REVIEWS: PlanningReviewKind[] = TICKET_REVIEW_KINDS;
-export const REQUIRED_REVIEWS_BEFORE_STEP = (step: InitiativePlanningStep): PlanningReviewKind[] =>
-  getReviewsRequiredBeforePlanningStep(step);
 
-const getReviewsOwnedByPlanningStep = (step: InitiativePlanningStep): PlanningReviewKind[] =>
-  step === "tickets" ? TICKETS_REVIEWS : REVIEWS_BY_STEP[step];
+const getReviewsThatGatePlanningStep = (step: InitiativePlanningStep): PlanningReviewKind[] =>
+  step === "tickets" ? TICKETS_REVIEWS : [];
 
 export const getInitiativeResumeStep = (workflow: InitiativeWorkflow): InitiativePlanningStep => {
   for (const step of INITIATIVE_WORKFLOW_STEPS) {
@@ -56,7 +53,7 @@ export const getInitiativeBlockedStep = (
       continue;
     }
 
-    const hasUnresolvedReview = getReviewsOwnedByPlanningStep(step).some((kind) => {
+    const hasUnresolvedReview = getReviewsThatGatePlanningStep(step).some((kind) => {
       const review = planningReviews.find((item) => item.kind === kind);
       return review && !isReviewResolved(review.status);
     });
@@ -78,9 +75,9 @@ export const canOpenInitiativeStep = (
   Boolean(step) &&
   INITIATIVE_WORKFLOW_STEPS.includes(step as InitiativePlanningStep) &&
   workflow.steps[step as InitiativePlanningStep].status !== "locked" &&
-  REQUIRED_REVIEWS_BEFORE_STEP(step as InitiativePlanningStep).every((kind) => {
+  getReviewsThatGatePlanningStep(step as InitiativePlanningStep).every((kind) => {
     const review = planningReviews.find((item) => item.id === `${initiativeId}:${kind}`);
-    return review && isReviewResolved(review.status);
+    return !review || isReviewResolved(review.status);
   });
 export const INITIATIVE_WORKFLOW_STATUS_LABELS: Record<
   InitiativeWorkflow["steps"][InitiativePlanningStep]["status"],

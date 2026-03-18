@@ -44,7 +44,7 @@ describe("InitiativeCreator", () => {
       expect(createInitiativeMock).toHaveBeenCalledWith(
         "Plan a Linux note app with fast capture and richer note editing."
       );
-      expect(screen.getByText("?step=brief&handoff=created")).toBeInTheDocument();
+      expect(screen.getByText("?step=brief")).toBeInTheDocument();
     });
   });
 });
