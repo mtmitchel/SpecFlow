@@ -56,7 +56,7 @@ const AppInner = () => {
       const data = await fetchArtifacts();
       setSnapshot(data);
     } catch (err) {
-      showError((err as Error).message ?? "Failed to load data");
+      showError((err as Error).message ?? "We couldn't load the workspace.");
     }
   }, [showError]);
 
@@ -117,7 +117,7 @@ const AppInner = () => {
         tickets: prev.tickets.map((t) => (t.id === ticketId ? updatedTicket : t))
       }));
     } catch (err) {
-      showError((err as Error).message ?? "Failed to update ticket status");
+      showError((err as Error).message ?? "We couldn't update the ticket status.");
     }
   }, [showError]);
 
@@ -134,7 +134,7 @@ const AppInner = () => {
       const updatedConfig = await saveConfig(next);
       setSnapshot((prev) => ({ ...prev, config: updatedConfig }));
     } catch (err) {
-      showError((err as Error).message ?? "Failed to save settings");
+      showError((err as Error).message ?? "We couldn't save settings.");
     }
   }, [showError]);
 
@@ -145,8 +145,8 @@ const AppInner = () => {
         <div className="status-loading-card" role="status" aria-live="polite">
           <span className="status-loading-spinner" aria-hidden="true" />
           <div className="status-loading-copy">
-            <strong>Starting SpecFlow</strong>
-            <span>Loading your workspace and reconnecting the local runtime.</span>
+            <strong>Opening SpecFlow...</strong>
+            <span>Loading your workspace.</span>
           </div>
         </div>
       </div>
@@ -158,7 +158,6 @@ const AppInner = () => {
       <WorkspaceShell
         iconRail={
           <IconRail
-            snapshot={snapshot}
             navigatorOpen={navigatorOpen}
             onOpenCommandPalette={() => setCommandPaletteOpen(true)}
             navigatorContent={<Navigator snapshot={snapshot} />}

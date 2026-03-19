@@ -58,7 +58,7 @@ export const VerificationResultsSection = ({
       setVerificationResult(result);
       await onRefresh();
     } catch (err) {
-      showError((err as Error).message ?? "Re-verification failed");
+      showError((err as Error).message ?? "We couldn't verify the ticket again.");
     } finally {
       setVerifyState("idle");
     }
@@ -67,7 +67,7 @@ export const VerificationResultsSection = ({
   const content = (
     <>
       <p>
-        Overall: {verificationResult.overallPass ? "Passed" : "Needs work"}
+        Result: {verificationResult.overallPass ? "Passed" : "Needs work"}
         {attempts.length > 0 ? ` · Attempt ${attempts.length}` : ""}
       </p>
       <ul>
@@ -76,7 +76,7 @@ export const VerificationResultsSection = ({
             <span className={`severity-badge severity-${criterion.severity ?? "minor"}`}>
               {criterion.severity ?? ""}
             </span>
-            {" "}{criterion.criterionId} · {criterion.pass ? "pass" : "fail"} · {criterion.evidence}
+            {" "}{criterion.criterionId} · {criterion.pass ? "passed" : "needs work"} · {criterion.evidence}
             {!criterion.pass && criterion.remediationHint ? (
               <div className="remediation-hint">{criterion.remediationHint}</div>
             ) : null}
@@ -84,7 +84,7 @@ export const VerificationResultsSection = ({
         ))}
       </ul>
 
-      <h4>Primary drift</h4>
+      <h4>Unexpected changes in scope</h4>
       <ul>
         {primaryDrift.length === 0
           ? <li style={{ color: "var(--muted)" }}>None</li>
@@ -99,8 +99,8 @@ export const VerificationResultsSection = ({
       </ul>
 
       <h4>
-        Wider-scope drift
-        <HelpTip text="Files in widened scope are checked for unintended changes but are not evaluated against acceptance criteria." />
+        Unexpected changes outside the main scope
+        <HelpTip text="Files outside the main scope are checked for unexpected changes, but they are not scored against the acceptance criteria." />
       </h4>
       <ul>
         {widenedDrift.length === 0
@@ -110,16 +110,16 @@ export const VerificationResultsSection = ({
 
       {!verificationResult.overallPass ? (
         <div>
-          <h4>Fix and retry</h4>
+          <h4>Fix the issues and verify again</h4>
           <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-            Create a follow-up bundle with the failed criteria, then run verification again after the fixes land.
+            Create a fix bundle with the failed criteria, then verify the ticket again after the fixes land.
           </p>
           <div className="button-row">
             <button
               type="button"
               onClick={() => void handleReExportWithFindings(verificationResult.criteriaResults)}
             >
-              Create follow-up bundle
+              Create fix bundle
             </button>
             <button
               type="button"
@@ -127,12 +127,12 @@ export const VerificationResultsSection = ({
               disabled={!fixForwardReady}
               onClick={() => void handleReVerify()}
             >
-              Run verification again
+              Verify again
             </button>
           </div>
           {!fixForwardReady && (
             <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginTop: "0.3rem" }}>
-              Run verification again after the follow-up bundle is ready.
+              Verify again after the fix bundle is ready.
             </p>
           )}
         </div>

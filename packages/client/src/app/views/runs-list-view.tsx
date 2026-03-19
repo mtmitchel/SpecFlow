@@ -23,7 +23,7 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
       const data = await fetchRuns(filters);
       setRuns(data);
     } catch (err) {
-      showError((err as Error).message ?? "Failed to load runs");
+      showError((err as Error).message ?? "We couldn't load the runs.");
     } finally {
       setLoading(false);
     }
@@ -70,16 +70,16 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
           <div className="status-loading-card" role="status" aria-live="polite">
             <span className="status-loading-spinner" aria-hidden="true" />
             <div className="status-loading-copy">
-              <strong>Loading runs</strong>
-              <span>SpecFlow is collecting the latest execution and audit history.</span>
+              <strong>Loading runs...</strong>
+              <span>Pulling together the latest execution and review history.</span>
             </div>
           </div>
         </div>
       ) : runs.length === 0 ? (
         <div className="aggregate-empty">
-          <p>{isFiltered ? "No runs match the current filters" : "No runs yet"}</p>
+          <p>{isFiltered ? "No runs match these filters." : "No runs yet"}</p>
           {!isFiltered && (
-            <p className="aggregate-empty-hint">Runs appear after you create a bundle and execute a ticket.</p>
+            <p className="aggregate-empty-hint">Runs appear after you export a ticket and review the work.</p>
           )}
         </div>
       ) : (

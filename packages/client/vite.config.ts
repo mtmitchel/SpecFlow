@@ -1,12 +1,16 @@
 import { defineConfig } from "vite";
 
+const host = process.env.SPECFLOW_CLIENT_HOST ?? "127.0.0.1";
+const port = Number.parseInt(process.env.SPECFLOW_CLIENT_PORT ?? "5173", 10);
+const apiProxyTarget = process.env.SPECFLOW_API_PROXY_TARGET ?? "http://127.0.0.1:3142";
+
 export default defineConfig({
   server: {
-    host: "127.0.0.1",
-    port: 5173,
+    host,
+    port: Number.isFinite(port) ? port : 5173,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:3142",
+        target: apiProxyTarget,
         changeOrigin: false
       }
     }

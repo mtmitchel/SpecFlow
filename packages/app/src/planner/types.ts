@@ -108,6 +108,7 @@ export interface PhaseCheckInput {
   repoContext?: PlannerRepoContext;
   requiresInitialConsultation?: boolean;
   requiredStarterQuestionCount?: number;
+  validationFeedback?: string;
 }
 
 export interface SpecGenInput {

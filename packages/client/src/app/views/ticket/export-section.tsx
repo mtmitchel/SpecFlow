@@ -44,8 +44,8 @@ export const ExportSection = ({
   const content = (
     <>
       <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
-        Create a bundle for your coding agent. Run the agent, then return here to review and verify the work.
-        <HelpTip text="Creates a prompt bundle with the ticket plan and codebase context for your coding agent." />
+        Create a bundle for your coding agent. Run the agent, then return here to review changes and verify the work.
+        <HelpTip text="Creates a bundle with the ticket plan and the codebase context your coding agent needs." />
       </p>
       <div className="button-row">
         <select value={agentTarget} onChange={(event) => setAgentTarget(event.target.value as AgentTarget)}>
@@ -72,12 +72,12 @@ export const ExportSection = ({
         ) : null}
         {exportResult ? (
           <button type="button" className="inline-action" onClick={() => void handleToggleBundlePreview()}>
-            {bundlePreviewOpen ? "Hide bundle" : bundleTextLoading ? "Loading bundle..." : "Preview bundle"}
+            {bundlePreviewOpen ? "Hide bundle" : bundleTextLoading ? "Loading bundle..." : "Show bundle"}
           </button>
         ) : null}
         {exportResult ? (
           <button type="button" className="inline-action" onClick={() => void handleDownloadBundle()}>
-            Download flat bundle
+            Download Markdown bundle
           </button>
         ) : null}
         {exportResult ? (

@@ -21,6 +21,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Synced workflow docs, architecture docs, and product-language docs to the current consultation rules and coverage terminology
 - Standardized the planning-to-execution gate language around `Coverage check`
 - Rewrote repo-facing guidance in `CLAUDE.md` to match the current desktop-first runtime and planner behavior
+- Added a repo-specific UX copy guide and linked it from the repo docs and agent instructions
+- Documented the shared planning transition wording model and the current browser E2E workflow coverage
+
+**Planner runtime and validation**
+- Added a bounded repair pass for invalid non-brief phase-check results so planner validation feedback can be fed back into one retry before surfacing an error
+- Split the brief workflow so the required Brief intake resolves directly into artifact generation instead of a second planner-backed brief blocker check
+- Tightened Core flows stage boundaries around platform and packaging questions, same-step reopen semantics, and boolean question shape validation
+
+**Planning UX**
+- Normalized planning transition copy so phase entry checks, follow-up checks, and artifact generation all name the active phase directly
+- Kept generated planning artifacts on their own review surface by default instead of auto-jumping into the next phase
+- Restored reopened-question history inside the same survey deck so review-back revision flows preserve the full grouped question context
+
+**End-to-end workflow coverage**
+- Added a Playwright browser E2E harness with a deterministic planner/verifier backend
+- Covered the main initiative workflow end to end plus the Core flows review-back/update revision path
 
 **Repo-local Codex skills**
 - Removed the generic repo-local skills that no longer matched SpecFlow's real workflow shape

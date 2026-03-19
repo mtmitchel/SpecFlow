@@ -51,7 +51,7 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       id: "brief-problem",
       label: "What primary problem should v1 solve?",
       type: "select",
-      whyThisBlocks: "The brief cannot define the right scope until the primary problem is explicit.",
+      whyThisBlocks: "The brief needs one clear problem before it can define the right scope.",
       affectedArtifact: "brief",
       decisionType: "problem",
       options: [
@@ -63,15 +63,15 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       ],
       optionHelp: {
         "Automate or speed up a repetitive process":
-          "Pushes the Brief to prioritize workflow efficiency and measure success by reduced effort or time.",
+          "Treat speed or reduced manual effort as the main outcome.",
         "Replace or improve an existing tool or workflow":
-          "Pushes the Brief to compare against today's approach and define what must improve or stay compatible.",
+          "Compare against the current workflow and define what has to improve or stay compatible.",
         "Build something new that does not exist yet":
-          "Pushes the Brief to define the first usable slice, core promise, and adoption risk of a new offering.",
+          "Define the first usable slice, the core promise, and the biggest adoption risk.",
         "Fix reliability, correctness, or data quality issues":
-          "Pushes the Brief to define what is failing today and what reliable behavior must be restored.",
+          "Name what is failing today and what reliable behavior needs to be restored.",
         "Meet a new requirement, standard, or constraint":
-          "Pushes the Brief to encode the non-negotiable requirement and the scope limits it creates."
+          "Make the non-negotiable requirement clear and define the scope limits it creates."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
@@ -82,15 +82,15 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       id: "brief-primary-user",
       label: "Who is this for first?",
       type: "select",
-      whyThisBlocks: "The brief cannot set goals or scope well without a clear primary user.",
+      whyThisBlocks: "The brief needs one clear primary user before it can set goals or scope.",
       affectedArtifact: "brief",
       decisionType: "user",
       options: ["Just me", "A small team I know", "An internal team or company", "A broad public audience"],
       optionHelp: {
-        "Just me": "Pushes the Brief to optimize for one user's workflow without team coordination overhead.",
-        "A small team I know": "Pushes the Brief to support a specific group with shared context and lightweight coordination needs.",
-        "An internal team or company": "Pushes the Brief to reflect organizational constraints, shared processes, and business context.",
-        "A broad public audience": "Pushes the Brief to favor general clarity, onboarding, and looser assumptions about user context."
+        "Just me": "Optimize for one person's workflow without team coordination.",
+        "A small team I know": "Support a specific group with shared context and light coordination.",
+        "An internal team or company": "Reflect organizational constraints, shared processes, and business context.",
+        "A broad public audience": "Favor clear onboarding, plain language, and fewer assumptions about the user."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
@@ -113,15 +113,15 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       ],
       optionHelp: {
         "Core workflow is noticeably faster than the current approach":
-          "Pushes the Brief to set speed or effort reduction as a first-release quality bar.",
+          "Treat speed or reduced effort as a first-release success measure.",
         "Handles real data reliably without manual intervention":
-          "Pushes the Brief to treat correctness, resilience, and trust in everyday use as a core success quality.",
+          "Treat correctness, resilience, and trust in everyday use as core success measures.",
         "Feels simple and focused":
-          "Pushes the Brief to keep the first release narrow and avoid features that dilute the main job.",
+          "Keep the first release narrow and avoid features that dilute the main job.",
         "Is easy to learn on first use":
-          "Pushes the Brief to value low-friction onboarding, clear labels, and a short path to first success.",
+          "Prioritize clear labels, low-friction onboarding, and a short path to first success.",
         "Shows clear value right away":
-          "Pushes the Brief to define a short time-to-value and make the first session prove the product's benefit."
+          "Aim for a short time to value and make the first session prove the benefit."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
@@ -145,17 +145,17 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       ],
       optionHelp: {
         "Specific platform or operating environment support":
-          "Forces the Brief to treat supported environments, deployment contexts, or operating conditions as a first-release boundary.",
+          "Make supported environments or operating conditions part of the first-release scope.",
         "Works offline or in unreliable network conditions":
-          "Forces the Brief to treat disconnected or degraded-network behavior as a first-release requirement.",
+          "Treat offline and degraded-network behavior as a day-one requirement.",
         "Portable or interoperable data handling":
-          "Forces the Brief to preserve portability, import/export expectations, or compatibility with existing data formats.",
+          "Preserve portability, import and export expectations, or compatibility with existing data formats.",
         "Performance or scale limits must hold from day one":
-          "Forces the Brief to carry explicit performance or scale bars into later product and implementation decisions.",
+          "Carry explicit performance or scale limits into later product and implementation decisions.",
         "Must integrate with or extend an existing system":
-          "Forces the Brief to respect another system's interfaces, workflows, or migration constraints from day one.",
+          "Respect another system's interfaces, workflows, or migration constraints from day one.",
         "Specific privacy, security, or compliance requirements":
-          "Forces the Brief to treat data handling, access control, or regulatory obligations as hard boundaries."
+          "Treat data handling, access control, or regulatory obligations as hard boundaries."
       },
       recommendedOption: null,
       allowCustomAnswer: true,

@@ -12,29 +12,16 @@ import {
   runInitiativeReview,
   updateInitiativePhases
 } from "../../../api.js";
-import { deleteInitiative } from "../../../api/initiatives.js";
-import type {
-  ArtifactsSnapshot,
-  InitiativePlanningStep,
-  PlanningReviewArtifact,
-  PlanningReviewKind
-} from "../../../types.js";
+import { deleteInitiative, type InitiativePhaseCheckResult } from "../../../api/initiatives.js";
+import type { ArtifactsSnapshot, InitiativePlanningStep, PlanningReviewArtifact, PlanningReviewKind } from "../../../types.js";
 import { useConfirm } from "../../context/confirm.js";
 import { useToast } from "../../context/toast.js";
-import {
-  buildInitiativeStepSearchParams,
-  type InitiativePlanningSurface,
-} from "../../utils/initiative-progress.js";
+import { buildInitiativeStepSearchParams, type InitiativePlanningSurface } from "../../utils/initiative-progress.js";
 import { getInitiativeDisplayTitle } from "../../utils/initiative-titles.js";
-import {
-  getNextInitiativeStep,
-  REVIEWS_BY_STEP
-} from "../../utils/initiative-workflow.js";
+import { getNextInitiativeStep, REVIEWS_BY_STEP } from "../../utils/initiative-workflow.js";
 import { resolveInitiativePlanningRouteState } from "./planning-route-state.js";
-import {
-  EMPTY_SPEC_DRAFTS,
-  useInitiativeLoadedSpecs,
-} from "./use-initiative-loaded-specs.js";
+import { EMPTY_SPEC_DRAFTS, useInitiativeLoadedSpecs } from "./use-initiative-loaded-specs.js";
+import { useOptimisticPhaseCheck } from "./use-optimistic-phase-check.js";
 import { useInitiativePlanningPersistence } from "./use-initiative-planning-persistence.js";
 import { type BusyActionResult, useCancellableBusyAction } from "./use-cancellable-busy-action.js";
 import {
@@ -81,16 +68,8 @@ export const useInitiativePlanningWorkspace = (
   const loadedSpecs = useInitiativeLoadedSpecs(initiative?.id ?? null, snapshot.specs);
 
   const savedDrafts = useMemo<Record<SpecStep, string>>(() => {
-    if (!initiative) {
-      return EMPTY_SPEC_DRAFTS;
-    }
-
-    return {
-      brief: loadedSpecs.brief,
-      "core-flows": loadedSpecs["core-flows"],
-      prd: loadedSpecs.prd,
-      "tech-spec": loadedSpecs["tech-spec"]
-    };
+    if (!initiative) return EMPTY_SPEC_DRAFTS;
+    return { brief: loadedSpecs.brief, "core-flows": loadedSpecs["core-flows"], prd: loadedSpecs.prd, "tech-spec": loadedSpecs["tech-spec"] };
   }, [initiative, loadedSpecs]);
 
   useEffect(() => {
@@ -125,19 +104,17 @@ export const useInitiativePlanningWorkspace = (
 
   const requestedStep = searchParams.get("step");
   const requestedSurface = searchParams.get("surface");
-  const routeState = useMemo(
-    () =>
-      initiative
-        ? resolveInitiativePlanningRouteState({
-            initiative,
-            planningReviews: initiativeReviews,
-            requestedStep,
-            requestedSurface,
-            specSummaries: snapshot.specs,
-          })
-        : null,
-    [initiative, initiativeReviews, requestedStep, requestedSurface, snapshot.specs],
-  );
+  const routeState = useMemo(() => (
+    initiative
+      ? resolveInitiativePlanningRouteState({
+          initiative,
+          planningReviews: initiativeReviews,
+          requestedStep,
+          requestedSurface,
+          specSummaries: snapshot.specs,
+        })
+      : null
+  ), [initiative, initiativeReviews, requestedStep, requestedSurface, snapshot.specs]);
   const activeStep: InitiativePlanningStep = routeState?.activeStep ?? "brief";
   const activeSurface: InitiativePlanningSurface = routeState?.activeSurface ?? "questions";
 
@@ -148,7 +125,14 @@ export const useInitiativePlanningWorkspace = (
   }, [initiative, routeState, searchParams, setSearchParams]);
 
   const activeSpecStep: SpecStep | null = activeStep === "tickets" ? null : activeStep;
-  const activeRefinement = initiative && activeSpecStep ? initiative.workflow.refinements[activeSpecStep] : null;
+  const persistedActiveRefinement = initiative && activeSpecStep ? initiative.workflow.refinements[activeSpecStep] : null;
+  const { activeRefinement, applyPhaseCheckResult } = useOptimisticPhaseCheck({
+    initiative,
+    activeSpecStep,
+    persistedRefinement: persistedActiveRefinement,
+    refinementAnswers,
+    defaultAnswerQuestionIds,
+  });
   const refinementSignature = activeRefinement
     ? JSON.stringify({
         checkedAt: activeRefinement.checkedAt,
@@ -198,10 +182,9 @@ export const useInitiativePlanningWorkspace = (
   const stepStatus = initiative?.workflow.steps[activeStep].status ?? "locked";
   const hasActiveContent = activeSpecStep ? savedDrafts[activeSpecStep].trim().length > 0 : false;
   const hasRefinementQuestions = Boolean(activeRefinement && activeRefinement.questions.length > 0);
-  const hasPhaseSpecificRefinementDecisions = Boolean(
-    activeRefinement &&
-      (Object.keys(activeRefinement.answers).length > 0 || activeRefinement.defaultAnswerQuestionIds.length > 0)
-  );
+  const hasPhaseSpecificRefinementDecisions = Boolean(activeRefinement && (
+    Object.keys(activeRefinement.answers).length > 0 || activeRefinement.defaultAnswerQuestionIds.length > 0
+  ));
   const unresolvedQuestionCount = activeRefinement
     ? activeRefinement.questions.filter(
         (question) => !isQuestionResolved(question, refinementAnswers, defaultAnswerQuestionIds)
@@ -243,8 +226,8 @@ export const useInitiativePlanningWorkspace = (
     }
   }, [activeSpecStep, drawerState, editingStep]);
 
-  useInitiativePlanningPersistence({
-    activeRefinement,
+  const { flushRefinementPersistence } = useInitiativePlanningPersistence({
+    activeRefinement: persistedActiveRefinement,
     activeSurface,
     activeSpecStep,
     defaultAnswerQuestionIds,
@@ -262,10 +245,16 @@ export const useInitiativePlanningWorkspace = (
     showError,
   });
 
-  const navigateToStep = (
-    step: InitiativePlanningStep,
-    surface?: InitiativePlanningSurface | null,
-  ): void => {
+  const refreshSnapshotInBackground = useCallback(() => {
+    void onRefresh().catch((error) => showError((error as Error).message ?? "We couldn't refresh planning."));
+  }, [onRefresh, showError]);
+
+  const handlePhaseCheckResult = useCallback((step: SpecStep, result: InitiativePhaseCheckResult) => {
+    applyPhaseCheckResult(step, result);
+    setRefinementAssumptions(result.assumptions);
+  }, [applyPhaseCheckResult]);
+
+  const navigateToStep = (step: InitiativePlanningStep, surface?: InitiativePlanningSurface | null): void => {
     setSearchParams(buildInitiativeStepSearchParams(step, surface));
   };
 
@@ -310,10 +299,15 @@ export const useInitiativePlanningWorkspace = (
 
     return withBusyAction(`check-${step}`, async (signal) => {
       const result = await checkInitiativePhase(initiative.id, step, { signal });
+      handlePhaseCheckResult(step, result);
+      if (result.decision === "ask") {
+        refreshSnapshotInBackground();
+        return;
+      }
+
       await onRefresh();
-      setRefinementAssumptions(result.assumptions);
     });
-  }, [initiative, onRefresh, withBusyAction]);
+  }, [handlePhaseCheckResult, initiative, onRefresh, refreshSnapshotInBackground, withBusyAction]);
 
   const shouldAutoLoadEntryQuestions = Boolean(
     initiative &&
@@ -434,15 +428,8 @@ export const useInitiativePlanningWorkspace = (
     });
   };
 
-  const setReviewOverride = (kind: PlanningReviewKind, reason: string) => {
-    setReviewOverrideKind(kind);
-    setReviewOverrideReason(reason);
-  };
-
-  const clearReviewOverride = () => {
-    setReviewOverrideKind(null);
-    setReviewOverrideReason("");
-  };
+  const setReviewOverride = (kind: PlanningReviewKind, reason: string) => { setReviewOverrideKind(kind); setReviewOverrideReason(reason); };
+  const clearReviewOverride = () => { setReviewOverrideKind(null); setReviewOverrideReason(""); };
 
   const updateDraft = (value: string) => {
     if (!activeSpecStep) {
@@ -529,9 +516,7 @@ export const useInitiativePlanningWorkspace = (
     await onRefresh();
   };
 
-  const openTicket = (ticketId: string) => {
-    navigate(`/ticket/${ticketId}`);
-  };
+  const openTicket = (ticketId: string) => { navigate(`/ticket/${ticketId}`); };
 
   return {
     initiative,
@@ -571,11 +556,13 @@ export const useInitiativePlanningWorkspace = (
     hasPhaseSpecificRefinementDecisions,
     unresolvedQuestionCount,
     nextStep,
+    handlePhaseCheckResult,
     navigateToStep,
     setActiveSurface,
     handleDeleteInitiative,
     handleGenerateSpec,
     handleCheckAndAdvance,
+    flushRefinementPersistence,
     autoQuestionLoadStep,
     autoQuestionLoadFailedStep,
     handleGenerateTickets,

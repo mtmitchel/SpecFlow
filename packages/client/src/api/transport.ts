@@ -10,6 +10,15 @@ export interface TransportEvent {
 
 export interface TransportRequestOptions {
   signal?: AbortSignal;
+  timeoutMs?: number;
+  timeoutMessage?: string;
+}
+
+export class RequestTimeoutError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "RequestTimeoutError";
+  }
 }
 
 export interface DesktopRuntimeStatus {
@@ -29,6 +38,66 @@ export interface ArtifactsChangedPayload {
 
 let requestCounter = 0;
 
+const resolveAbortError = (signal: AbortSignal | undefined, fallbackMessage: string): Error => {
+  const reason = signal?.reason;
+  return reason instanceof Error ? reason : new Error(fallbackMessage);
+};
+
+const runWithTransportSignal = async <T>(
+  run: (signal?: AbortSignal) => Promise<T>,
+  options?: TransportRequestOptions
+): Promise<T> => {
+  if (!options?.signal && options?.timeoutMs === undefined) {
+    return run(undefined);
+  }
+
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let removeAbortListener = (): void => {};
+
+  const abortWithError = (error: Error) => {
+    if (!controller.signal.aborted) {
+      controller.abort(error);
+    }
+  };
+
+  if (options?.signal) {
+    if (options.signal.aborted) {
+      abortWithError(resolveAbortError(options.signal, "Request cancelled"));
+    } else {
+      const onAbort = () => {
+        abortWithError(resolveAbortError(options.signal, "Request cancelled"));
+      };
+
+      options.signal.addEventListener("abort", onAbort, { once: true });
+      removeAbortListener = () => {
+        options.signal?.removeEventListener("abort", onAbort);
+      };
+    }
+  }
+
+  if (typeof options?.timeoutMs === "number" && Number.isFinite(options.timeoutMs) && options.timeoutMs > 0) {
+    timeoutId = setTimeout(() => {
+      abortWithError(new RequestTimeoutError(options.timeoutMessage ?? "Request timed out"));
+    }, options.timeoutMs);
+  }
+
+  try {
+    return await run(controller.signal);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw resolveAbortError(controller.signal, "Request cancelled");
+    }
+
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    removeAbortListener();
+  }
+};
+
 const nextRequestId = (): string => {
   requestCounter += 1;
   return `req-${Date.now()}-${requestCounter}`;
@@ -43,7 +112,7 @@ export const invokeDesktop = async <T>(
   options?: TransportRequestOptions
 ): Promise<T> => {
   if (options?.signal?.aborted) {
-    throw new Error("Request cancelled");
+    throw resolveAbortError(options.signal, "Request cancelled");
   }
 
   const request = {
@@ -66,7 +135,7 @@ export const invokeDesktop = async <T>(
     ? new Promise<never>((_, reject) => {
         const onAbort = () => {
           void invoke("sidecar_cancel", { requestId: request.id }).catch(() => undefined);
-          reject(new Error("Request cancelled"));
+          reject(resolveAbortError(options.signal, "Request cancelled"));
         };
 
         options.signal?.addEventListener("abort", onAbort, { once: true });
@@ -93,10 +162,13 @@ export const transportRequest = async <T>(
   options?: TransportRequestOptions
 ): Promise<T> => {
   if (!isDesktopRuntime()) {
-    return webFallback(options?.signal);
+    return runWithTransportSignal(webFallback, options);
   }
 
-  return invokeDesktop<T>(method, params, onEvent, options);
+  return runWithTransportSignal(
+    (signal) => invokeDesktop<T>(method, params, onEvent, { signal }),
+    options
+  );
 };
 
 export const isRequestCancelledError = (error: unknown): boolean => {
@@ -105,6 +177,17 @@ export const isRequestCancelledError = (error: unknown): boolean => {
   }
 
   return error instanceof Error && error.message === "Request cancelled";
+};
+
+export const isRequestTimeoutError = (error: unknown): boolean => {
+  if (error instanceof RequestTimeoutError) {
+    return true;
+  }
+
+  return error instanceof Error && (
+    error.name === "RequestTimeoutError" ||
+    /took too long/i.test(error.message)
+  );
 };
 
 export const subscribeArtifactsChanged = async (

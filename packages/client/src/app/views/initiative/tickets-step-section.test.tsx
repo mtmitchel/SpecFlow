@@ -156,13 +156,13 @@ describe("TicketsStepSection", () => {
       updatedAt: "2026-03-16T10:55:00.000Z"
     });
 
-    expect(screen.getByRole("button", { name: "Check coverage" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run coverage check" })).toBeInTheDocument();
     expect(screen.getByText("1 covered · 1 uncovered · 2 blockers · 1 warning")).toBeInTheDocument();
     expect(screen.getByText("One requirement is still uncovered.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "See issues" }));
 
-    expect(screen.getByText("Continue with risk")).toBeInTheDocument();
+    expect(screen.getByText("Accept risk")).toBeInTheDocument();
     expect(screen.getByText(/Explain the override path in the UI\./)).toBeInTheDocument();
     expect(screen.getByText("A required verification path is not assigned to any ticket.")).toBeInTheDocument();
     expect(screen.getByText("The PRD override guidance is not covered.")).toBeInTheDocument();

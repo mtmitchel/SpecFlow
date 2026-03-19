@@ -80,7 +80,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
     return (
       <div className="settings-modal-overlay" onClick={close}>
         <div className="settings-modal-panel" onClick={(e) => e.stopPropagation()}>
-          <p>Settings could not be loaded. Check the terminal for errors.</p>
+          <p>We couldn't load settings. Check the terminal for details.</p>
         </div>
       </div>
     );
@@ -118,7 +118,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
               setSaving(true);
               void onSave(payload, trimmedApiKey || undefined)
                 .then(() => {
-                  showSuccess("Settings saved");
+                  showSuccess("Settings saved.");
                   setDirty(false);
                   setApiKeyInput("");
                   if (hadKeyInput) {
@@ -126,7 +126,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                   }
                 })
                 .catch((err) => {
-                  showError((err as Error).message ?? "Failed to save settings");
+                  showError((err as Error).message ?? "We couldn't save settings.");
                 })
                 .finally(() => setSaving(false));
             }}

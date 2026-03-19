@@ -163,6 +163,85 @@ describe("planner validator boundaries", () => {
     expect(() => validatePhaseCheckResult(result, makeInput({ refinementHistory }))).not.toThrow();
   });
 
+  it("rejects same-stage duplicates from history when they do not explicitly reopen the earlier concern", () => {
+    const refinementHistory: RefinementHistoryEntry[] = [
+      {
+        step: "core-flows",
+        questionId: "core-flows-empty-note",
+        label: "What should happen when a note is empty and the user backs out?",
+        decisionType: "branch",
+        whyThisBlocks: "Core flows need the empty-note exit path before the draft can stay coherent.",
+        resolution: "answered",
+        answer: "Discard the draft",
+        assumption: null,
+      },
+    ];
+
+    const input = makeInput({
+      phase: "core-flows",
+      prdMarkdown: undefined,
+      requiredStarterQuestionCount: 0,
+      refinementHistory,
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "core-flows-empty-note-follow-up",
+        affectedArtifact: "core-flows",
+        label: "What should happen when a note is empty and the user backs out?",
+        decisionType: "failure-mode",
+        options: ["Discard the draft", "Keep an empty draft"],
+        optionHelp: {
+          "Discard the draft": "Treat background close as a silent exit from the empty-note path.",
+          "Keep an empty draft": "Keep the empty note available when the user comes back.",
+        },
+      }),
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).toThrow(
+      "reopens earlier concern core-flows-empty-note without reopensQuestionIds"
+    );
+  });
+
+  it("accepts same-stage reopen questions when they reference the earlier blocker", () => {
+    const refinementHistory: RefinementHistoryEntry[] = [
+      {
+        step: "core-flows",
+        questionId: "core-flows-empty-note",
+        label: "What should happen when a note is empty and the user backs out?",
+        decisionType: "branch",
+        whyThisBlocks: "Core flows need the empty-note exit path before the draft can stay coherent.",
+        resolution: "answered",
+        answer: "Discard the draft",
+        assumption: null,
+      },
+    ];
+
+    const input = makeInput({
+      phase: "core-flows",
+      prdMarkdown: undefined,
+      requiredStarterQuestionCount: 0,
+      refinementHistory,
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "core-flows-empty-note-follow-up",
+        affectedArtifact: "core-flows",
+        label: "What should happen when a note is empty and the user backs out?",
+        decisionType: "failure-mode",
+        options: ["Discard the draft", "Keep an empty draft"],
+        optionHelp: {
+          "Discard the draft": "Treat background close as a silent exit from the empty-note path.",
+          "Keep an empty draft": "Keep the empty note available when the user comes back.",
+        },
+        reopensQuestionIds: ["core-flows-empty-note"],
+      }),
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).not.toThrow();
+  });
+
   it("allows conditional forbidden terms when the initiative already uses that domain language", () => {
     const result = makeResult([
       makeSelectQuestion({
@@ -183,5 +262,200 @@ describe("planner validator boundaries", () => {
         makeInput({ initiativeDescription: "Build a REST API for internal user management" })
       )
     ).not.toThrow();
+  });
+
+  it("allows a core-flows question about remembered view state when it changes the next path", () => {
+    const input = makeInput({
+      phase: "core-flows",
+      prdMarkdown: undefined,
+      requiredStarterQuestionCount: 3
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "core-flows-view-toggle",
+        affectedArtifact: "core-flows",
+        label: "Should the app reopen in the last view the user picked?",
+        decisionType: "state",
+        options: ["Always reopen in the last view", "Always reopen in the default capture view"],
+        optionHelp: {
+          "Always reopen in the last view": "Treat the remembered view as part of the return path into the app.",
+          "Always reopen in the default capture view": "Treat the first screen as a fixed entry path every time."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-branch",
+        affectedArtifact: "core-flows",
+        label: "What should happen when a note is empty and the user backs out?",
+        decisionType: "branch",
+        options: ["Discard the draft", "Keep an empty draft"],
+        optionHelp: {
+          "Discard the draft": "Treat leaving early as an explicit exit branch.",
+          "Keep an empty draft": "Treat the saved draft list as part of the flow."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-journey",
+        affectedArtifact: "core-flows",
+        label: "Which primary path matters most first?",
+        decisionType: "journey",
+        options: ["Create and edit a note", "Search an existing note"],
+        optionHelp: {
+          "Create and edit a note": "Center the first draft on authoring.",
+          "Search an existing note": "Center the first draft on retrieval."
+        }
+      })
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).not.toThrow();
+  });
+
+  it("rejects a core-flows question that turns remembered state into a storage implementation question", () => {
+    const input = makeInput({
+      phase: "core-flows",
+      prdMarkdown: undefined,
+      requiredStarterQuestionCount: 3
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "core-flows-view-storage",
+        affectedArtifact: "core-flows",
+        label: "Should the selected view persist to disk between launches?",
+        decisionType: "state",
+        options: ["Yes", "No"],
+        optionHelp: {
+          "Yes": "Make the implementation store the chosen view on disk.",
+          "No": "Do not store the chosen view on disk."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-branch",
+        affectedArtifact: "core-flows",
+        label: "What should happen when a note is empty and the user backs out?",
+        decisionType: "branch",
+        options: ["Discard the draft", "Keep an empty draft"],
+        optionHelp: {
+          "Discard the draft": "Treat leaving early as an explicit exit branch.",
+          "Keep an empty draft": "Treat the saved draft list as part of the flow."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-journey",
+        affectedArtifact: "core-flows",
+        label: "Which primary path matters most first?",
+        decisionType: "journey",
+        options: ["Create and edit a note", "Search an existing note"],
+        optionHelp: {
+          "Create and edit a note": "Center the first draft on authoring.",
+          "Search an existing note": "Center the first draft on retrieval."
+        }
+      })
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).toThrow(
+      'Refinement question core-flows-view-storage includes forbidden core-flows theme "persist to disk"'
+    );
+  });
+
+  it("rejects a core-flows question that turns platform targeting into a flow blocker", () => {
+    const input = makeInput({
+      phase: "core-flows",
+      prdMarkdown: undefined,
+      requiredStarterQuestionCount: 3
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "core-flows-platform-target",
+        affectedArtifact: "core-flows",
+        label: "Which platform(s) should v1 target?",
+        decisionType: "state",
+        whyThisBlocks:
+          "Platform choice changes storage APIs and offline persistence approach, packaging and payload constraints, and the minimum supported environments.",
+        options: [
+          "Web-first PWA",
+          "Desktop-native",
+          "Mobile-native"
+        ],
+        optionHelp: {
+          "Web-first PWA": "Treat installable web delivery as the first platform target.",
+          "Desktop-native": "Treat desktop packaging as the first platform target.",
+          "Mobile-native": "Treat native mobile delivery as the first platform target."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-branch",
+        affectedArtifact: "core-flows",
+        label: "What should happen when a note is empty and the user backs out?",
+        decisionType: "branch",
+        options: ["Discard the draft", "Keep an empty draft"],
+        optionHelp: {
+          "Discard the draft": "Treat leaving early as an explicit exit branch.",
+          "Keep an empty draft": "Treat the saved draft list as part of the flow."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-journey",
+        affectedArtifact: "core-flows",
+        label: "Which primary path matters most first?",
+        decisionType: "journey",
+        options: ["Create and edit a note", "Search an existing note"],
+        optionHelp: {
+          "Create and edit a note": "Center the first draft on authoring.",
+          "Search an existing note": "Center the first draft on retrieval."
+        }
+      })
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).toThrow(
+      'Refinement question core-flows-platform-target includes forbidden core-flows theme "which platform"'
+    );
+  });
+
+  it("accepts a failure-mode question as the required core-flows edge-path starter question", () => {
+    const input = makeInput({
+      phase: "core-flows",
+      prdMarkdown: undefined,
+      requiredStarterQuestionCount: 3
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "core-flows-journey",
+        affectedArtifact: "core-flows",
+        label: "Which primary path matters most first?",
+        decisionType: "journey",
+        options: ["Create and edit a note", "Search an existing note"],
+        optionHelp: {
+          "Create and edit a note": "Center the first draft on authoring.",
+          "Search an existing note": "Center the first draft on retrieval."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-recovery",
+        affectedArtifact: "core-flows",
+        label: "What should happen if the app reopens after an interrupted edit?",
+        decisionType: "failure-mode",
+        options: ["Restore the draft", "Show the notes list first"],
+        optionHelp: {
+          "Restore the draft": "Treat interrupted work as a degraded-path recovery flow.",
+          "Show the notes list first": "Treat recovery as a manual return path."
+        }
+      }),
+      makeSelectQuestion({
+        id: "core-flows-state",
+        affectedArtifact: "core-flows",
+        label: "Should the app reopen in the last view the user picked?",
+        decisionType: "state",
+        options: ["Always reopen in the last view", "Always reopen in the default capture view"],
+        optionHelp: {
+          "Always reopen in the last view": "Treat the remembered view as part of the return path into the app.",
+          "Always reopen in the default capture view": "Treat the first screen as a fixed entry path every time."
+        }
+      })
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).not.toThrow();
   });
 });

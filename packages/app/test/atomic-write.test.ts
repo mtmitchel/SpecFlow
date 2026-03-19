@@ -21,4 +21,17 @@ describe("writeFileAtomic", () => {
     const temp = await readFile(`${filePath}.tmp`, "utf8");
     expect(temp).toBe("version: 2\n");
   });
+
+  it("does not collide when overlapping writes target the same file", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-atomic-"));
+    const filePath = path.join(rootDir, "example.yaml");
+
+    await Promise.all([
+      writeFileAtomic(filePath, "version: 1\n"),
+      writeFileAtomic(filePath, "version: 2\n"),
+    ]);
+
+    const persisted = await readFile(filePath, "utf8");
+    expect(["version: 1\n", "version: 2\n"]).toContain(persisted);
+  });
 });

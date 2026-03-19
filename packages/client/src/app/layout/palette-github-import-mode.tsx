@@ -29,7 +29,7 @@ export const PaletteGithubImportMode = ({ inputRef, onClose, onRefresh, onBack }
         navigate(`/initiative/${result.initiativeId}`);
       }
     } catch (err) {
-      showError((err as Error).message ?? "GitHub import failed");
+      showError((err as Error).message ?? "We couldn't import the GitHub issue.");
     } finally {
       setBusy(false);
     }

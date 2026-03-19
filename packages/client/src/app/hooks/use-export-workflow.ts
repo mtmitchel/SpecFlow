@@ -103,10 +103,10 @@ export const useExportWorkflow = (
         bundleTextPrefix: null
       });
       setBundlePreviewOpen(false);
-      showSuccess("Bundle exported");
+      showSuccess("Bundle created.");
       await onRefresh();
     } catch (err) {
-      showError((err as Error).message ?? "Export failed");
+      showError((err as Error).message ?? "We couldn't create the bundle.");
     }
   };
 
@@ -132,10 +132,10 @@ export const useExportWorkflow = (
       });
       setBundlePreviewOpen(false);
       setFixForwardReady(true);
-      showSuccess("Fix-forward bundle exported");
+      showSuccess("Fix bundle created.");
       await onRefresh();
     } catch (err) {
-      showError((err as Error).message ?? "Re-export failed");
+      showError((err as Error).message ?? "We couldn't create the fix bundle.");
     }
   };
 
@@ -144,7 +144,7 @@ export const useExportWorkflow = (
     if (!payload) return;
     await navigator.clipboard.writeText(payload.content);
     setCopyFeedback(true);
-    showSuccess("Bundle copied to clipboard");
+    showSuccess("Bundle copied.");
 
     if (copyFeedbackTimerRef.current) {
       clearTimeout(copyFeedbackTimerRef.current);
@@ -174,7 +174,7 @@ export const useExportWorkflow = (
 
       setBundlePreviewOpen(true);
     } catch (err) {
-      showError((err as Error).message ?? "Failed to load bundle");
+      showError((err as Error).message ?? "We couldn't load the bundle.");
     }
   };
 
@@ -190,9 +190,9 @@ export const useExportWorkflow = (
       }
 
       downloadFlatBundle(payload.content, ticketId);
-      showSuccess("Flat bundle downloaded");
+      showSuccess("Markdown bundle downloaded.");
     } catch (err) {
-      showError((err as Error).message ?? "Flat bundle download failed");
+      showError((err as Error).message ?? "We couldn't download the Markdown bundle.");
     }
   };
 
@@ -208,10 +208,10 @@ export const useExportWorkflow = (
         `${exportResult.runId}-${exportResult.attemptId}-bundle.zip`
       );
       if (savedPath) {
-        showSuccess("ZIP bundle saved");
+        showSuccess("ZIP bundle saved.");
       }
     } catch (err) {
-      showError((err as Error).message ?? "ZIP export failed");
+      showError((err as Error).message ?? "We couldn't save the ZIP bundle.");
     }
   };
 

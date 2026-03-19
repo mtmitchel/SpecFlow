@@ -15,9 +15,9 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
 
   return (
     <>
-      <h4>Override verification</h4>
+      <h4>Accept risk and mark done</h4>
       <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-        Mark this ticket as done despite verification results. This override and your reason will be recorded.
+        Mark this ticket done even though verification found issues. SpecFlow will save your reason with the run.
       </p>
       <textarea
         className="multiline"
@@ -27,11 +27,11 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
           setOverrideReason(event.target.value);
           if (event.target.value.trim()) setOverrideReasonError(false);
         }}
-        placeholder="Required reason for override"
+        placeholder="Example: The remaining issue is low risk and tracked in follow-up work."
       />
       {overrideReasonError && (
         <p style={{ color: "var(--danger)", fontSize: "0.82rem", margin: "0.2rem 0 0" }}>
-          Please provide a reason for the override.
+          Add a reason before marking the ticket done.
         </p>
       )}
       {!showPanel ? (
@@ -47,14 +47,14 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
               setShowPanel(true);
             }}
           >
-            Mark done anyway
+            Mark done with risk
           </button>
         </div>
       ) : (
         <div className="override-panel">
           <p>
-            You are marking this ticket as done despite failing verification.
-            This override and your reason will be recorded.
+            You are marking this ticket done even though verification failed.
+            SpecFlow will save this decision and your reason with the run.
           </p>
           <div className="button-row">
             <button
@@ -65,20 +65,20 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
                   await overrideDone(ticketId, overrideReason, true);
                   setShowPanel(false);
                   setOverrideReason("");
-                  showSuccess("Ticket overridden to done");
+                  showSuccess("Ticket marked done with accepted risk.");
                   await onRefresh();
                 } catch (err) {
-                  showError((err as Error).message ?? "Override failed");
+                  showError((err as Error).message ?? "We couldn't mark the ticket done.");
                 }
               }}
             >
-              Confirm Override
+              Accept risk and mark done
             </button>
             <button
               type="button"
               onClick={() => setShowPanel(false)}
             >
-              Cancel
+              Keep ticket open
             </button>
           </div>
         </div>

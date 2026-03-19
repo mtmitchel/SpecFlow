@@ -38,7 +38,7 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
         navigate(`/initiative/${result.initiativeId}?step=brief`);
       }
     } catch (error) {
-      showError((error as Error).message ?? "Quick task failed");
+      showError((error as Error).message ?? "We couldn't start the quick task.");
     } finally {
       setBusy(false);
     }
@@ -61,7 +61,7 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
           <div className="planning-entry-card-header">
             <div>
               <h3>What needs to get done?</h3>
-              <p>If it turns out to be bigger, it will move into planning.</p>
+              <p>If it turns out to be bigger, SpecFlow will move it into planning.</p>
             </div>
             <span className="planning-entry-counter">{modKey}+Enter</span>
           </div>
@@ -71,7 +71,7 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
             className="multiline textarea-md"
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Describe the work and any hard limits."
+            placeholder="Add keyboard shortcuts to note search without changing the sync flow"
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
@@ -87,7 +87,7 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
               disabled={busy || !text.trim()}
               onClick={() => void submit()}
             >
-              {busy ? "Checking..." : "Continue"}
+              {busy ? "Reviewing..." : "Start quick task"}
             </button>
           </div>
         </div>

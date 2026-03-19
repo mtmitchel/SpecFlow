@@ -139,7 +139,7 @@ export const TicketsStepSection = ({
 
       {ticketCoverageReview || ticketCoverageArtifact ? (
         <PlanningReviewCard
-          title="Coverage"
+          title="Coverage check"
           status={ticketCoverageReview?.status ?? "stale"}
           meta={
             <>
@@ -154,8 +154,8 @@ export const TicketsStepSection = ({
           summary={ticketCoverageReview?.summary}
           findings={grouped}
           reviewBusy={reviewBusy}
-          primaryActionLabel="Check coverage"
-          primaryActionBusyLabel="Checking..."
+          primaryActionLabel="Run coverage check"
+          primaryActionBusyLabel="Running..."
           onPrimaryAction={() => onRunReview(TICKET_COVERAGE_REVIEW_KIND)}
           primaryActionDisabled={initiative.phases.length === 0}
           detailsOpen={detailsOpen}
@@ -171,12 +171,12 @@ export const TicketsStepSection = ({
             onSetReviewOverride(TICKET_COVERAGE_REVIEW_KIND, ticketCoverageReview?.overrideReason ?? "");
           }}
           overrideReason={showOverrideForm ? reviewOverrideReason : ticketCoverageReview?.overrideReason}
-          overridePlaceholder="Add a short reason for moving ahead anyway."
+          overridePlaceholder="Add a short reason for accepting the remaining risk."
           onChangeOverrideReason={onChangeReviewOverrideReason}
           onConfirmOverride={() => onConfirmOverride(TICKET_COVERAGE_REVIEW_KIND)}
-          overrideActionLabel="Continue with risk"
+          overrideActionLabel="Accept risk"
           cancelOverrideLabel="Keep blocking"
-          overrideConfirmLabel="Continue with risk"
+          overrideConfirmLabel="Accept risk"
           overrideBusyLabel="Saving..."
           extraContent={
             uncoveredCoverageItems.length > 0 ? (

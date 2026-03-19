@@ -38,7 +38,7 @@ export const ModelCombobox = ({ provider, hasApiKey, value, onSelect, modelsGene
       })
       .catch((error) => {
         if (!cancelled) {
-          setModelsError((error as Error).message ?? "Failed to load models");
+          setModelsError((error as Error).message ?? "We couldn't load models.");
           setAvailableModels([]);
         }
       })

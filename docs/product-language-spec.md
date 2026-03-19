@@ -5,6 +5,7 @@ Related docs:
 - For the docs index, see [`README.md`](README.md)
 - For user workflow behavior, see [`workflows.md`](workflows.md)
 - For runtime and architecture context, see [`runtime-modes.md`](runtime-modes.md) and [`architecture.md`](architecture.md)
+- For tone, sentence mechanics, and component-level microcopy rules, see [`ux-copy-guidelines.md`](ux-copy-guidelines.md)
 
 ## Purpose
 
@@ -21,6 +22,8 @@ Its job is to keep the app coherent across planning, execution, and review. It c
 - copy rules
 
 This spec is authoritative for user-facing UI text. Internal implementation terms may still exist in code and APIs, but they should not leak into the default product experience unless they are necessary for expert users.
+
+Use [`ux-copy-guidelines.md`](ux-copy-guidelines.md) as the companion style guide for tone, grammar, button labels, empty states, errors, and other component-level copy patterns.
 
 ## Product framing
 
@@ -365,6 +368,8 @@ Avoid empty states that only state absence.
 
 When a phase completes, the app should explicitly tell the user what changed and what to do next.
 
+Waiting states need the same precision. During entry checks, follow-up checks, and artifact generation, the user should know which phase is active, what the system is doing, and what will happen next.
+
 ### Pattern
 
 Use this structure:
@@ -372,6 +377,30 @@ Use this structure:
 - success label
 - one-sentence summary
 - next-step CTA
+
+For in-progress planning states, use this structure:
+
+- phase-specific action heading
+- one-sentence explanation of why the work is happening now
+
+Avoid generic copy such as `Preparing questions...`, `Generating...`, or `Stay here...` when the phase and next step are knowable.
+
+### Canonical in-progress planning examples
+
+#### Entry check
+
+- Heading: `Preparing PRD questions...`
+- Body: `Gathering the decisions needed before the first PRD draft.`
+
+#### Follow-up check
+
+- Heading: `Checking PRD questions...`
+- Body: `Reviewing your answers before drafting the PRD.`
+
+#### Artifact generation
+
+- Heading: `Generating PRD...`
+- Body: `Drafting the PRD from the decisions you confirmed.`
 
 ### Canonical examples
 

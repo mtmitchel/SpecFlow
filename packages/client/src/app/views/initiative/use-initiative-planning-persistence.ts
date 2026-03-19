@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { saveInitiativeRefinement, saveInitiativeSpecs } from "../../../api.js";
 import type { Initiative, InitiativePlanningSurface, InitiativeRefinementState } from "../../../types.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
@@ -23,6 +23,10 @@ interface InitiativePlanningPersistenceConfig {
   showError: (message: string) => void;
 }
 
+interface InitiativePlanningPersistenceResult {
+  flushRefinementPersistence: () => Promise<boolean>;
+}
+
 export const useInitiativePlanningPersistence = ({
   activeRefinement,
   activeSurface,
@@ -40,7 +44,9 @@ export const useInitiativePlanningPersistence = ({
   setRefinementAssumptions,
   setRefinementSaveState,
   showError,
-}: InitiativePlanningPersistenceConfig): void => {
+}: InitiativePlanningPersistenceConfig): InitiativePlanningPersistenceResult => {
+  const refinementTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!initiative || !activeSpecStep || editingStep !== activeSpecStep) {
       return;
@@ -61,7 +67,7 @@ export const useInitiativePlanningPersistence = ({
           setEditingStep(null);
         }
       } catch (error) {
-        showError((error as Error).message ?? `Failed to save ${INITIATIVE_WORKFLOW_LABELS[activeSpecStep]}`);
+        showError((error as Error).message ?? `We couldn't save the ${INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()}.`);
         setDraftSaveState((current) => ({ ...current, [activeSpecStep]: "error" }));
       }
     }, 700);
@@ -93,31 +99,29 @@ export const useInitiativePlanningPersistence = ({
     preferredSurface: activeSurface ?? null,
   });
 
-  useEffect(() => {
+  const persistRefinement = useCallback(async (): Promise<boolean> => {
     if (!initiative || !activeSpecStep || !activeRefinement || localRefinementSignature === serverRefinementSignature) {
-      return;
+      return true;
     }
 
-    const timer = window.setTimeout(async () => {
-      setRefinementSaveState("saving");
-      try {
-        const result = await saveInitiativeRefinement(
-          initiative.id,
-          activeSpecStep,
-          refinementAnswers,
-          defaultAnswerQuestionIds,
-          activeSurface,
-        );
-        setRefinementAssumptions(result.assumptions);
-        await onRefresh();
-        setRefinementSaveState("saved");
-      } catch (error) {
-        showError((error as Error).message ?? "Failed to save answers");
-        setRefinementSaveState("error");
-      }
-    }, 500);
-
-    return () => window.clearTimeout(timer);
+    setRefinementSaveState("saving");
+    try {
+      const result = await saveInitiativeRefinement(
+        initiative.id,
+        activeSpecStep,
+        refinementAnswers,
+        defaultAnswerQuestionIds,
+        activeSurface,
+      );
+      setRefinementAssumptions(result.assumptions);
+      await onRefresh();
+      setRefinementSaveState("saved");
+      return true;
+    } catch (error) {
+      showError((error as Error).message ?? "We couldn't save your answers.");
+      setRefinementSaveState("error");
+      return false;
+    }
   }, [
     activeRefinement,
     activeSurface,
@@ -132,4 +136,46 @@ export const useInitiativePlanningPersistence = ({
     setRefinementSaveState,
     showError,
   ]);
+
+  useEffect(() => {
+    if (!initiative || !activeSpecStep || !activeRefinement || localRefinementSignature === serverRefinementSignature) {
+      if (refinementTimerRef.current !== null) {
+        window.clearTimeout(refinementTimerRef.current);
+        refinementTimerRef.current = null;
+      }
+      return;
+    }
+
+    refinementTimerRef.current = window.setTimeout(() => {
+      refinementTimerRef.current = null;
+      void persistRefinement();
+    }, 500);
+
+    return () => {
+      if (refinementTimerRef.current !== null) {
+        window.clearTimeout(refinementTimerRef.current);
+        refinementTimerRef.current = null;
+      }
+    };
+  }, [
+    activeRefinement,
+    activeSpecStep,
+    initiative,
+    localRefinementSignature,
+    persistRefinement,
+    serverRefinementSignature,
+  ]);
+
+  const flushRefinementPersistence = useCallback(async (): Promise<boolean> => {
+    if (refinementTimerRef.current !== null) {
+      window.clearTimeout(refinementTimerRef.current);
+      refinementTimerRef.current = null;
+    }
+
+    return persistRefinement();
+  }, [persistRefinement]);
+
+  return {
+    flushRefinementPersistence,
+  };
 };

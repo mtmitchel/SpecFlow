@@ -184,6 +184,9 @@ const buildCheckPrompt = (
     systemPrompt,
     userPrompt: [
       `Decide whether SpecFlow can create the ${artifactDescription} now or must ask targeted blocker questions first.`,
+      input.validationFeedback?.trim()
+        ? `The previous ${artifactDescription} phase-check result failed validation. Return a corrected result that satisfies every rule below.\n\nValidation feedback:\n${input.validationFeedback.trim()}`
+        : null,
       "Rules:",
       ...(requiresInitialConsultation
         ? [
@@ -196,7 +199,7 @@ const buildCheckPrompt = (
               `- This is the first required ${artifactDescription} consultation before any ${artifactDescription.toLowerCase()} artifact exists. You must return "ask".`,
               `- Ask exactly ${requiredStarterQuestionCount} short blocker questions that will materially shape the first ${artifactDescription.toLowerCase()} draft.`,
               input.phase === "core-flows"
-                ? "- Cover three different decision areas: the primary user journey, a meaningful edge or destructive flow, and a flow condition that changes the map."
+                ? '- Cover three different decision areas: the primary user journey, one meaningful edge or degraded path using decisionType "branch" or "failure-mode", and one flow condition that changes the map using decisionType "state".'
                 : "- Cover distinct decision areas that would materially change the first draft.",
               `- Do not return proceed or an empty questions array for this first ${artifactDescription} consultation.`
             ]
@@ -207,17 +210,18 @@ const buildCheckPrompt = (
       "- Keep the set as short as possible. Ask only the highest-leverage blocker questions.",
       "- If you ask, every question must explain why it blocks this artifact and include an assumptionIfUnanswered.",
       '- Every question must use "select", "multi-select", or "boolean".',
-      "- Prefer 2 to 5 options per question. Include a recommendedOption when one choice is clearly best.",
+      '- For "select" or "multi-select" questions, prefer 2 to 5 options. Include a recommendedOption when one choice is clearly best.',
+      '- For "boolean" questions, do not include options, optionHelp, or recommendedOption. Write the label so yes or no is clear on its own.',
       '- Do not include "Other" in options. Set allowCustomAnswer to true only when the user may reasonably need a custom answer outside the finite options.',
       `- Allowed decisionType values for this artifact are: ${allowedDecisionTypes.join(", ")}.`,
       allowedDecisionTypes.includes("quality-strategy")
         ? '- Use decisionType "quality-strategy" for testing, observability, and quality strategy questions. "verification" is a legacy alias only.'
         : null,
       input.refinementHistory && input.refinementHistory.length > 0
-        ? "- Do not repeat a concern already captured in refinement history. Reopen a prior concern only when a contradiction, missing dependency, or later-stage implementation consequence still blocks this artifact."
+        ? "- Do not repeat a concern already captured in refinement history. Reopen an earlier concern only when a contradiction, missing dependency, or later-stage implementation consequence still blocks this artifact."
         : null,
       input.refinementHistory && input.refinementHistory.length > 0
-        ? "- If you intentionally reopen an earlier-stage concern, include reopensQuestionIds with the earlier question ids and make the downstream consequence explicit in whyThisBlocks."
+        ? "- If you intentionally reopen an earlier concern, whether from this step or an earlier step, include reopensQuestionIds with the earlier question ids and make the downstream consequence explicit in whyThisBlocks."
         : null,
       input.refinementHistory && input.refinementHistory.length > 0
         ? "- Never ask the same concern twice in one stage. If a narrower follow-up is unavoidable, change the decision boundary rather than paraphrasing the earlier question."

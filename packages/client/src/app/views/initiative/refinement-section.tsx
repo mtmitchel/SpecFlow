@@ -9,6 +9,29 @@ import { getAnswerPreview, getFirstOpenQuestionId, getResumeQuestionId } from ".
 import type { SaveState, SpecStep } from "./shared.js";
 import { isQuestionAnswered } from "./shared.js";
 
+const buildVisibleQuestions = (
+  activeRefinement: InitiativeRefinementState,
+): InitiativePlanningQuestion[] => {
+  const history = activeRefinement.history ?? [];
+  const activeQuestions = activeRefinement.questions;
+
+  if (history.length === 0 || activeQuestions.length === 0) {
+    return activeQuestions.length > 0 ? activeQuestions : history;
+  }
+
+  const activeQuestionsById = new Map(activeQuestions.map((question) => [question.id, question]));
+  const visibleQuestions = history.map((question) => activeQuestionsById.get(question.id) ?? question);
+  const historyQuestionIds = new Set(history.map((question) => question.id));
+
+  for (const question of activeQuestions) {
+    if (!historyQuestionIds.has(question.id)) {
+      visibleQuestions.push(question);
+    }
+  }
+
+  return visibleQuestions;
+};
+
 interface RefinementSectionProps {
   activeSpecStep: SpecStep;
   activeRefinement: InitiativeRefinementState;
@@ -24,12 +47,13 @@ interface RefinementSectionProps {
   isBusy: boolean;
   saveStateIndicator: ReactNode;
   loadingStateLabel?: string | null;
+  loadingStateBody?: string | null;
   variant?: "full" | "compact" | "survey";
   leadingStepCount?: number;
   surveyResumeKey?: number;
   surveyCompleteLabel?: string;
   onBackToPreviousStep?: () => void;
-  onCompleteSurvey?: () => void;
+  onCompleteSurvey?: () => void | Promise<void>;
   onRequestGuidance: (questionId: string) => void | Promise<void>;
   onAnswerChange: (questionId: string, nextValue: string | string[] | boolean) => void;
   onAnswerLater: (questionId: string) => void;
@@ -49,6 +73,7 @@ export const RefinementSection = ({
   isBusy,
   saveStateIndicator,
   loadingStateLabel = null,
+  loadingStateBody = null,
   variant = "full",
   leadingStepCount = 0,
   surveyResumeKey = 0,
@@ -60,8 +85,8 @@ export const RefinementSection = ({
   onAnswerLater
 }: RefinementSectionProps) => {
   const visibleQuestions = useMemo(
-    () => (activeRefinement.questions.length > 0 ? activeRefinement.questions : (activeRefinement.history ?? [])),
-    [activeRefinement.history, activeRefinement.questions],
+    () => buildVisibleQuestions(activeRefinement),
+    [activeRefinement],
   );
   const visibleRefinement = useMemo<InitiativeRefinementState>(
     () => ({
@@ -126,6 +151,7 @@ export const RefinementSection = ({
     questionDeck && currentQuestionIndex >= 0
       ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + visibleQuestions.length}`
       : null;
+  const completionReviewQuestionId = questionIds[questionIds.length - 1] ?? null;
 
   const renderReopenedQuestionContext = (question: InitiativePlanningQuestion): ReactNode => {
     if (!question.reopensQuestionIds?.length) {
@@ -201,7 +227,7 @@ export const RefinementSection = ({
           <span className="status-loading-spinner" aria-hidden="true" />
           <div className="status-loading-copy">
             <strong>{loadingStateLabel}</strong>
-            <span>Stay here. More questions may appear, or the next step will unlock.</span>
+            {loadingStateBody ? <span>{loadingStateBody}</span> : null}
           </div>
         </div>
       ) : null}
@@ -375,7 +401,7 @@ export const RefinementSection = ({
 
                 if (onCompleteSurvey) {
                   setOpenQuestionId(null);
-                  onCompleteSurvey();
+                  void onCompleteSurvey();
                   return;
                 }
 
@@ -384,6 +410,43 @@ export const RefinementSection = ({
             >
               {nextQuestionId ? "Continue" : surveyCompleteLabel}
             </button>
+          </div>
+        </div>
+      ) : questionDeck && !loadingStateLabel && unresolvedQuestionCount === 0 && visibleQuestions.length > 0 ? (
+        <div className="planning-survey-question">
+          <h3 className="planning-survey-question-title">All questions are answered</h3>
+          <p className="planning-survey-question-copy">
+            Review an answer or continue when you are ready.
+          </p>
+
+          <div className="button-row planning-intake-question-actions">
+            {completionReviewQuestionId || onBackToPreviousStep ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (completionReviewQuestionId) {
+                    setOpenQuestionId(completionReviewQuestionId);
+                    return;
+                  }
+
+                  onBackToPreviousStep?.();
+                }}
+              >
+                Back
+              </button>
+            ) : null}
+            {onCompleteSurvey ? (
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={isBusy}
+                onClick={() => {
+                  void onCompleteSurvey();
+                }}
+              >
+                {surveyCompleteLabel}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

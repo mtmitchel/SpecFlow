@@ -29,7 +29,7 @@ export const PaletteQuickTaskMode = ({ inputRef, onClose, onRefresh, onBack }: P
         navigate(`/initiative/${result.initiativeId}`);
       }
     } catch (err) {
-      showError((err as Error).message ?? "Quick task failed");
+      showError((err as Error).message ?? "We couldn't start the quick task.");
     } finally {
       setBusy(false);
     }
@@ -51,7 +51,7 @@ export const PaletteQuickTaskMode = ({ inputRef, onClose, onRefresh, onBack }: P
         className="palette-textarea"
         value={quickTaskText}
         onChange={(e) => setQuickTaskText(e.target.value)}
-        placeholder="Describe the task"
+        placeholder="Add keyboard shortcuts to note search without changing the sync flow"
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -66,7 +66,7 @@ export const PaletteQuickTaskMode = ({ inputRef, onClose, onRefresh, onBack }: P
           disabled={busy || !quickTaskText.trim()}
           onClick={() => void runQuickTask()}
         >
-          {busy ? "Starting..." : "Start task"}
+          {busy ? "Reviewing..." : "Start quick task"}
         </button>
         <span className="palette-hint">Cmd+Enter</span>
       </div>

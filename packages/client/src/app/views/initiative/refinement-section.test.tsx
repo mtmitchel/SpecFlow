@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { InitiativeRefinementState } from "../../../types.js";
 import { RefinementSection } from "./refinement-section.js";
@@ -45,7 +45,8 @@ describe("RefinementSection", () => {
         busyAction="check-brief"
         isBusy
         saveStateIndicator={null}
-        loadingStateLabel="Checking if the brief needs anything else"
+        loadingStateLabel="Checking brief questions..."
+        loadingStateBody="Reviewing your answers before drafting the brief."
         variant="compact"
         onRequestGuidance={vi.fn()}
         onAnswerChange={vi.fn()}
@@ -53,8 +54,8 @@ describe("RefinementSection", () => {
       />
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Checking if the brief needs anything else");
-    expect(screen.getByText("Stay here. More questions may appear, or the next step will unlock.")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Checking brief questions...");
+    expect(screen.getByText("Reviewing your answers before drafting the brief.")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveClass("planning-intake-loading-compact");
     expect(screen.getByRole("status").closest(".planning-intake-flow")).toHaveClass("planning-intake-flow-loading");
   });
@@ -232,5 +233,88 @@ describe("RefinementSection", () => {
     expect(screen.getByText("Reopening an earlier decision")).toBeInTheDocument();
     expect(screen.getByText("Brief: What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.getByText("Earlier answer: Capture something quickly")).toBeInTheDocument();
+  });
+
+  it("keeps reopened follow-up blockers grouped with earlier answered questions in survey mode", () => {
+    const onBackToPreviousStep = vi.fn();
+
+    render(
+      <RefinementSection
+        activeSpecStep="core-flows"
+        activeRefinement={{
+          ...activeRefinement,
+          questions: [
+            {
+              id: "core-flows-empty-note",
+              label: "How should the app handle notes that are created but left empty?",
+              type: "select",
+              whyThisBlocks: "Empty-note handling changes the flow when the user leaves a draft behind.",
+              affectedArtifact: "core-flows",
+              decisionType: "branch",
+              assumptionIfUnanswered: "Move empty notes to Trash automatically.",
+              options: ["Keep empty notes", "Move empty notes to Trash automatically"],
+              optionHelp: {
+                "Keep empty notes": "Keep empty drafts visible in the library.",
+                "Move empty notes to Trash automatically": "Treat empty drafts as recoverable clutter.",
+              },
+              reopensQuestionIds: ["brief-problem"],
+            },
+          ],
+          history: [
+            activeRefinement.questions[0],
+            {
+              id: "core-flows-empty-note",
+              label: "How should the app handle notes that are created but left empty?",
+              type: "select",
+              whyThisBlocks: "Empty-note handling changes the flow when the user leaves a draft behind.",
+              affectedArtifact: "core-flows",
+              decisionType: "branch",
+              assumptionIfUnanswered: "Move empty notes to Trash automatically.",
+              options: ["Keep empty notes", "Move empty notes to Trash automatically"],
+              optionHelp: {
+                "Keep empty notes": "Keep empty drafts visible in the library.",
+                "Move empty notes to Trash automatically": "Treat empty drafts as recoverable clutter.",
+              },
+              reopensQuestionIds: ["brief-problem"],
+            },
+          ],
+          answers: {
+            "brief-problem": "Capture something quickly",
+          },
+        }}
+        reopenedQuestionContext={{
+          "brief-problem": {
+            questionId: "brief-problem",
+            stepLabel: "Brief",
+            questionLabel: "What primary problem should v1 solve?",
+            resolutionLabel: "Earlier answer: Capture something quickly",
+          },
+        }}
+        refinementAnswers={{ "brief-problem": "Capture something quickly" }}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="saved"
+        unresolvedQuestionCount={1}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        variant="survey"
+        onBackToPreviousStep={onBackToPreviousStep}
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "How should the app handle notes that are created but left empty?" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What primary problem should v1 solve?" })).toBeInTheDocument();
+    expect(onBackToPreviousStep).not.toHaveBeenCalled();
   });
 });

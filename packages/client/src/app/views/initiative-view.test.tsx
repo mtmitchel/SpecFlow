@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { StrictMode, useRef, useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,15 +9,17 @@ const fetchSpecDetailMock = vi.fn();
 const checkInitiativePhaseMock = vi.fn();
 const generateInitiativeBriefMock = vi.fn();
 const generateInitiativeCoreFlowsMock = vi.fn();
+const saveInitiativeRefinementMock = vi.fn();
 
 vi.mock("../../api.js", async () => {
   const actual = await vi.importActual<typeof import("../../api.js")>("../../api.js");
   return {
     ...actual,
     fetchSpecDetail: (...args: unknown[]) => fetchSpecDetailMock(...args),
-    checkInitiativePhase: (...args: unknown[]) => checkInitiativePhaseMock(args[0], args[1]),
-    generateInitiativeBrief: (...args: unknown[]) => generateInitiativeBriefMock(args[0]),
-    generateInitiativeCoreFlows: (...args: unknown[]) => generateInitiativeCoreFlowsMock(args[0]),
+    checkInitiativePhase: (...args: unknown[]) => checkInitiativePhaseMock(...args),
+    generateInitiativeBrief: (...args: unknown[]) => generateInitiativeBriefMock(...args),
+    generateInitiativeCoreFlows: (...args: unknown[]) => generateInitiativeCoreFlowsMock(...args),
+    saveInitiativeRefinement: (...args: unknown[]) => saveInitiativeRefinementMock(...args),
   };
 });
 
@@ -68,7 +70,7 @@ const initiative: Initiative = {
             ],
             optionHelp: {
               [briefProblemOption]:
-                "Pushes the Brief to prioritize workflow efficiency and measure success by reduced effort or time."
+                "Treat speed or reduced manual effort as the main outcome."
             },
             recommendedOption: null,
             allowCustomAnswer: true
@@ -92,7 +94,7 @@ const initiative: Initiative = {
             ],
             optionHelp: {
               [briefProblemOption]:
-                "Pushes the Brief to prioritize workflow efficiency and measure success by reduced effort or time."
+                "Treat speed or reduced manual effort as the main outcome."
             },
             recommendedOption: null,
             allowCustomAnswer: true
@@ -121,6 +123,29 @@ const snapshot: ArtifactsSnapshot = {
   specs: [],
   planningReviews: [],
   ticketCoverageArtifacts: []
+};
+
+const freshBriefSnapshot: ArtifactsSnapshot = {
+  ...snapshot,
+  initiatives: [
+    {
+      ...initiative,
+      workflow: {
+        ...initiative.workflow,
+        refinements: {
+          ...initiative.workflow.refinements,
+          brief: {
+            questions: [],
+            history: [],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: null,
+          },
+        },
+      },
+    },
+  ],
 };
 
 const briefSpec = {
@@ -504,7 +529,7 @@ const StatefulSequenceRoute = ({
   refreshedSnapshots: ArtifactsSnapshot[];
 }) => {
   const [currentSnapshot, setCurrentSnapshot] = useState(initialSnapshot);
-  const [refreshIndex, setRefreshIndex] = useState(0);
+  const refreshIndexRef = useRef(0);
   const location = useLocation();
 
   return (
@@ -513,8 +538,12 @@ const StatefulSequenceRoute = ({
       <InitiativeRouteView
         snapshot={currentSnapshot}
         onRefresh={vi.fn(async () => {
-          setCurrentSnapshot(refreshedSnapshots[Math.min(refreshIndex, refreshedSnapshots.length - 1)] ?? currentSnapshot);
-          setRefreshIndex((current) => current + 1);
+          const nextSnapshot = refreshedSnapshots[Math.min(refreshIndexRef.current, refreshedSnapshots.length - 1)];
+          refreshIndexRef.current += 1;
+
+          if (nextSnapshot) {
+            setCurrentSnapshot(nextSnapshot);
+          }
         })}
       />
     </>
@@ -527,6 +556,8 @@ describe("InitiativeView", () => {
     checkInitiativePhaseMock.mockReset();
     generateInitiativeBriefMock.mockReset();
     generateInitiativeCoreFlowsMock.mockReset();
+    saveInitiativeRefinementMock.mockReset();
+    saveInitiativeRefinementMock.mockResolvedValue({ assumptions: [] });
   });
 
   it("opens the standard brief survey when the user lands on the brief step", async () => {
@@ -575,7 +606,7 @@ describe("InitiativeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "brief");
+      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "brief", expect.anything());
     });
   });
 
@@ -604,14 +635,14 @@ describe("InitiativeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Checking if the brief needs anything else")).toBeInTheDocument();
+      expect(screen.getByText("Checking brief questions...")).toBeInTheDocument();
     });
 
     expect(screen.queryByText("What primary problem should v1 solve?")).not.toBeInTheDocument();
-    expect(screen.getByText("Checking if the brief needs anything else").closest(".planning-survey-card")).toHaveClass(
+    expect(screen.getByText("Checking brief questions...").closest(".planning-survey-card")).toHaveClass(
       "planning-survey-card-compact",
     );
-    expect(screen.getByText("Checking if the brief needs anything else").closest(".planning-survey-card")).toHaveClass(
+    expect(screen.getByText("Checking brief questions...").closest(".planning-survey-card")).toHaveClass(
       "planning-survey-card-transient",
     );
 
@@ -653,12 +684,176 @@ describe("InitiativeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Drafting the brief")).toBeInTheDocument();
+      expect(screen.getByText("Generating brief...")).toBeInTheDocument();
     });
 
     if (resolveGeneration) {
       resolveGeneration({ reviews: [] });
     }
+  });
+
+  it("shows a retry action instead of an empty survey shell when the completed brief re-check fails", async () => {
+    fetchSpecDetailMock.mockResolvedValue(briefSpec);
+    checkInitiativePhaseMock.mockRejectedValue(new Error("Checking the brief questions took too long. Try again."));
+
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
+        <Routes>
+          <Route path="/initiative/:id" element={<WorkspaceWithLocation />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
+      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "brief", expect.anything());
+    });
+
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).not.toHaveProperty("timeoutMs");
+
+    await waitFor(() => {
+      expect(screen.getByText("All questions are answered")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
+  it("retries the initial brief check once before falling back to retry", async () => {
+    checkInitiativePhaseMock
+      .mockRejectedValueOnce(new Error("Checking the brief questions took too long. Try again."))
+      .mockResolvedValueOnce({
+        decision: "ask",
+        questions: initiative.workflow.refinements.brief.questions,
+        assumptions: [],
+      });
+
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={<InitiativeRouteView snapshot={freshBriefSnapshot} onRefresh={vi.fn(() => new Promise<void>(() => undefined))} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(checkInitiativePhaseMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+    expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+
+    await waitFor(() => {
+      expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
+  it("restarts the initial brief check after StrictMode cancels the first mount", async () => {
+    checkInitiativePhaseMock
+      .mockImplementationOnce((_initiativeId: string, _step: string, options?: { signal?: AbortSignal }) =>
+        new Promise<never>((_, reject) => {
+          options?.signal?.addEventListener(
+            "abort",
+            () => {
+              reject(options.signal?.reason ?? new Error("Request cancelled"));
+            },
+            { once: true }
+          );
+        })
+      )
+      .mockResolvedValueOnce({
+        decision: "ask",
+        questions: initiative.workflow.refinements.brief.questions,
+        assumptions: [],
+      });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
+          <Routes>
+            <Route
+              path="/initiative/:id"
+              element={<InitiativeRouteView snapshot={freshBriefSnapshot} onRefresh={vi.fn(() => new Promise<void>(() => undefined))} />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>
+    );
+
+    await waitFor(() => {
+      expect(checkInitiativePhaseMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+    expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+
+    await waitFor(() => {
+      expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
+  it("shows the returned brief questions even when the follow-up refresh stalls", async () => {
+    checkInitiativePhaseMock.mockResolvedValue({
+      decision: "ask",
+      questions: initiative.workflow.refinements.brief.questions,
+      assumptions: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={<InitiativeRouteView snapshot={freshBriefSnapshot} onRefresh={vi.fn(() => new Promise<void>(() => undefined))} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "brief", expect.anything());
+    });
+
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+
+    await waitFor(() => {
+      expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Preparing brief questions...")).not.toBeInTheDocument();
+  });
+
+  it("shows a retry action when the initial brief question check fails", async () => {
+    checkInitiativePhaseMock.mockRejectedValue(new Error("Checking the brief questions took too long. Try again."));
+
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={<InitiativeRouteView snapshot={freshBriefSnapshot} onRefresh={vi.fn(() => Promise.resolve())} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "brief", expect.anything());
+    });
+
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    });
   });
 
   it("returns to the generated brief for review after brief generation completes", async () => {
@@ -715,7 +910,7 @@ describe("InitiativeView", () => {
     expect(screen.queryByText("Answer the missing questions before you generate the core flows.")).not.toBeInTheDocument();
 
     await waitFor(() => {
-      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "core-flows");
+      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "core-flows", expect.anything());
     });
 
     await waitFor(() => {
@@ -746,7 +941,7 @@ describe("InitiativeView", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Getting the questions ready")).toBeInTheDocument();
+      expect(screen.getByText("Preparing core flows questions...")).toBeInTheDocument();
     });
 
     expect(screen.queryByRole("button", { name: "Generate core flows" })).not.toBeInTheDocument();
@@ -786,10 +981,10 @@ describe("InitiativeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "core-flows");
+      expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "core-flows", expect.anything());
     });
 
-    expect(screen.getByText("Checking if the core flows needs anything else")).toBeInTheDocument();
+    expect(screen.getByText("Checking core flows questions...")).toBeInTheDocument();
     expect(screen.queryByText("What should the primary note flow feel like?")).not.toBeInTheDocument();
 
     if (resolveCheck) {
@@ -801,7 +996,7 @@ describe("InitiativeView", () => {
     }
   });
 
-  it("auto-generates and advances after the last core flow answer when no more questions are needed", async () => {
+  it("auto-generates core flows and lands on review after the last answer when no more questions are needed", async () => {
     fetchSpecDetailMock.mockImplementation(async (specId: string) => (specId === coreFlowsSpec.id ? coreFlowsSpec : briefSpec));
     checkInitiativePhaseMock.mockResolvedValue({
       decision: "proceed",
@@ -833,12 +1028,15 @@ describe("InitiativeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(generateInitiativeCoreFlowsMock).toHaveBeenCalledWith(initiative.id);
+      expect(generateInitiativeCoreFlowsMock).toHaveBeenCalledWith(initiative.id, expect.anything());
     });
 
     await waitFor(() => {
-      expect(screen.getByText("?step=prd")).toBeInTheDocument();
+      expect(screen.getByText("?step=core-flows&surface=review")).toBeInTheDocument();
     });
+
+    expect(screen.getByRole("button", { name: "Continue to PRD" })).toBeInTheDocument();
+    expect(screen.getByText("Open into note capture.")).toBeInTheDocument();
   });
 
   it("keeps the viewed brief selected in the pipeline and shows direct actions in the header", async () => {

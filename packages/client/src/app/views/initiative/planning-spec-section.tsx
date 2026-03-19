@@ -1,17 +1,25 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { InitiativePhaseCheckResult } from "../../../api/initiatives.js";
 import type {
   InitiativePlanningStep,
   InitiativeRefinementState
 } from "../../../types.js";
 import type { InitiativePlanningSurface } from "../../utils/initiative-progress.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
-import { getPlanningNextActionLabel } from "../../utils/ui-language.js";
+import {
+  getPlanningGenerationTransitionCopy,
+  getPlanningNextActionLabel,
+  getPlanningQuestionTransitionCopy
+} from "../../utils/ui-language.js";
 import { DocumentSummaryCard } from "./document-summary-card.js";
 import { RefinementSection } from "./refinement-section.js";
 import type { ReopenedQuestionContext } from "./refinement-history.js";
 import type { SaveState, SpecStep } from "./shared.js";
 import type { BusyActionResult } from "./use-cancellable-busy-action.js";
 import { usePhaseAutoAdvance } from "./use-phase-auto-advance.js";
+
+const ENTRY_LOADING_STALL_MS = 3_000;
+const INITIAL_BRIEF_CHECK_TIMEOUT_MS = 3_000;
 
 interface PlanningSpecSectionProps {
   initiativeId: string;
@@ -28,6 +36,8 @@ interface PlanningSpecSectionProps {
   hasPhaseSpecificRefinementDecisions: boolean;
   unresolvedQuestionCount: number;
   nextStep: InitiativePlanningStep | null;
+  handlePhaseCheckResult: (step: SpecStep, result: InitiativePhaseCheckResult) => void;
+  flushRefinementPersistence: () => Promise<boolean>;
   refinementAnswers: Record<string, string | string[] | boolean>;
   defaultAnswerQuestionIds: string[];
   refinementAssumptions: string[];
@@ -63,6 +73,8 @@ export const PlanningSpecSection = ({
   hasPhaseSpecificRefinementDecisions,
   unresolvedQuestionCount,
   nextStep,
+  handlePhaseCheckResult,
+  flushRefinementPersistence,
   refinementAnswers,
   defaultAnswerQuestionIds,
   refinementAssumptions,
@@ -83,7 +95,7 @@ export const PlanningSpecSection = ({
   renderSaveState
 }: PlanningSpecSectionProps) => {
   const [surveyResumeKey, setSurveyResumeKey] = useState(0);
-  const briefEntryStartedRef = useRef(false);
+  const [entryLoadingStalled, setEntryLoadingStalled] = useState(false);
   const downstreamEntryGenerationRef = useRef<SpecStep | null>(null);
   const previousSurfaceRef = useRef<InitiativePlanningSurface>(activeSurface);
   const {
@@ -98,7 +110,8 @@ export const PlanningSpecSection = ({
     initiativeId,
     navigateToStep,
     nextStep,
-    onRefresh
+    onRefresh,
+    onPhaseCheckResult: handlePhaseCheckResult
   });
 
   useEffect(() => {
@@ -136,17 +149,27 @@ export const PlanningSpecSection = ({
 
   useEffect(() => {
     if (!shouldAutoStartBrief) {
-      briefEntryStartedRef.current = false;
       return;
     }
 
-    if (briefEntryStartedRef.current) {
+    if (
+      (isAutoPending && autoAdvanceStep === "brief") ||
+      autoAdvanceFailedStep === "brief"
+    ) {
       return;
     }
 
-    briefEntryStartedRef.current = true;
-    void beginAutoAdvance("brief", { navigateOnSuccess: false });
-  }, [beginAutoAdvance, shouldAutoStartBrief]);
+    void beginAutoAdvance("brief", {
+      navigateOnSuccess: false,
+      phaseCheckTimeoutMs: INITIAL_BRIEF_CHECK_TIMEOUT_MS,
+    });
+  }, [
+    autoAdvanceFailedStep,
+    autoAdvanceStep,
+    beginAutoAdvance,
+    isAutoPending,
+    shouldAutoStartBrief,
+  ]);
 
   useEffect(() => {
     if (!shouldAutoGenerateAfterEntryCheck) {
@@ -180,12 +203,16 @@ export const PlanningSpecSection = ({
   const generatingStep =
     busyAction === `generate-${activeSpecStep}` ||
     (isAutoGenerating && autoAdvanceStep === activeSpecStep);
-  const loadingStateLabel =
-    loadingQuestions && activeRefinement?.questions.length && unresolvedQuestionCount === 0
-      ? `Checking if the ${label.toLowerCase()} needs anything else`
-      : loadingQuestions
-        ? "Getting the questions ready"
-        : null;
+  const loadingStateCopy = loadingQuestions
+    ? getPlanningQuestionTransitionCopy(
+        activeSpecStep,
+        activeRefinement?.questions.length && unresolvedQuestionCount === 0 ? "follow-up" : "entry"
+      )
+    : null;
+  const entryLoadingCopy = getPlanningQuestionTransitionCopy(activeSpecStep, "entry");
+  const generationStateCopy = getPlanningGenerationTransitionCopy(activeSpecStep);
+  const loadingStateLabel = loadingStateCopy?.title ?? null;
+  const loadingStateBody = loadingStateCopy?.body ?? null;
   const questionLoadFailed =
     (activeSpecStep === "brief"
       ? autoAdvanceFailedStep === activeSpecStep
@@ -202,6 +229,22 @@ export const PlanningSpecSection = ({
     !generatingStep &&
     !questionLoadFailed &&
     !generationFailed;
+  const showingTransientEntryLoading = showEntryLoadingFallback && !entryLoadingStalled;
+
+  useEffect(() => {
+    if (!showEntryLoadingFallback) {
+      setEntryLoadingStalled(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setEntryLoadingStalled(true);
+    }, ENTRY_LOADING_STALL_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [showEntryLoadingFallback]);
 
   const renderSurveyCard = (
     content: ReactNode,
@@ -230,7 +273,7 @@ export const PlanningSpecSection = ({
             <span className="status-loading-spinner" aria-hidden="true" />
             <div className="status-loading-copy">
               <strong>Deleting initiative</strong>
-              <span>SpecFlow is stopping the current work and removing this initiative.</span>
+              <span>Stopping work on this initiative and removing it.</span>
             </div>
           </div>,
           { compact: true, transient: true }
@@ -259,10 +302,23 @@ export const PlanningSpecSection = ({
               isBusy={isBusy}
               saveStateIndicator={renderSaveState(refinementSaveState)}
               loadingStateLabel={loadingStateLabel}
+              loadingStateBody={loadingStateBody}
               variant="survey"
-              surveyCompleteLabel="Continue"
+              surveyCompleteLabel={
+                generationFailed
+                  ? `Generate ${label.toLowerCase()}`
+                  : questionLoadFailed
+                    ? "Try again"
+                    : "Continue"
+              }
               onCompleteSurvey={() => {
-                void beginAutoAdvance(activeSpecStep, { navigateOnSuccess: activeSpecStep !== "brief" });
+                void flushRefinementPersistence().then((persisted) => {
+                  if (!persisted) {
+                    return;
+                  }
+
+                  void beginAutoAdvance(activeSpecStep, { navigateOnSuccess: false });
+                });
               }}
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
@@ -274,19 +330,15 @@ export const PlanningSpecSection = ({
       );
     }
 
-    if (loadingQuestions || showEntryLoadingFallback) {
+    if (loadingQuestions || showingTransientEntryLoading) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
           {renderSurveyCard(
             <div className="status-loading-card planning-intake-loading" role="status" aria-live="polite">
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
-                <strong>{loadingStateLabel ?? "Getting the questions ready"}</strong>
-                <span>
-                  {loadingStateLabel
-                    ? "Stay here. More questions may appear, or the next step will unlock."
-                    : `SpecFlow is checking what it needs before drafting the ${label.toLowerCase()}.`}
-                </span>
+                <strong>{loadingStateLabel ?? entryLoadingCopy.title}</strong>
+                <span>{loadingStateBody ?? entryLoadingCopy.body}</span>
               </div>
             </div>,
             { compact: true, transient: true }
@@ -302,8 +354,8 @@ export const PlanningSpecSection = ({
             <div className="status-loading-card planning-intake-loading planning-intake-loading-hero" role="status" aria-live="polite">
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
-                <strong>{`Drafting the ${label.toLowerCase()}`}</strong>
-                <span>{`SpecFlow is turning the confirmed inputs into the ${label.toLowerCase()}.`}</span>
+                <strong>{generationStateCopy.title}</strong>
+                <span>{generationStateCopy.body}</span>
               </div>
             </div>,
             { compact: true, transient: true }
@@ -312,7 +364,7 @@ export const PlanningSpecSection = ({
       );
     }
 
-    if (questionLoadFailed || generationFailed) {
+    if (questionLoadFailed || generationFailed || entryLoadingStalled) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
           {renderSurveyCard(
@@ -324,7 +376,8 @@ export const PlanningSpecSection = ({
                   if (activeSpecStep === "brief") {
                     void beginAutoAdvance("brief", {
                       navigateOnSuccess: false,
-                      skipCheck: generationFailed
+                      skipCheck: generationFailed,
+                      phaseCheckTimeoutMs: generationFailed ? undefined : INITIAL_BRIEF_CHECK_TIMEOUT_MS,
                     });
                     return;
                   }
@@ -387,10 +440,22 @@ export const PlanningSpecSection = ({
             saveStateIndicator={renderSaveState(refinementSaveState)}
             variant="survey"
             surveyResumeKey={surveyResumeKey}
-            surveyCompleteLabel={activeSpecStep === "brief" ? "Regenerate brief" : `Update ${label.toLowerCase()}`}
+            surveyCompleteLabel={
+              questionLoadFailed
+                ? "Try again"
+                : activeSpecStep === "brief"
+                  ? "Regenerate brief"
+                  : `Update ${label.toLowerCase()}`
+            }
             onBackToPreviousStep={() => setActiveSurface("review")}
             onCompleteSurvey={() => {
-              void beginAutoAdvance(activeSpecStep, { navigateOnSuccess: false });
+              void flushRefinementPersistence().then((persisted) => {
+                if (!persisted) {
+                  return;
+                }
+
+                void beginAutoAdvance(activeSpecStep, { navigateOnSuccess: false });
+              });
             }}
             onRequestGuidance={handleRequestGuidance}
             onAnswerChange={updateRefinementAnswer}

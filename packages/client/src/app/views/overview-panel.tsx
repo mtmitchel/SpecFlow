@@ -149,7 +149,7 @@ export const OverviewPanel = ({
     <section className="journey-home-shell">
       {primaryAction ? (
         <div className="journey-home-section">
-          <div className="action-queue-heading">Resume</div>
+          <div className="action-queue-heading">Up next</div>
           <Link
             to={primaryAction.href}
             className={`action-queue-row action-queue-row-${primaryAction.tone} featured action-queue-row-resume`}
@@ -158,7 +158,7 @@ export const OverviewPanel = ({
               {ACTION_TONE_LABELS[primaryAction.tone].slice(0, 1)}
             </span>
             <div className="action-queue-main">
-              <span className="action-queue-kicker">Pick up where you left off</span>
+              <span className="action-queue-kicker">Resume work</span>
               <span className="action-queue-title">{primaryAction.label}</span>
               <span className="action-queue-context">{primaryAction.initiativeName}</span>
             </div>
@@ -171,14 +171,14 @@ export const OverviewPanel = ({
         </div>
       ) : (
         <div className="journey-queue-empty-state">
-          <p className="journey-queue-empty-lead">Nothing is moving yet.</p>
-          <p className="journey-queue-empty-copy">Start an initiative, open a quick task, or press <kbd className="dash-kbd">{modKey}+K</kbd>.</p>
+          <p className="journey-queue-empty-lead">No work is in motion yet.</p>
+          <p className="journey-queue-empty-copy">Start planning for multi-step work, use a quick task for something small, or press <kbd className="dash-kbd">{modKey}+K</kbd>.</p>
         </div>
       )}
 
       {secondaryActions.length > 0 ? (
         <div className="journey-home-section action-queue">
-          <div className="action-queue-heading">Also moving</div>
+          <div className="action-queue-heading">More in progress</div>
           <div className="action-queue-list">
             {secondaryActions.map((action) => (
               <Link
@@ -205,7 +205,7 @@ export const OverviewPanel = ({
       ) : null}
 
       <div className="journey-home-section">
-        <div className="action-queue-heading">Recent initiatives</div>
+        <div className="action-queue-heading">Initiatives</div>
         <div className="initiative-card-grid">
         {visibleInitiativeCards.map(({ initiative, progress }) => (
           <Link key={initiative.id} to={getInitiativeResumeHref(initiative, progress, snapshot)} className="initiative-card">

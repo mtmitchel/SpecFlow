@@ -54,11 +54,11 @@ describe("AuditPanel", () => {
 
     expect(runAuditMock).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Choose the diff source, adjust scope if needed, and run the audit when you're ready.")
+      screen.getByText("Choose what to compare, adjust the scope if needed, and review the changes when you're ready.")
     ).toBeInTheDocument();
   });
 
-  it("waits for the user to click Run Audit before executing", async () => {
+  it("waits for the user to click Review changes before executing", async () => {
     runAuditMock.mockResolvedValue(auditReport);
 
     render(
@@ -67,7 +67,7 @@ describe("AuditPanel", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Run Audit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review changes" }));
 
     await waitFor(() => {
       expect(runAuditMock).toHaveBeenCalledWith("run-12345678", {

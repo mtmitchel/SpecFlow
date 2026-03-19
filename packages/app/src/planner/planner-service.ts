@@ -17,7 +17,7 @@ import {
 } from "./brief-consultation.js";
 import { AUTO_REVIEW_KINDS_BY_STEP, getImpactedReviewKinds } from "./planning-reviews.js";
 import { PlannerConflictError } from "./planner-errors.js";
-import { createInitiativeWorkflow, updateRefinementState } from "./workflow-state.js";
+import { createInitiativeWorkflow, getRefinementAssumptions, updateRefinementState } from "./workflow-state.js";
 import { loadPlannerAgentsMd } from "./internal/agents-md.js";
 import {
   buildPhaseCheckInput,
@@ -32,6 +32,7 @@ import { getResolvedPlannerConfig } from "./internal/config.js";
 import { toStructuredPlannerError } from "./internal/error-shaping.js";
 import { executePlannerJob as executePlannerJobInternal } from "./internal/job-executor.js";
 import { persistPlanArtifacts } from "./internal/plan-job.js";
+import { canonicalizePhaseCheckResult, resolveValidatedPhaseCheckResult } from "./internal/phase-check-job.js";
 import { scanRepo } from "./internal/repo-scanner.js";
 import { executeReviewJob as executeReviewJobInternal } from "./internal/review-job.js";
 import {
@@ -44,13 +45,11 @@ import {
 import { createTicketFromDraft, deriveInitiativeTitle } from "./internal/ticket-factory.js";
 import {
   validateClarifyHelpResult,
-  validatePhaseCheckResult,
   validatePhaseMarkdownResult,
   validatePlanResult,
   validateReviewRunResult,
   validateTriageResult
 } from "./internal/validators.js";
-import { canonicalizePlanningQuestion } from "./decision-types.js";
 import type { PlannerJob } from "./prompt-builder.js";
 import type {
   ClarifyHelpInput,
@@ -187,24 +186,25 @@ export class PlannerService {
         initiative,
         briefMarkdown: markdownByStep.brief
       });
-    const rawResult = initialBriefConsultationRequired
-      ? buildRequiredBriefConsultationResult()
-        : await this.executePlannerJob<PhaseCheckResult>(
-          REFINEMENT_JOB_BY_STEP[input.step],
-          phaseCheckInput,
-          onToken,
-          signal
-        );
-    const result: PhaseCheckResult = {
-      ...rawResult,
-      questions: rawResult.questions.map((question) => canonicalizePlanningQuestion(question))
-    };
-
-    validatePhaseCheckResult(
-      result,
-      phaseCheckInput,
-      initiative.workflow.refinements[input.step].questions
-    );
+    const result: PhaseCheckResult = initialBriefConsultationRequired
+      ? canonicalizePhaseCheckResult(buildRequiredBriefConsultationResult())
+      : input.step === "brief"
+        ? canonicalizePhaseCheckResult({
+            decision: "proceed" as const,
+            questions: [],
+            assumptions: getRefinementAssumptions(initiative.workflow, "brief")
+          })
+        : await resolveValidatedPhaseCheckResult({
+            phaseCheckInput,
+            priorQuestions: initiative.workflow.refinements[input.step].questions,
+            executePhaseCheck: (nextPhaseCheckInput) =>
+              this.executePlannerJob<PhaseCheckResult>(
+                REFINEMENT_JOB_BY_STEP[input.step],
+                nextPhaseCheckInput,
+                onToken,
+                signal
+              )
+          });
 
     const nowIso = this.now().toISOString();
     await this.store.upsertInitiative({

@@ -51,9 +51,9 @@ export const DocumentSummaryCard = ({
     setCopying(true);
     try {
       await navigator.clipboard.writeText(trimmedContent);
-      showSuccess("Brief copied to clipboard");
+      showSuccess("Brief copied.");
     } catch (error) {
-      showError((error as Error).message || "Failed to copy brief");
+      showError((error as Error).message || "We couldn't copy the brief.");
     } finally {
       setCopying(false);
     }

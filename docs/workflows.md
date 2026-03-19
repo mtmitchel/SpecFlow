@@ -35,8 +35,8 @@ Related docs:
 7. User moves into **Tech spec**. Before the first draft, the planner asks one required architecture question. Later checks can ask up to four more targeted blockers about implementation tradeoffs such as data flow, existing-system constraints, compatibility, failure handling, performance, operations, risk, and quality strategy before the user generates the Tech spec. If a Tech spec question reopens an earlier concern, it must point back to the earlier blocker explicitly and the review/question surface should show that earlier provenance instead of treating it like a brand-new blocker. **Review tech spec**, **Cross-check PRD and tech spec**, and the **spec-set review** remain secondary review artifacts instead of blocking the next artifact-phase handoff.
 8. User moves into **Tickets** and generates the ticket plan. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger.
 9. After ticket generation, SpecFlow runs a **Coverage check**. If the ticket plan leaves important flows, requirements, or decisions uncovered, the user must rerun or override that check before execution starts.
-10. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page. Completed planning steps retain their asked-question history so review `Back` can reopen the exact answered survey for targeted revisions without reconstructing a fresh intake state. Resume links and bare initiative routes should restore the last meaningful planning surface for the current phase: review by default after generation, or questions if the user deliberately went back into revision.
-11. The top-level workspace stays light by default: a collapsed icon rail for primary navigation, Up next on Home, and an in-place expandable sidebar that reveals initiative structure without opening a second panel.
+10. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page. Completed planning steps retain their asked-question history so review `Back` can reopen the exact answered survey for targeted revisions without reconstructing a fresh intake state. Resume links and bare initiative routes should restore the last meaningful planning surface for the current phase: review by default after generation, or questions if the user deliberately went back into revision. When the phase is checking for more questions or generating the next artifact, the waiting state should name the active phase directly, for example `Checking PRD questions...` or `Generating PRD...`, instead of falling back to generic loading copy.
+11. The top-level workspace stays light by default: a collapsed icon rail for app-level actions, Up next on Home, and an in-place expandable sidebar that reveals the full initiative and quick-task hierarchy without opening a second panel.
 
 **Exit:** Initiative is ready for execution once the coverage checkpoint is passed or overridden. All tickets are in Backlog. User proceeds to Milestone Run.
 
@@ -154,14 +154,14 @@ stateDiagram
 graph TD
     Rail[Icon rail] --> Home[Home - Up next + initiative cards]
     Rail --> Sidebar[Expanded sidebar]
-    Sidebar --> Initiatives[Active initiative hierarchy]
+    Sidebar --> Initiatives[Initiative and quick-task hierarchy]
     Sidebar --> QuickTasks[Quick Tasks section]
     CmdK[Cmd+K Command Palette] --> QT[Quick Task flow]
     CmdK --> NI[New Initiative flow]
     CmdK --> GH[GitHub Import flow]
     CmdK --> Search[Fuzzy search: entities by name]
 
-    Home --> InitiativeView[Initiative View: breadcrumb + pipeline + stage-switched planning content]
+    Home --> InitiativeView[Initiative View: initiative header + pipeline + stage-switched planning content]
     Initiatives --> InitiativeView
     Initiatives --> SpecView[Spec View: /initiative/:id/spec/:type]
     Initiatives --> TicketView

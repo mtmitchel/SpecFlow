@@ -88,9 +88,9 @@ export const TicketsListView = ({ snapshot }: TicketsListViewProps) => {
 
       {filtered.length === 0 ? (
         <div className="aggregate-empty">
-          <p>{hasAnyTickets ? "No tickets match the current filters" : "No tickets yet"}</p>
+          <p>{hasAnyTickets ? "No tickets match these filters." : "No tickets yet"}</p>
           {!hasAnyTickets && (
-            <p className="aggregate-empty-hint">Create a ticket from an initiative or use Quick Task</p>
+            <p className="aggregate-empty-hint">Tickets appear after you generate them from an initiative or start a quick task.</p>
           )}
         </div>
       ) : (

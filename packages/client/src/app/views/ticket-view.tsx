@@ -14,6 +14,7 @@ import { useToast } from "../context/toast.js";
 import { canTransition, statusColumns } from "../constants/status-columns.js";
 import { findPhaseWarning } from "../utils/phase-warning.js";
 import { getInitiativeProgressModel, type PipelineNodeKey } from "../utils/initiative-progress.js";
+import { INITIATIVE_WORKFLOW_LABELS } from "../utils/initiative-workflow.js";
 import { AuditPanel } from "../components/audit-panel.js";
 import { Pipeline } from "../components/pipeline.js";
 import { useVerificationStream } from "../hooks/use-verification-stream.js";
@@ -25,7 +26,7 @@ import { VerificationResultsSection } from "./ticket/verification-results-sectio
 import type { WorkflowPhase } from "./ticket/workflow.js";
 import { usePersistInitiativeResumeTicket } from "./use-persist-initiative-resume-ticket.js";
 
-const COVERAGE_GATE_MESSAGE = "Resolve the coverage check before you run this ticket.";
+const COVERAGE_GATE_MESSAGE = "Run the coverage check before you start this ticket.";
 
 interface TicketPreflightIssue {
   tone: "warn";
@@ -264,18 +265,14 @@ export const TicketView = ({
     <section className="ticket-journey">
       <header className="section-header ticket-journey-header">
         <div>
-          {initiative ? (
-            <div className="planning-breadcrumb">
-              <Link to="/">Home</Link>
-              <span>/</span>
-              <Link to={`/initiative/${initiative.id}`}>{initiative.title}</Link>
-              <span>/</span>
-              <span>{ticket.title}</span>
-            </div>
-          ) : null}
           <h2>{ticket.title}</h2>
           {ticket.description ? <p>{ticket.description}</p> : null}
         </div>
+        {initiative ? (
+          <div className="button-row" style={{ marginBottom: 0 }}>
+            <Link to={`/initiative/${initiative.id}?step=tickets`}>Back to tickets</Link>
+          </div>
+        ) : null}
       </header>
 
       {initiative && progressModel ? (
@@ -309,10 +306,9 @@ export const TicketView = ({
               <div>
                 <h3>Before you start</h3>
                 <p className="ticket-empty-note">
-                  {visiblePreflightIssues.length > 0 ? "Clear what is blocking this ticket." : "Nothing is blocking this ticket."}
+                  {visiblePreflightIssues.length > 0 ? "Clear the blockers before you start work." : "Nothing is blocking this ticket."}
                 </p>
               </div>
-              {initiative ? <Link to={`/initiative/${initiative.id}?step=tickets`}>Back to tickets</Link> : null}
             </div>
 
             {visiblePreflightIssues.length > 0 ? (
@@ -327,7 +323,7 @@ export const TicketView = ({
               </div>
             ) : (
               <p className="ticket-preflight-ready">
-                Export the bundle, do the work, then verify the result below.
+                Create a bundle, do the work, then return here to review changes and verify it.
               </p>
             )}
           </div>
@@ -335,8 +331,8 @@ export const TicketView = ({
           <div className="execution-timeline">
             <ExecutionTimelineStage
               step="1"
-              title="Export the execution bundle"
-              body="Create the agent bundle first. This anchors the work to this ticket and creates the run record."
+              title="Create the bundle"
+              body="Create the agent bundle to start a run and keep the work tied to this ticket."
               state={exportStageState}
             >
               <ExportSection
@@ -360,8 +356,8 @@ export const TicketView = ({
 
             <ExecutionTimelineStage
               step="2"
-              title="Capture the work and verify it"
-              body="Bring the resulting changes back into SpecFlow, review the scoped diff, and run verification against the ticket plan."
+              title="Review changes and verify"
+              body="Bring the changes back into SpecFlow, review the scoped diff, and check the work against the ticket plan."
               state={captureStageState}
             >
               <CaptureVerifySection
@@ -389,8 +385,8 @@ export const TicketView = ({
 
             <ExecutionTimelineStage
               step="3"
-              title="Review the verdict"
-              body="Use the verification result to decide whether the ticket is complete, needs a follow-up bundle, or needs risk acceptance."
+              title="Decide the outcome"
+              body="Use the verification result to finish the ticket, create a fix bundle, or accept the remaining risk."
               state={verdictStageState}
             >
               {verify.verificationResult ? (
@@ -412,7 +408,7 @@ export const TicketView = ({
                 />
               ) : (
                 <p className="ticket-empty-note">
-                  No verification result yet. Export the bundle, complete the work, and run verification here.
+                  No verification result yet. Create a bundle, finish the work, and verify it here.
                 </p>
               )}
             </ExecutionTimelineStage>
@@ -427,7 +423,7 @@ export const TicketView = ({
                 <div className="button-row" style={{ marginBottom: 0 }}>
                   <Link to={`/run/${run.id}`}>Open run</Link>
                   <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-                    {showAuditPanel ? "Hide drift" : "Review drift"}
+                    {showAuditPanel ? "Hide review" : "Review changes"}
                   </button>
                 </div>
               ) : null}
@@ -464,11 +460,11 @@ export const TicketView = ({
                 <strong>{ticket.status}</strong>
               </div>
               <div>
-                <span>Check</span>
+                <span>Verification</span>
                 <strong>{getVerificationLabel(verify.verificationResult)}</strong>
               </div>
               <div>
-                <span>Files</span>
+                <span>Files in scope</span>
                 <strong>{ticket.fileTargets.length}</strong>
               </div>
             </div>
@@ -493,7 +489,7 @@ export const TicketView = ({
                       await onMoveTicket(ticket.id, moveToStatus);
                       setMoveToStatus("");
                     } catch (err) {
-                      showError((err as Error).message ?? "Failed to move ticket");
+                      showError((err as Error).message ?? "We couldn't update the ticket status.");
                     }
                   }}
                 >
@@ -505,13 +501,13 @@ export const TicketView = ({
           </section>
 
           <section className="ticket-context-card">
-            <h3>Covered items</h3>
+            <h3>Covered spec items</h3>
             {coveredItems.length === 0 ? (
               <p className="ticket-empty-note">No spec items are linked yet.</p>
             ) : (
               Object.entries(groupedCoveredItems).map(([step, items]) => (
                 <div key={step} className="ticket-context-group">
-                  <span className="qa-label">{step}</span>
+                  <span className="qa-label">{INITIATIVE_WORKFLOW_LABELS[step as keyof typeof INITIATIVE_WORKFLOW_LABELS] ?? step}</span>
                   <ul>
                     {items.map((item) => (
                       <li key={item.id}>{item.text}</li>
@@ -533,11 +529,11 @@ export const TicketView = ({
 
           <section className="ticket-context-card">
             <h3>Plan</h3>
-            <pre>{ticket.implementationPlan || "No implementation plan generated yet."}</pre>
-            <h4>File targets</h4>
+            <pre>{ticket.implementationPlan || "No implementation plan yet."}</pre>
+            <h4>Files in scope</h4>
             <ul>
               {ticket.fileTargets.length === 0
-                ? <li style={{ color: "var(--muted)" }}>No target files identified yet.</li>
+                ? <li style={{ color: "var(--muted)" }}>No files in scope yet.</li>
                 : ticket.fileTargets.map((target) => <li key={target}>{target}</li>)}
             </ul>
           </section>

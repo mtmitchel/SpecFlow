@@ -77,7 +77,7 @@ export const AuditPanel = ({
       }
       setSelectedFindingId(payload.findings[0]?.id ?? null);
     } catch (err) {
-      showError((err as Error).message ?? "Audit failed");
+      showError((err as Error).message ?? "We couldn't review the changes.");
     } finally {
       setBusy(false);
     }
@@ -85,7 +85,7 @@ export const AuditPanel = ({
 
   return (
     <div className="panel">
-      <h3>Drift Audit</h3>
+      <h3>Review changes</h3>
       <div className="button-row">
         <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
           <option value="branch">Git Branch</option>
@@ -128,13 +128,13 @@ export const AuditPanel = ({
           {busy ? (
             <span className="btn-loading">
               <span className="status-loading-spinner" aria-hidden="true" />
-              <span className="loading-label-pulse">Running audit...</span>
+              <span className="loading-label-pulse">Reviewing changes...</span>
             </span>
-          ) : "Run Audit"}
+          ) : "Review changes"}
         </button>
       </div>
 
-      {!report ? <p>Choose the diff source, adjust scope if needed, and run the audit when you're ready.</p> : null}
+      {!report ? <p>Choose what to compare, adjust the scope if needed, and review the changes when you're ready.</p> : null}
       {report ? (
         <div className="audit-layout">
           <div>
@@ -184,11 +184,11 @@ export const AuditPanel = ({
                         const ticket = await createTicketFromAuditFinding(runId, selectedFinding.id);
                         navigate(`/ticket/${ticket.id}`);
                       } catch (err) {
-                        showError((err as Error).message ?? "Failed to create ticket");
+                        showError((err as Error).message ?? "We couldn't create the ticket.");
                       }
                     }}
                   >
-                    Create Ticket
+                    Create ticket
                   </button>
                   <select value={exportAgent} onChange={(event) => setExportAgent(event.target.value as typeof exportAgent)}>
                     <option value="claude-code">Claude Code</option>
@@ -205,11 +205,11 @@ export const AuditPanel = ({
                         setExportFlat(bundleText);
                         await navigator.clipboard.writeText(bundleText);
                       } catch (err) {
-                        showError((err as Error).message ?? "Export failed");
+                        showError((err as Error).message ?? "We couldn't create the fix bundle.");
                       }
                     }}
                   >
-                    Export Fix Bundle
+                    Create fix bundle
                   </button>
                 </div>
 
@@ -217,7 +217,7 @@ export const AuditPanel = ({
                   className="multiline"
                   value={dismissNote}
                   onChange={(event) => setDismissNote(event.target.value)}
-                  placeholder="Required dismiss note"
+                  placeholder="Explain why this finding does not need follow-up."
                 />
                 <button
                   type="button"
@@ -230,11 +230,11 @@ export const AuditPanel = ({
                       setDismissNote("");
                       await executeAudit();
                     } catch (err) {
-                      showError((err as Error).message ?? "Dismiss failed");
+                      showError((err as Error).message ?? "We couldn't dismiss the finding.");
                     }
                   }}
                 >
-                  Dismiss
+                  Dismiss finding
                 </button>
 
                 {exportFlat ? <pre>{exportFlat}</pre> : null}

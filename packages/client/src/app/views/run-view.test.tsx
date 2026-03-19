@@ -182,9 +182,10 @@ describe("RunView", () => {
 
     expect(screen.getByText("Summary")).toBeInTheDocument();
     expect(screen.getByText("Details")).toBeInTheDocument();
-    expect(screen.getByText("Files")).toBeInTheDocument();
+    expect(screen.getByText("Included files")).toBeInTheDocument();
     expect(screen.getByText("Implemented the execution gate and updated tests.")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Back to ticket" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Back to ticket" })).toHaveAttribute("href", `/ticket/${ticket.id}`);
+    expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(updateInitiativeMock).toHaveBeenCalledWith(initiative.id, { resumeTicketId: ticket.id });
     });

@@ -65,6 +65,7 @@ npm run dev:web
 npm run lint
 npm run check
 npm test
+npm run test:e2e
 npm run package:desktop
 npm run package:web
 npm run package:sidecar
@@ -73,6 +74,7 @@ npm run ui:web
 ```
 
 `npm test` runs both the backend and client Vitest suites.
+`npm run test:e2e` runs the browser end-to-end workflow suite against the legacy web runtime with a deterministic fake planner/verifier backend. It currently covers the main initiative workflow plus the core-flows review-back/update path.
 `npm run lint` runs the shared ESLint baseline for TypeScript, React Hooks, and general correctness issues.
 `npm run check` now runs lint, both TypeScript checks, and the UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
 `npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.
@@ -113,9 +115,10 @@ If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup mig
 - **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved coverage checks block export and execution until the user reruns or overrides the check.
 - **Action-oriented home**: the landing view is an Up next queue plus initiative cards with inline progress, so the first screen answers what needs attention now instead of showing aggregate counts.
 - **Durable re-entry**: initiative resume links restore the last meaningful planning surface or active initiative ticket, while run detail stays explicit history instead of hijacking the default resume target.
-- **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals labels plus the active initiative hierarchy.
+- **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals app actions plus the full initiative and quick-task hierarchy.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Direct planning entry**: `/new-initiative` flows directly into the shared Brief survey instead of bouncing through a separate handoff mode.
+- **Phase-specific planning transitions**: planning entry, follow-up checks, and artifact generation now name the active phase directly and explain the next step instead of falling back to generic waiting copy.
 - **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents. Desktop mode saves ZIP bundles through the native file picker instead of an HTTP download anchor.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
 - **Fix-forward loop**: failed verification auto-enriches the re-export bundle with failure context; one-click re-export and re-verify.

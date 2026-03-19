@@ -43,6 +43,91 @@ describe("initiative routes", () => {
     }
   });
 
+  it("reruns the required brief consultation without duplicate-question errors", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const createResponse = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/initiatives",
+        payload: { description: "Build auth" }
+      });
+      expect(createResponse.statusCode).toBe(201);
+      const { initiativeId } = createResponse.json() as { initiativeId: string };
+
+      const firstBriefCheck = await fixture.server.app.inject({
+        method: "POST",
+        url: `/api/initiatives/${initiativeId}/brief-check`
+      });
+      expect(firstBriefCheck.statusCode).toBe(200);
+
+      const secondBriefCheck = await fixture.server.app.inject({
+        method: "POST",
+        url: `/api/initiatives/${initiativeId}/brief-check`
+      });
+
+      expect(secondBriefCheck.statusCode).toBe(200);
+      const secondBriefCheckPayload = secondBriefCheck.json() as {
+        decision: string;
+        assumptions: string[];
+        questions: unknown[];
+      };
+      expect(secondBriefCheckPayload).toMatchObject({
+        decision: "ask",
+        assumptions: []
+      });
+      expect(secondBriefCheckPayload.questions).toHaveLength(4);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("returns proceed once the required brief intake is resolved", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const createResponse = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/initiatives",
+        payload: { description: "Build auth" }
+      });
+      expect(createResponse.statusCode).toBe(201);
+      const { initiativeId } = createResponse.json() as { initiativeId: string };
+
+      const firstBriefCheck = await fixture.server.app.inject({
+        method: "POST",
+        url: `/api/initiatives/${initiativeId}/brief-check`
+      });
+      expect(firstBriefCheck.statusCode).toBe(200);
+      const firstBriefCheckPayload = firstBriefCheck.json() as {
+        questions: Array<{ id: string }>;
+      };
+
+      const resolveBriefIntake = await fixture.server.app.inject({
+        method: "PATCH",
+        url: `/api/initiatives/${initiativeId}/refinement/brief`,
+        payload: {
+          answers: {},
+          defaultAnswerQuestionIds: firstBriefCheckPayload.questions.map((question) => question.id)
+        }
+      });
+      expect(resolveBriefIntake.statusCode).toBe(200);
+
+      const secondBriefCheck = await fixture.server.app.inject({
+        method: "POST",
+        url: `/api/initiatives/${initiativeId}/brief-check`
+      });
+
+      expect(secondBriefCheck.statusCode).toBe(200);
+      expect(secondBriefCheck.json()).toMatchObject({
+        decision: "proceed",
+        questions: []
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("blocks brief generation until the required consultation is completed", async () => {
     const fixture = await createServerFixture();
 

@@ -82,17 +82,17 @@ describe("OverviewPanel", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("Resume")).toBeInTheDocument();
-    expect(screen.getByText("Also moving")).toBeInTheDocument();
-    expect(screen.getByText("Recent initiatives")).toBeInTheDocument();
-    expect(screen.getByText("Pick up where you left off")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Continue brief.*Linux Notes/i })).toHaveAttribute(
+    expect(screen.getByText("Up next")).toBeInTheDocument();
+    expect(screen.getByText("More in progress")).toBeInTheDocument();
+    expect(screen.getByText("Initiatives")).toBeInTheDocument();
+    expect(screen.getByText("Resume work")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Review brief.*Linux Notes/i })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=brief&surface=questions`
     );
     expect(screen.getByText("Verify quick task")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Continue brief")).toHaveLength(1);
+    expect(screen.getAllByText("Review brief")).toHaveLength(1);
   });
 
   it("uses the stored initiative ticket as the resume target when execution intent exists", () => {
@@ -155,7 +155,7 @@ describe("OverviewPanel", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("link", { name: /Continue ticket.*Linux Notes/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Resume ticket.*Linux Notes/i })).toHaveAttribute(
       "href",
       "/ticket/initiative-ticket",
     );

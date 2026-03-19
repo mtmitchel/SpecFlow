@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot, InitiativePlanningStep } from "../../types.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { Pipeline } from "../components/pipeline.js";
@@ -79,8 +78,10 @@ export const InitiativeView = ({
     hasPhaseSpecificRefinementDecisions,
     unresolvedQuestionCount,
     nextStep,
+    flushRefinementPersistence,
     autoQuestionLoadStep,
     autoQuestionLoadFailedStep,
+    handlePhaseCheckResult,
     navigateToStep,
     setActiveSurface,
     handleGenerateSpec,
@@ -218,8 +219,8 @@ export const InitiativeView = ({
             <div className="status-loading-card" role="status" aria-live="polite">
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
-                <strong>Loading choices</strong>
-                <span>SpecFlow is checking whether this step needs more input.</span>
+                <strong>Reviewing questions...</strong>
+                <span>Checking whether this step needs more input.</span>
               </div>
             </div>
           ) : (
@@ -257,8 +258,10 @@ export const InitiativeView = ({
         hasRefinementQuestions={hasRefinementQuestions}
         hasPhaseSpecificRefinementDecisions={hasPhaseSpecificRefinementDecisions}
         unresolvedQuestionCount={unresolvedQuestionCount}
-        nextStep={nextStep}
-        refinementAnswers={refinementAnswers}
+                nextStep={nextStep}
+                handlePhaseCheckResult={handlePhaseCheckResult}
+                flushRefinementPersistence={flushRefinementPersistence}
+                refinementAnswers={refinementAnswers}
         defaultAnswerQuestionIds={defaultAnswerQuestionIds}
         refinementAssumptions={refinementAssumptions}
         refinementSaveState={refinementSaveState}
@@ -284,10 +287,8 @@ export const InitiativeView = ({
     <section className="planning-shell">
       <div className="planning-topbar planning-topbar-sticky">
         <div className="planning-topbar-row">
-          <div className="planning-breadcrumb">
-            <Link to="/">Home</Link>
-            <span>/</span>
-            <span>{headerTitle}</span>
+          <div>
+            <h2>{headerTitle}</h2>
           </div>
           <button
             type="button"

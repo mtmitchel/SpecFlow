@@ -30,6 +30,16 @@ const initiative: Initiative = {
   updatedAt: "2026-03-16T12:30:00.000Z"
 };
 
+const secondInitiative: Initiative = {
+  ...initiative,
+  id: "initiative-87654321",
+  title: "Design Library",
+  description: "A shared component reference.",
+  ticketIds: [],
+  createdAt: "2026-03-16T12:40:00.000Z",
+  updatedAt: "2026-03-16T12:40:00.000Z"
+};
+
 const initiativeTicket: Ticket = {
   id: "ticket-12345678",
   initiativeId: initiative.id,
@@ -68,7 +78,7 @@ const quickTask: Ticket = {
 
 const snapshot: ArtifactsSnapshot = {
   config: null,
-  initiatives: [initiative],
+  initiatives: [initiative, secondInitiative],
   tickets: [initiativeTicket, quickTask],
   runs: [],
   runAttempts: [],
@@ -78,13 +88,15 @@ const snapshot: ArtifactsSnapshot = {
 };
 
 describe("buildNavigatorTree", () => {
-  it("builds a project-focused tree without aggregate ticket or run links", () => {
+  it("builds the full initiative and quick-task hierarchy without aggregate ticket or run links", () => {
     const tree = buildNavigatorTree(snapshot);
-    const initiativeNode = tree.find((node) => node.type === "initiative");
+    const initiativeNodes = tree.filter((node) => node.type === "initiative");
 
     expect(tree.some((node) => node.type === "aggregate-link")).toBe(false);
-    expect(tree.some((node) => node.type === "initiative")).toBe(true);
+    expect(initiativeNodes).toHaveLength(2);
     expect(tree.some((node) => node.type === "quick-tasks-header")).toBe(true);
-    expect(initiativeNode?.path).toBe(`/ticket/${initiativeTicket.id}`);
+    expect(initiativeNodes.map((node) => node.label)).toEqual(["Local Notes", "Design Library"]);
+    expect(initiativeNodes[0]?.path).toBe(`/ticket/${initiativeTicket.id}`);
+    expect(initiativeNodes[1]?.path).toBe(`/initiative/${secondInitiative.id}?step=core-flows&surface=questions`);
   });
 });

@@ -16,11 +16,11 @@ The main problem is not visual polish. It is orchestration and state exposure. T
 
 ### Top 5 product and UX problems
 
-1. Navigation authority is still split across Home, the sidebar, the pipeline, breadcrumbs, and in-view status treatment. The user can resume correctly more often now, but the shell still asks them to infer which surface is in charge.
+1. Navigation authority is still split across Home, the sidebar, the pipeline, and in-view status treatment. The user can resume correctly more often now, but the shell still asks them to infer which surface is in charge.
 2. Tickets still mix planning handoff, readiness, management, and history. The page is better grounded than before, but the planning-to-execution transition is not framed clearly enough as one deliberate handoff.
 3. Ticket execution is functionally strong but still too technical in the default path. Advanced bundle, diff, and verification mechanics still compete with the primary user decision at each stage.
 4. Run detail and audit are still too coupled. Historical review and guided change review are closer than before, but they still read more like embedded tooling than a clean product flow.
-5. Transition and state messaging are uneven across shell, planning, execution, and audit. Resume and re-entry are materially better now, but the final UX still needs more consistent explanation of what is happening, why, and what comes next.
+5. Transition and state messaging are still uneven across shell, execution, and audit. Planning-phase handoffs are more consistent now, but the final UX still needs a stronger shared explanation of what is happening, why, and what comes next once the user leaves the planning loop.
 
 ### Top 5 highest-leverage improvements
 
@@ -39,6 +39,8 @@ Several of the highest-risk workflow flaws from the first audit have already lan
 - planner stage boundaries and question contracts are substantially tighter
 - planning re-entry now restores the last meaningful planning surface
 - initiative execution re-entry now restores the active initiative ticket, and run detail stays explicit history rather than replacing that resume target
+- planning transition states now name the active phase and the next action instead of falling back to generic waiting copy
+- browser E2E coverage now exercises the main initiative workflow plus the core-flows review-back/update path against a deterministic harness
 
 The remaining work is narrower than the original audit implied. The main product risk is now shell authority and downstream execution/audit productization, not whether planning itself has a coherent spine.
 
@@ -89,6 +91,7 @@ The remaining work is narrower than the original audit implied. The main product
 - Local `specflow/` runtime artifacts were effectively absent during the audit, so persisted real-user initiatives and runs could not be inspected from disk.
 - The audit is grounded in docs, implementation, and user-reported screenshots and behavior, but not in telemetry or live user research.
 - No live interactive desktop walkthrough was performed during this audit pass.
+- Browser E2E now covers the main initiative workflow and the core-flows review-back/update path, but it still uses a deterministic fake planner/verifier instead of the live desktop provider path.
 
 ## End-to-end journey audit
 
@@ -96,7 +99,7 @@ The remaining work is narrower than the original audit implied. The main product
 
 **User goal:** understand what matters now and resume or start work fast.
 
-**Current experience:** Home now combines a stronger `Up next` queue, initiative cards with clearer resume targets, an icon rail, an expandable sidebar, a pipeline in downstream views, breadcrumbs, and a command palette.
+**Current experience:** Home now combines a stronger `Up next` queue, initiative cards with clearer resume targets, an icon rail, an expandable sidebar, a pipeline in downstream views, and a command palette.
 
 **Friction points:**
 
@@ -312,7 +315,7 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 
 - The product language spec is stronger than the current UI.
 - The UI still leaks low-trust labels such as `Move on anyway`, `Fix issues`, and raw audit terminology.
-- Waiting states do not consistently tell the user what the system is doing and what happens next.
+- Planning waiting states are more consistent than they were, but shell, execution, and audit still do not always tell the user what the system is doing and what happens next.
 
 ### State-model problems
 
@@ -346,7 +349,7 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 | High | Tickets phase | Tickets still reads as a mixed planning-management surface | Weakens the planning-to-execution handoff | Reframe Tickets as readiness handoff, not mixed management view | Better execution start clarity |
 | High | Execution UX | Ticket flow still exposes too much engine detail | Raises cognitive load at the point of action | Keep the 3-step structure but hide advanced mechanics behind disclosure | Faster execution and verification |
 | High | Audit UX | Drift audit is still too tool-like in the default framing | Feels bolted on, not productized | Turn audit into a guided review flow with a default path and advanced options secondary | Better usability and adoption |
-| Medium | Transition copy | State and waiting messages are still uneven across surfaces | Users still have to parse system mechanics instead of user intent in some states | Finish the cross-surface product-language pass | Better trust and fewer “what now?” moments |
+| Medium | Transition copy | State and waiting messages are still uneven outside the stabilized planning loop | Users still have to parse system mechanics instead of user intent in some shell, execution, and audit states | Finish the cross-surface product-language pass | Better trust and fewer “what now?” moments |
 | Medium | Resume and recovery | Resume is stronger, but lower-value history and recovery paths still need clearer defaults | Historical surfaces can still compete with active work in edge cases | Keep active work primary and make history clearly secondary | Better re-entry and failure recovery |
 | Medium | Activation | Environment readiness is under-signaled | First-run and blocked states feel disconnected from setup | Surface provider/model/key readiness contextually | Lower setup friction |
 
@@ -492,6 +495,8 @@ Move advanced bundle, diff, and scope controls behind secondary disclosure.
 - removed planning-phase checkpoint interruptions from the primary journey
 - fixed review `Back` and planning-surface re-entry around artifact review and question flows
 - introduced stronger persisted resume intent for planning surfaces and active initiative tickets
+- normalized planning transition copy so phase entry checks, follow-up checks, and artifact generation name the current phase directly
+- added browser E2E coverage for the main initiative workflow and the core-flows review-back/update path
 
 ### Remaining workflow cleanup
 

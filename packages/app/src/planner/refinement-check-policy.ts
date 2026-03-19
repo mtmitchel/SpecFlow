@@ -9,7 +9,7 @@ interface RefinementPromptPolicy {
 export interface RefinementQuestionPolicy extends RefinementPromptPolicy {
   maxQuestions: number;
   requiredStarterQuestionCount: number;
-  requiredStarterDecisionTypes: InitiativePlanningDecisionType[];
+  requiredStarterDecisionGroups: InitiativePlanningDecisionType[][];
   allowedDecisionTypes: InitiativePlanningDecisionType[];
   hardForbiddenTerms: string[];
   conditionalForbiddenTerms: string[];
@@ -19,7 +19,7 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
   brief: {
     maxQuestions: 4,
     requiredStarterQuestionCount: 0,
-    requiredStarterDecisionTypes: [],
+    requiredStarterDecisionGroups: [],
     allowedDecisionTypes: ["problem", "user", "success", "constraint"],
     hardForbiddenTerms: [
       "journey",
@@ -59,17 +59,25 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
   "core-flows": {
     maxQuestions: 4,
     requiredStarterQuestionCount: 3,
-    requiredStarterDecisionTypes: ["journey", "branch", "state"],
+    requiredStarterDecisionGroups: [["journey"], ["branch", "failure-mode"], ["state"]],
     allowedDecisionTypes: ["journey", "branch", "state", "failure-mode"],
     hardForbiddenTerms: [
       "architecture",
       "library",
       "framework",
+      "which platform",
+      "supported platform",
+      "web first pwa",
+      "desktop native",
+      "mobile native",
+      "electron style",
       "database",
       "schema",
       "ipc",
       "component",
-      "persistence",
+      "persist to disk",
+      "save to disk",
+      "stored on disk",
       "storage format",
       "filesystem",
       "index",
@@ -92,18 +100,22 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "- Ask only about the shape of the primary flow: primary path, meaningful branch or destructive path, flow conditions that change the map, and failure or degraded paths when they materially affect the experience.",
       "- The flow may be user-facing, operator-facing, or system/process-facing. Do not assume a screen-based UI.",
       '- Treat decisionType "state" as a flow condition, mode, or lifecycle rule that changes what path the user can take.',
+      '- Use decisionType "branch" for alternate or destructive paths and "failure-mode" for degraded-path or recovery questions. Either one can satisfy the edge-path starter requirement.',
+      "- It is valid to ask whether a remembered view, mode, or return state changes the next path. Do not ask how that state is stored or implemented.",
+      "- Platform targets, supported device classes, packaging, and distribution strategy belong to Brief or PRD scope boundaries, not Core flows.",
       "- Do not ask about architecture, storage format, libraries, runtime/package targets, indexing strategy, or low-level timing/tuning unless the answer changes a user-visible state or branch."
     ],
     generationRules: [
       "Focus on the primary flow, flow conditions, branches, failure or degraded paths, and state transitions.",
       "The flow may be user-facing, operator-facing, or system/process-facing; do not assume a screen-based UI.",
+      "A remembered view, mode, or return state may belong here when it changes the next path seen by the user.",
       "Do not specify architecture, storage internals, runtime/package choices, or low-level timing/tuning unless they change a visible branch, flow condition, or outcome."
     ]
   },
   prd: {
     maxQuestions: 4,
     requiredStarterQuestionCount: 1,
-    requiredStarterDecisionTypes: ["scope"],
+    requiredStarterDecisionGroups: [["scope"]],
     allowedDecisionTypes: [
       "behavior",
       "rule",
@@ -121,7 +133,9 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "database",
       "schema",
       "component",
-      "persistence"
+      "persist to disk",
+      "save to disk",
+      "stored on disk"
     ],
     conditionalForbiddenTerms: [
       "runtime",
@@ -142,18 +156,20 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       '- Treat decisionType "rule" as the governing constraint on behavior, not a paraphrase of the same behavior question.',
       "- The first PRD consultation must lock at least one explicit scope boundary before the first draft.",
       "- Do not reopen a Brief constraint unless the missing detail materially changes the user-visible contract or v1 scope.",
+      "- User-visible remembered behavior is valid here when it changes the product contract. Do not ask how that behavior is stored or implemented.",
       "- Do not ask about architecture, data model internals, libraries, runtime/package choices, deployment, or implementation mechanics.",
       "- Prefer proceed when the missing detail would not change the product contract seen by the user."
     ],
     generationRules: [
       "Treat the PRD as the user-visible product contract for behavior, rules, scope boundaries, v1 priorities, and non-goals.",
+      "User-visible remembered behavior can belong in the PRD when it changes the product contract.",
       "Do not specify architecture, libraries, runtime/package choices, storage internals, or low-level implementation mechanics."
     ]
   },
   "tech-spec": {
     maxQuestions: 5,
     requiredStarterQuestionCount: 1,
-    requiredStarterDecisionTypes: ["architecture"],
+    requiredStarterDecisionGroups: [["architecture"]],
     allowedDecisionTypes: [
       "architecture",
       "data-flow",

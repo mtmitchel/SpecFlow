@@ -68,12 +68,12 @@ export const SAVE_STATE_LABELS: Record<SaveState, string | null> = {
   idle: null,
   saving: "Saving...",
   saved: "Saved",
-  error: "Saving failed. Try again."
+  error: "We couldn't save. Try again."
 };
 
 export const REVIEW_STATUS_LABELS: Record<PlanningReviewArtifact["status"], string> = {
   passed: "Looks good",
-  blocked: "Needs attention",
+  blocked: "Needs review",
   overridden: "Accepted risk",
   stale: "Needs review"
 };

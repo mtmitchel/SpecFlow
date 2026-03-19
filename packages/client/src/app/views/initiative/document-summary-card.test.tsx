@@ -39,7 +39,7 @@ describe("DocumentSummaryCard", () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("# Local Notes\n\n## Summary\n\nA short summary.");
     });
-    expect(showSuccess).toHaveBeenCalledWith("Brief copied to clipboard");
+    expect(showSuccess).toHaveBeenCalledWith("Brief copied.");
   });
 
   it("does not show the brief copy action on non-brief cards", () => {

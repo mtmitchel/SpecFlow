@@ -56,7 +56,7 @@ export const useCapturePreview = (
       }
     }).catch((err) => {
       if (signal.aborted) return;
-      showError((err as Error).message ?? "Failed to load diff preview");
+      showError((err as Error).message ?? "We couldn't load the change preview.");
     });
   };
 

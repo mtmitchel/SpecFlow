@@ -88,7 +88,7 @@ export const CaptureVerifySection = ({
       setVerificationResult(result);
       await onRefresh();
     } catch (err) {
-      showError((err as Error).message ?? "Verification failed");
+      showError((err as Error).message ?? "We couldn't verify the work.");
     } finally {
       setVerifyState("idle");
     }
@@ -97,31 +97,31 @@ export const CaptureVerifySection = ({
   const content = (
     <>
       <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
-        After execution finishes, review the captured changes and check them against the plan.
-        <HelpTip text="Compares the captured changes against the acceptance criteria defined in the ticket plan." />
+        After the work lands, review the captured changes and check them against the ticket plan.
+        <HelpTip text="Compares the captured changes against the acceptance criteria in the ticket plan." />
       </p>
       <div className="button-row">
         <button type="button" onClick={() => void refreshCapturePreview()}>
-          Refresh change preview
+          Refresh changes
         </button>
-        {capturePreviewData ? <span className="text-muted-sm">Source: {capturePreviewData.source}</span> : null}
+        {capturePreviewData ? <span className="text-muted-sm">Change source: {capturePreviewData.source}</span> : null}
       </div>
       {capturePreviewData ? (
         <>
-          <h4>Primary scope</h4>
+          <h4>Files in scope</h4>
           <input
             className="phase-name-input"
             value={captureScopeInput}
             onChange={(event) => setCaptureScopeInput(event.target.value)}
-            placeholder="src/a.ts, src/b.ts"
+            placeholder="src/app/ticket-view.tsx, src/app/utils/ui-language.ts"
           />
-          <h4>Change preview</h4>
+          <h4>Changes in scope</h4>
           <pre>{capturePreviewData.primaryDiff || "(no changes in selected scope)"}</pre>
         </>
       ) : null}
       {capturePreviewData?.source === "snapshot" ? (
         <div className="panel">
-          <h4>Scope picker</h4>
+          <h4>Choose files</h4>
           <input
             type="file"
             multiple
@@ -143,7 +143,7 @@ export const CaptureVerifySection = ({
           />
           <ul>
             {selectedNoGitPaths.length === 0
-              ? <li>No paths selected.</li>
+              ? <li>No files selected.</li>
               : selectedNoGitPaths.map((entry) => <li key={entry}>{entry}</li>)}
           </ul>
         </div>
@@ -152,17 +152,18 @@ export const CaptureVerifySection = ({
         className="multiline"
         value={captureSummary}
         onChange={(event) => setCaptureSummary(event.target.value)}
-        placeholder="Optional notes about what changed"
+        placeholder="Example: Added the execution gate and updated the related tests."
       />
+      <h4>Review extra files</h4>
       <input
         className="phase-name-input"
         value={widenedInput}
         onChange={(event) => setWidenedInput(event.target.value)}
-        placeholder="widened/scope/path.ts, another/path.ts"
+        placeholder="src/app/detail-workspace.tsx, src/app/views/run-view.tsx"
       />
       <div className="status-banner warn" style={{ fontSize: "0.85rem" }}>
-        Files in widened scope are checked for unintended changes but are not evaluated against acceptance criteria.
-        Use this for files your agent may have touched outside the primary scope.
+        Files outside the main scope are checked for unexpected changes, but they are not scored against the acceptance criteria.
+        Use this when the agent may have touched related files.
       </div>
       <div className="button-row">
         <button
@@ -177,13 +178,13 @@ export const CaptureVerifySection = ({
       {verifyState === "running" ? (
         <div className="verify-progress">
           <span className="verify-spinner" />
-          Checking acceptance criteria
+          Checking the work against the plan...
         </div>
       ) : null}
 
       {verifyStreamEvents.length > 0 ? (
         <details className="verify-stream-toggle">
-          <summary>Verification log ({verifyStreamEvents.length} tokens)</summary>
+          <summary>Verification log</summary>
           <pre>{verifyStreamEvents.join("")}</pre>
         </details>
       ) : null}

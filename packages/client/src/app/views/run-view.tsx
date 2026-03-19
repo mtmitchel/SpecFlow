@@ -286,8 +286,8 @@ export const RunView = ({
         <div className="status-loading-card" role="status" aria-live="polite">
           <span className="status-loading-spinner" aria-hidden="true" />
           <div className="status-loading-copy">
-            <strong>Loading run detail</strong>
-            <span>SpecFlow is pulling together the latest execution history and verification results.</span>
+            <strong>Loading run...</strong>
+            <span>Pulling together the latest summary, verification result, and included files.</span>
           </div>
         </div>
       </section>
@@ -331,17 +331,6 @@ export const RunView = ({
     <section className="ticket-journey">
       <header className="section-header ticket-journey-header">
         <div>
-          {initiative ? (
-            <div className="planning-breadcrumb">
-              <Link to="/">Home</Link>
-              <span>/</span>
-              <Link to={`/initiative/${initiative.id}`}>{initiative.title}</Link>
-              <span>/</span>
-              {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : null}
-              <span>/</span>
-              <span>{detail.run.id}</span>
-            </div>
-          ) : null}
           <h2>{detail.run.id}</h2>
           <p>{detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"}</p>
         </div>
@@ -385,7 +374,7 @@ export const RunView = ({
               <div className="checkpoint-gate-copy">
                 <strong>Run ended early</strong>
                 <span>
-                  This run ended {detail.operationState}. Start the next run from the ticket so the execution history stays attached to the same work item.
+                  This run ended {detail.operationState}. Start the next run from the ticket so the work stays attached to the same ticket.
                 </span>
               </div>
               {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link> : null}
@@ -395,7 +384,7 @@ export const RunView = ({
           <RunReportCard title="Summary" badge={reportVerdict}>
             <div className="button-row">
               <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-                {showAuditPanel ? "Hide drift" : "Review drift"}
+                {showAuditPanel ? "Hide review" : "Review changes"}
               </button>
             </div>
 
@@ -405,8 +394,8 @@ export const RunView = ({
               <div className="status-loading-card" role="status" aria-live="polite">
                 <span className="status-loading-spinner" aria-hidden="true" />
                 <div className="status-loading-copy">
-                  <strong>Loading committed attempt</strong>
-                  <span>SpecFlow is fetching the saved run summary for this attempt.</span>
+                  <strong>Loading saved run...</strong>
+                  <span>Pulling together the committed summary for this attempt.</span>
                 </div>
               </div>
             ) : null}
@@ -427,7 +416,7 @@ export const RunView = ({
                       <span className="status-loading-spinner" aria-hidden="true" />
                       <span className="loading-label-pulse">Loading diff...</span>
                     </span>
-                  ) : "Load diff"}
+                  ) : "Show diff"}
                 </button>
               </div>
             )}
@@ -504,10 +493,9 @@ export const RunView = ({
                 <strong>{detail.run.agentType}</strong>
               </div>
             </div>
-            {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Back to ticket</Link> : null}
           </RunReportCard>
 
-          <RunReportCard title="Files">
+          <RunReportCard title="Included files">
             <ul>
               {bundleFiles.length === 0 ? (
                 <li>No bundled files were recorded for the committed attempt.</li>

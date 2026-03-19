@@ -188,7 +188,7 @@ const isDuplicateConcern = (
   return false;
 };
 
-const isCrossStageDuplicateConcern = (
+const isHistoricalDuplicateConcern = (
   question: InitiativePlanningQuestion,
   priorQuestion: HistoricalQuestion
 ): boolean => {
@@ -208,8 +208,7 @@ const validateQuestions = (
   const questionPolicy = getQuestionPolicy(input.phase);
   const allowedDecisionTypes = new Set(questionPolicy.allowedDecisionTypes.map((decisionType) => normalizeDecisionType(decisionType)));
   const seenQuestions: InitiativePlanningQuestion[] = [...priorQuestions];
-  const priorHistoryQuestions = (input.refinementHistory ?? [])
-    .filter((entry) => entry.step !== input.phase)
+  const historicalQuestions = (input.refinementHistory ?? [])
     .map(toHistoricalQuestion);
   const conditionalForbiddenContext = buildConditionalForbiddenContext(input);
 
@@ -336,14 +335,14 @@ const validateQuestions = (
     }
 
     const reopenedQuestions = reopensQuestionIds.map((questionId) =>
-      priorHistoryQuestions.find((priorQuestion) => priorQuestion.id === questionId)
+      historicalQuestions.find((priorQuestion) => priorQuestion.id === questionId)
     );
     if (reopenedQuestions.some((priorQuestion) => !priorQuestion)) {
       throw new Error(`Refinement question ${question.id} reopens an unknown earlier question`);
     }
 
     const invalidReopenReference = reopenedQuestions.find(
-      (priorQuestion) => priorQuestion && !isCrossStageDuplicateConcern(question, priorQuestion)
+      (priorQuestion) => priorQuestion && !isHistoricalDuplicateConcern(question, priorQuestion)
     );
     if (invalidReopenReference) {
       throw new Error(
@@ -351,8 +350,8 @@ const validateQuestions = (
       );
     }
 
-    const duplicateEarlierConcern = priorHistoryQuestions.find((priorQuestion) =>
-      isCrossStageDuplicateConcern(question, priorQuestion)
+    const duplicateEarlierConcern = historicalQuestions.find((priorQuestion) =>
+      isHistoricalDuplicateConcern(question, priorQuestion)
     );
     if (duplicateEarlierConcern && !reopensQuestionIds.includes(duplicateEarlierConcern.id)) {
       throw new Error(
@@ -394,10 +393,18 @@ export const validatePhaseCheckResult = (
       );
     }
 
-    for (const decisionType of questionPolicy.requiredStarterDecisionTypes) {
-      if (!result.questions.some((question) => normalizeDecisionType(question.decisionType) === normalizeDecisionType(decisionType))) {
+    for (const decisionGroup of questionPolicy.requiredStarterDecisionGroups) {
+      const normalizedDecisionGroup = decisionGroup.map((decisionType) => normalizeDecisionType(decisionType));
+      const groupSatisfied = result.questions.some((question) =>
+        normalizedDecisionGroup.includes(normalizeDecisionType(question.decisionType))
+      );
+      if (!groupSatisfied) {
+        const groupLabel =
+          normalizedDecisionGroup.length === 1
+            ? normalizedDecisionGroup[0]
+            : normalizedDecisionGroup.join(" or ");
         throw new Error(
-          `Phase-check result for ${input.phase} must include a ${decisionType} question in the first starter set`
+          `Phase-check result for ${input.phase} must include a ${groupLabel} question in the first starter set`
         );
       }
     }

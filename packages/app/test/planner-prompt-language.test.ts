@@ -34,6 +34,7 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain("at most 4 questions");
     expect(prompt.userPrompt).toContain("Ask only about the shape of the primary flow");
     expect(prompt.userPrompt).toContain("Do not assume a screen-based UI");
+    expect(prompt.userPrompt).toContain("Platform targets, supported device classes, packaging, and distribution strategy belong to Brief or PRD scope boundaries");
     expect(prompt.userPrompt).toContain("Do not ask about architecture, storage format, libraries");
     expect(prompt.userPrompt).toContain("Allowed decisionType values for this artifact are: journey, branch, state, failure-mode");
   });
@@ -123,5 +124,28 @@ describe("planner prompt language", () => {
     expect(prompt.systemPrompt).toContain('"type": "select|multi-select|boolean"');
     expect(prompt.systemPrompt).toContain('"allowCustomAnswer": true');
     expect(prompt.userPrompt).toContain('Do not include "Other" in options');
+    expect(prompt.userPrompt).toContain(
+      'For "boolean" questions, do not include options, optionHelp, or recommendedOption'
+    );
+  });
+
+  it("feeds validation feedback back into the next phase-check prompt", () => {
+    const prompt = buildPlannerPrompt(
+      "core-flows-check",
+      {
+        initiativeDescription: "Build a lightweight offline-first note-taking app",
+        phase: "core-flows",
+        briefMarkdown: "# Brief",
+        coreFlowsMarkdown: "# Core flows",
+        savedContext: {},
+        validationFeedback:
+          "Refinement question attachments-offline-failure must not provide options for boolean questions"
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain("phase-check result failed validation");
+    expect(prompt.userPrompt).toContain("attachments-offline-failure");
+    expect(prompt.userPrompt).toContain("must not provide options for boolean questions");
   });
 });

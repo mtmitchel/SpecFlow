@@ -43,7 +43,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
       await onRefresh();
       navigate(`/initiative/${result.initiativeId}?step=brief`);
     } catch (err) {
-      showError((err as Error).message ?? "Failed to create initiative");
+      showError((err as Error).message ?? "We couldn't start the initiative.");
     } finally {
       setBusy(false);
     }
@@ -66,12 +66,14 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
 
       <div className="planning-entry-column">
         <div className="planning-entry-card">
-          <h3>What do you want to build?</h3>
+          <h3>What are you planning?</h3>
+          <p className="text-muted-sm" style={{ margin: "0 0 0.75rem" }}>
+            Start with the outcome, who it is for, and any limits that matter.
+          </p>
           <textarea
             className="multiline"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="What are you building? Who is it for? Any hard limits?"
             autoFocus
           />
           <div className="planning-entry-card-footer">
@@ -81,7 +83,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
               onClick={() => void handleCreate()}
               disabled={busy || description.trim().length === 0}
             >
-              {busy ? "Creating..." : "Continue"}
+              {busy ? "Starting..." : "Start brief intake"}
             </button>
           </div>
         </div>

@@ -114,12 +114,12 @@ describe("Initiative delete cancellation", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("Getting the questions ready")).toBeInTheDocument();
+    expect(await screen.findByText("Preparing core flows questions...")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Delete initiative" }));
 
     expect(await screen.findByText("Deleting initiative")).toBeInTheDocument();
-    expect(screen.queryByText("Getting the questions ready")).not.toBeInTheDocument();
+    expect(screen.queryByText("Preparing core flows questions...")).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(deleteInitiativeMock).toHaveBeenCalledWith(initiative.id);

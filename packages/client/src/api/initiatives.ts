@@ -11,6 +11,22 @@ import type {
 
 type RefinementStep = Extract<InitiativePlanningStep, "brief" | "core-flows" | "prd" | "tech-spec">;
 
+const LLM_PHASE_CHECK_TIMEOUT_MS = 90_000;
+
+const PHASE_CHECK_TIMEOUT_MS: Record<RefinementStep, number> = {
+  brief: 20_000,
+  "core-flows": LLM_PHASE_CHECK_TIMEOUT_MS,
+  prd: LLM_PHASE_CHECK_TIMEOUT_MS,
+  "tech-spec": LLM_PHASE_CHECK_TIMEOUT_MS
+};
+
+const PHASE_CHECK_TIMEOUT_LABEL: Record<RefinementStep, string> = {
+  brief: "brief questions",
+  "core-flows": "core flows questions",
+  prd: "PRD questions",
+  "tech-spec": "tech spec questions"
+};
+
 export interface InitiativePhaseCheckResult {
   decision: "proceed" | "ask";
   questions: InitiativePlanningQuestion[];
@@ -72,7 +88,12 @@ export const checkInitiativePhase = async (
         signal,
       }),
     undefined,
-    options,
+    {
+      ...options,
+      timeoutMs: options?.timeoutMs ?? PHASE_CHECK_TIMEOUT_MS[step],
+      timeoutMessage:
+        options?.timeoutMessage ?? `Checking the ${PHASE_CHECK_TIMEOUT_LABEL[step]} took too long. Try again.`,
+    },
   );
 
 export const generateInitiativeBrief = async (

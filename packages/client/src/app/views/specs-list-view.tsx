@@ -72,9 +72,9 @@ export const SpecsListView = ({ snapshot }: SpecsListViewProps) => {
 
       {filtered.length === 0 ? (
         <div className="aggregate-empty">
-          <p>{hasAnySpecs ? "No specs match the current filters" : "No planning docs yet"}</p>
+          <p>{hasAnySpecs ? "No planning docs match these filters." : "No planning docs yet"}</p>
           {!hasAnySpecs && (
-            <p className="aggregate-empty-hint">Create a brief, core flows, PRD, or tech spec from an initiative to populate this library.</p>
+            <p className="aggregate-empty-hint">Briefs, core flows, PRDs, and tech specs appear as you shape an initiative.</p>
           )}
         </div>
       ) : (

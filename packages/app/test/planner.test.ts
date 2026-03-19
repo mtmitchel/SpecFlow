@@ -47,6 +47,11 @@ const reviewResult = (summary: string) => ({
   recommendedFixes: []
 });
 
+const repeatResponseTwice = (payload: unknown): string[] => [
+  JSON.stringify(payload),
+  JSON.stringify(payload)
+];
+
 const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   const base = specflowDir(rootDir);
   await mkdir(path.join(base, "initiatives"), { recursive: true });
@@ -263,8 +268,8 @@ describe("PlannerService", () => {
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
+        llmClient: new MockLlmClient(
+          repeatResponseTwice({
             decision: "ask",
             questions: [
               {
@@ -288,7 +293,7 @@ describe("PlannerService", () => {
             ],
             assumptions: []
           })
-        ]),
+        ),
         fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "def67890"
@@ -344,13 +349,13 @@ describe("PlannerService", () => {
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
+        llmClient: new MockLlmClient(
+          repeatResponseTwice({
             decision: "ask",
             questions: [],
             assumptions: []
           })
-        ]),
+        ),
         fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:10:00.000Z"),
         idGenerator: () => "prdst002"
@@ -407,13 +412,13 @@ describe("PlannerService", () => {
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
+        llmClient: new MockLlmClient(
+          repeatResponseTwice({
             decision: "ask",
             questions: [],
             assumptions: []
           })
-        ]),
+        ),
         fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:15:00.000Z"),
         idGenerator: () => "techst02"
@@ -496,8 +501,8 @@ describe("PlannerService", () => {
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
+        llmClient: new MockLlmClient(
+          repeatResponseTwice({
             decision: "ask",
             questions: [
               {
@@ -518,7 +523,7 @@ describe("PlannerService", () => {
             ],
             assumptions: []
           })
-        ]),
+        ),
         fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:15:00.000Z"),
         idGenerator: () => "dupprd02"
@@ -562,8 +567,8 @@ describe("PlannerService", () => {
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
+        llmClient: new MockLlmClient(
+          repeatResponseTwice({
             decision: "ask",
             questions: [
               {
@@ -584,7 +589,7 @@ describe("PlannerService", () => {
             ],
             assumptions: []
           })
-        ]),
+        ),
         fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "1122aabb"
@@ -629,8 +634,8 @@ describe("PlannerService", () => {
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
+        llmClient: new MockLlmClient(
+          repeatResponseTwice({
             decision: "ask",
             questions: [
               {
@@ -651,7 +656,7 @@ describe("PlannerService", () => {
             ],
             assumptions: []
           })
-        ]),
+        ),
         fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "7788ccdd"
@@ -696,8 +701,8 @@ describe("PlannerService", () => {
       const planner = new PlannerService({
         rootDir,
         store,
-        llmClient: new MockLlmClient([
-          JSON.stringify({
+        llmClient: new MockLlmClient(
+          repeatResponseTwice({
             decision: "ask",
             questions: [
               {
@@ -717,7 +722,7 @@ describe("PlannerService", () => {
             ],
             assumptions: []
           })
-        ]),
+        ),
         fetchImpl: mockProviderRegistryFetch,
         now: () => new Date("2026-02-27T20:00:00.000Z"),
         idGenerator: () => "ee99cc77"
@@ -730,6 +735,101 @@ describe("PlannerService", () => {
           step: "prd"
         })
       ).rejects.toThrow("missing optionHelp");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("retries one invalid phase-check result before surfacing a boolean-question contract error", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-phase-check-repair-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-phase-check-repair";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const mockClient = new MockLlmClient([
+        JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "attachments-offline-failure",
+              label: "Should failed attachment sync stay visible until the user retries it?",
+              whyThisBlocks: "The flow changes depending on whether failed sync stays visible or silently retries.",
+              affectedArtifact: "core-flows",
+              decisionType: "failure-mode",
+              type: "boolean",
+              assumptionIfUnanswered: "Keep failed sync visible until the user retries it.",
+              options: ["Yes", "No"],
+              optionHelp: {
+                Yes: "Keep a visible failed-sync state until the user acts.",
+                No: "Retry silently in the background."
+              },
+              recommendedOption: "Yes"
+            }
+          ],
+          assumptions: []
+        }),
+        JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "attachments-offline-failure",
+              label: "Should failed attachment sync stay visible until the user retries it?",
+              whyThisBlocks: "The flow changes depending on whether failed sync stays visible or silently retries.",
+              affectedArtifact: "core-flows",
+              decisionType: "failure-mode",
+              type: "boolean",
+              assumptionIfUnanswered: "Keep failed sync visible until the user retries it."
+            }
+          ],
+          assumptions: []
+        })
+      ]);
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: mockClient,
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "repair01"
+      });
+
+      const initiative = await planner.createDraftInitiative({
+        description: "Build a lightweight offline-first note-taking app"
+      });
+      await seedSpec(store, initiative.id, "brief", "# Brief");
+      await seedSpec(store, initiative.id, "core-flows", "# Core flows");
+
+      const result = await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "core-flows"
+      });
+
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0]?.type).toBe("boolean");
+      expect(result.questions[0]?.options).toBeUndefined();
+      expect(mockClient.requests).toHaveLength(2);
+      expect(mockClient.requests[1]?.userPrompt).toContain(
+        "must not provide options for boolean questions"
+      );
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });
@@ -760,11 +860,6 @@ describe("PlannerService", () => {
       });
 
       const mockClient = new MockLlmClient([
-        JSON.stringify({
-          decision: "proceed",
-          questions: [],
-          assumptions: []
-        }),
         JSON.stringify({
           markdown: "# Brief",
           traceOutline: traceOutline("Brief")
@@ -1024,8 +1119,8 @@ describe("PlannerService", () => {
 
       expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
       expect(store.planningReviews.get(`${initiative.id}:brief-review`)?.status).toBe("passed");
-      expect(mockClient.requests).toHaveLength(21);
-      expect(mockClient.requests[0]?.userPrompt).toContain('Default to "proceed"');
+      expect(mockClient.requests).toHaveLength(20);
+      expect(mockClient.requests.some((request) => request.userPrompt.includes('Default to "proceed"'))).toBe(true);
       for (const req of mockClient.requests) {
         expect(req.systemPrompt).toContain("team-rules: always include tests");
         expect(req.provider).toBe("openrouter");

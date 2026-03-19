@@ -40,6 +40,7 @@ Before making changes, read the docs that match the area you are about to touch.
 4. [`docs/workflows.md`](docs/workflows.md) before changing planning, execution, verification, or audit UX/flow behavior
 
 Use [`docs/README.md`](docs/README.md) as the index for additional domain docs. If a change touches product language or review expectations, read the relevant file under `docs/` before editing code.
+If a change touches user-facing copy, read [`docs/product-language-spec.md`](docs/product-language-spec.md) and [`docs/ux-copy-guidelines.md`](docs/ux-copy-guidelines.md) before editing UI text.
 
 ## 3. Repository Layout
 
@@ -116,6 +117,7 @@ npm install          # install all workspaces
 npm run setup:git-hooks
 npm run check        # type-check both packages (tsc --noEmit) and run the UI dedupe gate
 npm test             # run all Vitest suites (backend + client)
+npm run test:e2e     # run the Playwright browser workflow suite against the deterministic legacy-web harness
 npm run dev          # alias for the desktop-first Tauri dev loop
 npm run tauri dev    # explicit desktop-first dev loop
 npm run dev:web      # legacy Fastify + browser dev path
@@ -303,6 +305,8 @@ Client tests use Vitest and React Testing Library under `packages/client/src/**/
 - `app/views/initiative/tickets-step-section.test.tsx`
 - `app/views/ticket-view.test.tsx`
 - `app/views/run-view.test.tsx`
+
+Browser end-to-end workflow coverage lives in `e2e/workflow.spec.ts` and runs through Playwright with a deterministic fake planner/verifier backend. Use `npm run test:e2e` when a change affects initiative workflow handoffs, planning review-back flows, or other multi-step browser journeys that unit tests do not cover well.
 
 Add or adjust tests when modifying server routes, verifier or diff logic, bundle generation, artifact store semantics, or client behavior with meaningful UI state. If behavior changes and tests do not exist, add them.
 

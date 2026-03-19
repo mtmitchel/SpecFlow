@@ -10,6 +10,7 @@ npm run setup:git-hooks
 npm run lint
 npm run check
 npm test
+npm run test:e2e
 npm run tauri dev
 npm run dev
 npm run dev:web
@@ -35,6 +36,7 @@ Notes:
 - `npm run tauri dev` is the primary development loop. `npm run dev` is an alias.
 - `npm run ui` runs the CLI from source, prefers an existing packaged desktop binary if present, and falls back to legacy web mode only when no desktop binary exists.
 - `npm run check` runs ESLint, both TypeScript checks, and the UI dedupe gate.
+- `npm run test:e2e` runs the Playwright browser workflow suite against the deterministic legacy-web harness. It currently covers the main initiative workflow and the core-flows review-back/update path.
 - `npm run package:desktop` is explicit packaging, not part of the normal dev loop.
 
 ## Architecture
@@ -73,6 +75,7 @@ Important current rules:
 - The first Core flows draft requires a short starter consultation that covers journey, branch, and flow condition.
 - The first PRD draft requires at least one explicit scope-setting question.
 - The first Tech spec draft requires at least one architecture question.
+- Planning transition states should name the active phase directly during entry checks, follow-up checks, and artifact generation.
 - Planning reviews remain important, but they are secondary artifacts rather than hard blockers between Brief, Core flows, PRD, and Tech spec.
 - `ticket-coverage-review` is the real planning-to-execution gate for initiative-linked tickets.
 
@@ -104,7 +107,9 @@ Planner question policy lives in:
 
 - Backend tests live in `packages/app/test/`.
 - Client tests live under `packages/client/src/**/*.test.tsx`.
+- Browser E2E coverage lives in `e2e/workflow.spec.ts`.
 - Before finishing meaningful work, run `npm run check` and `npm test`.
+- Run `npm run test:e2e` when a change affects initiative workflow handoffs, planning review-back flows, or other multi-step browser journeys.
 - Desktop packaging and full manual desktop click-through are separate tasks; do not assume they were run unless explicitly stated.
 
 ## GitHub access
@@ -130,3 +135,4 @@ Do not use Docker GitHub auth or `gh auth status` as the gate.
 - [docs/architecture.md](./docs/architecture.md)
 - [docs/workflows.md](./docs/workflows.md)
 - [docs/product-language-spec.md](./docs/product-language-spec.md)
+- [docs/ux-copy-guidelines.md](./docs/ux-copy-guidelines.md)

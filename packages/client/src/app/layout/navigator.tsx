@@ -173,39 +173,22 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
   const navigate = useNavigate();
   const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const activeRoute = `${location.pathname}${location.search}`;
 
   const tree = useMemo(() => buildNavigatorTree(snapshot), [snapshot]);
   const activeInitiativeId = useMemo(
     () => getActiveInitiativeId(snapshot, location.pathname),
     [location.pathname, snapshot],
   );
-  const activeInitiativeNode = useMemo(
-    () => (activeInitiativeId ? tree.find((node) => node.id === `initiative-${activeInitiativeId}`) ?? null : null),
-    [activeInitiativeId, tree],
-  );
-  const quickTasksNode = useMemo(
-    () => tree.find((node) => node.type === "quick-tasks-header") ?? null,
-    [tree],
-  );
+  const contentNodes = useMemo(() => tree, [tree]);
 
-  const contentNodes = useMemo(() => {
-    const nodes: NavigatorNode[] = [];
-
-    if (activeInitiativeNode?.children?.length) {
-      nodes.push(...activeInitiativeNode.children);
+  const autoExpanded = useMemo(() => {
+    const expanded = computeAutoExpansion(contentNodes, activeRoute);
+    if (activeInitiativeId) {
+      expanded.add(`initiative-${activeInitiativeId}`);
     }
-
-    if (quickTasksNode) {
-      nodes.push(quickTasksNode);
-    }
-
-    return nodes;
-  }, [activeInitiativeNode, quickTasksNode]);
-
-  const autoExpanded = useMemo(
-    () => computeAutoExpansion(contentNodes, location.pathname),
-    [contentNodes, location.pathname],
-  );
+    return expanded;
+  }, [activeInitiativeId, activeRoute, contentNodes]);
   const allExpanded = useMemo(() => {
     const combined = new Set(manualExpanded);
     for (const id of autoExpanded) combined.add(id);
@@ -213,8 +196,18 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
   }, [manualExpanded, autoExpanded]);
   const flatList = useMemo(() => flattenVisible(contentNodes, allExpanded), [contentNodes, allExpanded]);
   const activeNodeId = useMemo(() => {
-    return findActiveNodeId(contentNodes, location.pathname);
-  }, [contentNodes, location.pathname]);
+    const matchedNodeId = findActiveNodeId(contentNodes, activeRoute);
+    if (
+      matchedNodeId &&
+      matchedNodeId !== "initiatives-header" &&
+      matchedNodeId !== "quick-tasks-header" &&
+      !matchedNodeId.startsWith("phase-")
+    ) {
+      return matchedNodeId;
+    }
+
+    return activeInitiativeId ? `initiative-${activeInitiativeId}` : null;
+  }, [activeInitiativeId, activeRoute, contentNodes]);
 
   const handleToggle = useCallback((id: string) => {
     setManualExpanded((prev) => {

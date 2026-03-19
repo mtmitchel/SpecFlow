@@ -1,42 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import type { ArtifactsSnapshot } from "../../types.js";
-import { getInitiativeProgressModel, getInitiativeResumeHref } from "../utils/initiative-progress.js";
-import { getInitiativeDisplayTitle } from "../utils/initiative-titles.js";
 
 interface IconRailProps {
   onOpenCommandPalette: () => void;
   navigatorOpen: boolean;
   navigatorContent?: React.ReactNode;
-  snapshot: ArtifactsSnapshot;
-}
-
-const getMonogram = (title: string): string => {
-  const tokens = title
-    .split(/\s+/)
-    .map((token) => token[0]?.toUpperCase())
-    .filter(Boolean)
-    .slice(0, 2);
-
-  return tokens.join("") || "SF";
-};
-
-const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): string | null => {
-  if (pathname.startsWith("/initiative/")) {
-    return pathname.split("/")[2] ?? null;
-  }
-
-  if (pathname.startsWith("/ticket/")) {
-    const ticketId = pathname.split("/")[2];
-    return snapshot.tickets.find((ticket) => ticket.id === ticketId)?.initiativeId ?? null;
-  }
-
-  if (pathname.startsWith("/run/")) {
-    const runId = pathname.split("/")[2];
-    const run = snapshot.runs.find((candidate) => candidate.id === runId);
-    return snapshot.tickets.find((ticket) => ticket.id === run?.ticketId)?.initiativeId ?? null;
-  }
-
-  return null;
 };
 
 const RailButton = ({
@@ -68,14 +35,10 @@ const RailButton = ({
   </button>
 );
 
-export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent, snapshot }: IconRailProps) => {
+export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent }: IconRailProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const initiatives = [...snapshot.initiatives].sort(
-    (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
-  );
   const homeActive = location.pathname === "/";
-  const activeInitiativeId = getActiveInitiativeId(snapshot, location.pathname);
 
   return (
     <div className={`icon-rail${navigatorOpen ? " open" : ""}`}>
@@ -104,28 +67,6 @@ export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent
       </div>
 
       <div className="icon-rail-divider" />
-
-      <div className="icon-rail-group icon-rail-initiatives" aria-label="Initiative shortcuts">
-        {initiatives.map((initiative) => {
-          const active = activeInitiativeId === initiative.id;
-          const displayTitle = getInitiativeDisplayTitle(initiative.title, initiative.description);
-          const progress = getInitiativeProgressModel(initiative, snapshot);
-
-          return (
-            <button
-              key={initiative.id}
-              type="button"
-              className={`icon-rail-initiative${active ? " active" : ""}`}
-              onClick={() => navigate(getInitiativeResumeHref(initiative, progress, snapshot))}
-              aria-label={displayTitle}
-              title={displayTitle}
-            >
-              <span className="icon-rail-initiative-mark">{getMonogram(displayTitle)}</span>
-              <span className="icon-rail-initiative-label">{displayTitle}</span>
-            </button>
-          );
-        })}
-      </div>
 
       {navigatorContent ? (
         <div className={`icon-rail-navigator${navigatorOpen ? " open" : ""}`}>

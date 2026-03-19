@@ -60,7 +60,7 @@ describe("getInitiativeProgressModel", () => {
     expect(progress.nodes[0]?.state).toBe("active");
     expect(progress.currentNodeState).toBe("active");
     expect(progress.currentReviewKind).toBeNull();
-    expect(getInitiativeQueueActionLabel(baseInitiative, progress)).toBe("Answer a few questions");
+    expect(getInitiativeQueueActionLabel(baseInitiative, progress)).toBe("Start brief intake");
   });
 
   it("keeps brief stale active when it needs more work, without exposing a planning review gate", () => {
@@ -108,7 +108,7 @@ describe("getInitiativeProgressModel", () => {
     expect(progress.nodes.find((node) => node.key === "brief")?.state).toBe("active");
     expect(progress.currentNodeState).toBe("active");
     expect(progress.currentReviewKind).toBeNull();
-    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Continue brief");
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Review brief");
   });
 
   it("builds resume hrefs for active planning questions when no artifact exists", () => {
@@ -484,7 +484,7 @@ describe("getInitiativeProgressModel", () => {
     expect(progress.nodes.find((node) => node.key === "tickets")?.state).toBe("checkpoint");
     expect(progress.currentNodeState).toBe("checkpoint");
     expect(progress.currentReviewKind).toBe("ticket-coverage-review");
-    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Coverage check");
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Run coverage check");
   });
 
   it("moves into execute and verify based on ticket state", () => {
@@ -556,7 +556,7 @@ describe("getInitiativeProgressModel", () => {
     expect(verifyProgress.currentKey).toBe("verify");
     expect(executeProgress.currentNodeState).toBe("active");
     expect(verifyProgress.currentNodeState).toBe("active");
-    expect(getInitiativeQueueActionLabel(initiative, executeProgress)).toBe("Continue ticket");
+    expect(getInitiativeQueueActionLabel(initiative, executeProgress)).toBe("Resume ticket");
     expect(getInitiativeQueueActionLabel(initiative, verifyProgress)).toBe("Verify ticket");
   });
 
