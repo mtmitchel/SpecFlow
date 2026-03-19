@@ -13,11 +13,12 @@ export type SaveState = "idle" | "saving" | "saved" | "error";
 export type RefinementAnswer = string | string[] | boolean | undefined;
 export type ReviewFindingGroups = Record<PlanningReviewFinding["type"], PlanningReviewFinding[]>;
 export interface ReviewQuestion {
+  actionLabel?: string;
   id: string;
   details: string[];
+  helper: string;
   prompt: string;
-  relatedArtifacts: string[];
-  type: PlanningReviewFinding["type"];
+  step: InitiativePlanningStep;
 }
 export type PlanningJourneyStage = "consult" | "draft" | "checkpoint" | "complete";
 export type PlanningDrawerState =
@@ -38,10 +39,11 @@ export const PHASE_DESCRIPTIONS: Record<InitiativePlanningStep, string> = {
   "core-flows": "Define the primary user journeys and states.",
   prd: "Define how the product should work.",
   "tech-spec": "Define how it should be built.",
-  tickets: "Break the work into execution-ready steps."
+  validation: "Validate the ticket plan before execution starts.",
+  tickets: "Review the execution board and open the next ticket."
 };
 
-export const PHASE_TRANSITIONS: Record<SpecStep | "tickets", { heading: string; body: string }> = {
+export const PHASE_TRANSITIONS: Record<SpecStep | "validation" | "tickets", { heading: string; body: string }> = {
   brief: {
     heading: "Brief ready",
     body: "The problem, audience, goals, and scope are in place."
@@ -56,7 +58,11 @@ export const PHASE_TRANSITIONS: Record<SpecStep | "tickets", { heading: string; 
   },
   "tech-spec": {
     heading: "Tech spec ready",
-    body: "The build plan is ready to break into tickets."
+    body: "The build plan is ready for validation."
+  },
+  validation: {
+    heading: "Validation ready",
+    body: "Resolve the last planning gaps before tickets are committed."
   },
   tickets: {
     heading: "Tickets ready",
@@ -128,102 +134,171 @@ export const groupReviewFindings = (findings: PlanningReviewFinding[]): ReviewFi
   "recommended-fix": findings.filter((finding) => finding.type === "recommended-fix")
 });
 
-const getReviewQuestionPrompt = (message: string, type: PlanningReviewFinding["type"]): { key: string; prompt: string } => {
-  const normalized = message.toLowerCase();
+const REVIEW_STEP_ORDER: InitiativePlanningStep[] = [
+  "brief",
+  "core-flows",
+  "prd",
+  "tech-spec",
+  "validation",
+  "tickets",
+];
 
-  if (normalized.includes("scope") || normalized.includes("first release")) {
-    return { key: "scope", prompt: "What should this step include in v1?" };
+const matchesReviewStepKeyword = (message: string, keywords: string[]): boolean =>
+  keywords.some((keyword) => message.includes(keyword));
+
+const getReviewResolutionStep = (
+  finding: PlanningReviewFinding,
+): InitiativePlanningStep => {
+  const message = finding.message.toLowerCase();
+
+  if (
+    matchesReviewStepKeyword(message, [
+      "brief",
+      "audience",
+      "persona",
+      "target user",
+      "who is this for",
+      "goal",
+      "success criteria",
+      "scope",
+      "v1",
+    ])
+  ) {
+    return "brief";
   }
 
   if (
-    normalized.includes("user") ||
-    normalized.includes("audience") ||
-    normalized.includes("persona") ||
-    normalized.includes("job to be done")
+    matchesReviewStepKeyword(message, [
+      "core flows",
+      "flow",
+      "journey",
+      "behavior",
+      "empty note",
+      "trash",
+      "toggle",
+      "capture",
+      "autosave",
+      "conflict",
+      "grid",
+      "list view",
+    ])
   ) {
-    return { key: "user", prompt: "Who is this for?" };
+    return "core-flows";
   }
 
   if (
-    normalized.includes("success criteria") ||
-    normalized.includes("metric") ||
-    normalized.includes("latency") ||
-    normalized.includes("performance")
+    matchesReviewStepKeyword(message, [
+      "prd",
+      "accessibility",
+      "keyboard",
+      "aria",
+      "ux",
+      "validation",
+      "error message",
+      "copy",
+      "policy",
+      "allowed characters",
+      "tag canonicalization",
+      "user-facing",
+    ])
   ) {
-    return { key: "success", prompt: "How should success be measured?" };
+    return "prd";
   }
 
   if (
-    normalized.includes("target hardware") ||
-    normalized.includes("environment") ||
-    normalized.includes("platform") ||
-    normalized.includes("flatpak") ||
-    normalized.includes("sandbox") ||
-    normalized.includes("portal")
+    matchesReviewStepKeyword(message, [
+      "tech spec",
+      "sqlite",
+      "db",
+      "schema",
+      "migration",
+      "backup",
+      "diagnostics",
+      "ipc",
+      "thumbnail",
+      "webp",
+      "resolution",
+      "file size",
+      "performance",
+      "latency",
+      "debounce",
+      "packaging",
+      "rpm",
+      "flatpak",
+      "fedora",
+      "test suite",
+      "acceptance tests",
+    ])
   ) {
-    return { key: "platform", prompt: "What platform constraints matter here?" };
+    return "tech-spec";
   }
 
   if (
-    normalized.includes("storage") ||
-    normalized.includes("index") ||
-    normalized.includes("db") ||
-    normalized.includes("fts") ||
-    normalized.includes("search")
+    finding.type === "traceability-gap" ||
+    matchesReviewStepKeyword(message, [
+      "ticket",
+      "tickets",
+      "covered by any ticket",
+      "not traced into",
+      "not represented in the generated tickets",
+      "missing link",
+    ])
   ) {
-    return { key: "data", prompt: "What data and search approach should this use?" };
+    return "tickets";
   }
 
-  if (normalized.includes("accessibility")) {
-    return { key: "accessibility", prompt: "What accessibility bar should this meet?" };
-  }
-
-  if (type === "traceability-gap") {
-    return { key: "traceability", prompt: "What still needs to be linked?" };
-  }
-
-  if (type === "assumption") {
-    return { key: "assumption", prompt: "What should be confirmed?" };
-  }
-
-  if (type === "recommended-fix") {
-    return { key: "fix", prompt: "What change would fix this?" };
-  }
-
-  if (type === "blocker") {
-    return { key: "blocker", prompt: "What is missing before this can move on?" };
-  }
-
-  return { key: "tighten", prompt: "What should be tightened up?" };
+  return finding.type === "blocker" ? "tech-spec" : "prd";
 };
 
-const getRelatedArtifactLabel = (artifact: string): string =>
-  artifact in INITIATIVE_WORKFLOW_LABELS
-    ? INITIATIVE_WORKFLOW_LABELS[artifact as InitiativePlanningStep]
-    : artifact.replace(/-/g, " ");
+const getReviewStepPrompt = (step: InitiativePlanningStep): string => {
+  switch (step) {
+    case "brief":
+      return "Tighten the brief";
+    case "core-flows":
+      return "Tighten core flows";
+    case "prd":
+      return "Tighten the PRD";
+    case "tech-spec":
+      return "Tighten the tech spec";
+    case "validation":
+      return "Resolve validation blockers";
+    case "tickets":
+      return "Refresh the ticket plan";
+  }
+};
+
+const getReviewStepHelper = (step: InitiativePlanningStep): string => {
+  const label = INITIATIVE_WORKFLOW_LABELS[step];
+  if (step === "tickets") {
+    return "The specs already describe this work. Refresh the ticket plan after you review the gaps below.";
+  }
+
+  return `Open ${label} and resolve the gaps below. Then come back and refresh tickets.`;
+};
 
 export const buildReviewQuestions = (findings: PlanningReviewFinding[]): ReviewQuestion[] =>
-  Object.values(
-    findings.reduce<Record<string, ReviewQuestion>>((acc, finding) => {
-      const topic = getReviewQuestionPrompt(finding.message, finding.type);
-      const key = `${finding.type}:${topic.key}`;
+  REVIEW_STEP_ORDER.flatMap((step) => {
+    const matchingFindings = findings.filter(
+      (finding) => getReviewResolutionStep(finding) === step,
+    );
+    if (matchingFindings.length === 0) {
+      return [];
+    }
 
-      if (!acc[key]) {
-        acc[key] = {
-          id: key,
-          details: [],
-          prompt: topic.prompt,
-          relatedArtifacts: [],
-          type: finding.type
-        };
-      }
-
-      acc[key].details.push(finding.message);
-      acc[key].relatedArtifacts = [...new Set([...acc[key].relatedArtifacts, ...finding.relatedArtifacts.map(getRelatedArtifactLabel)])];
-
-      return acc;
-    }, {})
-  );
+    return [
+      {
+        id: `review-step:${step}`,
+        actionLabel:
+          step === "tickets"
+            ? undefined
+            : `Open ${INITIATIVE_WORKFLOW_LABELS[step]}`,
+        details: matchingFindings.map((finding) => finding.message),
+        helper: getReviewStepHelper(step),
+        prompt: getReviewStepPrompt(step),
+        step,
+      },
+    ];
+  });
 
 export const getReviewQuestionHeadline = (
   review: PlanningReviewArtifact | undefined,

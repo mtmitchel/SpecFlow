@@ -19,6 +19,7 @@ const initiative: Initiative = {
       "core-flows": { status: "ready", updatedAt: "2026-03-16T10:05:00.000Z" },
       prd: { status: "locked", updatedAt: null },
       "tech-spec": { status: "locked", updatedAt: null },
+      validation: { status: "locked", updatedAt: null },
       tickets: { status: "locked", updatedAt: null },
     },
     refinements: {
@@ -107,6 +108,7 @@ describe("OverviewPanel", () => {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
           prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
           "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
           tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
         },
       },

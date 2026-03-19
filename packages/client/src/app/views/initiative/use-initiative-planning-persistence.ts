@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { saveInitiativeRefinement, saveInitiativeSpecs } from "../../../api.js";
-import type { Initiative, InitiativePlanningSurface, InitiativeRefinementState } from "../../../types.js";
+import type {
+  Initiative,
+  InitiativePlanningStep,
+  InitiativePlanningSurface,
+  InitiativeRefinementState
+} from "../../../types.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
 import type { PlanningDrawerState, SaveState, SpecStep } from "./shared.js";
+import {
+  partitionValidationAnswersByStep,
+  VALIDATION_REFINEMENT_STEPS
+} from "./validation-refinement.js";
 
 interface InitiativePlanningPersistenceConfig {
+  activeStep: InitiativePlanningStep;
   activeRefinement: InitiativeRefinementState | null;
   activeSurface: InitiativePlanningSurface | null;
   activeSpecStep: SpecStep | null;
@@ -28,6 +38,7 @@ interface InitiativePlanningPersistenceResult {
 }
 
 export const useInitiativePlanningPersistence = ({
+  activeStep,
   activeRefinement,
   activeSurface,
   activeSpecStep,
@@ -87,33 +98,80 @@ export const useInitiativePlanningPersistence = ({
   ]);
 
   const serverRefinementSignature = activeRefinement
-    ? JSON.stringify({
-        answers: activeRefinement.answers,
-        defaultAnswerQuestionIds: activeRefinement.defaultAnswerQuestionIds,
-        preferredSurface: activeRefinement.preferredSurface ?? null,
-      })
+    ? activeStep === "validation" && initiative
+      ? JSON.stringify({
+          answers: VALIDATION_REFINEMENT_STEPS.reduce<Record<string, string | string[] | boolean>>(
+            (accumulator, step) => ({
+              ...accumulator,
+              ...initiative.workflow.refinements[step].answers
+            }),
+            {}
+          ),
+          defaultAnswerQuestionIds: Array.from(
+            new Set(
+              VALIDATION_REFINEMENT_STEPS.flatMap(
+                (step) => initiative.workflow.refinements[step].defaultAnswerQuestionIds
+              )
+            )
+          )
+        })
+      : JSON.stringify({
+          answers: activeRefinement.answers,
+          defaultAnswerQuestionIds: activeRefinement.defaultAnswerQuestionIds,
+          preferredSurface: activeRefinement.preferredSurface ?? null,
+        })
     : "";
   const localRefinementSignature = JSON.stringify({
     answers: refinementAnswers,
     defaultAnswerQuestionIds,
-    preferredSurface: activeSurface ?? null,
+    preferredSurface: activeStep === "validation" ? null : activeSurface ?? null,
   });
 
   const persistRefinement = useCallback(async (): Promise<boolean> => {
-    if (!initiative || !activeSpecStep || !activeRefinement || localRefinementSignature === serverRefinementSignature) {
+    if (!initiative || !activeRefinement || localRefinementSignature === serverRefinementSignature) {
       return true;
     }
 
     setRefinementSaveState("saving");
     try {
-      const result = await saveInitiativeRefinement(
-        initiative.id,
-        activeSpecStep,
-        refinementAnswers,
-        defaultAnswerQuestionIds,
-        activeSurface,
-      );
-      setRefinementAssumptions(result.assumptions);
+      if (activeStep === "validation") {
+        const nextByStep = partitionValidationAnswersByStep({
+          initiative,
+          answers: refinementAnswers,
+          defaultAnswerQuestionIds
+        });
+
+        for (const step of VALIDATION_REFINEMENT_STEPS) {
+          const persisted = initiative.workflow.refinements[step];
+          const next = nextByStep[step];
+          const persistedSignature = JSON.stringify({
+            answers: persisted.answers,
+            defaultAnswerQuestionIds: persisted.defaultAnswerQuestionIds
+          });
+          const nextSignature = JSON.stringify(next);
+          if (persistedSignature === nextSignature) {
+            continue;
+          }
+
+          await saveInitiativeRefinement(
+            initiative.id,
+            step,
+            next.answers,
+            next.defaultAnswerQuestionIds,
+            persisted.preferredSurface ?? null
+          );
+        }
+      } else if (activeSpecStep) {
+        const result = await saveInitiativeRefinement(
+          initiative.id,
+          activeSpecStep,
+          refinementAnswers,
+          defaultAnswerQuestionIds,
+          activeSurface,
+        );
+        setRefinementAssumptions(result.assumptions);
+      }
+
       await onRefresh();
       setRefinementSaveState("saved");
       return true;
@@ -125,6 +183,7 @@ export const useInitiativePlanningPersistence = ({
   }, [
     activeRefinement,
     activeSurface,
+    activeStep,
     activeSpecStep,
     defaultAnswerQuestionIds,
     initiative,

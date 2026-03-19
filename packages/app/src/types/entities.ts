@@ -1,8 +1,8 @@
 export type InitiativeStatus = "draft" | "active" | "done";
 export type PhaseStatus = "active" | "complete";
 export type InitiativePlanningQuestionType = "select" | "multi-select" | "boolean";
-export type InitiativePlanningStep = "brief" | "core-flows" | "prd" | "tech-spec" | "tickets";
-export type InitiativeArtifactStep = Exclude<InitiativePlanningStep, "tickets">;
+export type InitiativePlanningStep = "brief" | "core-flows" | "prd" | "tech-spec" | "validation" | "tickets";
+export type InitiativeArtifactStep = Exclude<InitiativePlanningStep, "validation" | "tickets">;
 export type InitiativePlanningStepStatus = "locked" | "ready" | "complete" | "stale";
 export type InitiativePlanningSurface = "questions" | "review";
 export type InitiativePlanningDecisionType =
@@ -264,6 +264,27 @@ export interface TicketCoverageArtifact {
   id: string;
   initiativeId: string;
   items: TicketCoverageItem[];
+  uncoveredItemIds: string[];
+  sourceUpdatedAts: Partial<Record<InitiativePlanningStep, string>>;
+  generatedAt: string;
+  updatedAt: string;
+}
+
+export interface PendingTicketPlanArtifact {
+  id: string;
+  initiativeId: string;
+  phases: Array<{
+    name: string;
+    order: number;
+    tickets: Array<{
+      title: string;
+      description: string;
+      acceptanceCriteria: string[];
+      fileTargets: string[];
+      coverageItemIds: string[];
+    }>;
+  }>;
+  coverageItems: TicketCoverageItem[];
   uncoveredItemIds: string[];
   sourceUpdatedAts: Partial<Record<InitiativePlanningStep, string>>;
   generatedAt: string;

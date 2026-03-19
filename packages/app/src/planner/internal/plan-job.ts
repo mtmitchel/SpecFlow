@@ -1,6 +1,6 @@
 import type {
   Initiative,
-  PlanningReviewArtifact,
+  PendingTicketPlanArtifact,
   Ticket,
   TicketCoverageItem
 } from "../../types/entities.js";
@@ -10,14 +10,37 @@ import type { PlanResult } from "../types.js";
 
 const uniqueIds = (values: string[]): string[] => Array.from(new Set(values));
 
-export const persistPlanArtifacts = async (input: {
-  initiative: Initiative;
+export const getPendingTicketPlanId = (initiativeId: string): string =>
+  `${initiativeId}:pending-ticket-plan`;
+
+export const buildPendingTicketPlanArtifact = (input: {
+  initiativeId: string;
   result: PlanResult;
+  coverageItems: TicketCoverageItem[];
+  sourceUpdatedAts: Partial<Record<keyof Initiative["workflow"]["steps"], string>>;
+  nowIso: string;
+}): PendingTicketPlanArtifact => ({
+  id: getPendingTicketPlanId(input.initiativeId),
+  initiativeId: input.initiativeId,
+  phases: input.result.phases,
+  coverageItems: input.coverageItems,
+  uncoveredItemIds: input.result.uncoveredCoverageItemIds,
+  sourceUpdatedAts: input.sourceUpdatedAts,
+  generatedAt: input.nowIso,
+  updatedAt: input.nowIso
+});
+
+export const commitPendingTicketPlanArtifact = async (input: {
+  initiative: Initiative;
+  pendingPlan: PendingTicketPlanArtifact;
   nowIso: string;
   idGenerator: () => string;
   upsertTicket: (ticket: Ticket) => Promise<void>;
+  deleteTicket: (ticketId: string) => Promise<void>;
   getTicket: (ticketId: string) => Ticket | undefined;
+  listInitiativeTickets: (initiativeId: string) => Ticket[];
   upsertInitiative: (initiative: Initiative) => Promise<void>;
+  deletePendingTicketPlanArtifact: (initiativeId: string) => Promise<void>;
   upsertTicketCoverageArtifact: (artifact: {
     id: string;
     initiativeId: string;
@@ -42,16 +65,23 @@ export const persistPlanArtifacts = async (input: {
     generatedAt: string;
     updatedAt: string;
   };
-  coverageItems: TicketCoverageItem[];
-  coverageSourceUpdatedAts: Partial<Record<keyof Initiative["workflow"]["steps"], string>>;
-  executeCoverageReview: (initiative: Initiative) => Promise<PlanningReviewArtifact>;
-  upsertPlanningReview: (review: PlanningReviewArtifact) => Promise<void>;
 }): Promise<void> => {
+  const existingTicketIds = Array.from(
+    new Set(
+      input.initiative.ticketIds.concat(
+        input.listInitiativeTickets(input.initiative.id).map((ticket) => ticket.id)
+      )
+    )
+  );
   const phaseIds: Initiative["phases"] = [];
   const createdTicketIds: string[] = [];
   const phaseTicketIds: string[][] = [];
 
-  for (const [phaseIndex, phase] of input.result.phases.entries()) {
+  for (const ticketId of existingTicketIds) {
+    await input.deleteTicket(ticketId);
+  }
+
+  for (const [phaseIndex, phase] of input.pendingPlan.phases.entries()) {
     const phaseId = `phase-${phaseIndex + 1}-${input.idGenerator()}`;
     phaseIds.push({
       id: phaseId,
@@ -98,12 +128,14 @@ export const persistPlanArtifacts = async (input: {
     }
   }
 
+  const validatedWorkflow = completeWorkflowStep(input.initiative.workflow, "validation", input.nowIso);
+  const completedWorkflow = completeWorkflowStep(validatedWorkflow, "tickets", input.nowIso);
   const updatedInitiative: Initiative = {
     ...input.initiative,
     status: "active",
-    workflow: completeWorkflowStep(input.initiative.workflow, "tickets", input.nowIso),
+    workflow: completedWorkflow,
     phases: phaseIds,
-    ticketIds: uniqueIds([...input.initiative.ticketIds, ...createdTicketIds]),
+    ticketIds: createdTicketIds,
     updatedAt: input.nowIso
   };
 
@@ -111,14 +143,15 @@ export const persistPlanArtifacts = async (input: {
   await input.upsertTicketCoverageArtifact(
     input.buildTicketCoverageArtifact({
       initiativeId: input.initiative.id,
-      items: input.coverageItems,
-      uncoveredItemIds: input.result.uncoveredCoverageItemIds,
+      items: input.pendingPlan.coverageItems,
+      uncoveredItemIds: input.pendingPlan.uncoveredItemIds,
       sourceUpdatedAts: {
-        ...input.coverageSourceUpdatedAts,
+        ...input.pendingPlan.sourceUpdatedAts,
+        validation: updatedInitiative.workflow.steps.validation.updatedAt ?? input.nowIso,
         tickets: updatedInitiative.workflow.steps.tickets.updatedAt ?? input.nowIso
       },
       nowIso: input.nowIso
     })
   );
-  await input.upsertPlanningReview(await input.executeCoverageReview(updatedInitiative));
+  await input.deletePendingTicketPlanArtifact(input.initiative.id);
 };

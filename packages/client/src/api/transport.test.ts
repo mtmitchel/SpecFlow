@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { ApiError } from "./http";
 import { transportRequest } from "./transport";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -84,6 +85,45 @@ describe("transportRequest", () => {
       expect.objectContaining({
         requestId: expect.stringMatching(/^req-/),
       })
+    );
+  });
+
+  it("preserves structured sidecar failures as ApiError details", async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(invoke).mockRejectedValue({
+      code: "planner_validation_error",
+      message: "Missing Brief goal: Preserve local note history.",
+      statusCode: 500,
+      details: {
+        issues: [
+          {
+            kind: "missing-coverage-item",
+            coverageItemId: "coverage-brief-goals-1",
+          },
+        ],
+      },
+    });
+
+    await expect(
+      transportRequest(
+        "initiatives.generatePlan",
+        { id: "initiative-1" },
+        () => Promise.resolve({ phases: [], uncoveredCoverageItemIds: [] }),
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<ApiError>({
+        name: "ApiError",
+        statusCode: 500,
+        code: "planner_validation_error",
+        message: "Missing Brief goal: Preserve local note history.",
+        details: expect.objectContaining({
+          issues: [
+            expect.objectContaining({
+              coverageItemId: "coverage-brief-goals-1",
+            }),
+          ],
+        }),
+      }),
     );
   });
 });

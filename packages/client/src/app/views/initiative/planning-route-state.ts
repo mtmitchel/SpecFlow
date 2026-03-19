@@ -39,7 +39,7 @@ export const resolveInitiativePlanningRouteState = ({
 }): InitiativePlanningRouteState => {
   const reviewBlockedStep = getInitiativeBlockedStep(initiative.workflow, planningReviews);
   const resumeStep = reviewBlockedStep ?? getInitiativeResumeStep(initiative.workflow);
-  const activeStep: InitiativePlanningStep = canOpenInitiativeStep(
+  const requestedPlanningStep = canOpenInitiativeStep(
     initiative.workflow,
     planningReviews,
     initiative.id,
@@ -47,9 +47,16 @@ export const resolveInitiativePlanningRouteState = ({
   )
     ? requestedStep
     : resumeStep;
+  const activeStep: InitiativePlanningStep =
+    requestedPlanningStep === "validation" &&
+    reviewBlockedStep !== "validation" &&
+    initiative.workflow.steps.validation.status === "complete" &&
+    initiative.workflow.steps.tickets.status !== "locked"
+      ? "tickets"
+      : requestedPlanningStep;
   const normalizedRequestedSurface = isInitiativePlanningSurface(requestedSurface) ? requestedSurface : null;
   const activeSurface =
-    activeStep === "tickets"
+    activeStep === "validation" || activeStep === "tickets"
       ? null
       : getInitiativePlanningSurface(initiative, specSummaries, activeStep, normalizedRequestedSurface);
 

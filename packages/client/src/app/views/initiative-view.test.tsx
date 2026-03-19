@@ -2,6 +2,7 @@ import { StrictMode, useRef, useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../api/http.js";
 import type { ArtifactsSnapshot, Initiative } from "../../types.js";
 import { InitiativeRouteView } from "./initiative-route-view.js";
 
@@ -9,6 +10,7 @@ const fetchSpecDetailMock = vi.fn();
 const checkInitiativePhaseMock = vi.fn();
 const generateInitiativeBriefMock = vi.fn();
 const generateInitiativeCoreFlowsMock = vi.fn();
+const generateInitiativePlanMock = vi.fn();
 const saveInitiativeRefinementMock = vi.fn();
 
 vi.mock("../../api.js", async () => {
@@ -19,6 +21,7 @@ vi.mock("../../api.js", async () => {
     checkInitiativePhase: (...args: unknown[]) => checkInitiativePhaseMock(...args),
     generateInitiativeBrief: (...args: unknown[]) => generateInitiativeBriefMock(...args),
     generateInitiativeCoreFlows: (...args: unknown[]) => generateInitiativeCoreFlowsMock(...args),
+    generateInitiativePlan: (...args: unknown[]) => generateInitiativePlanMock(...args),
     saveInitiativeRefinement: (...args: unknown[]) => saveInitiativeRefinementMock(...args),
   };
 });
@@ -48,6 +51,7 @@ const initiative: Initiative = {
       "core-flows": { status: "locked", updatedAt: null },
       prd: { status: "locked", updatedAt: null },
       "tech-spec": { status: "locked", updatedAt: null },
+      validation: { status: "locked", updatedAt: null },
       tickets: { status: "locked", updatedAt: null }
     },
     refinements: {
@@ -179,6 +183,39 @@ const coreFlowsQuestion = {
   allowCustomAnswer: true
 };
 
+const validationQuestion = {
+  id: "validation-lww-source",
+  label: "Which clock/timestamp source is authoritative for last-write-wins (LWW) conflict resolution?",
+  type: "select" as const,
+  whyThisBlocks: "The ticket plan needs one canonical timestamp rule before execution starts.",
+  affectedArtifact: "tech-spec" as const,
+  decisionType: "architecture" as const,
+  assumptionIfUnanswered: "Use server-assigned canonical timestamps.",
+  options: [
+    "Server-assigned canonical timestamps (server authoritative)",
+    "Client-provided UTC timestamps (clients authoritative, LWW uses client timestamps)",
+    "Hybrid: accept client timestamps but server records receipt time and uses server time as tie-breaker"
+  ],
+  recommendedOption: "Server-assigned canonical timestamps (server authoritative)",
+  allowCustomAnswer: true
+};
+
+const validationPrdQuestion = {
+  id: "validation-empty-states",
+  label: "How should empty states and save/load indicators behave in the PRD?",
+  type: "select" as const,
+  whyThisBlocks: "The PRD must define the empty-state and save/load UX before tickets are created.",
+  affectedArtifact: "prd" as const,
+  decisionType: "behavior" as const,
+  assumptionIfUnanswered: "Show lightweight empty states and save/load indicators inline.",
+  options: [
+    "Use lightweight inline empty states and save/load indicators",
+    "Use full-page empty states and persistent loading banners",
+  ],
+  recommendedOption: "Use lightweight inline empty states and save/load indicators",
+  allowCustomAnswer: true,
+};
+
 const reviewSnapshot: ArtifactsSnapshot = {
   ...snapshot,
   initiatives: [
@@ -191,6 +228,7 @@ const reviewSnapshot: ArtifactsSnapshot = {
           "core-flows": { status: "locked", updatedAt: null },
           prd: { status: "locked", updatedAt: null },
           "tech-spec": { status: "locked", updatedAt: null },
+          validation: { status: "locked", updatedAt: null },
           tickets: { status: "locked", updatedAt: null }
         },
         refinements: initiative.workflow.refinements
@@ -262,6 +300,7 @@ const completedReviewBlockedSnapshot: ArtifactsSnapshot = {
           "core-flows": { status: "ready", updatedAt: "2026-03-16T12:12:00.000Z" },
           prd: { status: "locked", updatedAt: null },
           "tech-spec": { status: "locked", updatedAt: null },
+          validation: { status: "locked", updatedAt: null },
           tickets: { status: "locked", updatedAt: null }
         },
         refinements: initiative.workflow.refinements
@@ -282,6 +321,119 @@ const completedReviewBlockedSnapshot: ArtifactsSnapshot = {
   planningReviews: reviewSnapshot.planningReviews
 };
 
+const validationBlockedSnapshot: ArtifactsSnapshot = {
+  ...snapshot,
+  initiatives: [
+    {
+      ...initiative,
+      workflow: {
+        activeStep: "validation",
+        steps: {
+          brief: { status: "complete", updatedAt: "2026-03-16T12:10:00.000Z" },
+          "core-flows": { status: "complete", updatedAt: "2026-03-16T12:30:00.000Z" },
+          prd: { status: "complete", updatedAt: "2026-03-16T12:50:00.000Z" },
+          "tech-spec": { status: "complete", updatedAt: "2026-03-16T13:05:00.000Z" },
+          validation: { status: "ready", updatedAt: "2026-03-16T13:10:00.000Z" },
+          tickets: { status: "locked", updatedAt: null }
+        },
+        refinements: {
+          ...initiative.workflow.refinements,
+          brief: {
+            questions: [],
+            history: [],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-16T12:10:00.000Z"
+          },
+          "core-flows": {
+            questions: [],
+            history: [],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-16T12:30:00.000Z"
+          },
+          prd: {
+            questions: [],
+            history: [],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-16T12:50:00.000Z"
+          },
+          "tech-spec": {
+            questions: [validationQuestion],
+            history: [validationQuestion],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-16T13:05:00.000Z"
+          }
+        }
+      }
+    }
+  ],
+  planningReviews: [
+    {
+      id: `${initiative.id}:ticket-coverage-review`,
+      initiativeId: initiative.id,
+      kind: "ticket-coverage-review",
+      status: "blocked",
+      summary: "Validation needs one remaining product decision.",
+      findings: [
+        {
+          id: "validation-finding-1",
+          type: "blocker",
+          message: "Pick the authoritative timestamp source before ticket generation.",
+          relatedArtifacts: ["tech-spec"]
+        }
+      ],
+      sourceUpdatedAts: {
+        brief: "2026-03-16T12:10:00.000Z",
+        "core-flows": "2026-03-16T12:30:00.000Z",
+        prd: "2026-03-16T12:50:00.000Z",
+        "tech-spec": "2026-03-16T13:05:00.000Z",
+        validation: "2026-03-16T13:10:00.000Z"
+      },
+      overrideReason: null,
+      reviewedAt: "2026-03-16T13:10:00.000Z",
+      updatedAt: "2026-03-16T13:10:00.000Z"
+    }
+  ]
+};
+
+const validationPrdRecoverySnapshot: ArtifactsSnapshot = {
+  ...validationBlockedSnapshot,
+  initiatives: [
+    {
+      ...validationBlockedSnapshot.initiatives[0]!,
+      workflow: {
+        ...validationBlockedSnapshot.initiatives[0]!.workflow,
+        refinements: {
+          ...validationBlockedSnapshot.initiatives[0]!.workflow.refinements,
+          prd: {
+            questions: [validationPrdQuestion],
+            history: [validationPrdQuestion],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-16T13:15:00.000Z",
+          },
+          "tech-spec": {
+            ...validationBlockedSnapshot.initiatives[0]!.workflow.refinements["tech-spec"],
+            questions: [],
+            history: [validationQuestion],
+            answers: {
+              [validationQuestion.id]: "Server-assigned canonical timestamps (server authoritative)",
+            },
+          },
+        },
+      },
+    },
+  ],
+};
+
 const briefCompleteSnapshot: ArtifactsSnapshot = {
   ...snapshot,
   initiatives: [
@@ -294,6 +446,7 @@ const briefCompleteSnapshot: ArtifactsSnapshot = {
           "core-flows": { status: "ready", updatedAt: null },
           prd: { status: "locked", updatedAt: null },
           "tech-spec": { status: "locked", updatedAt: null },
+          validation: { status: "locked", updatedAt: null },
           tickets: { status: "locked", updatedAt: null }
         },
         refinements: {
@@ -378,6 +531,7 @@ const coreFlowsQuestionSnapshot: ArtifactsSnapshot = {
           "core-flows": { status: "ready", updatedAt: null },
           prd: { status: "locked", updatedAt: null },
           "tech-spec": { status: "locked", updatedAt: null },
+          validation: { status: "locked", updatedAt: null },
           tickets: { status: "locked", updatedAt: null }
         },
         refinements: {
@@ -408,6 +562,7 @@ const coreFlowsReadyToGenerateSnapshot: ArtifactsSnapshot = {
           "core-flows": { status: "ready", updatedAt: null },
           prd: { status: "locked", updatedAt: null },
           "tech-spec": { status: "locked", updatedAt: null },
+          validation: { status: "locked", updatedAt: null },
           tickets: { status: "locked", updatedAt: null }
         },
         refinements: {
@@ -451,6 +606,7 @@ const prdReadySnapshot: ArtifactsSnapshot = {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T12:30:00.000Z" },
           prd: { status: "ready", updatedAt: null },
           "tech-spec": { status: "locked", updatedAt: null },
+          validation: { status: "locked", updatedAt: null },
           tickets: { status: "locked", updatedAt: null }
         },
         refinements: {
@@ -556,6 +712,7 @@ describe("InitiativeView", () => {
     checkInitiativePhaseMock.mockReset();
     generateInitiativeBriefMock.mockReset();
     generateInitiativeCoreFlowsMock.mockReset();
+    generateInitiativePlanMock.mockReset();
     saveInitiativeRefinementMock.mockReset();
     saveInitiativeRefinementMock.mockResolvedValue({ assumptions: [] });
   });
@@ -714,9 +871,10 @@ describe("InitiativeView", () => {
     expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
-      expect(screen.getByText("All questions are answered")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "What primary problem should v1 solve?" }),
+      ).toBeInTheDocument();
     });
-
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
@@ -1039,6 +1197,122 @@ describe("InitiativeView", () => {
     expect(screen.getByText("Open into note capture.")).toBeInTheDocument();
   });
 
+  it("re-checks validation-backed artifact questions before regenerating tickets", async () => {
+    const onRefresh = vi.fn(async () => undefined);
+    checkInitiativePhaseMock.mockResolvedValueOnce({
+      decision: "ask",
+      questions: [validationQuestion],
+      assumptions: []
+    });
+
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=validation`]}>
+        <Routes>
+          <Route path="/initiative/:id" element={<InitiativeRouteView snapshot={validationBlockedSnapshot} onRefresh={onRefresh} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Server-assigned canonical timestamps \(server authoritative\)/i
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Generate tickets" }));
+
+    await waitFor(() => {
+      expect(checkInitiativePhaseMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(checkInitiativePhaseMock.mock.calls.map((call) => call[1])).toEqual([
+      "tech-spec"
+    ]);
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({
+      validationFeedback: expect.stringContaining("Pick the authoritative timestamp source before ticket generation.")
+    });
+    expect(generateInitiativePlanMock).not.toHaveBeenCalled();
+    expect(onRefresh).toHaveBeenCalled();
+  });
+
+  it("turns plan validation failures back into in-place validation questions", async () => {
+    checkInitiativePhaseMock
+      .mockResolvedValueOnce({ decision: "proceed", questions: [], assumptions: [] })
+      .mockResolvedValueOnce({ decision: "ask", questions: [validationPrdQuestion], assumptions: [] });
+    generateInitiativePlanMock.mockRejectedValue(
+      new ApiError(
+        500,
+        "Generated ticket plan has 2 coverage validation issues.",
+        "planner_validation_error",
+        {
+          issues: [
+            {
+              kind: "missing-coverage-item",
+              message:
+                "Missing PRD requirement: Friendly empty states and lightweight save/load indicators.",
+              coverageItem: {
+                sourceStep: "prd",
+              },
+            },
+            {
+              kind: "missing-coverage-item",
+              message:
+                "Missing PRD requirement: Local persistence failures show inline error and preserve draft for retry.",
+              coverageItem: {
+                sourceStep: "prd",
+              },
+            },
+          ],
+        }
+      )
+    );
+
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=validation`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={
+              <StatefulSequenceRoute
+                initialSnapshot={validationBlockedSnapshot}
+                refreshedSnapshots={[validationPrdRecoverySnapshot]}
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Server-assigned canonical timestamps \(server authoritative\)/i
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Generate tickets" }));
+
+    await waitFor(() => {
+      expect(generateInitiativePlanMock).toHaveBeenCalledWith(initiative.id, expect.anything());
+    });
+
+    await waitFor(() => {
+      expect(checkInitiativePhaseMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(checkInitiativePhaseMock.mock.calls.map((call) => call[1])).toEqual([
+      "tech-spec",
+      "prd",
+    ]);
+    expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).toMatchObject({
+      validationFeedback: [
+        "Missing PRD requirement: Friendly empty states and lightweight save/load indicators.",
+        "Missing PRD requirement: Local persistence failures show inline error and preserve draft for retry.",
+      ].join("\n"),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(validationPrdQuestion.label)).toBeInTheDocument();
+    });
+  });
+
   it("keeps the viewed brief selected in the pipeline and shows direct actions in the header", async () => {
     fetchSpecDetailMock.mockResolvedValue(briefSpec);
 
@@ -1060,7 +1334,8 @@ describe("InitiativeView", () => {
     expect(screen.getByRole("button", { name: "Brief" })).toHaveClass("pipeline-node-selected");
     expect(screen.getByRole("button", { name: "Core flows" })).not.toHaveClass("pipeline-node-active");
     expect(screen.queryByRole("button", { name: "More" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revise answers" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit text" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue to core flows" })).toBeInTheDocument();
   });
@@ -1083,7 +1358,7 @@ describe("InitiativeView", () => {
       expect(screen.getByText("A short summary.")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
 
     expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeInTheDocument();

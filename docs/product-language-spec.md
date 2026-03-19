@@ -33,7 +33,7 @@ SpecFlow is a guided planning workspace for turning an idea into executable, ver
 
 The app should feel like one continuous workflow:
 
-`Idea -> Brief -> Core flows -> PRD -> Tech spec -> Tickets -> Runs`
+`Idea -> Brief -> Core flows -> PRD -> Tech spec -> Validation -> Tickets -> Runs`
 
 ### Product promise
 
@@ -69,8 +69,9 @@ The user-facing workflow is:
 3. Core flows
 4. PRD
 5. Tech spec
-6. Tickets
-7. Runs
+6. Validation
+7. Tickets
+8. Runs
 
 ### Pipeline model
 
@@ -82,10 +83,11 @@ The current initiative pipeline is:
 2. Core flows
 3. PRD
 4. Tech spec
-5. Tickets
-6. Execute
-7. Verify
-8. Done
+5. Validation
+6. Tickets
+7. Execute
+8. Verify
+9. Done
 
 Rules:
 
@@ -103,9 +105,10 @@ Clarification is a refinement mechanism that can appear:
 - before Core flows, as the required first consultation that locks the primary flow, a meaningful branch, and a flow condition that changes the map
 - before the PRD, as the required first scope-setting question before the initial PRD draft, with up to three additional targeted blockers when the product contract is still ambiguous
 - before the Tech spec, as the required first architecture question before the initial Tech spec draft, with up to four additional targeted blockers when implementation consequences are still ambiguous
+- inside Validation, when the draft ticket plan exposes unresolved gaps that can be turned back into targeted artifact-level follow-up questions without sending the user backward through the pipeline
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
-When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` means "return to this step's questions", not "leave the phase" or "start the intake over." Resume behavior should remember that deliberate choice: artifact generation defaults the phase back to review, but if the user reopens the answered questions, Home and bare initiative routes should restore that questions surface until the user moves back to review.
+When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` should always mean "go to the previous stage." Reopening the current step's answered questions should use an explicit action such as `Revise answers`, not `Back`. Resume behavior should remember that deliberate choice: artifact generation defaults the phase back to review, but if the user deliberately reopens the answered questions, Home and bare initiative routes should restore that questions surface until the user returns to review or leaves the phase.
 
 For a fresh initiative, the required Brief intake always captures four framing decisions:
 
@@ -116,6 +119,7 @@ For a fresh initiative, the required Brief intake always captures four framing d
 
 Those four decisions must stay distinct. The intake should not restate the primary problem as a success criterion, and hard boundaries should not be phrased like implementation choices unless they are truly non-negotiable.
 The option language should stay domain-neutral so the intake works for new products, reliability fixes, integrations, compliance work, and existing-system changes without signaling one product category by default.
+Select and multi-select questions should always preserve an `Other` path so the user is not trapped by a finite option list that misses their case.
 If a later stage must revisit one of those earlier concerns, it should do so explicitly as a downstream consequence rather than silently asking the same thing again with new wording.
 When that happens, the UI should name the earlier step and question it is reopening so the user understands why the blocker came back.
 
@@ -127,7 +131,8 @@ Use these descriptions wherever the app introduces a phase.
 - `Core flows`: Define the primary flows, alternate paths, flow conditions, and failure or degraded paths.
 - `PRD`: Define the user-visible behavior, rules, priorities, scope, compatibility promises, and failure behavior.
 - `Tech spec`: Define how it should be built, integrated, operated, and validated for quality.
-- `Tickets`: Break the work into execution-ready steps.
+- `Validation`: Validate the draft ticket plan and resolve the last planning blockers before tickets are committed.
+- `Tickets`: Break the work into ordered execution phases and show them as a left-to-right ticket board.
 - `Runs`: Review delivery and verification for a ticket.
 
 ## Vocabulary
@@ -141,11 +146,11 @@ Use these terms consistently.
 - `PRD`
 - `Core flows`
 - `Tech spec`
+- `Validation`
 - `Ticket`
 - `Run`
 - `Review`
 - `Brief intake`
-- `Coverage check`
 - `Covered spec items`
 - `Verification`
 - `Needs review`
@@ -178,8 +183,9 @@ Avoid these unless the context is explicitly technical or advanced.
 - `Generate PRD` -> `Generate PRD`
 - `Generate Core Flows` -> `Generate core flows`
 - `Generate Tech Spec` -> `Generate tech spec`
+- `Validate plan` -> `Validate plan`
 - `Generate Tickets` -> `Generate tickets`
-- `Ticket coverage review` -> `Coverage check`
+- `Ticket coverage review` -> `Validation`
 - `Regenerate` -> `Refresh`
 - `Run Audit` -> `Review changes`
 - `Capture Results` -> `Review changes` or `Verify work`
@@ -192,11 +198,11 @@ Avoid these unless the context is explicitly technical or advanced.
 Internal planning statuses should map to this user-facing language.
 
 | Internal state | User-facing label |
-|---|---|
-| `locked` | `Not ready` |
-| `ready` | `Up next` |
-| `complete` | `Done` |
-| `stale` | `Needs review` |
+| -------------- | ----------------- |
+| `locked`       | `Not ready`       |
+| `ready`        | `Up next`         |
+| `complete`     | `Done`            |
+| `stale`        | `Needs review`    |
 
 ### Planning phase badges
 
@@ -256,10 +262,10 @@ The primary action should answer:
 - `Continue to PRD`
 - `Generate PRD`
 - `Continue to tech spec`
+- `Validate plan`
 - `Generate tech spec`
-- `Continue to tickets`
 - `Generate tickets`
-- `Run coverage check`
+- `Open tickets`
 - `Open checkpoint`
 - `Open first ticket`
 - `Open ticket`
@@ -275,8 +281,7 @@ The primary action should answer:
 - `Refresh brief intake`
 - `Refresh PRD`
 - `Refresh tech spec`
-- `Run coverage check`
-- `Override coverage blockers`
+- `Refresh tickets`
 - `Accept risk`
 - `Get guidance`
 - `Skip`
@@ -347,8 +352,8 @@ Avoid empty states that only state absence.
 #### Initiative without tickets
 
 - Title: `No tickets yet`
-- Body: `Generate tickets after the tech spec is ready.`
-- Primary action: `Generate tickets`
+- Body: `Validate the plan before tickets are created.`
+- Primary action: `Validate plan`
 
 #### No runs
 
@@ -425,19 +430,19 @@ Avoid generic copy such as `Preparing questions...`, `Generating...`, or `Stay h
 #### Tech spec complete
 
 - Heading: `Tech spec ready`
-- Body: `The implementation approach is ready to break into tickets.`
-- Primary action: `Continue to tickets`
+- Body: `The implementation approach is ready for ticket validation.`
+- Primary action: `Validate plan`
+
+#### Validation complete
+
+- Heading: `Validation ready`
+- Body: `The ticket plan is clear enough to commit and open for execution.`
+- Primary action: `Open tickets`
 
 #### Tickets complete
 
 - Heading: `Tickets ready`
-- Body: `The initiative is now broken into execution-ready work, but the coverage check still needs a pass or override before execution starts.`
-- Primary action: `Run coverage check`
-
-#### Coverage check complete
-
-- Heading: `Coverage check resolved`
-- Body: `The ticket plan is clear enough to start execution.`
+- Body: `The execution board is ready. Open the next ticket when you are ready to start work.`
 - Primary action: `Open first ticket`
 
 ## Guidance and question copy
@@ -448,7 +453,7 @@ Questions should explain why they are being asked.
 
 Preferred framing:
 
-- `Question 2 of 4`
+- `Step 2 of 4`
 - `This answer shapes the brief.`
 - `Choose the option that best fits this initiative.`
 
@@ -477,10 +482,12 @@ Avoid:
 Use:
 
 - `Review questions`
+- `Revise answers`
+- `Previous question`
 
 Avoid:
 
-- `Back to Questions`
+- `Back to questions`
 
 ## Ticket and run language
 

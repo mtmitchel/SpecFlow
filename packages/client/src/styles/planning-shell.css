@@ -196,6 +196,44 @@
   align-items: flex-start;
 }
 
+.planning-phase-board-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.planning-phase-board-heading {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.planning-phase-board-status {
+  min-height: 2.9rem;
+  padding: 0.5rem 0.95rem;
+  font-size: var(--font-sm);
+  line-height: 1;
+}
+
+.planning-phase-board-heading h4 {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.1;
+}
+
+.planning-phase-board-action {
+  margin-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.9rem;
+  padding: 0.5rem 0.95rem;
+  font-size: var(--font-sm);
+  line-height: 1;
+}
+
 .planning-document-card-header {
   display: flex;
   justify-content: space-between;
@@ -491,7 +529,78 @@
   text-underline-offset: 2px;
 }
 
+.planning-phase-header {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.planning-phase-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.planning-phase-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid rgba(72, 203, 255, 0.24);
+  border-radius: var(--radius-pill);
+  background: rgba(72, 203, 255, 0.08);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
 .planning-phase-count {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.planning-phase-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(19rem, 22rem);
+  gap: 1rem;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 0.45rem;
+  scrollbar-gutter: stable;
+}
+
+.planning-phase-column {
+  min-width: 0;
+  margin-bottom: 0;
+  align-content: start;
+}
+
+.planning-phase-column .planning-ticket-list li {
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
+}
+
+.planning-phase-ticket-link {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.planning-phase-ticket-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.planning-phase-ticket-meta {
   color: var(--muted);
   font-size: var(--font-sm);
 }
@@ -510,9 +619,18 @@
 
 @media (max-width: 720px) {
   .planning-step-actions,
-  .planning-ticket-list li {
+  .planning-ticket-list li,
+  .planning-phase-meta,
+  .planning-phase-board-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .planning-phase-board {
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: visible;
   }
 
   .side-drawer-panel {

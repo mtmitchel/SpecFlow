@@ -147,11 +147,43 @@ describe("RefinementSection", () => {
 
     expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
     expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(
+      screen.queryByText("The brief cannot define the right scope until the primary problem is explicit.")
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Who is this for first?")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
   });
 
-  it("does not show a custom answer affordance unless the question explicitly allows it", () => {
+  it("shows only the loading state in survey mode while a follow-up submit is running", () => {
+    render(
+      <RefinementSection
+        activeSpecStep="tech-spec"
+        activeRefinement={activeRefinement}
+        refinementAnswers={activeRefinement.answers}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="saved"
+        unresolvedQuestionCount={0}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        loadingStateLabel="Checking tech spec questions..."
+        loadingStateBody="Reviewing your answers before drafting the tech spec."
+        variant="survey"
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Checking tech spec questions...");
+    expect(screen.queryByRole("heading", { name: "What primary problem should v1 solve?" })).not.toBeInTheDocument();
+    expect(screen.queryByText("All questions are answered")).not.toBeInTheDocument();
+  });
+
+  it("still shows a custom answer affordance for select questions when the planner omits allowCustomAnswer", () => {
     render(
       <RefinementSection
         activeSpecStep="brief"
@@ -160,6 +192,45 @@ describe("RefinementSection", () => {
           questions: [
             {
               ...activeRefinement.questions[0],
+              allowCustomAnswer: false,
+            },
+          ],
+        }}
+        refinementAnswers={{}}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="idle"
+        unresolvedQuestionCount={1}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        variant="survey"
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /Other/ })).toBeInTheDocument();
+  });
+
+  it("keeps boolean questions strict unless they explicitly allow a custom answer", () => {
+    render(
+      <RefinementSection
+        activeSpecStep="brief"
+        activeRefinement={{
+          ...activeRefinement,
+          questions: [
+            {
+              id: "brief-sync",
+              label: "Should the product include optional cloud sync in the initial design?",
+              type: "boolean",
+              whyThisBlocks: "This changes the architecture and scope of the first release.",
+              affectedArtifact: "brief",
+              decisionType: "constraint",
+              assumptionIfUnanswered: "Keep the first release local-first.",
               allowCustomAnswer: false,
             },
           ],
@@ -230,12 +301,14 @@ describe("RefinementSection", () => {
       />
     );
 
-    expect(screen.getByText("Reopening an earlier decision")).toBeInTheDocument();
-    expect(screen.getByText("Brief: What primary problem should v1 solve?")).toBeInTheDocument();
-    expect(screen.getByText("Earlier answer: Capture something quickly")).toBeInTheDocument();
+    const earlierDecisionContext = screen.getByLabelText("Earlier decision context");
+
+    expect(screen.queryByText("Reopening an earlier decision")).not.toBeInTheDocument();
+    expect(earlierDecisionContext).toHaveTextContent("Brief");
+    expect(earlierDecisionContext).toHaveTextContent("Earlier answer: Capture something quickly");
   });
 
-  it("keeps reopened follow-up blockers grouped with earlier answered questions in survey mode", () => {
+  it("shows reopened follow-up blockers as one survey step with earlier-answer context", () => {
     const onBackToPreviousStep = vi.fn();
 
     render(
@@ -308,13 +381,74 @@ describe("RefinementSection", () => {
       />
     );
 
-    expect(screen.getByText("Step 2 of 2")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 1")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "How should the app handle notes that are created but left empty?" })).toBeInTheDocument();
+    const earlierDecisionContext = screen.getByLabelText("Earlier decision context");
 
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.queryByText("Reopening an earlier decision")).not.toBeInTheDocument();
+    expect(earlierDecisionContext).toHaveTextContent("Brief");
+    expect(earlierDecisionContext).toHaveTextContent("Earlier answer: Capture something quickly");
 
-    expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to Brief" }));
+
+    expect(onBackToPreviousStep).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Back for the previous stage and uses a separate button for the previous question", () => {
+    const onBackToPreviousStep = vi.fn();
+
+    render(
+      <RefinementSection
+        activeSpecStep="prd"
+        activeRefinement={{
+          ...activeRefinement,
+          questions: [
+            activeRefinement.questions[0],
+            {
+              id: "brief-user",
+              label: "Who is this for first?",
+              type: "select",
+              whyThisBlocks: "The brief needs a clear primary user before it can define scope.",
+              affectedArtifact: "brief",
+              decisionType: "user",
+              assumptionIfUnanswered: "Start with one primary user group.",
+              options: ["Just me", "A small team I know"],
+            },
+          ],
+          answers: {},
+        }}
+        refinementAnswers={{ "brief-problem": "Capture something quickly" }}
+        defaultAnswerQuestionIds={[]}
+        refinementAssumptions={[]}
+        refinementSaveState="idle"
+        unresolvedQuestionCount={2}
+        guidanceQuestionId={null}
+        guidanceText={null}
+        busyAction={null}
+        isBusy={false}
+        saveStateIndicator={null}
+        variant="survey"
+        onBackToPreviousStep={onBackToPreviousStep}
+        onRequestGuidance={vi.fn()}
+        onAnswerChange={vi.fn()}
+        onAnswerLater={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.getByRole("heading", { name: "Who is this for first?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to Core flows" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous question" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous question" }));
+
     expect(screen.getByRole("heading", { name: "What primary problem should v1 solve?" })).toBeInTheDocument();
     expect(onBackToPreviousStep).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to Core flows" }));
+
+    expect(onBackToPreviousStep).toHaveBeenCalledTimes(1);
   });
 });

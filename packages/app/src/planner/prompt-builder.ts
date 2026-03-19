@@ -2,6 +2,7 @@ import type {
   ClarifyHelpInput,
   PhaseCheckInput,
   PlanInput,
+  PlanValidationIssue,
   PlannerRepoContext,
   RefinementHistoryEntry,
   RefinementStep,
@@ -25,6 +26,7 @@ export type PlannerJob =
   | "review"
   | "trace-outline"
   | "plan"
+  | "plan-repair"
   | "triage";
 
 export interface PromptBuildResult {
@@ -34,9 +36,64 @@ export interface PromptBuildResult {
 
 const QUESTION_TYPES = ["select", "multi-select", "boolean"] as const satisfies readonly string[];
 const DECISION_TYPES = SUPPORTED_DECISION_TYPES;
+const MAX_PLAN_REPAIR_SECTION_CHARS = 8_000;
+const MAX_VALIDATION_FEEDBACK_SECTION_CHARS = 4_000;
+
+const normalizePromptText = (value: string): string =>
+  Array.from(value.replace(/\r\n/g, "\n"))
+    .map((character) => {
+      const codePoint = character.codePointAt(0);
+      if (codePoint === undefined) {
+        return "";
+      }
+
+      if (
+        (codePoint < 0x20 && ![0x09, 0x0a, 0x0d].includes(codePoint)) ||
+        (codePoint >= 0x7f && codePoint <= 0x9f)
+      ) {
+        return " ";
+      }
+
+      if (codePoint >= 0xd800 && codePoint <= 0xdfff) {
+        return "\uFFFD";
+      }
+
+      return character;
+    })
+    .join("");
+
+const truncatePromptSection = (value: string, maxChars: number): string =>
+  value.length > maxChars
+    ? `${value.slice(0, maxChars).trimEnd()}\n...(truncated)`
+    : value;
+
+const sanitizePromptValue = (value: unknown): unknown => {
+  if (typeof value === "string") {
+    return normalizePromptText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizePromptValue(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, sanitizePromptValue(entry)])
+    );
+  }
+
+  return value;
+};
+
+const stringifyPromptValue = (value: unknown, maxChars?: number): string => {
+  const serialized = JSON.stringify(sanitizePromptValue(value), null, 2) ?? "";
+  return typeof maxChars === "number"
+    ? truncatePromptSection(serialized, maxChars)
+    : serialized;
+};
 
 const formatRefinementHistory = (history: RefinementHistoryEntry[]): string =>
-  JSON.stringify(
+  stringifyPromptValue(
     history.map((entry) => ({
       step: entry.step,
       questionId: entry.questionId,
@@ -47,20 +104,49 @@ const formatRefinementHistory = (history: RefinementHistoryEntry[]): string =>
       answer: entry.answer,
       assumption: entry.assumption
     })),
-    null,
-    2
   );
 
 const formatRepoContext = (repoContext: PlannerRepoContext): string =>
-  JSON.stringify(
+  stringifyPromptValue(
     {
       totalFiles: repoContext.totalFiles,
       configSummary: repoContext.configSummary,
       fileTree: repoContext.fileTree
-    },
-    null,
-    2
+    }
   );
+
+const formatPlanValidationIssue = (issue: PlanValidationIssue): string =>
+  [
+    `- ${normalizePromptText(issue.message)}`,
+    issue.coverageItemId ? `  Coverage item ID: ${normalizePromptText(issue.coverageItemId)}` : null,
+    issue.ticketTitle ? `  Ticket: ${normalizePromptText(issue.ticketTitle)}` : null
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("\n");
+
+const buildPlanValidationFeedbackSection = (planInput: PlanInput): string | null =>
+  planInput.validationFeedback
+    ? [
+        "Validation summary:",
+        truncatePromptSection(
+          normalizePromptText(planInput.validationFeedback.summary),
+          MAX_VALIDATION_FEEDBACK_SECTION_CHARS
+        ),
+        planInput.validationFeedback.issues.length > 0
+          ? `Validation issues:\n${planInput.validationFeedback.issues
+              .map((issue) => formatPlanValidationIssue(issue))
+              .join("\n")}`
+          : null,
+        planInput.previousInvalidResult
+          ? `Previous invalid ticket plan:\n${stringifyPromptValue(
+              planInput.previousInvalidResult,
+              MAX_PLAN_REPAIR_SECTION_CHARS
+            )}`
+          : null
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join("\n\n")
+    : null;
 
 const outputContract = (job: PlannerJob): string => {
   switch (job) {
@@ -109,6 +195,7 @@ const outputContract = (job: PlannerJob): string => {
         "}"
       ].join("\n");
     case "plan":
+    case "plan-repair":
       return [
         "Respond ONLY as JSON:",
         "{",
@@ -147,20 +234,20 @@ const getArtifactSections = (input: {
   traceOutlines?: Partial<Record<RefinementStep, { sections: Array<{ key: string; label: string; items: string[] }> }>>;
 }): string[] =>
   [
-    `Initiative description:\n${input.initiativeDescription}`,
+    `Initiative description:\n${normalizePromptText(input.initiativeDescription)}`,
     input.savedContext && Object.keys(input.savedContext).length > 0
-      ? `Saved refinement context:\n${JSON.stringify(input.savedContext, null, 2)}`
+      ? `Saved refinement context:\n${stringifyPromptValue(input.savedContext)}`
       : null,
     input.refinementHistory && input.refinementHistory.length > 0
       ? `Refinement history:\n${formatRefinementHistory(input.refinementHistory)}`
       : null,
-    input.briefMarkdown?.trim() ? `Brief:\n${input.briefMarkdown}` : null,
-    input.coreFlowsMarkdown?.trim() ? `Core flows:\n${input.coreFlowsMarkdown}` : null,
-    input.prdMarkdown?.trim() ? `PRD:\n${input.prdMarkdown}` : null,
-    input.techSpecMarkdown?.trim() ? `Tech spec:\n${input.techSpecMarkdown}` : null,
+    input.briefMarkdown?.trim() ? `Brief:\n${normalizePromptText(input.briefMarkdown)}` : null,
+    input.coreFlowsMarkdown?.trim() ? `Core flows:\n${normalizePromptText(input.coreFlowsMarkdown)}` : null,
+    input.prdMarkdown?.trim() ? `PRD:\n${normalizePromptText(input.prdMarkdown)}` : null,
+    input.techSpecMarkdown?.trim() ? `Tech spec:\n${normalizePromptText(input.techSpecMarkdown)}` : null,
     input.repoContext ? `Repo context:\n${formatRepoContext(input.repoContext)}` : null,
     input.traceOutlines && Object.keys(input.traceOutlines).length > 0
-      ? `Trace outlines:\n${JSON.stringify(input.traceOutlines, null, 2)}`
+      ? `Trace outlines:\n${stringifyPromptValue(input.traceOutlines)}`
       : null
   ].filter((value): value is string => Boolean(value));
 
@@ -185,7 +272,7 @@ const buildCheckPrompt = (
     userPrompt: [
       `Decide whether SpecFlow can create the ${artifactDescription} now or must ask targeted blocker questions first.`,
       input.validationFeedback?.trim()
-        ? `The previous ${artifactDescription} phase-check result failed validation. Return a corrected result that satisfies every rule below.\n\nValidation feedback:\n${input.validationFeedback.trim()}`
+        ? `Additional validation feedback is attached below. If it exposes a real blocker for this artifact, ask the smallest set of targeted follow-up questions needed to resolve it.\n\nValidation feedback:\n${truncatePromptSection(normalizePromptText(input.validationFeedback).trim(), MAX_VALIDATION_FEEDBACK_SECTION_CHARS)}`
         : null,
       "Rules:",
       ...(requiresInitialConsultation
@@ -332,12 +419,14 @@ export const buildPlannerPrompt = (
         "- If the user supplied a note, answer it directly before giving decision guidance.",
         "- Compare the relevant options when options are provided.",
         "- End with a concrete recommendation only if one option is clearly the best fit from the initiative description and saved context.",
-        `Initiative description:\n${clarifyHelpInput.initiativeDescription}`,
-        `Saved refinement context:\n${JSON.stringify(clarifyHelpInput.savedContext, null, 2)}`,
-        `Question:\n${clarifyHelpInput.question.label}`,
+        `Initiative description:\n${normalizePromptText(clarifyHelpInput.initiativeDescription)}`,
+        `Saved refinement context:\n${stringifyPromptValue(clarifyHelpInput.savedContext)}`,
+        `Question:\n${normalizePromptText(clarifyHelpInput.question.label)}`,
         `Question type: ${clarifyHelpInput.question.type}`,
         optionsSection,
-        clarifyHelpInput.note?.trim() ? `User note:\n${clarifyHelpInput.note.trim()}` : "User note:\n(none)"
+        clarifyHelpInput.note?.trim()
+          ? `User note:\n${normalizePromptText(clarifyHelpInput.note).trim()}`
+          : "User note:\n(none)"
       ].join("\n\n")
     };
   }
@@ -384,8 +473,9 @@ export const buildPlannerPrompt = (
     return buildReviewPrompt(systemPrompt, input as ReviewRunInput);
   }
 
-  if (job === "plan") {
+  if (job === "plan" || job === "plan-repair") {
     const planInput = input as PlanInput;
+    const isRepair = job === "plan-repair";
     const repoSection = planInput.repoContext
       ? [
           "Repository context (use this to generate accurate file paths — only reference files that exist):",
@@ -394,25 +484,54 @@ export const buildPlannerPrompt = (
           `Key config files:\n${planInput.repoContext.configSummary}`
         ].join("\n")
       : null;
+    const validationFeedbackSection = buildPlanValidationFeedbackSection(planInput);
 
     const parts = [
-      "Generate an ordered phase plan and ticket breakdown. The textual phase/ticket structure is canonical. Use the repository file tree to generate accurate fileTargets — only reference paths that exist in the repo.",
+      isRepair
+        ? "Repair the existing ordered phase plan and ticket breakdown."
+        : "Generate an ordered phase plan and ticket breakdown. The textual phase/ticket structure is canonical. Use the repository file tree to generate accurate fileTargets — only reference paths that exist in the repo.",
+      isRepair
+        ? "Keep the existing phase and ticket structure where it already works. Make the smallest changes needed to satisfy every validation issue."
+        : validationFeedbackSection,
+      isRepair
+        ? "Do not drop valid coverage assignments or rewrite unaffected tickets just to reshuffle the plan."
+        : null,
+      "Rules:",
+      "- Return a JSON object with both phases and uncoveredCoverageItemIds.",
+      "- phases must always be an array, even when the plan only needs one phase.",
+      "- Every phase must include name, order, and tickets.",
+      isRepair
+        ? "- Resolve every validation issue listed below."
+        : null,
+      isRepair
+        ? "- Reuse the existing phases, ticket titles, descriptions, acceptance criteria, and fileTargets unless a specific change is required to fix coverage."
+        : null,
+      isRepair
+        ? "- Every missing coverage item must appear in some ticket.coverageItemIds or in uncoveredCoverageItemIds."
+        : null,
       "Every coverage item must be accounted for. Assign each one to one or more tickets through coverageItemIds, or list it in uncoveredCoverageItemIds when the current plan intentionally leaves it out.",
       "Write acceptance criteria as specific, observable outcomes that can be judged from a code diff. Avoid vague criteria like 'works well' or 'is intuitive'.",
       "Each ticket must have at least one coverageItemId unless the plan is invalid.",
-      `Initiative description:\n${planInput.initiativeDescription}`,
-      `Brief:\n${planInput.briefMarkdown}`,
-      `Core flows:\n${planInput.coreFlowsMarkdown}`,
-      `PRD:\n${planInput.prdMarkdown}`,
-      `Tech spec:\n${planInput.techSpecMarkdown}`,
-      `Coverage items:\n${JSON.stringify(planInput.coverageItems, null, 2)}`
+      `Initiative description:\n${normalizePromptText(planInput.initiativeDescription)}`,
+      isRepair ? null : `Brief:\n${planInput.briefMarkdown}`,
+      isRepair ? null : `Core flows:\n${planInput.coreFlowsMarkdown}`,
+      isRepair ? null : `PRD:\n${planInput.prdMarkdown}`,
+      isRepair ? null : `Tech spec:\n${planInput.techSpecMarkdown}`,
+      `Coverage items:\n${stringifyPromptValue(planInput.coverageItems)}`
     ];
 
-    if (repoSection) {
+    if (!isRepair && repoSection) {
       parts.push(repoSection);
     }
 
-    return { systemPrompt, userPrompt: parts.join("\n\n") };
+    if (isRepair) {
+      parts.push(validationFeedbackSection);
+    }
+
+    return {
+      systemPrompt,
+      userPrompt: parts.filter((value): value is string => Boolean(value)).join("\n\n")
+    };
   }
 
   const triageInput = input as TriageInput;

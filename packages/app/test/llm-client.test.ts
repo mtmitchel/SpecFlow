@@ -98,6 +98,31 @@ describe("HttpLlmClient OpenRouter support", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("strips disallowed control characters before serializing prompt text", async () => {
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body));
+
+      expect(payload.messages[0].content).toBe("sys prompt");
+      expect(payload.messages[1].content).toBe("user  prompt");
+
+      return new Response(makeOpenAiSseStream('{"decision":"ok"}'), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" }
+      });
+    });
+
+    const client = new HttpLlmClient(fetchMock as unknown as typeof fetch);
+    await client.complete({
+      provider: "openai",
+      model: "gpt-5-mini",
+      apiKey: "test-key",
+      systemPrompt: "sys\u0000prompt",
+      userPrompt: "user\u0007\u0085prompt"
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("includes the serialized request size when the provider rejects the JSON body", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ error: { message: "We could not parse the JSON body of your request." } }), {

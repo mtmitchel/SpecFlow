@@ -5,6 +5,7 @@ import {
   configPath,
   decisionsDir,
   initiativeDir,
+  initiativePendingTicketPlanPath,
   initiativeTicketCoveragePath,
   initiativeReviewPath,
   initiativeTracePath,
@@ -41,6 +42,7 @@ import type {
   Initiative,
   OperationManifest,
   OperationState,
+  PendingTicketPlanArtifact,
   PlanningReviewArtifact,
   Run,
   RunAttempt,
@@ -90,6 +92,7 @@ export class ArtifactStore {
   public readonly runAttempts = new Map<string, RunAttemptSummary>();
   public readonly specs = new Map<string, SpecDocumentSummary>();
   public readonly planningReviews = new Map<string, PlanningReviewArtifact>();
+  public readonly pendingTicketPlans = new Map<string, PendingTicketPlanArtifact>();
   public readonly ticketCoverageArtifacts = new Map<string, TicketCoverageArtifact>();
   public readonly artifactTraces = new Map<string, ArtifactTraceOutline>();
 
@@ -164,6 +167,7 @@ export class ArtifactStore {
     replaceMapContents(this.runAttempts, snapshot.runAttempts);
     replaceMapContents(this.specs, snapshot.specs);
     replaceMapContents(this.planningReviews, snapshot.planningReviews);
+    replaceMapContents(this.pendingTicketPlans, snapshot.pendingTicketPlans);
     replaceMapContents(this.ticketCoverageArtifacts, snapshot.ticketCoverageArtifacts);
     replaceMapContents(this.artifactTraces, snapshot.artifactTraces);
 
@@ -196,6 +200,12 @@ export class ArtifactStore {
         docs.techSpec !== undefined
           ? docs.techSpec.trim().length > 0
           : this.specs.has(`${initiative.id}:tech-spec`),
+      hasValidation:
+        this.pendingTicketPlans.has(`${initiative.id}:pending-ticket-plan`) ||
+        this.planningReviews.has(`${initiative.id}:ticket-coverage-review`) ||
+        initiative.workflow.steps.validation?.status === "complete" ||
+        initiative.ticketIds.length > 0 ||
+        initiative.phases.length > 0,
       hasTickets:
         initiative.ticketIds.length > 0 ||
         initiative.phases.length > 0 ||
@@ -259,6 +269,9 @@ export class ArtifactStore {
     for (const [key, review] of this.planningReviews) {
       if (review.initiativeId === id) this.planningReviews.delete(key);
     }
+    for (const [key, pendingPlan] of this.pendingTicketPlans) {
+      if (pendingPlan.initiativeId === id) this.pendingTicketPlans.delete(key);
+    }
     for (const [key, coverage] of this.ticketCoverageArtifacts) {
       if (coverage.initiativeId === id) this.ticketCoverageArtifacts.delete(key);
     }
@@ -301,6 +314,7 @@ export class ArtifactStore {
       hasCoreFlows: boolean;
       hasPrd: boolean;
       hasTechSpec: boolean;
+      hasValidation: boolean;
       hasTickets: boolean;
     }
   ): Initiative {
@@ -377,6 +391,18 @@ export class ArtifactStore {
     const filePath = initiativeReviewPath(this.rootDir, review.initiativeId, review.kind);
     await writeYamlFile(filePath, review);
     this.planningReviews.set(review.id, review);
+  }
+
+  public async upsertPendingTicketPlanArtifact(plan: PendingTicketPlanArtifact): Promise<void> {
+    const filePath = initiativePendingTicketPlanPath(this.rootDir, plan.initiativeId);
+    await writeYamlFile(filePath, plan);
+    this.pendingTicketPlans.set(plan.id, plan);
+  }
+
+  public async deletePendingTicketPlanArtifact(initiativeId: string): Promise<void> {
+    const { rm } = await import("node:fs/promises");
+    await rm(initiativePendingTicketPlanPath(this.rootDir, initiativeId), { force: true });
+    this.pendingTicketPlans.delete(`${initiativeId}:pending-ticket-plan`);
   }
 
   public async upsertTicketCoverageArtifact(coverage: TicketCoverageArtifact): Promise<void> {

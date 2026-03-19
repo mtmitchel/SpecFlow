@@ -23,6 +23,8 @@ export const DocumentSummaryCard = ({
   const { showError, showSuccess } = useToast();
   const [copying, setCopying] = useState(false);
   const trimmedContent = content.trim();
+  const stepLabel = INITIATIVE_WORKFLOW_LABELS[step];
+  const lowerStepLabel = stepLabel.toLowerCase();
   if (!trimmedContent) {
     return (
       <div className="planning-summary-card">
@@ -51,9 +53,9 @@ export const DocumentSummaryCard = ({
     setCopying(true);
     try {
       await navigator.clipboard.writeText(trimmedContent);
-      showSuccess("Brief copied.");
+      showSuccess(`${stepLabel} copied.`);
     } catch (error) {
-      showError((error as Error).message || "We couldn't copy the brief.");
+      showError((error as Error).message || `We couldn't copy the ${lowerStepLabel}.`);
     } finally {
       setCopying(false);
     }
@@ -64,20 +66,18 @@ export const DocumentSummaryCard = ({
       <div className="planning-document-card-header">
         <h3 className="planning-document-card-title">{title}</h3>
         <div className="planning-document-card-actions">
-          {step === "brief" ? (
-            <button
-              type="button"
-              className="planning-icon-button"
-              aria-label="Copy brief"
-              onClick={() => void handleCopy()}
-              disabled={isBusy || copying}
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <rect x="5" y="3" width="8" height="10" rx="1.2" />
-                <path d="M3.6 10.8h-.4A1.2 1.2 0 0 1 2 9.6V3.2A1.2 1.2 0 0 1 3.2 2h6.4a1.2 1.2 0 0 1 1.2 1.2v.4" />
-              </svg>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="planning-icon-button"
+            aria-label={`Copy ${lowerStepLabel}`}
+            onClick={() => void handleCopy()}
+            disabled={isBusy || copying}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="5" y="3" width="8" height="10" rx="1.2" />
+              <path d="M3.6 10.8h-.4A1.2 1.2 0 0 1 2 9.6V3.2A1.2 1.2 0 0 1 3.2 2h6.4a1.2 1.2 0 0 1 1.2 1.2v.4" />
+            </svg>
+          </button>
           <button
             type="button"
             className="planning-icon-button"

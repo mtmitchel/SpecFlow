@@ -9,12 +9,12 @@ Related docs:
 - For implementation architecture behind these flows, see [`architecture.md`](architecture.md)
 - For canonical product and UI wording, see [`product-language-spec.md`](product-language-spec.md)
 
-| Workflow | Purpose |
-|---|---|
-| **Groundwork** | Turn a raw idea into structured specs + an ordered ticket breakdown |
-| **Milestone Run** | Execute tickets phase-by-phase with per-ticket verify gates |
-| **Quick Build** | Plan and execute a single focused task without a full initiative |
-| **Drift Audit** | Review an existing diff and produce structured findings + fix instructions |
+| Workflow          | Purpose                                                                    |
+| ----------------- | -------------------------------------------------------------------------- |
+| **Groundwork**    | Turn a raw idea into structured specs + an ordered ticket breakdown        |
+| **Milestone Run** | Execute tickets phase-by-phase with per-ticket verify gates                |
+| **Quick Build**   | Plan and execute a single focused task without a full initiative           |
+| **Drift Audit**   | Review an existing diff and produce structured findings + fix instructions |
 
 ---
 
@@ -29,16 +29,17 @@ Related docs:
 1. User lands in the same planning shell they will use for the full journey. A persistent initiative pipeline stays visible across Home, creation, planning, ticket, and run surfaces.
 2. User types a free-form idea and continues directly into **Brief intake** in the same screen. The idea card stays visible above the intake so the user does not lose context during the handoff.
 3. Fresh initiatives always begin with **Brief intake**. SpecFlow asks a required four-question consultation before the first brief can be generated. The questions lock the primary problem, primary user, cross-cutting success qualities, and hard boundaries for v1. The intake should separate the dominant pain from the quality bars that define a good first release instead of asking the same thing twice with different wording.
-4. Once the intake is answered or explicitly deferred, the user generates the Brief. SpecFlow then runs a **Brief review** artifact, but the main path remains the artifact review screen rather than a separate blocking checkpoint surface. From review, `Back` reopens the answered Brief intake inline for that same artifact instead of sending the user to a detached drawer or a blank restart flow.
-5. User moves into **Core flows**. Before the first draft, the planner runs a required short consultation that locks the primary flow, a meaningful branch or destructive path, and a flow condition that changes the map. The flow can be user-facing, operator-facing, or system/process-facing; it is not limited to screen flows. Later checks can add one targeted failure or degraded-path follow-up when needed. The user then generates the Core flows artifact. **Review core flows** and **Cross-check brief and core flows** remain available as secondary review artifacts instead of primary navigation gates. Going back from review reopens the answered Core flows survey inline and the final action becomes `Update core flows`.
+4. Once the intake is answered or explicitly deferred, the user generates the Brief. SpecFlow then runs a **Brief review** artifact, but the main path remains the artifact review screen rather than a separate blocking checkpoint surface. From review, `Back` should always mean "go to the previous stage." Reopening the answered Brief intake inline should use an explicit action such as `Revise answers` instead of overloading `Back`.
+5. User moves into **Core flows**. Before the first draft, the planner runs a required short consultation that locks the primary flow, a meaningful branch or destructive path, and a flow condition that changes the map. The flow can be user-facing, operator-facing, or system/process-facing; it is not limited to screen flows. Later checks can add one targeted failure or degraded-path follow-up when needed. The user then generates the Core flows artifact. **Review core flows** and **Cross-check brief and core flows** remain available as secondary review artifacts instead of primary navigation gates. From review, `Back` should still mean "go to the previous stage." Reopening the answered Core flows survey should use an explicit action such as `Revise answers`, and the final action becomes `Update core flows`.
 6. User moves into **PRD**. Before the first draft, the planner asks one required scope-setting question. Later PRD checks can ask up to three more targeted blockers about user-visible behavior, governing rules, v1 priorities, non-goals, failure behavior, performance promises, or compatibility promises before the user generates the PRD. If a PRD question reopens an earlier concern, it must point back to the earlier blocker explicitly and the UI should show that earlier question and answer inline so the user knows what is being revisited. **Review PRD** plus **Cross-check core flows and PRD** remain secondary review artifacts on the document review surface.
-7. User moves into **Tech spec**. Before the first draft, the planner asks one required architecture question. Later checks can ask up to four more targeted blockers about implementation tradeoffs such as data flow, existing-system constraints, compatibility, failure handling, performance, operations, risk, and quality strategy before the user generates the Tech spec. If a Tech spec question reopens an earlier concern, it must point back to the earlier blocker explicitly and the review/question surface should show that earlier provenance instead of treating it like a brand-new blocker. **Review tech spec**, **Cross-check PRD and tech spec**, and the **spec-set review** remain secondary review artifacts instead of blocking the next artifact-phase handoff.
-8. User moves into **Tickets** and generates the ticket plan. The Planner scans the repo (file tree + key config files) to ground the plan in the actual codebase, then produces an ordered ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger.
-9. After ticket generation, SpecFlow runs a **Coverage check**. If the ticket plan leaves important flows, requirements, or decisions uncovered, the user must rerun or override that check before execution starts.
-10. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page. Completed planning steps retain their asked-question history so review `Back` can reopen the exact answered survey for targeted revisions without reconstructing a fresh intake state. Resume links and bare initiative routes should restore the last meaningful planning surface for the current phase: review by default after generation, or questions if the user deliberately went back into revision. When the phase is checking for more questions or generating the next artifact, the waiting state should name the active phase directly, for example `Checking PRD questions...` or `Generating PRD...`, instead of falling back to generic loading copy.
-11. The top-level workspace stays light by default: a collapsed icon rail for app-level actions, Up next on Home, and an in-place expandable sidebar that reveals the full initiative and quick-task hierarchy without opening a second panel.
+7. User moves into **Tech spec**. Before the first draft, the planner asks one required architecture question. Later checks can ask up to four more targeted blockers about implementation tradeoffs such as data flow, existing-system constraints, compatibility, failure handling, performance, operations, risk, and quality strategy before the user generates the Tech spec. If a Tech spec question reopens an earlier concern, it must point back to the earlier blocker explicitly and the review/question surface should show that earlier provenance instead of treating it like a brand-new blocker. **Review tech spec**, **Cross-check PRD and tech spec**, and the **spec-set review** remain secondary review artifacts instead of blocking the next artifact-phase handoff. Once the Tech spec draft is ready, the primary handoff action becomes **Validate plan**.
+8. That action enters **Validation** and starts draft ticket planning in one move. The Planner scans the repo (file tree plus key config files) to ground the plan in the actual codebase, then produces a draft ticket breakdown grouped into suggested phases plus an explicit spec-to-ticket coverage ledger. Validation owns the last planning gate before tickets are committed.
+9. If Validation finds actionable gaps, it should keep the user in **Validation** and turn those gaps into in-place follow-up questions tied back to Brief, Core flows, PRD, or Tech spec. The user should not be forced backward to answer them. Only if the blockers cannot be turned into answerable questions should Validation fall back to a compact blocked summary with a clear override path.
+10. Once Validation passes or is explicitly overridden, SpecFlow commits the ticket plan and moves into **Tickets**. Tickets should read as an execution board, with one left-to-right column per phase and a right-side ticket drawer for quick inspection. Tickets should not own planning blockers, review questions, or coverage dumps anymore.
+11. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page. Completed planning steps retain their asked-question history so users can deliberately reopen the exact answered survey for targeted revisions without reconstructing a fresh intake state, but that entry should use an explicit action such as `Revise answers` rather than `Back`. Resume links and bare initiative routes should restore the last meaningful planning surface for the current phase: review by default after generation, or questions if the user deliberately went back into revision. When the phase is checking for more questions or generating the next artifact, the waiting state should name the active phase directly, for example `Checking PRD questions...`, `Generating PRD...`, or `Validating plan...`, instead of falling back to generic loading copy.
+12. The top-level workspace stays light by default: a collapsed icon rail for app-level actions, Up next on Home, and an in-place expandable sidebar that reveals the full initiative and quick-task hierarchy without opening a second panel.
 
-**Exit:** Initiative is ready for execution once the coverage checkpoint is passed or overridden. All tickets are in Backlog. User proceeds to Milestone Run.
+**Exit:** Initiative is ready for execution once Validation passes or is overridden and the ticket board is committed. All tickets are in Backlog. User proceeds to Milestone Run.
 
 ---
 
@@ -50,23 +51,23 @@ Related docs:
 
 **Steps:**
 
-1. User opens a ticket from an initiative, the Home queue, or the expanded left sidebar. The ticket view opens as a single execution workspace with a **Preflight** card first, then one execution timeline below.
-2. If the ticket is still in **Backlog**, the user can move it to **Ready** via the status dropdown. When they try to move it into **In Progress**, the server rejects the change with a 409 error if the ticket still has unfinished blockers or the initiative's **Coverage check** is blocked or stale.
-3. User clicks **Create bundle**. The execution section asks which agent should receive the handoff bundle: Claude Code, Codex CLI, OpenCode, or Generic. For initiative-linked tickets, unresolved coverage checks also block export until the user resolves or overrides the check in the initiative view.
+1. User opens a ticket from an initiative, the Home queue, or the expanded left sidebar. From the initiative Tickets board, clicking a ticket first opens a right-side drawer for quick inspection. The drawer keeps the phase board visible and offers an explicit **Open full ticket** action when the user is ready to enter the execution workspace. The full ticket view then opens as a single execution workspace with a **Preflight** card first, then one execution timeline below.
+2. If the ticket is still in **Backlog**, the user can move it to **Ready** via the status dropdown. When they try to move it into **In Progress**, the server rejects the change with a 409 error if the ticket still has unfinished blockers or the initiative's **Validation** step is blocked or stale.
+3. User clicks **Create bundle**. The execution section asks which agent should receive the handoff bundle: Claude Code, Codex CLI, OpenCode, or Generic. For initiative-linked tickets, unresolved Validation blockers also block export until the user resolves or overrides them in the initiative view.
 4. The bundle is generated and displayed inline. The user can copy the flattened bundle immediately. Desktop mode also offers a native **Save ZIP bundle** action, while legacy web mode keeps the HTTP ZIP download path. The ticket moves to **In Progress**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
 5. User runs the agent manually in their terminal (outside SpecFlow). SpecFlow waits.
 6. User returns to the ticket page and opens the verification section.
 7. The Capture panel shows:
-   - If git is detected: an auto-generated diff preview with a *"Use this diff"* confirmation.
+   - If git is detected: an auto-generated diff preview with a _"Use this diff"_ confirmation.
    - If git is not detected: current verification scope (captured at export) plus an optional **widen scope** action.
-   - A text area: *"Summarize what the agent did (optional)."*
+   - A text area: _"Summarize what the agent did (optional)."_
 8. For no-git runs, widened scope is treated as **drift-only** context. Primary verification remains anchored to the initial export-time scope.
 9. User clicks **Verify work**. Verification runs automatically.
 10. The **Verification Panel** appears below the ticket details: each acceptance criterion shows Pass or Fail, a **severity** (Critical/Major/Minor/Outdated), and a **remediation hint** on failure. Drift flags (unexpected file touches, missing requirements, widened-scope drift warnings) are listed separately.
 11. **If all pass:** ticket moves to **Done** automatically. User proceeds to the next ticket.
 12. **If any fail:** ticket stays in **Verify** status. User gets two actions:
     - **Re-export with Findings** -- generates a new bundle pre-loaded with failure context and remediation hints (quick-fix mode). A "Re-verify Now" button appears after the fix bundle is ready.
-    - **Override to Done** -- two-step safeguard: user enters a required reason, then confirms *"I accept risk"*; reason + confirmation are logged in run history.
+    - **Override to Done** -- two-step safeguard: user enters a required reason, then confirms _"I accept risk"_; reason + confirmation are logged in run history.
 13. Run history is grouped by ticket with expandable attempts, so retries remain auditable without clutter. The ticket page keeps the initiative pipeline visible as orientation chrome, but the ticket remains the primary object.
 14. Resume and re-entry should return initiative work to the active ticket, not to a run report. Explicit run-detail visits remain historical drill-down only; they do not replace the initiative's execution resume target.
 15. If an operation is recovered as `abandoned`, `superseded`, or `failed`, Runs and Ticket detail show a status badge with guided retry actions.
@@ -94,9 +95,10 @@ Related docs:
 5. A ticket is created in **Ready** status (skips Backlog -- it's already scoped). The command palette closes and the workspace navigates directly to the new ticket.
 6. User opens the ticket and clicks **Create bundle** -- selects agent, bundle is generated.
 7. User runs the agent manually, returns, and clicks **Verify work** (same capture flow as Milestone Run).
-9. Verification runs automatically. Ticket moves to Done or stays in Verify with findings.
+8. Verification runs automatically. Ticket moves to Done or stays in Verify with findings.
 
 **Notes:**
+
 - Quick Tasks remain outside initiatives and are still browseable from the expanded left sidebar and aggregate ticket views.
 - A Quick Task can be linked to an existing initiative later via the ticket's detail page.
 - Quick Tasks are exempt from initiative coverage gating until they are linked to an initiative.
@@ -108,6 +110,7 @@ Related docs:
 **Purpose:** Point SpecFlow at an existing diff or branch and receive structured findings -- categorized issues, severity ratings, and actionable fix instructions.
 
 **Entry points:**
+
 - **Run view:** user clicks **Run Audit** as a contextual action from within a run's detail view.
 - **Ticket view:** user clicks **Run Audit on Current Changes** as a contextual action.
 

@@ -117,6 +117,7 @@ describe("ArtifactStore", () => {
           "core-flows": { status: "complete", updatedAt: now },
           prd: { status: "complete", updatedAt: now },
           "tech-spec": { status: "complete", updatedAt: now },
+          validation: { status: "complete", updatedAt: now },
           tickets: { status: "complete", updatedAt: now }
         },
         activeStep: "tickets"

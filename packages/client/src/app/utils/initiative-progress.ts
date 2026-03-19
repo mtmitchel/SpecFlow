@@ -49,6 +49,7 @@ const hasInitiativeArtifactSummary = (
   initiativeId: string,
   step: InitiativePlanningStep,
 ): boolean =>
+  step !== "validation" &&
   step !== "tickets" &&
   specSummaries.some((spec) => spec.initiativeId === initiativeId && spec.type === step);
 
@@ -100,7 +101,7 @@ export const buildInitiativeStepSearchParams = (
   const params = new URLSearchParams();
   params.set("step", step);
 
-  if (step !== "tickets" && surface) {
+  if (step !== "validation" && step !== "tickets" && surface) {
     params.set("surface", surface);
   }
 
@@ -126,7 +127,7 @@ export const getInitiativeResumeHref = (
     return `/initiative/${initiative.id}?step=tickets`;
   }
 
-  if (progress.currentKey === "tickets") {
+  if (progress.currentKey === "validation" || progress.currentKey === "tickets") {
     return buildInitiativeStepHref(initiative.id, progress.currentKey);
   }
 
@@ -146,6 +147,7 @@ export const PIPELINE_NODE_ORDER: PipelineNodeKey[] = [
   "core-flows",
   "prd",
   "tech-spec",
+  "validation",
   "tickets",
   "execute",
   "verify",
@@ -157,6 +159,7 @@ export const PIPELINE_NODE_LABELS: Record<PipelineNodeKey, string> = {
   "core-flows": INITIATIVE_WORKFLOW_LABELS["core-flows"],
   prd: INITIATIVE_WORKFLOW_LABELS.prd,
   "tech-spec": INITIATIVE_WORKFLOW_LABELS["tech-spec"],
+  validation: INITIATIVE_WORKFLOW_LABELS.validation,
   tickets: INITIATIVE_WORKFLOW_LABELS.tickets,
   execute: "Execute",
   verify: "Verify",
@@ -178,7 +181,7 @@ const isResolvedReview = (review: PlanningReviewArtifact | undefined): boolean =
   Boolean(review && (review.status === "passed" || review.status === "overridden"));
 
 const getOwnedReviewKinds = (step: InitiativePlanningStep): PlanningReviewKind[] => {
-  if (step === "tickets") {
+  if (step === "validation") {
     return [TICKET_COVERAGE_REVIEW_KIND];
   }
 
@@ -267,11 +270,11 @@ export const getInitiativeProgressModel = (
 
   const resumePlanningStep = getInitiativeResumeStep(initiative.workflow);
   const blockedPlanningStep = getInitiativeBlockedStep(initiative.workflow, planningReviews);
-  const ticketsStepReviews = getOwnedReviews(planningReviews, initiative.id, "tickets");
-  const ticketsCheckpoint =
-    initiative.workflow.steps.tickets.status === "stale" ||
-    ticketsStepReviews.some((review) => !isResolvedReview(review));
-  const planningReadyForExecution = initiativeTickets.length > 0 && !ticketsCheckpoint;
+  const validationStepReviews = getOwnedReviews(planningReviews, initiative.id, "validation");
+  const validationCheckpoint =
+    initiative.workflow.steps.validation.status === "stale" ||
+    validationStepReviews.some((review) => !isResolvedReview(review));
+  const planningReadyForExecution = initiativeTickets.length > 0 && !validationCheckpoint;
   const executionCurrentKey = getExecutionCurrentKey(initiativeTickets, planningReadyForExecution);
   const visibleExecutionKey = blockedPlanningStep ? null : executionCurrentKey;
   const currentKey = overrides?.currentKey ?? blockedPlanningStep ?? visibleExecutionKey ?? resumePlanningStep;
@@ -283,7 +286,7 @@ export const getInitiativeProgressModel = (
         ? storedResumeTicket && storedResumeTicket.status !== "done"
           ? storedResumeTicket
           : nextTicket ?? null
-        : currentKey === "tickets" && !ticketsCheckpoint && storedResumeTicket && storedResumeTicket.status !== "done"
+        : currentKey === "tickets" && !validationCheckpoint && storedResumeTicket && storedResumeTicket.status !== "done"
           ? storedResumeTicket
           : null;
 

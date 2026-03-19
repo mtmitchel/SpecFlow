@@ -12,6 +12,14 @@ import type {
 type RefinementStep = Extract<InitiativePlanningStep, "brief" | "core-flows" | "prd" | "tech-spec">;
 
 const LLM_PHASE_CHECK_TIMEOUT_MS = 90_000;
+const PLANNING_SAVE_TIMEOUT_MS = 20_000;
+
+const REFINEMENT_STEP_LABELS: Record<RefinementStep, string> = {
+  brief: "brief",
+  "core-flows": "core flows",
+  prd: "PRD",
+  "tech-spec": "tech spec"
+};
 
 const PHASE_CHECK_TIMEOUT_MS: Record<RefinementStep, number> = {
   brief: 20_000,
@@ -77,14 +85,28 @@ export const updateInitiative = async (
 export const checkInitiativePhase = async (
   initiativeId: string,
   step: RefinementStep,
-  options?: TransportRequestOptions,
+  options?: TransportRequestOptions & {
+    validationFeedback?: string;
+  },
 ): Promise<InitiativePhaseCheckResult> =>
   transportRequest(
     "initiatives.phaseCheck",
-    { id: initiativeId, step },
+    {
+      id: initiativeId,
+      step,
+      body: options?.validationFeedback
+        ? { validationFeedback: options.validationFeedback }
+        : undefined,
+    },
     (signal) =>
       requestJson(`/api/initiatives/${initiativeId}/${step}-check`, {
         method: "POST",
+        headers: options?.validationFeedback
+          ? { "Content-Type": "application/json" }
+          : undefined,
+        body: options?.validationFeedback
+          ? JSON.stringify({ validationFeedback: options.validationFeedback })
+          : undefined,
         signal,
       }),
     undefined,
@@ -239,14 +261,20 @@ export const saveInitiativeRefinement = async (
   transportRequest(
     "initiatives.refinement.save",
     { id: initiativeId, step, body: { answers, defaultAnswerQuestionIds, preferredSurface } },
-    () =>
+    (signal) =>
       requestJson(`/api/initiatives/${initiativeId}/refinement/${step}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ answers, defaultAnswerQuestionIds, preferredSurface })
-      })
+        body: JSON.stringify({ answers, defaultAnswerQuestionIds, preferredSurface }),
+        signal
+      }),
+    undefined,
+    {
+      timeoutMs: PLANNING_SAVE_TIMEOUT_MS,
+      timeoutMessage: `Saving your ${REFINEMENT_STEP_LABELS[step]} answers took too long. Try again.`
+    }
   );
 
 export const requestInitiativeClarificationHelp = async (
@@ -332,15 +360,21 @@ export const saveInitiativeSpecs = async (
   await transportRequest(
     "initiatives.spec.save",
     { id: initiativeId, type: step, body: { content } },
-    async () =>
+    async (signal) =>
       parse(
         await fetch(`/api/initiatives/${initiativeId}/specs/${step}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ content })
+          body: JSON.stringify({ content }),
+          signal
         })
-      )
+      ),
+    undefined,
+    {
+      timeoutMs: PLANNING_SAVE_TIMEOUT_MS,
+      timeoutMessage: `Saving the ${REFINEMENT_STEP_LABELS[step]} draft took too long. Try again.`
+    }
   );
 };

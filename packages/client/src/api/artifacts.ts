@@ -1,11 +1,28 @@
 import type { ArtifactsSnapshot, SpecDocument } from "../types";
 import { normalizeArtifactsSnapshot } from "../config-normalization";
 import { parse, requestJson } from "./http";
-import { transportRequest } from "./transport";
+import { transportRequest, type TransportRequestOptions } from "./transport";
 
-export const fetchArtifacts = async (): Promise<ArtifactsSnapshot> => {
-  const snapshot = await transportRequest("artifacts.snapshot", {}, () =>
-    requestJson<ArtifactsSnapshot>("/api/artifacts")
+const ARTIFACTS_REFRESH_TIMEOUT_MS = 20_000;
+const SPEC_DETAIL_TIMEOUT_MS = 20_000;
+
+export const fetchArtifacts = async (
+  options?: TransportRequestOptions
+): Promise<ArtifactsSnapshot> => {
+  const snapshot = await transportRequest(
+    "artifacts.snapshot",
+    {},
+    (signal) =>
+      requestJson<ArtifactsSnapshot>("/api/artifacts", {
+        signal
+      }),
+    undefined,
+    {
+      ...options,
+      timeoutMs: options?.timeoutMs ?? ARTIFACTS_REFRESH_TIMEOUT_MS,
+      timeoutMessage:
+        options?.timeoutMessage ?? "Refreshing the workspace took too long. Try again."
+    }
   );
 
   return normalizeArtifactsSnapshot(snapshot);
@@ -13,7 +30,7 @@ export const fetchArtifacts = async (): Promise<ArtifactsSnapshot> => {
 
 export const fetchSpecDetail = async (
   specId: string,
-  options?: { signal?: AbortSignal }
+  options?: TransportRequestOptions
 ): Promise<SpecDocument> => {
   const payload = await transportRequest<{ spec: SpecDocument }>(
     "specs.detail",
@@ -23,7 +40,12 @@ export const fetchSpecDetail = async (
       return parse<{ spec: SpecDocument }>(response);
     },
     undefined,
-    options
+    {
+      ...options,
+      timeoutMs: options?.timeoutMs ?? SPEC_DETAIL_TIMEOUT_MS,
+      timeoutMessage:
+        options?.timeoutMessage ?? "Loading the draft took too long. Try again."
+    }
   );
   return payload.spec;
 };

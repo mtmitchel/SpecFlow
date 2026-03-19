@@ -41,15 +41,17 @@ Key capabilities in the current version:
 - Durable re-entry: Home and initiative resume restore the last meaningful planning surface or active initiative ticket; run detail stays historical unless the user explicitly opens it
 - Expandable sidebar workspace: slim icon rail for primary navigation that expands in place to reveal labels and the active initiative hierarchy
 - Command palette (Cmd+K): Quick Task, New Initiative, GitHub Import, entity search
-- Shared initiative pipeline: Brief -> Core flows -> PRD -> Tech spec -> Tickets -> Execute -> Verify -> Done as one continuous visual model
+- Shared initiative pipeline: Brief -> Core flows -> PRD -> Tech spec -> Validation -> Tickets -> Execute -> Verify -> Done as one continuous visual model
 - Mandatory brief intake before the first brief is generated
 - Mandatory first-draft consultations for Core flows, PRD, and Tech spec with stage-specific budgets and decision types
 - Shared planning transition copy that names the active phase during entry checks, follow-up checks, and artifact generation
 - Direct planning entry: `/new-initiative` flows straight into the shared Brief survey instead of a separate handoff mode
 - Persisted planning reviews and cross-checks remain available, but they no longer block artifact-to-artifact progression between Brief, Core flows, PRD, and Tech spec
+- Validation now owns the final planning gate before tickets are committed, including in-place follow-up questions when the draft ticket plan exposes unresolved gaps
 - Traceability-backed planning with artifact sidecar trace outlines
 - Spec-driven ticket planning with repo context scanning (grounded file targets)
-- Coverage checks that can block initiative ticket export and execution until gaps are resolved or explicitly overridden
+- Tickets now render as a left-to-right execution board with one column per phase and a right-side ticket drawer for quick inspection
+- Validation blockers can still block initiative ticket export and execution until gaps are resolved or explicitly overridden
 - Verification with per-criterion severity (Critical/Major/Minor/Outdated) and remediation hints
 - Fix-forward loop: quick-fix export mode chains failed verification to enriched re-export to re-verify
 - LLM-powered drift audit with Bug/Performance/Security/Clarity finding categories

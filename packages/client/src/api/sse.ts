@@ -1,9 +1,11 @@
+import { parseApiErrorText, toApiError } from "./http";
+
 const ERROR_EVENTS = new Set(["planner-error", "verify-error"]);
 
 export const parseSseResult = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `SSE request failed with status ${response.status}`);
+    throw parseApiErrorText(response.status, text);
   }
 
   if (!response.body) {
@@ -33,11 +35,11 @@ export const parseSseResult = async <T>(response: Response): Promise<T> => {
         const payload = JSON.parse(line.replace("data:", "").trim()) as unknown;
 
         if (ERROR_EVENTS.has(currentEvent)) {
-          const msg =
-            (payload as { message?: string })?.message ??
-            (payload as { error?: string })?.error ??
-            `Server error (${currentEvent})`;
-          throw new Error(msg);
+          const statusCode =
+            typeof (payload as { statusCode?: unknown })?.statusCode === "number"
+              ? ((payload as { statusCode: number }).statusCode)
+              : 500;
+          throw toApiError(statusCode, payload, `Server error (${currentEvent})`);
         }
 
         if (currentEvent === "planner-result") {

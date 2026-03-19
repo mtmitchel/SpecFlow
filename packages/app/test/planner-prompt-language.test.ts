@@ -144,8 +144,143 @@ describe("planner prompt language", () => {
       "team-rules: always include tests"
     );
 
-    expect(prompt.userPrompt).toContain("phase-check result failed validation");
+    expect(prompt.userPrompt).toContain("Additional validation feedback is attached below");
+    expect(prompt.userPrompt).toContain("ask the smallest set of targeted follow-up questions needed to resolve it");
+    expect(prompt.userPrompt).toContain("Validation feedback:");
     expect(prompt.userPrompt).toContain("attachments-offline-failure");
     expect(prompt.userPrompt).toContain("must not provide options for boolean questions");
+  });
+
+  it("feeds validation feedback back into the next ticket-plan prompt", () => {
+    const prompt = buildPlannerPrompt(
+      "plan",
+      {
+        initiativeDescription: "Build a lightweight offline-first note-taking app",
+        briefMarkdown: "# Brief",
+        coreFlowsMarkdown: "# Core flows",
+        prdMarkdown: "# PRD",
+        techSpecMarkdown: "# Tech spec",
+        coverageItems: [],
+        validationFeedback: {
+          summary: "Missing Brief goal: Preserve local note history.",
+          issues: [
+            {
+              kind: "missing-coverage-item",
+              message: "Missing Brief goal: Preserve local note history.",
+              coverageItemId: "coverage-brief-goals-1",
+              coverageItem: {
+                id: "coverage-brief-goals-1",
+                sourceStep: "brief",
+                sectionKey: "goals",
+                sectionLabel: "Goals",
+                kind: "goal",
+                text: "Preserve local note history.",
+              },
+            },
+          ],
+        },
+        previousInvalidResult: {
+          phases: [],
+          uncoveredCoverageItemIds: [],
+        },
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain("Validation summary:");
+    expect(prompt.userPrompt).toContain("Missing Brief goal: Preserve local note history.");
+    expect(prompt.userPrompt).toContain("Coverage item ID: coverage-brief-goals-1");
+    expect(prompt.userPrompt).toContain("Previous invalid ticket plan");
+  });
+
+  it("uses a focused repair prompt for coverage-fix retries", () => {
+    const prompt = buildPlannerPrompt(
+      "plan-repair",
+      {
+        initiativeDescription: "Build a lightweight offline-first note-taking app",
+        briefMarkdown: "# Brief",
+        coreFlowsMarkdown: "# Core flows",
+        prdMarkdown: "# PRD",
+        techSpecMarkdown: "# Tech spec",
+        coverageItems: [],
+        validationFeedback: {
+          summary: "Missing Brief goal: Preserve local note history.",
+          issues: [
+            {
+              kind: "missing-coverage-item",
+              message: "Missing Brief goal: Preserve local note history.",
+              coverageItemId: "coverage-brief-goals-1",
+            },
+          ],
+        },
+        previousInvalidResult: {
+          phases: [
+            {
+              name: "Build",
+              order: 1,
+              tickets: [
+                {
+                  title: "Implement notes list",
+                  description: "Create the notes list surface.",
+                  acceptanceCriteria: ["The list renders saved notes."],
+                  fileTargets: ["packages/client/src/app/views/initiative-view.tsx"],
+                  coverageItemIds: [],
+                },
+              ],
+            },
+          ],
+          uncoveredCoverageItemIds: [],
+        },
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain("Repair the existing ordered phase plan and ticket breakdown.");
+    expect(prompt.userPrompt).toContain("Keep the existing phase and ticket structure where it already works.");
+    expect(prompt.userPrompt).toContain("Resolve every validation issue listed below.");
+    expect(prompt.userPrompt).toContain("Previous invalid ticket plan");
+    expect(prompt.userPrompt).not.toContain("Repository context (use this to generate accurate file paths");
+  });
+
+  it("sanitizes and truncates raw plan-repair payload text before it reaches the provider prompt", () => {
+    const prompt = buildPlannerPrompt(
+      "plan-repair",
+      {
+        initiativeDescription: "Build a notes app\u0007 with sync",
+        briefMarkdown: "# Brief\u0000",
+        coreFlowsMarkdown: "# Core flows",
+        prdMarkdown: "# PRD",
+        techSpecMarkdown: "# Tech spec",
+        coverageItems: [],
+        validationFeedback: {
+          summary: `Bad feedback ${"x".repeat(5_000)}`,
+          issues: [],
+        },
+        previousInvalidResult: {
+          phases: [
+            {
+              name: "Phase 1",
+              order: 1,
+              tickets: [
+                {
+                  title: `Title ${"y".repeat(9_000)}`,
+                  description: "Desc\u0085ription",
+                  acceptanceCriteria: ["A"],
+                  fileTargets: ["src/app.ts"],
+                  coverageItemIds: [],
+                },
+              ],
+            },
+          ],
+          uncoveredCoverageItemIds: [],
+        },
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).not.toContain("\u0007");
+    expect(prompt.userPrompt).not.toContain("\u0000");
+    expect(prompt.userPrompt).not.toContain("\u0085");
+    expect(prompt.userPrompt).toContain("...(truncated)");
   });
 });

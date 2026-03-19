@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
-import type { PlanningReviewArtifact, PlanningReviewFinding } from "../../../types.js";
+import type {
+  PlanningReviewArtifact,
+  PlanningReviewFinding,
+} from "../../../types.js";
 import {
   REVIEW_FINDING_SECTION_LABELS,
   REVIEW_STATUS_LABELS,
-  type ReviewFindingGroups
+  type ReviewFindingGroups,
 } from "./shared.js";
 
 const FINDING_ORDER: PlanningReviewFinding["type"][] = [
@@ -11,7 +14,7 @@ const FINDING_ORDER: PlanningReviewFinding["type"][] = [
   "traceability-gap",
   "warning",
   "assumption",
-  "recommended-fix"
+  "recommended-fix",
 ];
 
 interface PlanningReviewCardProps {
@@ -21,9 +24,9 @@ interface PlanningReviewCardProps {
   summary?: string | null;
   findings: ReviewFindingGroups;
   reviewBusy: boolean;
-  primaryActionLabel: string;
-  primaryActionBusyLabel: string;
-  onPrimaryAction: () => void | Promise<void>;
+  primaryActionLabel?: string;
+  primaryActionBusyLabel?: string;
+  onPrimaryAction?: () => void | Promise<void>;
   primaryActionDisabled?: boolean;
   detailsOpen?: boolean;
   showDetailsToggle?: boolean;
@@ -73,11 +76,17 @@ export const PlanningReviewCard = ({
   overrideConfirmLabel = "Accept risk",
   overrideBusyLabel = "Saving...",
   extraContent,
-  footerMessage
+  footerMessage,
 }: PlanningReviewCardProps) => {
-  const canSubmitOverride = typeof overrideReason === "string" && overrideReason.trim().length > 0;
+  const canSubmitOverride =
+    typeof overrideReason === "string" && overrideReason.trim().length > 0;
   const hasFindings = FINDING_ORDER.some((type) => findings[type].length > 0);
-  const hasDetails = hasFindings || Boolean(extraContent) || Boolean(footerMessage) || Boolean(overrideReason) || showOverrideAction;
+  const hasDetails =
+    hasFindings ||
+    Boolean(extraContent) ||
+    Boolean(footerMessage) ||
+    Boolean(overrideReason) ||
+    showOverrideAction;
   const showDetails = detailsOpen || showOverrideForm;
 
   return (
@@ -86,16 +95,24 @@ export const PlanningReviewCard = ({
         <div>
           <div className="planning-review-title-row">
             <h4>{title}</h4>
-            <span className={`planning-review-status planning-review-status-${status}`}>
+            <span
+              className={`planning-review-status planning-review-status-${status}`}
+            >
               {REVIEW_STATUS_LABELS[status]}
             </span>
           </div>
           {meta ? <div className="planning-review-meta">{meta}</div> : null}
         </div>
         <div className="button-row planning-review-actions">
-          <button type="button" onClick={() => void onPrimaryAction()} disabled={reviewBusy || primaryActionDisabled}>
-            {reviewBusy ? primaryActionBusyLabel : primaryActionLabel}
-          </button>
+          {primaryActionLabel && onPrimaryAction ? (
+            <button
+              type="button"
+              onClick={() => void onPrimaryAction()}
+              disabled={reviewBusy || primaryActionDisabled}
+            >
+              {reviewBusy ? primaryActionBusyLabel : primaryActionLabel}
+            </button>
+          ) : null}
           {hasDetails && showDetailsToggle && onToggleDetails ? (
             <button
               type="button"
@@ -114,14 +131,20 @@ export const PlanningReviewCard = ({
 
       {summary ? <p className="planning-review-summary">{summary}</p> : null}
       {overrideReason && !showOverrideForm ? (
-        <p className="planning-review-note">Moving ahead with risk: {overrideReason}</p>
+        <p className="planning-review-note">
+          Moving ahead with risk: {overrideReason}
+        </p>
       ) : null}
 
       {showDetails ? (
         <div className="planning-review-details">
           {showOverrideAction && onToggleOverride ? (
             <div className="button-row" style={{ marginTop: 0 }}>
-              <button type="button" onClick={onToggleOverride} disabled={reviewBusy}>
+              <button
+                type="button"
+                onClick={onToggleOverride}
+                disabled={reviewBusy}
+              >
                 {showOverrideForm ? cancelOverrideLabel : overrideActionLabel}
               </button>
             </div>
@@ -154,18 +177,22 @@ export const PlanningReviewCard = ({
           {FINDING_ORDER.map((type) =>
             findings[type].length > 0 ? (
               <div key={type}>
-                <span className="qa-label">{REVIEW_FINDING_SECTION_LABELS[type]}</span>
+                <span className="qa-label">
+                  {REVIEW_FINDING_SECTION_LABELS[type]}
+                </span>
                 <ul style={{ margin: "0.35rem 0 0" }}>
                   {findings[type].map((finding) => (
                     <li key={finding.id}>{finding.message}</li>
                   ))}
                 </ul>
               </div>
-            ) : null
+            ) : null,
           )}
 
           {footerMessage ? (
-            <div className="planning-review-note planning-review-note-warn">{footerMessage}</div>
+            <div className="planning-review-note planning-review-note-warn">
+              {footerMessage}
+            </div>
           ) : null}
         </div>
       ) : null}

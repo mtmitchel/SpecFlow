@@ -15,6 +15,9 @@ import { REVIEW_KIND_SOURCE_STEPS } from "../planning-reviews.js";
 import type { PlannerJob } from "../prompt-builder.js";
 import type { ReviewRunInput, ReviewRunResult } from "../types.js";
 
+const isArtifactStep = (step: InitiativePlanningStep): step is InitiativeArtifactStep =>
+  step !== "validation" && step !== "tickets";
+
 const REVIEW_FINDING_ORDER: PlanningReviewFindingType[] = [
   "blocker",
   "warning",
@@ -91,7 +94,7 @@ export const executeReviewJob = async (input: {
     | undefined;
 
   for (const step of sourceSteps) {
-    if (step === "tickets") {
+    if (step === "validation" || step === "tickets") {
       const coverage = input.requireTicketCoverageArtifact(input.initiative.id);
       const initiativeTickets = input.getInitiativeTickets(input.initiative);
       if (initiativeTickets.length === 0) {
@@ -108,6 +111,13 @@ export const executeReviewJob = async (input: {
         coverageItemIds: ticket.coverageItemIds
       }));
       sourceUpdatedAts.tickets = input.initiative.workflow.steps.tickets.updatedAt ?? coverage.updatedAt;
+      if (step === "validation") {
+        sourceUpdatedAts.validation = input.initiative.workflow.steps.validation.updatedAt ?? coverage.updatedAt;
+      }
+      continue;
+    }
+
+    if (!isArtifactStep(step)) {
       continue;
     }
 

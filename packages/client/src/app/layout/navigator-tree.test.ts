@@ -17,6 +17,7 @@ const initiative: Initiative = {
       "core-flows": { status: "ready", updatedAt: null },
       prd: { status: "locked", updatedAt: null },
       "tech-spec": { status: "locked", updatedAt: null },
+      validation: { status: "locked", updatedAt: null },
       tickets: { status: "locked", updatedAt: null }
     },
     refinements: {

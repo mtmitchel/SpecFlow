@@ -31,9 +31,7 @@ const SelectChoiceCards = ({
   const options = question.options ?? [];
   const currentValue = value ?? "";
   const hasCustomValue = currentValue !== "" && !options.includes(currentValue) && currentValue !== CUSTOM_ANSWER_SENTINEL;
-  const otherSelected =
-    question.allowCustomAnswer === true &&
-    (currentValue === CUSTOM_ANSWER_SENTINEL || hasCustomValue);
+  const otherSelected = currentValue === CUSTOM_ANSWER_SENTINEL || hasCustomValue;
 
   return (
     <div className="clarification-option-list">
@@ -53,25 +51,21 @@ const SelectChoiceCards = ({
           {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
         </button>
       ))}
-      {question.allowCustomAnswer ? (
-        <>
-          <button
-            type="button"
-            className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
-            onClick={() => onChange(hasCustomValue ? currentValue : CUSTOM_ANSWER_SENTINEL)}
-          >
-            <div className="clarification-option-header">
-              <span>Other</span>
-            </div>
-            <p>Use a custom answer if none of these options fit.</p>
-          </button>
-          {otherSelected ? (
-            <OtherAnswerField
-              value={hasCustomValue ? currentValue : ""}
-              onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
-            />
-          ) : null}
-        </>
+      <button
+        type="button"
+        className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
+        onClick={() => onChange(hasCustomValue ? currentValue : CUSTOM_ANSWER_SENTINEL)}
+      >
+        <div className="clarification-option-header">
+          <span>Other</span>
+        </div>
+        <p>Use a custom answer if none of these options fit.</p>
+      </button>
+      {otherSelected ? (
+        <OtherAnswerField
+          value={hasCustomValue ? currentValue : ""}
+          onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
+        />
       ) : null}
     </div>
   );
@@ -145,8 +139,7 @@ export const RefinementField = ({
     const options = question.options ?? [];
     const customValues = selected.filter((item) => !options.includes(item) && item !== CUSTOM_ANSWER_SENTINEL);
     const hasOther =
-      question.allowCustomAnswer === true &&
-      (selected.includes(CUSTOM_ANSWER_SENTINEL) || customValues.length > 0);
+      selected.includes(CUSTOM_ANSWER_SENTINEL) || customValues.length > 0;
 
     return (
       <div className="clarification-option-list">
@@ -169,35 +162,31 @@ export const RefinementField = ({
             {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
           </label>
         ))}
-        {question.allowCustomAnswer ? (
-          <>
-            <label className="clarification-option-card clarification-option-checkbox">
-              <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={hasOther}
-                  onChange={(event) => {
-                    if (event.target.checked) {
-                      onChange([...selected.filter((item) => options.includes(item)), CUSTOM_ANSWER_SENTINEL]);
-                    } else {
-                      onChange(selected.filter((item) => options.includes(item)));
-                    }
-                  }}
-                />
-                <span>Other</span>
-              </span>
-              <p>Use a custom answer if none of these options fit.</p>
-            </label>
-            {hasOther ? (
-              <OtherAnswerField
-                value={customValues[0] ?? ""}
-                onChange={(nextValue) => {
-                  const baseValues = selected.filter((item) => options.includes(item));
-                  onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, CUSTOM_ANSWER_SENTINEL]);
-                }}
-              />
-            ) : null}
-          </>
+        <label className="clarification-option-card clarification-option-checkbox">
+          <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={hasOther}
+              onChange={(event) => {
+                if (event.target.checked) {
+                  onChange([...selected.filter((item) => options.includes(item)), CUSTOM_ANSWER_SENTINEL]);
+                } else {
+                  onChange(selected.filter((item) => options.includes(item)));
+                }
+              }}
+            />
+            <span>Other</span>
+          </span>
+          <p>Use a custom answer if none of these options fit.</p>
+        </label>
+        {hasOther ? (
+          <OtherAnswerField
+            value={customValues[0] ?? ""}
+            onChange={(nextValue) => {
+              const baseValues = selected.filter((item) => options.includes(item));
+              onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, CUSTOM_ANSWER_SENTINEL]);
+            }}
+          />
         ) : null}
       </div>
     );

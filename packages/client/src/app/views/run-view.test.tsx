@@ -52,6 +52,7 @@ const initiative: Initiative = {
       "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
       prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
       "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+      validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
       tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
     },
     refinements: {

@@ -231,6 +231,39 @@
   line-height: 1.55;
 }
 
+.planning-review-question-artifacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.planning-review-question-artifact {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.12rem 0.48rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: rgba(8, 12, 20, 0.28);
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.planning-review-question-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.planning-review-question-list li {
+  line-height: 1.55;
+}
+
+.planning-review-question-overflow {
+  margin: 0;
+}
+
 .planning-review-secondary-action {
   display: flex;
   justify-content: flex-start;

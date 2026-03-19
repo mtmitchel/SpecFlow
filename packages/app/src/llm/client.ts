@@ -32,6 +32,14 @@ const normalizeTransportText = (value: string): string => {
   for (let index = 0; index < value.length; index += 1) {
     const current = value.charCodeAt(index);
 
+    if (
+      (current < 0x20 && current !== 0x09 && current !== 0x0a && current !== 0x0d) ||
+      (current >= 0x7f && current <= 0x9f)
+    ) {
+      normalized += " ";
+      continue;
+    }
+
     if (current >= HIGH_SURROGATE_START && current <= HIGH_SURROGATE_END) {
       const next = value.charCodeAt(index + 1);
       if (next >= LOW_SURROGATE_START && next <= LOW_SURROGATE_END) {

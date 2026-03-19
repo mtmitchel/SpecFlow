@@ -1,0 +1,216 @@
+import { describe, expect, it, vi } from "vitest";
+import { resolveValidatedPlanResult } from "../src/planner/internal/plan-generation-job.js";
+import {
+  PlanValidationError,
+  validateCoverageMappings,
+} from "../src/planner/internal/plan-validation.js";
+import type { PlanInput, PlanResult } from "../src/planner/types.js";
+import { validatePlanResult } from "../src/planner/internal/validators.js";
+
+const basePlanInput: PlanInput = {
+  initiativeDescription: "Build a lightweight offline-first note-taking app",
+  briefMarkdown: "# Brief",
+  coreFlowsMarkdown: "# Core flows",
+  prdMarkdown: "# PRD",
+  techSpecMarkdown: "# Tech spec",
+  coverageItems: []
+};
+
+const coverageItems = [
+  {
+    id: "coverage-brief-goals-1",
+    sourceStep: "brief" as const,
+    sectionKey: "goals",
+    sectionLabel: "Goals",
+    kind: "goal",
+    text: "Preserve local note history.",
+  },
+];
+
+const validPlanResult: PlanResult = {
+  phases: [
+    {
+      name: "Build",
+      order: 1,
+      tickets: [
+        {
+          title: "Implement notes list",
+          description: "Create the notes list surface.",
+          acceptanceCriteria: ["The list renders saved notes."],
+          fileTargets: ["packages/client/src/app/views/initiative-view.tsx"],
+          coverageItemIds: ["coverage-1"]
+        }
+      ]
+    }
+  ],
+  uncoveredCoverageItemIds: []
+};
+
+describe("resolveValidatedPlanResult", () => {
+  it("retries once with validation feedback when the first plan result is invalid", async () => {
+    const executePlan = vi
+      .fn<(planInput: PlanInput) => Promise<PlanResult>>()
+      .mockResolvedValueOnce({ uncoveredCoverageItemIds: [] } as PlanResult)
+      .mockResolvedValueOnce(validPlanResult);
+    const executePlanRepair = vi.fn<(planInput: PlanInput) => Promise<PlanResult>>();
+
+    const result = await resolveValidatedPlanResult({
+      planInput: basePlanInput,
+      executePlan,
+      executePlanRepair,
+      validateResult: (planResult) => validatePlanResult(planResult)
+    });
+
+    expect(result).toEqual(validPlanResult);
+    expect(executePlan).toHaveBeenCalledTimes(2);
+    expect(executePlan).toHaveBeenNthCalledWith(1, basePlanInput);
+    expect(executePlan).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining<Partial<PlanInput>>({
+        validationFeedback: {
+          summary: "Plan result missing phases array",
+          issues: [],
+        },
+        previousInvalidResult: {
+          uncoveredCoverageItemIds: [],
+        },
+      })
+    );
+    expect(executePlanRepair).not.toHaveBeenCalled();
+  });
+
+  it("throws the last validation error when the retry is still invalid", async () => {
+    const executePlan = vi
+      .fn<(planInput: PlanInput) => Promise<PlanResult>>()
+      .mockResolvedValue({ uncoveredCoverageItemIds: [] } as PlanResult);
+    const executePlanRepair = vi.fn<(planInput: PlanInput) => Promise<PlanResult>>();
+
+    await expect(
+      resolveValidatedPlanResult({
+        planInput: basePlanInput,
+        executePlan,
+        executePlanRepair,
+        validateResult: (planResult) => validatePlanResult(planResult)
+      })
+    ).rejects.toThrow("Plan result missing phases array");
+
+    expect(executePlan).toHaveBeenCalledTimes(2);
+    expect(executePlanRepair).not.toHaveBeenCalled();
+  });
+
+  it("captures structured missing-coverage issues for repair feedback", () => {
+    const invalidPlanResult: PlanResult = {
+      phases: [
+        {
+          name: "Build",
+          order: 1,
+          tickets: [
+            {
+              title: "Implement notes list",
+              description: "Create the notes list surface.",
+              acceptanceCriteria: ["The list renders saved notes."],
+              fileTargets: ["packages/client/src/app/views/initiative-view.tsx"],
+              coverageItemIds: [],
+            },
+          ],
+        },
+      ],
+      uncoveredCoverageItemIds: [],
+    };
+
+    let thrownError: unknown;
+    try {
+      validateCoverageMappings(invalidPlanResult, coverageItems);
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeInstanceOf(PlanValidationError);
+    expect((thrownError as PlanValidationError).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "ticket-missing-coverage",
+          ticketTitle: "Implement notes list",
+        }),
+        expect.objectContaining({
+          kind: "missing-coverage-item",
+          coverageItemId: "coverage-brief-goals-1",
+          message: "Missing Brief goal: Preserve local note history.",
+          coverageItem: expect.objectContaining({
+            text: "Preserve local note history.",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("uses the focused repair job after a coverage validation failure", async () => {
+    const invalidPlanResult: PlanResult = {
+      phases: [
+        {
+          name: "Build",
+          order: 1,
+          tickets: [
+            {
+              title: "Implement notes list",
+              description: "Create the notes list surface.",
+              acceptanceCriteria: ["The list renders saved notes."],
+              fileTargets: ["packages/client/src/app/views/initiative-view.tsx"],
+              coverageItemIds: [],
+            },
+          ],
+        },
+      ],
+      uncoveredCoverageItemIds: [],
+    };
+
+    const executePlan = vi
+      .fn<(planInput: PlanInput) => Promise<PlanResult>>()
+      .mockResolvedValueOnce(invalidPlanResult);
+    const executePlanRepair = vi
+      .fn<(planInput: PlanInput) => Promise<PlanResult>>()
+      .mockResolvedValueOnce({
+        phases: [
+          {
+            name: "Build",
+            order: 1,
+            tickets: [
+              {
+                title: "Implement notes list",
+                description: "Create the notes list surface.",
+                acceptanceCriteria: ["The list renders saved notes."],
+                fileTargets: ["packages/client/src/app/views/initiative-view.tsx"],
+                coverageItemIds: ["coverage-brief-goals-1"],
+              },
+            ],
+          },
+        ],
+        uncoveredCoverageItemIds: [],
+      });
+
+    const result = await resolveValidatedPlanResult({
+      planInput: {
+        ...basePlanInput,
+        coverageItems,
+      },
+      executePlan,
+      executePlanRepair,
+      validateResult: (planResult) => {
+        validatePlanResult(planResult);
+        validateCoverageMappings(planResult, coverageItems);
+      },
+    });
+
+    expect(result.phases[0]?.tickets[0]?.coverageItemIds).toEqual(["coverage-brief-goals-1"]);
+    expect(executePlan).toHaveBeenCalledTimes(1);
+    expect(executePlanRepair).toHaveBeenCalledTimes(1);
+    expect(executePlanRepair).toHaveBeenCalledWith(
+      expect.objectContaining<Partial<PlanInput>>({
+        validationFeedback: expect.objectContaining({
+          summary: expect.stringContaining("Missing Brief goal: Preserve local note history."),
+        }),
+        previousInvalidResult: invalidPlanResult,
+      }),
+    );
+  });
+});

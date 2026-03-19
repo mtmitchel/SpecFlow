@@ -13,6 +13,7 @@ import {
   updateInitiativePhases
 } from "../../../api.js";
 import { deleteInitiative, type InitiativePhaseCheckResult } from "../../../api/initiatives.js";
+import { ApiError } from "../../../api/http.js";
 import type { ArtifactsSnapshot, InitiativePlanningStep, PlanningReviewArtifact, PlanningReviewKind } from "../../../types.js";
 import { useConfirm } from "../../context/confirm.js";
 import { useToast } from "../../context/toast.js";
@@ -26,13 +27,23 @@ import { useInitiativePlanningPersistence } from "./use-initiative-planning-pers
 import { type BusyActionResult, useCancellableBusyAction } from "./use-cancellable-busy-action.js";
 import {
   type PlanningDrawerState,
-  type PlanningJourneyStage,
   TICKET_COVERAGE_REVIEW_KIND,
   isQuestionResolved,
   isResolvedReview,
   type SaveState,
   type SpecStep
 } from "./shared.js";
+import {
+  buildValidationReviewFeedback,
+  buildValidationRefinement,
+  VALIDATION_REFINEMENT_STEPS
+} from "./validation-refinement.js";
+import {
+  buildPlanValidationFeedbackByStep,
+  buildValidationReviewFeedbackByStep,
+  getValidationFeedbackForStep,
+  getValidationFeedbackSteps
+} from "./validation-feedback.js";
 
 const EMPTY_DRAFT_SAVE_STATE: Record<SpecStep, SaveState> = {
   brief: "idle", "core-flows": "idle", prd: "idle", "tech-spec": "idle"
@@ -60,10 +71,12 @@ export const useInitiativePlanningWorkspace = (
   const [guidanceText, setGuidanceText] = useState<string | null>(null);
   const [reviewOverrideKind, setReviewOverrideKind] = useState<PlanningReviewKind | null>(null);
   const [reviewOverrideReason, setReviewOverrideReason] = useState("");
+  const [ticketGenerationError, setTicketGenerationError] = useState<string | null>(null);
   const [drawerState, setDrawerState] = useState<PlanningDrawerState>(null);
   const [isDeletingInitiative, setIsDeletingInitiative] = useState(false);
   const [autoQuestionLoadStep, setAutoQuestionLoadStep] = useState<SpecStep | null>(null);
   const [autoQuestionLoadFailedStep, setAutoQuestionLoadFailedStep] = useState<SpecStep | null>(null);
+  const [autoValidationQuestionLoadReviewId, setAutoValidationQuestionLoadReviewId] = useState<string | null>(null);
   const { busyAction, isBusy, cancelBusyAction, withBusyAction } = useCancellableBusyAction();
   const loadedSpecs = useInitiativeLoadedSpecs(initiative?.id ?? null, snapshot.specs);
 
@@ -116,7 +129,8 @@ export const useInitiativePlanningWorkspace = (
       : null
   ), [initiative, initiativeReviews, requestedStep, requestedSurface, snapshot.specs]);
   const activeStep: InitiativePlanningStep = routeState?.activeStep ?? "brief";
-  const activeSurface: InitiativePlanningSurface = routeState?.activeSurface ?? "questions";
+  const activeSurface: InitiativePlanningSurface | null =
+    routeState?.activeSurface ?? (activeStep === "validation" || activeStep === "tickets" ? null : "questions");
 
   useEffect(() => {
     if (initiative && routeState && searchParams.toString() !== routeState.canonicalSearchParams.toString()) {
@@ -124,15 +138,28 @@ export const useInitiativePlanningWorkspace = (
     }
   }, [initiative, routeState, searchParams, setSearchParams]);
 
-  const activeSpecStep: SpecStep | null = activeStep === "tickets" ? null : activeStep;
-  const persistedActiveRefinement = initiative && activeSpecStep ? initiative.workflow.refinements[activeSpecStep] : null;
-  const { activeRefinement, applyPhaseCheckResult } = useOptimisticPhaseCheck({
+  const activeSpecStep: SpecStep | null =
+    activeStep === "validation" || activeStep === "tickets" ? null : activeStep;
+  const validationRefinement = useMemo(
+    () => (initiative ? buildValidationRefinement(initiative) : null),
+    [initiative]
+  );
+  const persistedSpecRefinement = initiative && activeSpecStep ? initiative.workflow.refinements[activeSpecStep] : null;
+  const { activeRefinement: optimisticRefinement, applyPhaseCheckResult } = useOptimisticPhaseCheck({
     initiative,
     activeSpecStep,
-    persistedRefinement: persistedActiveRefinement,
+    persistedRefinement: persistedSpecRefinement,
     refinementAnswers,
     defaultAnswerQuestionIds,
   });
+  const activeRefinement =
+    activeStep === "validation"
+      ? validationRefinement
+      : optimisticRefinement;
+  const persistedActiveRefinement =
+    activeStep === "validation"
+      ? validationRefinement
+      : persistedSpecRefinement;
   const refinementSignature = activeRefinement
     ? JSON.stringify({
         checkedAt: activeRefinement.checkedAt,
@@ -167,19 +194,27 @@ export const useInitiativePlanningWorkspace = (
     initiative
       ? snapshot.ticketCoverageArtifacts.find((item) => item.initiativeId === initiative.id) ?? null
       : null;
-  const ticketCoverageReview = getReview(TICKET_COVERAGE_REVIEW_KIND);
-  const uncoveredCoverageItems = ticketCoverageArtifact
-    ? ticketCoverageArtifact.items.filter((item) => ticketCoverageArtifact.uncoveredItemIds.includes(item.id))
-    : [];
-  const coveredCoverageCount = ticketCoverageArtifact
-    ? ticketCoverageArtifact.items.length - uncoveredCoverageItems.length
-    : 0;
+  const validationReview = getReview(TICKET_COVERAGE_REVIEW_KIND);
+  const validationFeedback = buildValidationReviewFeedback(validationReview);
+  const validationFeedbackByStep = useMemo(
+    () => buildValidationReviewFeedbackByStep(validationReview),
+    [validationReview]
+  );
   const linkedRuns =
     initiativeTickets.length > 0
       ? snapshot.runs.filter((run) => run.ticketId && initiativeTickets.some((ticket) => ticket.id === run.ticketId))
       : [];
+  useEffect(() => {
+    if ((initiative?.phases.length ?? 0) > 0 || initiativeTickets.length > 0) {
+      setTicketGenerationError(null);
+    }
+  }, [initiative?.phases.length, initiativeTickets.length]);
+  useEffect(() => {
+    if (activeStep === "validation" && (activeRefinement?.questions.length ?? 0) > 0) {
+      setTicketGenerationError(null);
+    }
+  }, [activeRefinement?.questions.length, activeStep]);
   const headerTitle = initiative ? getInitiativeDisplayTitle(initiative.title, initiative.description) : "";
-  const stepStatus = initiative?.workflow.steps[activeStep].status ?? "locked";
   const hasActiveContent = activeSpecStep ? savedDrafts[activeSpecStep].trim().length > 0 : false;
   const hasRefinementQuestions = Boolean(activeRefinement && activeRefinement.questions.length > 0);
   const hasPhaseSpecificRefinementDecisions = Boolean(activeRefinement && (
@@ -191,22 +226,6 @@ export const useInitiativePlanningWorkspace = (
       ).length
     : 0;
   const nextStep = getNextInitiativeStep(activeStep);
-  const ticketReviewsResolved =
-    !ticketCoverageReview || ticketCoverageReview.status === "passed" || ticketCoverageReview.status === "overridden";
-  const activeStage: PlanningJourneyStage =
-    activeStep === "tickets"
-      ? initiativeTickets.length === 0
-        ? "draft"
-        : ticketReviewsResolved
-          ? "complete"
-          : "checkpoint"
-      : !hasActiveContent
-        ? !activeRefinement?.checkedAt || hasRefinementQuestions
-          ? "consult"
-          : "draft"
-        : stepStatus === "stale"
-          ? "checkpoint"
-          : "complete";
 
   useEffect(() => {
     if (!drawerState) {
@@ -227,6 +246,7 @@ export const useInitiativePlanningWorkspace = (
   }, [activeSpecStep, drawerState, editingStep]);
 
   const { flushRefinementPersistence } = useInitiativePlanningPersistence({
+    activeStep,
     activeRefinement: persistedActiveRefinement,
     activeSurface,
     activeSpecStep,
@@ -249,6 +269,14 @@ export const useInitiativePlanningWorkspace = (
     void onRefresh().catch((error) => showError((error as Error).message ?? "We couldn't refresh planning."));
   }, [onRefresh, showError]);
 
+  const shouldAutoLoadValidationQuestions = Boolean(
+    initiative &&
+      activeStep === "validation" &&
+      validationReview?.status === "blocked" &&
+      activeRefinement &&
+      activeRefinement.questions.length === 0
+  );
+
   const handlePhaseCheckResult = useCallback((step: SpecStep, result: InitiativePhaseCheckResult) => {
     applyPhaseCheckResult(step, result);
     setRefinementAssumptions(result.assumptions);
@@ -259,7 +287,7 @@ export const useInitiativePlanningWorkspace = (
   };
 
   const setActiveSurface = (surface: InitiativePlanningSurface): void => {
-    if (activeStep === "tickets") {
+    if (activeStep === "validation" || activeStep === "tickets") {
       return;
     }
     navigateToStep(activeStep, surface);
@@ -308,6 +336,37 @@ export const useInitiativePlanningWorkspace = (
       await onRefresh();
     });
   }, [handlePhaseCheckResult, initiative, onRefresh, refreshSnapshotInBackground, withBusyAction]);
+
+  const rerunValidationQuestions = useCallback(
+    async (
+      signal: AbortSignal,
+      feedbackByStep: Partial<Record<SpecStep, string>>,
+      fallbackFeedback?: string | null
+    ): Promise<boolean> => {
+      if (!initiative) {
+        return false;
+      }
+
+      const scopedSteps = getValidationFeedbackSteps(feedbackByStep);
+      const stepsToCheck =
+        scopedSteps.length > 0 ? scopedSteps : VALIDATION_REFINEMENT_STEPS;
+      let validationBlocked = false;
+
+      for (const step of stepsToCheck) {
+        const result = await checkInitiativePhase(initiative.id, step, {
+          signal,
+          validationFeedback: getValidationFeedbackForStep(step, feedbackByStep, fallbackFeedback),
+        });
+
+        if (result.decision === "ask") {
+          validationBlocked = true;
+        }
+      }
+
+      return validationBlocked;
+    },
+    [initiative]
+  );
 
   const shouldAutoLoadEntryQuestions = Boolean(
     initiative &&
@@ -358,14 +417,94 @@ export const useInitiativePlanningWorkspace = (
     shouldAutoLoadEntryQuestions
   ]);
 
+  useEffect(() => {
+    if (activeStep === "validation" && validationReview?.status === "blocked") {
+      return;
+    }
+
+    setAutoValidationQuestionLoadReviewId(null);
+  }, [activeStep, validationReview?.status]);
+
+  useEffect(() => {
+    if (!initiative || !shouldAutoLoadValidationQuestions || busyAction) {
+      return;
+    }
+
+    const reviewId = validationReview?.id ?? null;
+    if (!reviewId || autoValidationQuestionLoadReviewId === reviewId) {
+      return;
+    }
+
+    setAutoValidationQuestionLoadReviewId(reviewId);
+
+    void withBusyAction("check-validation", async (signal) => {
+      await rerunValidationQuestions(signal, validationFeedbackByStep, validationFeedback);
+      await onRefresh();
+    });
+  }, [
+    activeRefinement,
+    activeStep,
+    autoValidationQuestionLoadReviewId,
+    busyAction,
+    initiative,
+    onRefresh,
+    validationFeedback,
+    validationFeedbackByStep,
+    validationReview?.id,
+    rerunValidationQuestions,
+    shouldAutoLoadValidationQuestions,
+    withBusyAction
+  ]);
+
   const handleGenerateTickets = async (): Promise<void> => {
     if (!initiative) {
       return;
     }
-    await withBusyAction("generate-tickets", async (signal) => {
-      await generateInitiativePlan(initiative.id, { signal });
-      await onRefresh();
+    const persisted = await flushRefinementPersistence();
+    if (!persisted) {
+      return;
+    }
+    setTicketGenerationError(null);
+    let generationError: string | null = null;
+    const status = await withBusyAction("generate-tickets", async (signal) => {
+      if (activeStep === "validation") {
+        const validationBlocked = await rerunValidationQuestions(
+          signal,
+          validationFeedbackByStep,
+          validationFeedback
+        );
+        if (validationBlocked) {
+          await onRefresh();
+          return;
+        }
+      }
+
+      try {
+        await generateInitiativePlan(initiative.id, { signal });
+        await onRefresh();
+      } catch (error) {
+        const recoverableFeedbackByStep = buildPlanValidationFeedbackByStep(
+          error instanceof ApiError ? error.details : undefined
+        );
+        const recovered = await rerunValidationQuestions(signal, recoverableFeedbackByStep);
+        if (recovered) {
+          await onRefresh();
+          return;
+        }
+
+        generationError =
+          (error as Error).message?.trim() || "Ticket generation failed.";
+        throw error;
+      }
     });
+
+    if (
+      status === "failed" &&
+      initiative.phases.length === 0 &&
+      initiativeTickets.length === 0
+    ) {
+      setTicketGenerationError(generationError ?? "Ticket generation failed.");
+    }
   };
 
   const handleRequestGuidance = async (questionId: string): Promise<void> => {
@@ -523,11 +662,8 @@ export const useInitiativePlanningWorkspace = (
     initiativeReviews,
     initiativeTickets,
     linkedRuns,
-    activeStage,
     ticketCoverageArtifact,
-    ticketCoverageReview,
-    uncoveredCoverageItems,
-    coveredCoverageCount,
+    validationReview,
     savedDrafts,
     drafts,
     draftSaveState,
@@ -541,6 +677,7 @@ export const useInitiativePlanningWorkspace = (
     guidanceText,
     reviewOverrideKind,
     reviewOverrideReason,
+    ticketGenerationError,
     drawerState,
     headerTitle,
     activeStep,
@@ -548,7 +685,6 @@ export const useInitiativePlanningWorkspace = (
     activeSpecStep,
     activeRefinement,
     getReview,
-    stepStatus,
     isBusy,
     isDeletingInitiative,
     hasActiveContent,

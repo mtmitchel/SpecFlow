@@ -6,7 +6,14 @@ import type {
   PlanningReviewStatus
 } from "../types/entities.js";
 
-export const PLANNING_STEPS: InitiativePlanningStep[] = ["brief", "core-flows", "prd", "tech-spec", "tickets"];
+export const PLANNING_STEPS: InitiativePlanningStep[] = [
+  "brief",
+  "core-flows",
+  "prd",
+  "tech-spec",
+  "validation",
+  "tickets"
+];
 export const ARTIFACT_STEPS: InitiativeArtifactStep[] = ["brief", "core-flows", "prd", "tech-spec"];
 export const REFINEMENT_STEPS = [...ARTIFACT_STEPS] as const;
 export const REVIEW_KINDS: PlanningReviewKind[] = [
@@ -26,6 +33,7 @@ export const PLANNING_STEP_LABELS: Record<InitiativePlanningStep, string> = {
   "core-flows": "Core flows",
   prd: "PRD",
   "tech-spec": "Tech spec",
+  validation: "Validation",
   tickets: "Tickets"
 };
 
@@ -45,7 +53,7 @@ export const REVIEW_KIND_LABELS: Record<PlanningReviewKind, string> = {
   "prd-tech-spec-crosscheck": "Cross-check PRD and tech spec",
   "tech-spec-review": "Review tech spec",
   "spec-set-review": "Review the full spec set",
-  "ticket-coverage-review": "Run coverage check"
+  "ticket-coverage-review": "Validate the ticket plan"
 };
 
 export const REVIEW_KIND_SOURCE_STEPS: Record<PlanningReviewKind, InitiativePlanningStep[]> = {
@@ -57,7 +65,7 @@ export const REVIEW_KIND_SOURCE_STEPS: Record<PlanningReviewKind, InitiativePlan
   "prd-tech-spec-crosscheck": ["prd", "tech-spec"],
   "tech-spec-review": ["tech-spec"],
   "spec-set-review": ["brief", "core-flows", "prd", "tech-spec"],
-  "ticket-coverage-review": ["brief", "core-flows", "prd", "tech-spec", "tickets"]
+  "ticket-coverage-review": ["brief", "core-flows", "prd", "tech-spec", "validation"]
 };
 
 export const REVIEWS_BY_ARTIFACT_STEP: Record<InitiativeArtifactStep, PlanningReviewKind[]> = {
@@ -67,7 +75,8 @@ export const REVIEWS_BY_ARTIFACT_STEP: Record<InitiativeArtifactStep, PlanningRe
   "tech-spec": ["tech-spec-review", "prd-tech-spec-crosscheck", "spec-set-review"]
 };
 
-export const TICKET_REVIEW_KINDS: PlanningReviewKind[] = ["ticket-coverage-review"];
+export const VALIDATION_REVIEW_KINDS: PlanningReviewKind[] = ["ticket-coverage-review"];
+export const TICKET_REVIEW_KINDS: PlanningReviewKind[] = VALIDATION_REVIEW_KINDS;
 
 export const getArtifactStepsFrom = (step: InitiativeArtifactStep): InitiativeArtifactStep[] => {
   const index = ARTIFACT_STEPS.indexOf(step);

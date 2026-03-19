@@ -9,6 +9,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Changed
 
+**Validation and ticket handoff**
+- Added a first-class Validation step between Tech spec and Tickets so the planning pipeline is now `Brief -> Core flows -> PRD -> Tech spec -> Validation -> Tickets`
+- Validation now owns the final planning gate before tickets are committed, including in-place follow-up questions when the draft ticket plan exposes unresolved gaps
+- Tickets is now execution-only: it renders a left-to-right phase board, keeps ticket drill-in in a right-side drawer, and no longer owns planning review dumps or question loops
+
+**Planning and Validation UX**
+- `Back` now consistently means "go to the previous stage" across planning surveys and review surfaces; question-level movement uses explicit actions such as `Previous question` and `Revise answers`
+- Reopened questions now show compact prior-answer context in survey mode instead of rendering like a duplicate answer option or a separate fake card
+- Choice questions always preserve an `Other` path so the user is not trapped by planner-provided option lists
+- Planning document summary cards now expose the copy-to-clipboard action consistently across Brief, Core flows, PRD, and Tech spec
+
+**Plan validation and provider hardening**
+- Ticket-plan validation now emits structured coverage issues, retries once through a focused repair path, and routes attributable failures back into Validation as step-owned follow-up questions
+- Validation and plan-repair provider requests now sanitize unsafe prompt text and trim volatile retry payload sections before serialization
+- Reopen validation now accepts regenerated concern IDs that keep the same semantic tokens across stage/version suffixes such as `-prd` and `-v1`
+
 **Planner workflow contract**
 - Brief intake is now domain-neutral instead of note-taking-specific
 - Core flows now allows one additional follow-up question beyond the required starter set
@@ -19,7 +35,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 **Product language and workflow docs**
 - Synced workflow docs, architecture docs, and product-language docs to the current consultation rules and coverage terminology
-- Standardized the planning-to-execution gate language around `Coverage check`
+- Standardized the planning-to-execution gate language around Validation and the ticket-plan gate
 - Rewrote repo-facing guidance in `CLAUDE.md` to match the current desktop-first runtime and planner behavior
 - Added a repo-specific UX copy guide and linked it from the repo docs and agent instructions
 - Documented the shared planning transition wording model and the current browser E2E workflow coverage

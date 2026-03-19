@@ -428,12 +428,14 @@ export class E2ePlannerService extends PlannerService {
         "core-flows": initiative.workflow.steps["core-flows"].updatedAt ?? nowIso,
         prd: initiative.workflow.steps.prd.updatedAt ?? nowIso,
         "tech-spec": initiative.workflow.steps["tech-spec"].updatedAt ?? nowIso,
+        validation: nowIso,
         tickets: nowIso,
       },
       nowIso,
     });
     await this.storeRef.upsertTicketCoverageArtifact(coverageArtifact);
 
+    const validatedWorkflow = completeWorkflowStep(initiative.workflow, "validation", nowIso);
     const updatedInitiative = {
       ...initiative,
       phases: [
@@ -445,7 +447,7 @@ export class E2ePlannerService extends PlannerService {
         },
       ],
       ticketIds: [ticket.id],
-      workflow: completeWorkflowStep(initiative.workflow, "tickets", nowIso),
+      workflow: completeWorkflowStep(validatedWorkflow, "tickets", nowIso),
       updatedAt: nowIso,
     };
     await this.storeRef.upsertInitiative(updatedInitiative);

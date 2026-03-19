@@ -39,6 +39,7 @@ export const createInitiativeWorkflow = (): InitiativeWorkflow => ({
     "core-flows": createStepState("locked"),
     prd: createStepState("locked"),
     "tech-spec": createStepState("locked"),
+    validation: createStepState("locked"),
     tickets: createStepState("locked")
   },
   refinements: {
@@ -110,6 +111,7 @@ export const normalizeInitiativeWorkflow = (
     hasCoreFlows: boolean;
     hasPrd: boolean;
     hasTechSpec: boolean;
+    hasValidation: boolean;
     hasTickets: boolean;
   }
 ): InitiativeWorkflow => {
@@ -154,6 +156,7 @@ export const inferWorkflowFromArtifacts = (input: {
   hasCoreFlows: boolean;
   hasPrd: boolean;
   hasTechSpec: boolean;
+  hasValidation: boolean;
   hasTickets: boolean;
 }): InitiativeWorkflow => {
   const workflow = createInitiativeWorkflow();
@@ -168,7 +171,9 @@ export const inferWorkflowFromArtifacts = (input: {
     workflow.steps["core-flows"].status = "ready";
   }
 
-  const requiresCoreFlowsBackfill = !input.hasCoreFlows && (input.hasPrd || input.hasTechSpec || input.hasTickets);
+  const requiresCoreFlowsBackfill =
+    !input.hasCoreFlows &&
+    (input.hasPrd || input.hasTechSpec || input.hasValidation || input.hasTickets);
   if (requiresCoreFlowsBackfill) {
     workflow.steps["core-flows"].status = "stale";
     if (input.hasPrd) {
@@ -176,6 +181,9 @@ export const inferWorkflowFromArtifacts = (input: {
     }
     if (input.hasTechSpec) {
       workflow.steps["tech-spec"].status = "stale";
+    }
+    if (input.hasValidation) {
+      workflow.steps.validation.status = "stale";
     }
     if (input.hasTickets) {
       workflow.steps.tickets.status = "stale";
@@ -190,15 +198,50 @@ export const inferWorkflowFromArtifacts = (input: {
     workflow.steps.prd.status = "ready";
   }
 
+  const requiresPrdBackfill = !input.hasPrd && (input.hasTechSpec || input.hasValidation || input.hasTickets);
+  if (requiresPrdBackfill) {
+    workflow.steps.prd.status = "stale";
+    if (input.hasTechSpec) {
+      workflow.steps["tech-spec"].status = "stale";
+    }
+    if (input.hasValidation) {
+      workflow.steps.validation.status = "stale";
+    }
+    if (input.hasTickets) {
+      workflow.steps.tickets.status = "stale";
+    }
+    workflow.activeStep = getResumeStep(workflow);
+    return workflow;
+  }
+
   if (input.hasTechSpec) {
     workflow.steps["tech-spec"].status = "complete";
   } else if (input.hasPrd) {
     workflow.steps["tech-spec"].status = "ready";
   }
 
+  const requiresTechSpecBackfill = !input.hasTechSpec && (input.hasValidation || input.hasTickets);
+  if (requiresTechSpecBackfill) {
+    workflow.steps["tech-spec"].status = "stale";
+    if (input.hasValidation) {
+      workflow.steps.validation.status = "stale";
+    }
+    if (input.hasTickets) {
+      workflow.steps.tickets.status = "stale";
+    }
+    workflow.activeStep = getResumeStep(workflow);
+    return workflow;
+  }
+
+  if (input.hasValidation) {
+    workflow.steps.validation.status = "complete";
+  } else if (input.hasTechSpec) {
+    workflow.steps.validation.status = "ready";
+  }
+
   if (input.hasTickets) {
     workflow.steps.tickets.status = "complete";
-  } else if (input.hasTechSpec) {
+  } else if (input.hasValidation) {
     workflow.steps.tickets.status = "ready";
   }
 
@@ -258,6 +301,7 @@ const createWorkflowDraft = (workflow: InitiativeWorkflow): InitiativeWorkflow =
     "core-flows": { ...workflow.steps["core-flows"] },
     prd: { ...workflow.steps.prd },
     "tech-spec": { ...workflow.steps["tech-spec"] },
+    validation: { ...workflow.steps.validation },
     tickets: { ...workflow.steps.tickets }
   },
   refinements: cloneRefinements(workflow)
@@ -369,6 +413,30 @@ export const invalidateWorkflowFromStep = (
     if (isRefinementStep(affectedStep)) {
       next.refinements[affectedStep] = createRefinementState();
     }
+  }
+
+  next.activeStep = getResumeStep(next);
+  return next;
+};
+
+export const blockWorkflowAtStep = (
+  workflow: InitiativeWorkflow,
+  step: InitiativePlanningStep,
+  nowIso: string
+): InitiativeWorkflow => {
+  const next = createWorkflowDraft(workflow);
+  next.steps[step] = {
+    ...next.steps[step],
+    status: "stale",
+    updatedAt: nowIso
+  };
+
+  const downstream = PLANNING_STEPS.slice(PLANNING_STEPS.indexOf(step) + 1);
+  for (const downstreamStep of downstream) {
+    next.steps[downstreamStep] = {
+      ...next.steps[downstreamStep],
+      status: "locked"
+    };
   }
 
   next.activeStep = getResumeStep(next);

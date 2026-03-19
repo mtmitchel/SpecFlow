@@ -27,6 +27,10 @@ export const initiativeCoverageDir = (rootDir: string, initiativeId: string): st
   path.join(initiativeDir(rootDir, initiativeId), "coverage");
 export const initiativeTicketCoveragePath = (rootDir: string, initiativeId: string): string =>
   path.join(initiativeCoverageDir(rootDir, initiativeId), "tickets.yaml");
+export const initiativeValidationDir = (rootDir: string, initiativeId: string): string =>
+  path.join(initiativeDir(rootDir, initiativeId), "validation");
+export const initiativePendingTicketPlanPath = (rootDir: string, initiativeId: string): string =>
+  path.join(initiativeValidationDir(rootDir, initiativeId), "pending-ticket-plan.yaml");
 export const initiativeTracesDir = (rootDir: string, initiativeId: string): string =>
   path.join(initiativeDir(rootDir, initiativeId), "traces");
 export const initiativeTracePath = (rootDir: string, initiativeId: string, artifactStep: string): string =>

@@ -3,12 +3,14 @@ import path from "node:path";
 import {
   decisionsDir,
   initiativeCoverageDir,
+  initiativePendingTicketPlanPath,
   initiativeTicketCoveragePath,
   initiativeDir,
   initiativeReviewPath,
   initiativeReviewsDir,
   initiativeTracePath,
   initiativeTracesDir,
+  initiativeValidationDir,
   initiativeYamlPath,
   initiativesDir,
   runDir,
@@ -21,6 +23,7 @@ import { readYamlFile } from "../../io/yaml.js";
 import type {
   ArtifactTraceOutline,
   Initiative,
+  PendingTicketPlanArtifact,
   PlanningReviewArtifact,
   Run,
   RunAttempt,
@@ -33,6 +36,7 @@ import type {
 import { listDirectoryNames, listFileNames, pathExists } from "./fs-utils.js";
 import {
   parseArtifactTraceOutline,
+  parsePendingTicketPlanArtifact,
   parsePlanningReviewArtifact,
   parseTicketCoverageArtifact
 } from "./planning-artifact-validation.js";
@@ -42,6 +46,7 @@ import { shouldReplaceInitiativeTitle } from "../../planner/internal/initiative-
 export const loadInitiatives = async (input: {
   rootDir: string;
   initiatives: Map<string, Initiative>;
+  pendingTicketPlans: Map<string, PendingTicketPlanArtifact>;
   planningReviews: Map<string, PlanningReviewArtifact>;
   artifactTraces: Map<string, ArtifactTraceOutline>;
   ticketCoverageArtifacts: Map<string, TicketCoverageArtifact>;
@@ -129,6 +134,23 @@ export const loadInitiatives = async (input: {
         input.ticketCoverageArtifacts.set(parsed.id, parsed);
       }
     }
+
+    const validationFileNames = await listFileNames(initiativeValidationDir(input.rootDir, id));
+    if (
+      validationFileNames.some(
+        (fileName) => fileName === "pending-ticket-plan.yaml" || fileName === "pending-ticket-plan.yml"
+      )
+    ) {
+      const pendingPlan = await readYamlFile<PendingTicketPlanArtifact>(
+        initiativePendingTicketPlanPath(input.rootDir, id)
+      );
+      if (pendingPlan) {
+        const filePath = initiativePendingTicketPlanPath(input.rootDir, id);
+        const parsed = parsePendingTicketPlanArtifact(pendingPlan, filePath);
+        input.pendingTicketPlans.set(parsed.id, parsed);
+      }
+    }
+
     const traceFileNames = await listFileNames(initiativeTracesDir(input.rootDir, id));
     for (const fileName of traceFileNames) {
       if (!fileName.endsWith(".yaml") && !fileName.endsWith(".yml")) {

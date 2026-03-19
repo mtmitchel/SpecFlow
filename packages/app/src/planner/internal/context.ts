@@ -121,7 +121,8 @@ export const buildPhaseCheckInput = (
   initiative: Initiative,
   step: RefinementStep,
   markdownByStep: Record<InitiativeArtifactStep, string>,
-  repoContext?: PlannerRepoContext
+  repoContext?: PlannerRepoContext,
+  validationFeedback?: string
 ): PhaseCheckInput => ({
   initiativeDescription: initiative.description,
   phase: step,
@@ -143,7 +144,8 @@ export const buildPhaseCheckInput = (
     !markdownByStep[step].trim() &&
     !hasExistingRefinementState(initiative, step)
       ? getRequiredStarterQuestionCount(step)
-      : 0
+      : 0,
+  validationFeedback
 });
 
 export const buildSpecGenerationInput = (

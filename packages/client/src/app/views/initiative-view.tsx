@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ArtifactsSnapshot, InitiativePlanningStep } from "../../types.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { Pipeline } from "../components/pipeline.js";
@@ -6,25 +6,33 @@ import { SideDrawer } from "../components/side-drawer.js";
 import {
   canOpenInitiativeStep,
   INITIATIVE_WORKFLOW_LABELS,
-  INITIATIVE_WORKFLOW_STEPS
+  INITIATIVE_WORKFLOW_STEPS,
 } from "../utils/initiative-workflow.js";
-import { getInitiativeProgressModel, type PipelineNodeKey } from "../utils/initiative-progress.js";
-import { getPlanningStageCopy } from "../utils/ui-language.js";
+import {
+  getInitiativeProgressModel,
+  type PipelineNodeKey,
+} from "../utils/initiative-progress.js";
+import {
+  getPlanningNextActionLabel,
+} from "../utils/ui-language.js";
 import { buildReopenedQuestionContext } from "./initiative/refinement-history.js";
 import { PlanningSpecSection } from "./initiative/planning-spec-section.js";
 import { RefinementSection } from "./initiative/refinement-section.js";
+import { InitiativeTicketDrawerContent } from "./initiative/ticket-drawer-content.js";
 import { SAVE_STATE_LABELS, type SaveState } from "./initiative/shared.js";
 import { TicketsStepSection } from "./initiative/tickets-step-section.js";
 import { useInitiativePlanningWorkspace } from "./initiative/use-initiative-planning-workspace.js";
+import { ValidationSection } from "./initiative/validation-section.js";
 
 export const InitiativeView = ({
   snapshot,
-  onRefresh
+  onRefresh,
 }: {
   snapshot: ArtifactsSnapshot;
   onRefresh: () => Promise<void>;
 }) => {
   const workspace = useInitiativePlanningWorkspace(snapshot, onRefresh);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
   const renderSaveState = (state: SaveState) => {
     const label = SAVE_STATE_LABELS[state];
@@ -50,7 +58,6 @@ export const InitiativeView = ({
     activeSurface,
     activeSpecStep,
     activeRefinement,
-    activeStage,
     isBusy,
     isDeletingInitiative,
     busyAction,
@@ -66,13 +73,11 @@ export const InitiativeView = ({
     guidanceText,
     reviewOverrideKind,
     reviewOverrideReason,
+    ticketGenerationError,
     setReviewOverrideReason,
     ticketCoverageArtifact,
-    ticketCoverageReview,
-    uncoveredCoverageItems,
-    coveredCoverageCount,
+    validationReview,
     initiativeTickets,
-    linkedRuns,
     hasActiveContent,
     hasRefinementQuestions,
     hasPhaseSpecificRefinementDecisions,
@@ -88,7 +93,6 @@ export const InitiativeView = ({
     handleCheckAndAdvance,
     handleGenerateTickets,
     handleRequestGuidance,
-    handleRunReview,
     handleOverrideReview,
     setReviewOverride,
     clearReviewOverride,
@@ -99,7 +103,7 @@ export const InitiativeView = ({
     updateRefinementAnswer,
     deferRefinementQuestion,
     openEditDrawer,
-    closeDrawer
+    closeDrawer,
   } = workspace;
   const generatingKey = useMemo<PipelineNodeKey | null>(() => {
     if (!busyAction?.startsWith("generate-")) {
@@ -112,16 +116,41 @@ export const InitiativeView = ({
     () =>
       initiative
         ? getInitiativeProgressModel(initiative, snapshot, {
-        currentKey: activeStep,
-        generatingKey
-      })
+            currentKey: activeStep,
+            generatingKey,
+          })
         : null,
-    [activeStep, generatingKey, initiative, snapshot]
+    [activeStep, generatingKey, initiative, snapshot],
   );
   const reopenedQuestionContext = useMemo(
     () => buildReopenedQuestionContext(initiative),
     [initiative],
   );
+  const hasGeneratedTickets =
+    (initiative?.phases.length ?? 0) > 0 || initiativeTickets.length > 0;
+  const selectedTicket =
+    selectedTicketId
+      ? initiativeTickets.find((ticket) => ticket.id === selectedTicketId) ?? null
+      : null;
+
+  useEffect(() => {
+    if (activeStep !== "tickets") {
+      setSelectedTicketId(null);
+    }
+  }, [activeStep]);
+
+  useEffect(() => {
+    if (drawerState) {
+      setSelectedTicketId(null);
+    }
+  }, [drawerState]);
+
+  useEffect(() => {
+    if (selectedTicketId && !selectedTicket) {
+      setSelectedTicketId(null);
+    }
+  }, [selectedTicket, selectedTicketId]);
+
   if (!initiative || !progressModel) {
     return (
       <section>
@@ -129,6 +158,14 @@ export const InitiativeView = ({
       </section>
     );
   }
+
+  const openTicketDrawer = (ticketId: string) => {
+    setSelectedTicketId(ticketId);
+  };
+
+  const closeTicketDrawer = () => {
+    setSelectedTicketId(null);
+  };
 
   const renderDrawer = () => {
     if (!drawerState) {
@@ -143,7 +180,12 @@ export const InitiativeView = ({
           open
           title={label}
           headerActions={
-            <button type="button" className="btn-primary" onClick={() => openEditDrawer(drawerState.step)} disabled={isBusy}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => openEditDrawer(drawerState.step)}
+              disabled={isBusy}
+            >
               Edit
             </button>
           }
@@ -210,13 +252,19 @@ export const InitiativeView = ({
                     onClick={() => void handleGenerateSpec(drawerState.step)}
                     disabled={isBusy}
                   >
-                    {busyAction === `generate-${drawerState.step}` ? "Updating..." : `Update ${label.toLowerCase()}`}
+                    {busyAction === `generate-${drawerState.step}`
+                      ? "Updating..."
+                      : `Update ${label.toLowerCase()}`}
                   </button>
                 ) : null}
               </div>
             </div>
           ) : busyAction === `check-${drawerState.step}` ? (
-            <div className="status-loading-card" role="status" aria-live="polite">
+            <div
+              className="status-loading-card"
+              role="status"
+              aria-live="polite"
+            >
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
                 <strong>Reviewing questions...</strong>
@@ -225,9 +273,14 @@ export const InitiativeView = ({
             </div>
           ) : (
             <div className="planning-step-card planning-step-card-quiet">
-              <p className="ticket-empty-note">No answers need revising right now.</p>
+              <p className="ticket-empty-note">
+                No answers need revising right now.
+              </p>
               <div className="planning-step-actions planning-step-actions-centered">
-                <button type="button" onClick={() => openEditDrawer(drawerState.step)}>
+                <button
+                  type="button"
+                  onClick={() => openEditDrawer(drawerState.step)}
+                >
                   Edit text
                 </button>
               </div>
@@ -238,17 +291,46 @@ export const InitiativeView = ({
     }
   };
 
+  const renderTicketDrawer = () => {
+    if (!selectedTicket) {
+      return null;
+    }
+
+    return (
+      <SideDrawer
+        open
+        title={selectedTicket.title}
+        description={selectedTicket.description ?? null}
+        onClose={closeTicketDrawer}
+      >
+        <InitiativeTicketDrawerContent
+          initiative={initiative}
+          ticket={selectedTicket}
+          initiativeTickets={initiativeTickets}
+          ticketCoverageArtifact={ticketCoverageArtifact}
+          onOpenFullPage={() => {
+            closeTicketDrawer();
+            openTicket(selectedTicket.id);
+          }}
+        />
+      </SideDrawer>
+    );
+  };
+
   const renderSpecWorkspace = () => {
     if (!activeSpecStep) {
       return null;
     }
+    const nextStepActionLabel = nextStep
+      ? getPlanningNextActionLabel(nextStep)
+      : null;
 
     return (
       <PlanningSpecSection
         initiativeId={initiative.id}
         initiativeTitle={headerTitle}
         activeSpecStep={activeSpecStep}
-        activeSurface={activeSurface}
+        activeSurface={activeSurface ?? "questions"}
         activeRefinement={activeRefinement}
         reopenedQuestionContext={reopenedQuestionContext}
         busyAction={busyAction}
@@ -256,24 +338,37 @@ export const InitiativeView = ({
         isDeletingInitiative={isDeletingInitiative}
         hasActiveContent={hasActiveContent}
         hasRefinementQuestions={hasRefinementQuestions}
-        hasPhaseSpecificRefinementDecisions={hasPhaseSpecificRefinementDecisions}
+        hasPhaseSpecificRefinementDecisions={
+          hasPhaseSpecificRefinementDecisions
+        }
         unresolvedQuestionCount={unresolvedQuestionCount}
-                nextStep={nextStep}
-                handlePhaseCheckResult={handlePhaseCheckResult}
-                flushRefinementPersistence={flushRefinementPersistence}
-                refinementAnswers={refinementAnswers}
+        nextStep={nextStep}
+        handlePhaseCheckResult={handlePhaseCheckResult}
+        flushRefinementPersistence={flushRefinementPersistence}
+        refinementAnswers={refinementAnswers}
         defaultAnswerQuestionIds={defaultAnswerQuestionIds}
         refinementAssumptions={refinementAssumptions}
         refinementSaveState={refinementSaveState}
-          guidanceQuestionId={guidanceQuestionId}
-          guidanceText={guidanceText}
-          savedDrafts={savedDrafts}
-          autoQuestionLoadStep={autoQuestionLoadStep}
+        guidanceQuestionId={guidanceQuestionId}
+        guidanceText={guidanceText}
+        savedDrafts={savedDrafts}
+        autoQuestionLoadStep={autoQuestionLoadStep}
         autoQuestionLoadFailedStep={autoQuestionLoadFailedStep}
         onRefresh={onRefresh}
         navigateToStep={navigateToStep}
         setActiveSurface={setActiveSurface}
         handleCheckAndAdvance={handleCheckAndAdvance}
+        nextStepActionLabel={nextStepActionLabel}
+        onAdvanceToNextStep={
+          nextStep
+            ? () => {
+                navigateToStep(nextStep);
+                if (nextStep === "validation") {
+                  void handleGenerateTickets();
+                }
+              }
+            : null
+        }
         handleRequestGuidance={handleRequestGuidance}
         updateRefinementAnswer={updateRefinementAnswer}
         deferRefinementQuestion={deferRefinementQuestion}
@@ -282,6 +377,35 @@ export const InitiativeView = ({
       />
     );
   };
+
+  const renderValidationWorkspace = () => (
+    <ValidationSection
+      activeRefinement={activeRefinement}
+      reopenedQuestionContext={reopenedQuestionContext}
+      refinementAnswers={refinementAnswers}
+      defaultAnswerQuestionIds={defaultAnswerQuestionIds}
+      refinementAssumptions={refinementAssumptions}
+      refinementSaveState={refinementSaveState}
+      unresolvedQuestionCount={unresolvedQuestionCount}
+      guidanceQuestionId={guidanceQuestionId}
+      guidanceText={guidanceText}
+      busyAction={busyAction}
+      isBusy={isBusy}
+      generationError={ticketGenerationError}
+      validationReview={validationReview}
+      reviewOverrideKind={reviewOverrideKind}
+      reviewOverrideReason={reviewOverrideReason}
+      onValidatePlan={handleGenerateTickets}
+      onAnswerChange={updateRefinementAnswer}
+      onAnswerLater={deferRefinementQuestion}
+      onRequestGuidance={handleRequestGuidance}
+      onBackToTechSpec={() => navigateToStep("tech-spec", "review")}
+      onSetReviewOverride={setReviewOverride}
+      onClearReviewOverride={clearReviewOverride}
+      onChangeReviewOverrideReason={setReviewOverrideReason}
+      onConfirmOverride={handleOverrideReview}
+    />
+  );
 
   return (
     <section className="planning-shell">
@@ -316,18 +440,35 @@ export const InitiativeView = ({
                 return;
               }
 
-              if (INITIATIVE_WORKFLOW_STEPS.includes(key as InitiativePlanningStep)) {
+              if (
+                INITIATIVE_WORKFLOW_STEPS.includes(
+                  key as InitiativePlanningStep,
+                )
+              ) {
                 const step = key as InitiativePlanningStep;
 
-                if (!canOpenInitiativeStep(initiative.workflow, initiativeReviews, initiative.id, step)) {
+                if (
+                  !canOpenInitiativeStep(
+                    initiative.workflow,
+                    initiativeReviews,
+                    initiative.id,
+                    step,
+                  )
+                ) {
                   return;
                 }
 
-                navigateToStep(step, step === activeStep ? activeSurface : null);
+                navigateToStep(
+                  step,
+                  step === activeStep ? activeSurface : null,
+                );
                 return;
               }
 
-              if ((key === "execute" || key === "verify") && progressModel.nextTicket) {
+              if (
+                (key === "execute" || key === "verify") &&
+                progressModel.nextTicket
+              ) {
                 openTicket(progressModel.nextTicket.id);
                 return;
               }
@@ -343,39 +484,37 @@ export const InitiativeView = ({
       <div className="planning-content-area">
         {isDeletingInitiative ? (
           <div className="planning-step-column planning-step-column-narrow">
-            <div className="status-loading-card planning-intake-loading planning-intake-loading-hero" role="status" aria-live="polite">
+            <div
+              className="status-loading-card planning-intake-loading planning-intake-loading-hero"
+              role="status"
+              aria-live="polite"
+            >
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
                 <strong>Deleting initiative</strong>
-                <span>SpecFlow is stopping the current work and removing this initiative.</span>
+                <span>
+                  SpecFlow is stopping the current work and removing this
+                  initiative.
+                </span>
               </div>
             </div>
           </div>
         ) : activeSpecStep ? (
           renderSpecWorkspace()
+        ) : activeStep === "validation" ? (
+          renderValidationWorkspace()
         ) : (
-          <div className="planning-step-column planning-step-column-wide">
-            {getPlanningStageCopy("tickets", activeStage) ? (
-              <p className="planning-step-copy">{getPlanningStageCopy("tickets", activeStage)}</p>
-            ) : null}
+          <div
+            className={`planning-step-column ${
+              hasGeneratedTickets
+                ? "planning-step-column-wide"
+                : "planning-step-column-narrow"
+            }`}
+          >
             <TicketsStepSection
               initiative={initiative}
               initiativeTickets={initiativeTickets}
-              linkedRuns={linkedRuns}
-              ticketCoverageArtifact={ticketCoverageArtifact}
-              ticketCoverageReview={ticketCoverageReview}
-              uncoveredCoverageItems={uncoveredCoverageItems}
-              coveredCoverageCount={coveredCoverageCount}
-              busyAction={busyAction}
-              reviewOverrideKind={reviewOverrideKind}
-              reviewOverrideReason={reviewOverrideReason}
-              onGenerateTickets={handleGenerateTickets}
-              onOpenFirstTicket={openTicket}
-              onRunReview={handleRunReview}
-              onSetReviewOverride={setReviewOverride}
-              onClearReviewOverride={clearReviewOverride}
-              onChangeReviewOverrideReason={setReviewOverrideReason}
-              onConfirmOverride={handleOverrideReview}
+              onOpenTicket={openTicketDrawer}
               onCommitPhaseName={handlePhaseRename}
             />
           </div>
@@ -383,6 +522,7 @@ export const InitiativeView = ({
       </div>
 
       {isDeletingInitiative ? null : renderDrawer()}
+      {isDeletingInitiative ? null : renderTicketDrawer()}
     </section>
   );
 };

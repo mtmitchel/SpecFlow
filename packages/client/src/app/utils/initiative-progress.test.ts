@@ -18,6 +18,7 @@ const baseInitiative: Initiative = {
       "core-flows": { status: "locked", updatedAt: null },
       prd: { status: "locked", updatedAt: null },
       "tech-spec": { status: "locked", updatedAt: null },
+      validation: { status: "locked", updatedAt: null },
       tickets: { status: "locked", updatedAt: null },
     },
     refinements: {
@@ -237,6 +238,7 @@ describe("getInitiativeProgressModel", () => {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
           prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
           "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
           tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
         },
       },
@@ -295,6 +297,7 @@ describe("getInitiativeProgressModel", () => {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
           prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
           "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
           tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
         },
       },
@@ -360,7 +363,7 @@ describe("getInitiativeProgressModel", () => {
     },
     {
       completedStep: "tech-spec" as const,
-      nextStep: "tickets" as const,
+      nextStep: "validation" as const,
       reviewKind: "tech-spec-review" as const,
     },
   ])(
@@ -371,11 +374,12 @@ describe("getInitiativeProgressModel", () => {
         "core-flows": { status: "locked", updatedAt: null },
         prd: { status: "locked", updatedAt: null },
         "tech-spec": { status: "locked", updatedAt: null },
+        validation: { status: "locked", updatedAt: null },
         tickets: { status: "locked", updatedAt: null },
       };
 
       let markComplete = true;
-      for (const step of ["brief", "core-flows", "prd", "tech-spec", "tickets"] as const) {
+      for (const step of ["brief", "core-flows", "prd", "tech-spec", "validation", "tickets"] as const) {
         if (step === nextStep) {
           steps[step] = { status: "ready", updatedAt: "2026-03-16T10:30:00.000Z" };
           markComplete = false;
@@ -424,7 +428,7 @@ describe("getInitiativeProgressModel", () => {
     },
   );
 
-  it("keeps the initiative at tickets when coverage is unresolved", () => {
+  it("keeps the initiative at validation when coverage is unresolved", () => {
     const initiative: Initiative = {
       ...baseInitiative,
       workflow: {
@@ -434,35 +438,15 @@ describe("getInitiativeProgressModel", () => {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
           prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
           "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
-          tickets: { status: "stale", updatedAt: "2026-03-16T10:20:00.000Z" },
+          validation: { status: "stale", updatedAt: "2026-03-16T10:18:00.000Z" },
+          tickets: { status: "locked", updatedAt: null },
         },
       },
-      ticketIds: ["ticket-12345678"],
     };
-    const tickets: Ticket[] = [
-      {
-        id: "ticket-12345678",
-        initiativeId: initiative.id,
-        phaseId: null,
-        title: "Create the shell",
-        description: "Build the initial ticket shell.",
-        status: "backlog",
-        acceptanceCriteria: [],
-        implementationPlan: "",
-        fileTargets: [],
-        coverageItemIds: [],
-        blockedBy: [],
-        blocks: [],
-        runId: null,
-        createdAt: "2026-03-16T10:22:00.000Z",
-        updatedAt: "2026-03-16T10:22:00.000Z",
-      },
-    ];
     const progress = getInitiativeProgressModel(
       initiative,
       createSnapshot({
         initiative,
-        tickets,
         planningReviews: [
           {
             id: `${initiative.id}:ticket-coverage-review`,
@@ -471,7 +455,7 @@ describe("getInitiativeProgressModel", () => {
             status: "blocked",
             summary: "Coverage gaps remain.",
             findings: [],
-            sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+            sourceUpdatedAts: { validation: "2026-03-16T10:18:00.000Z" },
             overrideReason: null,
             reviewedAt: "2026-03-16T10:25:00.000Z",
             updatedAt: "2026-03-16T10:25:00.000Z",
@@ -480,11 +464,11 @@ describe("getInitiativeProgressModel", () => {
       }),
     );
 
-    expect(progress.currentKey).toBe("tickets");
-    expect(progress.nodes.find((node) => node.key === "tickets")?.state).toBe("checkpoint");
+    expect(progress.currentKey).toBe("validation");
+    expect(progress.nodes.find((node) => node.key === "validation")?.state).toBe("checkpoint");
     expect(progress.currentNodeState).toBe("checkpoint");
     expect(progress.currentReviewKind).toBe("ticket-coverage-review");
-    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Run coverage check");
+    expect(getInitiativeQueueActionLabel(initiative, progress)).toBe("Review validation");
   });
 
   it("moves into execute and verify based on ticket state", () => {
@@ -497,6 +481,7 @@ describe("getInitiativeProgressModel", () => {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
           prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
           "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
           tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
         },
       },
@@ -560,7 +545,7 @@ describe("getInitiativeProgressModel", () => {
     expect(getInitiativeQueueActionLabel(initiative, verifyProgress)).toBe("Verify ticket");
   });
 
-  it("keeps tickets current when coverage is blocked even if execution already started", () => {
+  it("routes back to validation when coverage is blocked even if tickets already exist", () => {
     const initiative: Initiative = {
       ...baseInitiative,
       workflow: {
@@ -570,6 +555,7 @@ describe("getInitiativeProgressModel", () => {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
           prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
           "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
           tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
         },
       },
@@ -606,7 +592,7 @@ describe("getInitiativeProgressModel", () => {
             status: "blocked",
             summary: "Coverage gaps remain.",
             findings: [],
-            sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+            sourceUpdatedAts: { validation: "2026-03-16T10:18:00.000Z" },
             overrideReason: null,
             reviewedAt: "2026-03-16T10:25:00.000Z",
             updatedAt: "2026-03-16T10:25:00.000Z",
@@ -615,7 +601,7 @@ describe("getInitiativeProgressModel", () => {
       }),
     );
 
-    expect(progress.currentKey).toBe("tickets");
+    expect(progress.currentKey).toBe("validation");
     expect(progress.currentNodeState).toBe("checkpoint");
     expect(progress.nodes.find((node) => node.key === "execute")?.state).toBe("future");
     expect(progress.nodes.find((node) => node.key === "verify")?.state).toBe("future");
@@ -631,6 +617,7 @@ describe("getInitiativeProgressModel", () => {
           "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
           prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
           "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
           tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
         },
       },

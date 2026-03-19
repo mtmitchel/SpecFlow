@@ -242,6 +242,121 @@ describe("planner validator boundaries", () => {
     expect(() => validatePhaseCheckResult(result, input)).not.toThrow();
   });
 
+  it("accepts versioned reopen ids for the same concern", () => {
+    const refinementHistory: RefinementHistoryEntry[] = [
+      {
+        step: "core-flows",
+        questionId: "empty-note-behavior",
+        label: "What should happen when a user clears a note after capture starts?",
+        decisionType: "branch",
+        whyThisBlocks: "Core flows need the empty-note path before the draft can stay coherent.",
+        resolution: "answered",
+        answer: "Move the note to Trash",
+        assumption: null,
+      },
+    ];
+
+    const input = makeInput({
+      phase: "core-flows",
+      prdMarkdown: undefined,
+      requiredStarterQuestionCount: 0,
+      refinementHistory,
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "empty-note-behavior-v1",
+        affectedArtifact: "core-flows",
+        label: "If the user deletes all content after the first keystroke, should v1 remove the note or keep a blank draft?",
+        decisionType: "failure-mode",
+        options: ["Remove the note", "Keep a blank draft"],
+        optionHelp: {
+          "Remove the note": "Treat a fully emptied note as a delete outcome in the v1 flow.",
+          "Keep a blank draft": "Keep an empty note available after the content is removed."
+        },
+        reopensQuestionIds: ["empty-note-behavior"],
+      }),
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).not.toThrow();
+  });
+
+  it("accepts explicit reopen references when the regenerated concern id keeps the same semantic tokens", () => {
+    const refinementHistory: RefinementHistoryEntry[] = [
+      {
+        step: "prd",
+        questionId: "grid-capture-v1",
+        label: "Should the grid support creating notes directly from the board?",
+        decisionType: "behavior",
+        whyThisBlocks: "The PRD needs the grid-entry behavior before the product contract is stable.",
+        resolution: "answered",
+        answer: "No inline capture in grid view",
+        assumption: null,
+      },
+    ];
+
+    const input = makeInput({
+      phase: "prd",
+      refinementHistory,
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "grid-quick-capture-prd",
+        affectedArtifact: "prd",
+        label: "Should users be able to start typing from a grid card without opening the full editor?",
+        decisionType: "behavior",
+        options: ["Yes, from each grid card", "No, open the full editor first"],
+        optionHelp: {
+          "Yes, from each grid card": "Makes quick grid capture part of the product contract.",
+          "No, open the full editor first": "Keeps grid cards read-only and routes capture through the editor."
+        },
+        reopensQuestionIds: ["grid-capture-v1"],
+      }),
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).not.toThrow();
+  });
+
+  it("still rejects explicit reopen references for genuinely unrelated concerns", () => {
+    const refinementHistory: RefinementHistoryEntry[] = [
+      {
+        step: "prd",
+        questionId: "grid-capture-v1",
+        label: "Should the grid support creating notes directly from the board?",
+        decisionType: "behavior",
+        whyThisBlocks: "The PRD needs the grid-entry behavior before the product contract is stable.",
+        resolution: "answered",
+        answer: "No inline capture in grid view",
+        assumption: null,
+      },
+    ];
+
+    const input = makeInput({
+      phase: "prd",
+      refinementHistory,
+    });
+
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "offline-retention-prd",
+        affectedArtifact: "prd",
+        label: "How long should offline edits stay queued before the app asks the user to resolve sync issues?",
+        decisionType: "behavior",
+        options: ["Queue indefinitely", "Prompt after 24 hours"],
+        optionHelp: {
+          "Queue indefinitely": "Keeps offline work silent until the user explicitly checks sync state.",
+          "Prompt after 24 hours": "Adds a user-visible escalation threshold to the sync contract."
+        },
+        reopensQuestionIds: ["grid-capture-v1"],
+      }),
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, input)).toThrow(
+      "reopens unrelated prior concern grid-capture-v1"
+    );
+  });
+
   it("allows conditional forbidden terms when the initiative already uses that domain language", () => {
     const result = makeResult([
       makeSelectQuestion({

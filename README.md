@@ -74,7 +74,7 @@ npm run ui:web
 ```
 
 `npm test` runs both the backend and client Vitest suites.
-`npm run test:e2e` runs the browser end-to-end workflow suite against the legacy web runtime with a deterministic fake planner/verifier backend. It currently covers the main initiative workflow plus the core-flows review-back/update path.
+`npm run test:e2e` runs the browser end-to-end workflow suite against the legacy web runtime with a deterministic fake planner/verifier backend. It currently covers the main initiative workflow through Validation into Tickets plus the core-flows review-back/update path.
 `npm run lint` runs the shared ESLint baseline for TypeScript, React Hooks, and general correctness issues.
 `npm run check` now runs lint, both TypeScript checks, and the UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
 `npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.
@@ -108,11 +108,13 @@ If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup mig
 
 ## Key Features
 
-- **Pipeline-centered planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, and Tickets with one persistent initiative pipeline visible across Home, creation, planning, ticket, and run views.
+- **Pipeline-centered planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, Validation, and Tickets with one persistent initiative pipeline visible across Home, creation, planning, ticket, and run views.
 - **Mandatory brief intake**: fresh initiatives always begin with a short consultation before the first brief is generated, so the product does not hallucinate scope, users, or success criteria from a single paragraph.
 - **Planning reviews and cross-checks**: every major artifact can still be reviewed for gaps and cross-checked against adjacent artifacts, but those reviews are secondary artifacts instead of primary blockers between Brief, Core flows, PRD, and Tech spec.
+- **Validation-owned ticket readiness**: Validation now owns the last planning gate before tickets are committed. It drafts the ticket plan, reroutes actionable blockers into in-place follow-up questions, and only commits tickets once the plan is clear or explicitly overridden.
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
-- **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved coverage checks block export and execution until the user reruns or overrides the check.
+- **Execution board handoff**: Tickets now reads as a left-to-right phase board with a right-side ticket drawer, so the user can inspect ticket scope without leaving the board.
+- **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved Validation blockers still block export and execution until the user reruns or overrides the check.
 - **Action-oriented home**: the landing view is an Up next queue plus initiative cards with inline progress, so the first screen answers what needs attention now instead of showing aggregate counts.
 - **Durable re-entry**: initiative resume links restore the last meaningful planning surface or active initiative ticket, while run detail stays explicit history instead of hijacking the default resume target.
 - **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals app actions plus the full initiative and quick-task hierarchy.

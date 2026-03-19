@@ -82,6 +82,26 @@ export interface PlanResult {
   uncoveredCoverageItemIds: string[];
 }
 
+export type PlanValidationIssueKind =
+  | "ticket-missing-coverage"
+  | "unknown-ticket-coverage-item"
+  | "unknown-uncovered-coverage-item"
+  | "assigned-and-uncovered-coverage-item"
+  | "missing-coverage-item";
+
+export interface PlanValidationIssue {
+  kind: PlanValidationIssueKind;
+  message: string;
+  coverageItemId?: string;
+  coverageItem?: TicketCoverageItem;
+  ticketTitle?: string;
+}
+
+export interface PlanValidationFeedback {
+  summary: string;
+  issues: PlanValidationIssue[];
+}
+
 export interface TriageTicketDraft {
   title: string;
   description: string;
@@ -131,6 +151,8 @@ export interface PlanInput {
   techSpecMarkdown: string;
   coverageItems: TicketCoverageItem[];
   repoContext?: PlannerRepoContext;
+  validationFeedback?: PlanValidationFeedback;
+  previousInvalidResult?: unknown;
 }
 
 export interface TriageInput {

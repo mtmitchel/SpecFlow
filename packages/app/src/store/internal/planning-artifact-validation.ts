@@ -1,6 +1,7 @@
 import { ARTIFACT_STEPS, PLANNING_STEPS, REVIEW_KINDS } from "../../planner/workflow-contract.js";
 import type {
   ArtifactTraceOutline,
+  PendingTicketPlanArtifact,
   PlanningReviewArtifact,
   PlanningReviewFinding,
   PlanningReviewStatus,
@@ -100,6 +101,44 @@ const parseCoverageItem = (value: unknown, context: string): TicketCoverageItem 
   };
 };
 
+const parsePendingPlanTicket = (
+  value: unknown,
+  context: string
+): PendingTicketPlanArtifact["phases"][number]["tickets"][number] => {
+  const record = assertRecord(value, context);
+  return {
+    title: assertString(record.title, `${context}.title`),
+    description: assertString(record.description, `${context}.description`),
+    acceptanceCriteria: assertStringArray(record.acceptanceCriteria, `${context}.acceptanceCriteria`),
+    fileTargets: assertStringArray(record.fileTargets, `${context}.fileTargets`),
+    coverageItemIds: assertStringArray(record.coverageItemIds, `${context}.coverageItemIds`)
+  };
+};
+
+const parsePendingPlanPhase = (
+  value: unknown,
+  context: string
+): PendingTicketPlanArtifact["phases"][number] => {
+  const record = assertRecord(value, context);
+  const ticketsRaw = record.tickets;
+  if (!Array.isArray(ticketsRaw)) {
+    throw new Error(`${context}.tickets must be an array`);
+  }
+
+  const order = record.order;
+  if (typeof order !== "number" || !Number.isFinite(order)) {
+    throw new Error(`${context}.order must be a number`);
+  }
+
+  return {
+    name: assertString(record.name, `${context}.name`),
+    order,
+    tickets: ticketsRaw.map((ticket, index) =>
+      parsePendingPlanTicket(ticket, `${context}.tickets[${index}]`)
+    )
+  };
+};
+
 export const parsePlanningReviewArtifact = (
   value: unknown,
   filePath: string
@@ -148,6 +187,32 @@ export const parseTicketCoverageArtifact = (
     id: assertString(record.id, `${filePath}.id`),
     initiativeId: assertString(record.initiativeId, `${filePath}.initiativeId`),
     items: itemsRaw.map((item, index) => parseCoverageItem(item, `${filePath}.items[${index}]`)),
+    uncoveredItemIds: assertStringArray(record.uncoveredItemIds, `${filePath}.uncoveredItemIds`),
+    sourceUpdatedAts: assertStepTimestampMap(record.sourceUpdatedAts ?? {}, `${filePath}.sourceUpdatedAts`),
+    generatedAt: assertString(record.generatedAt, `${filePath}.generatedAt`),
+    updatedAt: assertString(record.updatedAt, `${filePath}.updatedAt`)
+  };
+};
+
+export const parsePendingTicketPlanArtifact = (
+  value: unknown,
+  filePath: string
+): PendingTicketPlanArtifact => {
+  const record = assertRecord(value, `Pending ticket plan ${filePath}`);
+  const phasesRaw = record.phases;
+  const itemsRaw = record.coverageItems;
+  if (!Array.isArray(phasesRaw)) {
+    throw new Error(`${filePath}.phases must be an array`);
+  }
+  if (!Array.isArray(itemsRaw)) {
+    throw new Error(`${filePath}.coverageItems must be an array`);
+  }
+
+  return {
+    id: assertString(record.id, `${filePath}.id`),
+    initiativeId: assertString(record.initiativeId, `${filePath}.initiativeId`),
+    phases: phasesRaw.map((phase, index) => parsePendingPlanPhase(phase, `${filePath}.phases[${index}]`)),
+    coverageItems: itemsRaw.map((item, index) => parseCoverageItem(item, `${filePath}.coverageItems[${index}]`)),
     uncoveredItemIds: assertStringArray(record.uncoveredItemIds, `${filePath}.uncoveredItemIds`),
     sourceUpdatedAts: assertStepTimestampMap(record.sourceUpdatedAts ?? {}, `${filePath}.sourceUpdatedAts`),
     generatedAt: assertString(record.generatedAt, `${filePath}.generatedAt`),

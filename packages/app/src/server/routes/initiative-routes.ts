@@ -189,6 +189,7 @@ export const registerInitiativeRoutes = (
             runtime,
             (request.params as { id: string }).id,
             step,
+            (request.body ?? {}) as { validationFeedback?: string },
             getRequestAbortSignal(request),
           ),
         );

@@ -42,7 +42,9 @@ describe("DocumentSummaryCard", () => {
     expect(showSuccess).toHaveBeenCalledWith("Brief copied.");
   });
 
-  it("does not show the brief copy action on non-brief cards", () => {
+  it("shows a copy action for non-brief draft cards too", async () => {
+    const writeText = vi.mocked(window.navigator.clipboard.writeText);
+
     render(
       <DocumentSummaryCard
         step="core-flows"
@@ -53,6 +55,11 @@ describe("DocumentSummaryCard", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Copy brief" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copy core flows" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("# Core Flows\n\n## Primary path\n\nBody copy.");
+    });
+    expect(showSuccess).toHaveBeenCalledWith("Core flows copied.");
   });
 });

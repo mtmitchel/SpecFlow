@@ -4,6 +4,7 @@ import type {
   ArtifactTraceOutline,
   Config,
   Initiative,
+  PendingTicketPlanArtifact,
   PlanningReviewArtifact,
   Run,
   RunAttemptSummary,
@@ -21,6 +22,7 @@ export interface StoreReloadSnapshot {
   runAttempts: Map<string, RunAttemptSummary>;
   specs: Map<string, SpecDocumentSummary>;
   planningReviews: Map<string, PlanningReviewArtifact>;
+  pendingTicketPlans: Map<string, PendingTicketPlanArtifact>;
   ticketCoverageArtifacts: Map<string, TicketCoverageArtifact>;
   artifactTraces: Map<string, ArtifactTraceOutline>;
 }
@@ -35,6 +37,7 @@ export const loadStoreSnapshot = async (input: {
       hasCoreFlows: boolean;
       hasPrd: boolean;
       hasTechSpec: boolean;
+      hasValidation: boolean;
       hasTickets: boolean;
     }
   ) => Initiative;
@@ -47,6 +50,7 @@ export const loadStoreSnapshot = async (input: {
   const runAttempts = new Map<string, RunAttemptSummary>();
   const specs = new Map<string, SpecDocumentSummary>();
   const planningReviews = new Map<string, PlanningReviewArtifact>();
+  const pendingTicketPlans = new Map<string, PendingTicketPlanArtifact>();
   const ticketCoverageArtifacts = new Map<string, TicketCoverageArtifact>();
   const artifactTraces = new Map<string, ArtifactTraceOutline>();
 
@@ -54,6 +58,7 @@ export const loadStoreSnapshot = async (input: {
     loadInitiatives({
       rootDir: input.rootDir,
       initiatives,
+      pendingTicketPlans,
       planningReviews,
       ticketCoverageArtifacts,
       artifactTraces,
@@ -85,6 +90,11 @@ export const loadStoreSnapshot = async (input: {
         hasCoreFlows: relatedSpecs.some((spec) => spec.type === "core-flows"),
         hasPrd: relatedSpecs.some((spec) => spec.type === "prd"),
         hasTechSpec: relatedSpecs.some((spec) => spec.type === "tech-spec"),
+        hasValidation:
+          pendingTicketPlans.has(`${initiativeId}:pending-ticket-plan`) ||
+          planningReviews.has(`${initiativeId}:ticket-coverage-review`) ||
+          relatedTickets.length > 0 ||
+          initiative.workflow?.steps?.validation?.status === "complete",
         hasTickets: relatedTickets.length > 0 || initiative.ticketIds.length > 0 || initiative.phases.length > 0
       })
     );
@@ -98,6 +108,7 @@ export const loadStoreSnapshot = async (input: {
     runAttempts,
     specs,
     planningReviews,
+    pendingTicketPlans,
     ticketCoverageArtifacts,
     artifactTraces
   };

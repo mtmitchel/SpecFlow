@@ -61,13 +61,6 @@ const canReplacePlanningTickets = (runtime: SpecFlowRuntime, initiative: Initiat
   );
 };
 
-const replacePlanningTickets = async (runtime: SpecFlowRuntime, initiative: Initiative): Promise<void> => {
-  const initiativeTickets = Array.from(runtime.store.tickets.values()).filter((ticket) => ticket.initiativeId === initiative.id);
-  for (const ticket of initiativeTickets) {
-    await runtime.store.deleteTicket(ticket.id);
-  }
-};
-
 export const listInitiatives = (runtime: SpecFlowRuntime) => ({
   initiatives: Array.from(runtime.store.initiatives.values())
 });
@@ -249,6 +242,7 @@ export const runInitiativePhaseCheck = async (
   runtime: SpecFlowRuntime,
   initiativeId: string,
   step: ArtifactStep,
+  body?: { validationFeedback?: string },
   signal?: AbortSignal
 ) => {
   const initiative = readInitiative(runtime, initiativeId);
@@ -257,7 +251,15 @@ export const runInitiativePhaseCheck = async (
   }
 
   try {
-    return await runtime.plannerService.runPhaseCheckJob({ initiativeId, step }, undefined, signal);
+    return await runtime.plannerService.runPhaseCheckJob(
+      {
+        initiativeId,
+        step,
+        validationFeedback: body?.validationFeedback?.trim() || undefined,
+      },
+      undefined,
+      signal
+    );
   } catch (error) {
     throw structuredPlannerError(runtime, error);
   }
@@ -382,16 +384,17 @@ export const validateInitiativePlanGeneration = (
   initiativeId: string
 ): void => {
   const initiative = readInitiative(runtime, initiativeId);
-  if (!canEditStep(initiative.workflow, "tickets")) {
-    throw conflict("Tickets are not ready until the tech spec is done");
+  if (!canEditStep(initiative.workflow, "validation")) {
+    throw conflict("Validation is not ready until the tech spec is done");
   }
 
+  const validationStatus = initiative.workflow.steps.validation.status;
   const ticketsStatus = initiative.workflow.steps.tickets.status;
-  if (ticketsStatus === "complete") {
+  if (validationStatus === "complete" && ticketsStatus === "complete") {
     throw conflict("Tickets already exist for this initiative");
   }
 
-  if (ticketsStatus === "stale" && !canReplacePlanningTickets(runtime, initiative)) {
+  if ((validationStatus === "stale" || ticketsStatus === "stale") && !canReplacePlanningTickets(runtime, initiative)) {
     throw conflict("This initiative needs review before tickets can be replanned because work has already started");
   }
 };
@@ -410,13 +413,16 @@ export const overrideInitiativeReview = async (
   }
 
   try {
-    return {
-      review: await runtime.plannerService.overridePlanningReview({
-        initiativeId: initiative.id,
-        kind: reviewKind,
-        reason
-      })
-    };
+    const review = await runtime.plannerService.overridePlanningReview({
+      initiativeId: initiative.id,
+      kind: reviewKind,
+      reason
+    });
+    if (reviewKind === "ticket-coverage-review") {
+      await runtime.plannerService.commitPendingPlan({ initiativeId: initiative.id });
+    }
+
+    return { review };
   } catch (error) {
     throw structuredPlannerError(runtime, error);
   }
@@ -429,18 +435,6 @@ export const generateInitiativePlan = async (
   signal?: AbortSignal
 ) => {
   validateInitiativePlanGeneration(runtime, initiativeId);
-  const initiative = readInitiative(runtime, initiativeId);
-  const ticketsStatus = initiative.workflow.steps.tickets.status;
-
-  if (ticketsStatus === "stale") {
-    await replacePlanningTickets(runtime, initiative);
-    await runtime.store.upsertInitiative({
-      ...initiative,
-      phases: [],
-      ticketIds: [],
-      updatedAt: new Date().toISOString()
-    });
-  }
 
   try {
     return await runtime.plannerService.runPlanJob({ initiativeId }, onToken, signal);

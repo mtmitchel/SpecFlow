@@ -11,8 +11,9 @@ import {
   PLANNING_STEP_LABELS,
   PLANNING_STEP_STATUS_LABELS,
   REVIEW_KIND_LABELS as SHARED_REVIEW_KIND_LABELS,
+  VALIDATION_REVIEW_KINDS,
   REVIEWS_BY_ARTIFACT_STEP,
-  TICKET_REVIEW_KINDS,
+  getPrerequisitePlanningStep,
   getNextPlanningStep,
   isReviewResolved
 } from "../../../../app/src/planner/workflow-contract.js";
@@ -22,10 +23,10 @@ export const INITIATIVE_ARTIFACT_STEPS: InitiativeArtifactStep[] = ARTIFACT_STEP
 export const INITIATIVE_WORKFLOW_LABELS: Record<InitiativePlanningStep, string> = PLANNING_STEP_LABELS;
 export const REVIEW_KIND_LABELS: Record<PlanningReviewKind, string> = SHARED_REVIEW_KIND_LABELS;
 export const REVIEWS_BY_STEP: Record<InitiativeArtifactStep, PlanningReviewKind[]> = REVIEWS_BY_ARTIFACT_STEP;
-export const TICKETS_REVIEWS: PlanningReviewKind[] = TICKET_REVIEW_KINDS;
+export const VALIDATION_REVIEWS: PlanningReviewKind[] = VALIDATION_REVIEW_KINDS;
 
 const getReviewsThatGatePlanningStep = (step: InitiativePlanningStep): PlanningReviewKind[] =>
-  step === "tickets" ? TICKETS_REVIEWS : [];
+  step === "validation" ? VALIDATION_REVIEWS : [];
 
 export const getInitiativeResumeStep = (workflow: InitiativeWorkflow): InitiativePlanningStep => {
   for (const step of INITIATIVE_WORKFLOW_STEPS) {
@@ -87,3 +88,7 @@ export const INITIATIVE_WORKFLOW_STATUS_LABELS: Record<
 export const getNextInitiativeStep = (
   step: InitiativePlanningStep
 ): InitiativePlanningStep | null => getNextPlanningStep(step);
+
+export const getPreviousInitiativeStep = (
+  step: InitiativePlanningStep
+): InitiativePlanningStep | null => getPrerequisitePlanningStep(step);

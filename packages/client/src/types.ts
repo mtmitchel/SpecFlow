@@ -2,8 +2,8 @@ export type TicketStatus = "backlog" | "ready" | "in-progress" | "verify" | "don
 
 export type AgentTarget = "claude-code" | "codex-cli" | "opencode" | "generic";
 export type InitiativePlanningQuestionType = "select" | "multi-select" | "boolean";
-export type InitiativePlanningStep = "brief" | "core-flows" | "prd" | "tech-spec" | "tickets";
-export type InitiativeArtifactStep = Exclude<InitiativePlanningStep, "tickets">;
+export type InitiativePlanningStep = "brief" | "core-flows" | "prd" | "tech-spec" | "validation" | "tickets";
+export type InitiativeArtifactStep = Exclude<InitiativePlanningStep, "validation" | "tickets">;
 export type InitiativePlanningStepStatus = "locked" | "ready" | "complete" | "stale";
 export type InitiativePlanningSurface = "questions" | "review";
 export type InitiativePlanningDecisionType =

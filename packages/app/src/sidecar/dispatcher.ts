@@ -237,7 +237,13 @@ const routeSidecarMethod = async (
     case "initiatives.create":
       return createDraftInitiative(runtime, params.body as { description?: string });
     case "initiatives.phaseCheck":
-      return runInitiativePhaseCheck(runtime, String(params.id ?? ""), params.step as "brief" | "core-flows" | "prd" | "tech-spec", signal);
+      return runInitiativePhaseCheck(
+        runtime,
+        String(params.id ?? ""),
+        params.step as "brief" | "core-flows" | "prd" | "tech-spec",
+        params.body as { validationFeedback?: string } | undefined,
+        signal
+      );
     case "initiatives.generate.brief":
       return generateInitiativeArtifact(runtime, String(params.id ?? ""), "brief", async (chunk) => notify("planner-token", { chunk }), signal);
     case "initiatives.generate.coreFlows":

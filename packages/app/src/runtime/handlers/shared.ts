@@ -80,11 +80,17 @@ export const structuredPlannerError = (
   error: unknown
 ): HandlerError => {
   const structured = runtime.plannerService.toStructuredError(error);
+  const response = structured.details === undefined
+    ? structured
+    : {
+        ...structured,
+        details: structured.details
+      };
   return new HandlerError({
     code: structured.code,
     message: structured.message,
     statusCode: structured.statusCode,
-    response: structured
+    response
   });
 };
 

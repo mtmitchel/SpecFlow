@@ -26,7 +26,7 @@ export const getImpactedReviewKinds = (step: InitiativeArtifactStep): PlanningRe
   const impactedSteps = new Set(getArtifactStepsFrom(step));
   return (Object.keys(REVIEW_KIND_SOURCE_STEPS) as PlanningReviewKind[]).filter((kind) =>
     REVIEW_KIND_SOURCE_STEPS[kind].some(
-      (sourceStep) => sourceStep !== "tickets" && impactedSteps.has(sourceStep)
+      (sourceStep) => sourceStep !== "tickets" && sourceStep !== "validation" && impactedSteps.has(sourceStep)
     )
   );
 };

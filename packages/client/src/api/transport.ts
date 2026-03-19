@@ -1,6 +1,7 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
+import { ApiError } from "./http";
 
 export interface TransportEvent {
   event: string;
@@ -226,8 +227,29 @@ export const getDesktopRuntimeStatus = async (): Promise<DesktopRuntimeStatus | 
 };
 
 const normalizeDesktopError = (error: unknown): Error => {
-  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
-    return new Error(error.message);
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    const desktopError = error as {
+      message: string;
+      statusCode?: unknown;
+      code?: unknown;
+      details?: unknown;
+    };
+
+    return new ApiError(
+      typeof desktopError.statusCode === "number"
+        ? desktopError.statusCode
+        : 500,
+      desktopError.message,
+      typeof desktopError.code === "string"
+        ? desktopError.code
+        : undefined,
+      desktopError.details,
+    );
   }
 
   return new Error(String(error));

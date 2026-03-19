@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { InitiativePlanningQuestion, InitiativeRefinementState } from "../../../types.js";
+import type {
+  InitiativePlanningQuestion,
+  InitiativePlanningStep,
+  InitiativeRefinementState
+} from "../../../types.js";
 import { getDecisionTypeLabel } from "../../../planning-decision-types.js";
 import { MarkdownView } from "../../components/markdown-view.js";
-import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
+import {
+  getPreviousInitiativeStep,
+  INITIATIVE_WORKFLOW_LABELS,
+} from "../../utils/initiative-workflow.js";
 import { RefinementField } from "./refinement-fields.js";
 import type { ReopenedQuestionContext } from "./refinement-history.js";
 import { getAnswerPreview, getFirstOpenQuestionId, getResumeQuestionId } from "./refinement-question-utils.js";
-import type { SaveState, SpecStep } from "./shared.js";
+import type { SaveState } from "./shared.js";
 import { isQuestionAnswered } from "./shared.js";
 
 const buildVisibleQuestions = (
@@ -19,9 +26,15 @@ const buildVisibleQuestions = (
     return activeQuestions.length > 0 ? activeQuestions : history;
   }
 
+  const reopenedHistoryQuestionIds = new Set(
+    activeQuestions.flatMap((question) => question.reopensQuestionIds ?? [])
+  );
+  const visibleHistory = history.filter(
+    (question) => !reopenedHistoryQuestionIds.has(question.id)
+  );
   const activeQuestionsById = new Map(activeQuestions.map((question) => [question.id, question]));
-  const visibleQuestions = history.map((question) => activeQuestionsById.get(question.id) ?? question);
-  const historyQuestionIds = new Set(history.map((question) => question.id));
+  const visibleQuestions = visibleHistory.map((question) => activeQuestionsById.get(question.id) ?? question);
+  const historyQuestionIds = new Set(visibleHistory.map((question) => question.id));
 
   for (const question of activeQuestions) {
     if (!historyQuestionIds.has(question.id)) {
@@ -33,7 +46,7 @@ const buildVisibleQuestions = (
 };
 
 interface RefinementSectionProps {
-  activeSpecStep: SpecStep;
+  activeSpecStep: InitiativePlanningStep;
   activeRefinement: InitiativeRefinementState;
   reopenedQuestionContext?: Record<string, ReopenedQuestionContext>;
   refinementAnswers: Record<string, string | string[] | boolean>;
@@ -101,6 +114,7 @@ export const RefinementSection = ({
   const compact = variant !== "full";
   const questionDeck = variant === "survey" || variant === "compact";
   const survey = variant === "survey";
+  const showSurveyLoading = questionDeck && Boolean(loadingStateLabel);
 
   const resolvedQuestionCount = visibleQuestions.length - unresolvedQuestionCount;
   const completionPercent =
@@ -152,8 +166,16 @@ export const RefinementSection = ({
       ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + visibleQuestions.length}`
       : null;
   const completionReviewQuestionId = questionIds[questionIds.length - 1] ?? null;
+  const previousStage = getPreviousInitiativeStep(activeSpecStep);
+  const backButtonLabel =
+    previousStage === null
+      ? "Back"
+      : `Back to ${INITIATIVE_WORKFLOW_LABELS[previousStage]}`;
 
-  const renderReopenedQuestionContext = (question: InitiativePlanningQuestion): ReactNode => {
+  const renderReopenedQuestionContext = (
+    question: InitiativePlanningQuestion,
+    variant: "panel" | "survey" = "panel",
+  ): ReactNode => {
     if (!question.reopensQuestionIds?.length) {
       return null;
     }
@@ -164,6 +186,20 @@ export const RefinementSection = ({
 
     if (reopenedQuestions.length === 0) {
       return null;
+    }
+
+    if (variant === "survey") {
+      return (
+        <div className="planning-survey-question-context" aria-label="Earlier decision context">
+          {reopenedQuestions.map((context) => (
+            <p key={context.questionId} className="planning-survey-question-context-line">
+              <span className="planning-survey-question-context-step">{context.stepLabel}</span>
+              <span aria-hidden="true">:</span>
+              <span>{context.resolutionLabel ?? context.questionLabel}</span>
+            </p>
+          ))}
+        </div>
+      );
     }
 
     return (
@@ -344,11 +380,10 @@ export const RefinementSection = ({
         </div>
       ) : null}
 
-      {questionDeck && currentQuestion ? (
+      {questionDeck && !showSurveyLoading && currentQuestion ? (
         <div className="planning-survey-question">
           <h3 className="planning-survey-question-title">{currentQuestion.label}</h3>
-          <p className="planning-survey-question-copy">{currentQuestion.whyThisBlocks}</p>
-          {renderReopenedQuestionContext(currentQuestion)}
+          {renderReopenedQuestionContext(currentQuestion, "survey")}
           <RefinementField
             question={currentQuestion}
             value={refinementAnswers[currentQuestion.id]}
@@ -356,19 +391,20 @@ export const RefinementSection = ({
           />
 
           <div className="button-row planning-intake-question-actions">
-            {previousQuestionId || onBackToPreviousStep ? (
+            {onBackToPreviousStep ? (
               <button
                 type="button"
-                onClick={() => {
-                  if (previousQuestionId) {
-                    setOpenQuestionId(previousQuestionId);
-                    return;
-                  }
-
-                  onBackToPreviousStep?.();
-                }}
+                onClick={() => onBackToPreviousStep()}
               >
-                Back
+                {backButtonLabel}
+              </button>
+            ) : null}
+            {previousQuestionId ? (
+              <button
+                type="button"
+                onClick={() => setOpenQuestionId(previousQuestionId)}
+              >
+                Previous question
               </button>
             ) : null}
             <button
@@ -400,7 +436,6 @@ export const RefinementSection = ({
                 }
 
                 if (onCompleteSurvey) {
-                  setOpenQuestionId(null);
                   void onCompleteSurvey();
                   return;
                 }
@@ -412,7 +447,7 @@ export const RefinementSection = ({
             </button>
           </div>
         </div>
-      ) : questionDeck && !loadingStateLabel && unresolvedQuestionCount === 0 && visibleQuestions.length > 0 ? (
+      ) : questionDeck && !showSurveyLoading && unresolvedQuestionCount === 0 && visibleQuestions.length > 0 ? (
         <div className="planning-survey-question">
           <h3 className="planning-survey-question-title">All questions are answered</h3>
           <p className="planning-survey-question-copy">
@@ -420,19 +455,20 @@ export const RefinementSection = ({
           </p>
 
           <div className="button-row planning-intake-question-actions">
-            {completionReviewQuestionId || onBackToPreviousStep ? (
+            {onBackToPreviousStep ? (
               <button
                 type="button"
-                onClick={() => {
-                  if (completionReviewQuestionId) {
-                    setOpenQuestionId(completionReviewQuestionId);
-                    return;
-                  }
-
-                  onBackToPreviousStep?.();
-                }}
+                onClick={() => onBackToPreviousStep()}
               >
-                Back
+                {backButtonLabel}
+              </button>
+            ) : null}
+            {completionReviewQuestionId ? (
+              <button
+                type="button"
+                onClick={() => setOpenQuestionId(completionReviewQuestionId)}
+              >
+                Review answers
               </button>
             ) : null}
             {onCompleteSurvey ? (

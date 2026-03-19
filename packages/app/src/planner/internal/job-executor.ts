@@ -13,6 +13,7 @@ import type { ResolvedPlannerConfig } from "./config.js";
 
 const MAX_TOKENS_BY_JOB: Record<PlannerJob, number> = {
   plan: 8192,
+  "plan-repair": 8192,
   "brief-gen": 8192,
   "core-flows-gen": 8192,
   "prd-gen": 8192,
@@ -48,6 +49,7 @@ export const executePlannerJob = async <T>(input: {
       maxTokens: MAX_TOKENS_BY_JOB[input.job],
       timeoutMs:
         input.job === "plan" ||
+        input.job === "plan-repair" ||
         input.job === "brief-gen" ||
         input.job === "core-flows-gen" ||
         input.job === "prd-gen" ||

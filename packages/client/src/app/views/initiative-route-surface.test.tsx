@@ -37,6 +37,7 @@ const initiative: Initiative = {
       "core-flows": { status: "locked", updatedAt: null },
       prd: { status: "locked", updatedAt: null },
       "tech-spec": { status: "locked", updatedAt: null },
+      validation: { status: "locked", updatedAt: null },
       tickets: { status: "locked", updatedAt: null },
     },
     refinements: {
@@ -189,13 +190,13 @@ describe("InitiativeRouteView planning surfaces", () => {
     expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
   });
 
-  it("returns Back from review to the questions surface instead of keeping the document view open", async () => {
+  it("reopens the question surface from review through the explicit revise action", async () => {
     fetchSpecDetailMock.mockResolvedValueOnce(briefSpecDetail);
 
     renderRoute(createSnapshot([briefSpecSummary]), `/initiative/${initiative.id}?step=brief&surface=review`);
 
-    const backButton = await screen.findByRole("button", { name: "Back" });
-    fireEvent.click(backButton);
+    const reviseButton = await screen.findByRole("button", { name: "Revise answers" });
+    fireEvent.click(reviseButton);
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
@@ -239,8 +240,8 @@ describe("InitiativeRouteView planning surfaces", () => {
       `/initiative/${initiative.id}?step=brief&surface=review`,
     );
 
-    const backButton = await screen.findByRole("button", { name: "Back" });
-    fireEvent.click(backButton);
+    const reviseButton = await screen.findByRole("button", { name: "Revise answers" });
+    fireEvent.click(reviseButton);
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(

@@ -5,10 +5,10 @@ import { ArtifactStore } from "../store/artifact-store.js";
 import type {
   Initiative,
   InitiativeArtifactStep,
+  PendingTicketPlanArtifact,
   PlanningReviewArtifact,
   PlanningReviewKind,
-  Ticket,
-  TicketCoverageItem
+  Ticket
 } from "../types/entities.js";
 import {
   BRIEF_CONSULTATION_REQUIRED_MESSAGE,
@@ -17,7 +17,12 @@ import {
 } from "./brief-consultation.js";
 import { AUTO_REVIEW_KINDS_BY_STEP, getImpactedReviewKinds } from "./planning-reviews.js";
 import { PlannerConflictError } from "./planner-errors.js";
-import { createInitiativeWorkflow, getRefinementAssumptions, updateRefinementState } from "./workflow-state.js";
+import {
+  blockWorkflowAtStep,
+  createInitiativeWorkflow,
+  getRefinementAssumptions,
+  updateRefinementState
+} from "./workflow-state.js";
 import { loadPlannerAgentsMd } from "./internal/agents-md.js";
 import {
   buildPhaseCheckInput,
@@ -31,10 +36,18 @@ import {
 import { getResolvedPlannerConfig } from "./internal/config.js";
 import { toStructuredPlannerError } from "./internal/error-shaping.js";
 import { executePlannerJob as executePlannerJobInternal } from "./internal/job-executor.js";
-import { persistPlanArtifacts } from "./internal/plan-job.js";
+import { resolveValidatedPlanResult } from "./internal/plan-generation-job.js";
+import {
+  buildPendingTicketPlanArtifact,
+  commitPendingTicketPlanArtifact
+} from "./internal/plan-job.js";
+import { validateCoverageMappings } from "./internal/plan-validation.js";
 import { canonicalizePhaseCheckResult, resolveValidatedPhaseCheckResult } from "./internal/phase-check-job.js";
 import { scanRepo } from "./internal/repo-scanner.js";
-import { executeReviewJob as executeReviewJobInternal } from "./internal/review-job.js";
+import {
+  buildReviewFindings,
+  executeReviewJob as executeReviewJobInternal
+} from "./internal/review-job.js";
 import {
   buildPersistedTicketCoverageArtifact,
   buildTicketCoverageInput,
@@ -61,6 +74,7 @@ import type {
   PlanResult,
   RefinementStep,
   ReviewRunInput,
+  ReviewRunResult,
   SpecGenInput,
   TriageInput,
   TriageResult
@@ -160,7 +174,11 @@ export class PlannerService {
   }
 
   public async runPhaseCheckJob(
-    input: { initiativeId: string; step: RefinementStep },
+    input: {
+      initiativeId: string;
+      step: RefinementStep;
+      validationFeedback?: string;
+    },
     onToken?: LlmTokenHandler,
     signal?: AbortSignal
   ): Promise<PhaseCheckResult> {
@@ -179,7 +197,13 @@ export class PlannerService {
       )
         ? await scanRepo(this.rootDir).catch(() => undefined)
         : undefined;
-    const phaseCheckInput = buildPhaseCheckInput(initiative, input.step, markdownByStep, repoContext);
+    const phaseCheckInput = buildPhaseCheckInput(
+      initiative,
+      input.step,
+      markdownByStep,
+      repoContext,
+      input.validationFeedback
+    );
     const initialBriefConsultationRequired =
       input.step === "brief" &&
       requiresInitialBriefConsultation({
@@ -355,33 +379,66 @@ export class PlannerService {
     });
     const repoContext = await scanRepo(this.rootDir).catch(() => undefined);
 
-    const result = await this.executePlannerJob<PlanResult>(
-      "plan",
-      {
-        initiativeDescription: initiative.description,
-        briefMarkdown: brief,
-        coreFlowsMarkdown: coreFlows,
-        prdMarkdown: prd,
-        techSpecMarkdown: techSpec,
-        coverageItems: coverageInput.items,
-        repoContext
-      } satisfies PlanInput,
-      onToken,
-      signal
-    );
+    const planInput = {
+      initiativeDescription: initiative.description,
+      briefMarkdown: brief,
+      coreFlowsMarkdown: coreFlows,
+      prdMarkdown: prd,
+      techSpecMarkdown: techSpec,
+      coverageItems: coverageInput.items,
+      repoContext
+    } satisfies PlanInput;
 
-    validatePlanResult(result);
-    this.validateCoverageMappings(result, coverageInput.items);
+    const result = await resolveValidatedPlanResult({
+      planInput,
+      executePlan: (nextPlanInput) => this.executePlannerJob<PlanResult>("plan", nextPlanInput, onToken, signal),
+      executePlanRepair: (nextPlanInput) =>
+        this.executePlannerJob<PlanResult>("plan-repair", nextPlanInput, onToken, signal),
+      validateResult: (nextResult) => {
+        validatePlanResult(nextResult);
+        validateCoverageMappings(nextResult, coverageInput.items);
+      }
+    });
 
     const nowIso = this.now().toISOString();
-    await persistPlanArtifacts({
-      initiative,
+    const pendingPlan = buildPendingTicketPlanArtifact({
+      initiativeId: initiative.id,
       result,
+      coverageItems: coverageInput.items,
+      sourceUpdatedAts: coverageInput.sourceUpdatedAts,
+      nowIso
+    });
+    await this.store.upsertPendingTicketPlanArtifact(pendingPlan);
+
+    const review = await this.executeTicketCoverageReviewForPendingPlan(
+      initiative,
+      pendingPlan,
+      undefined,
+      signal
+    );
+    await this.store.upsertPlanningReview(review);
+
+    if (review.status === "blocked") {
+      await this.store.upsertInitiative({
+        ...this.requireInitiative(initiative.id),
+        workflow: blockWorkflowAtStep(this.requireInitiative(initiative.id).workflow, "validation", nowIso),
+        updatedAt: nowIso
+      });
+      return result;
+    }
+
+    await commitPendingTicketPlanArtifact({
+      initiative: this.requireInitiative(initiative.id),
+      pendingPlan,
       nowIso,
       idGenerator: this.idGenerator,
       upsertTicket: (ticket) => this.store.upsertTicket(ticket),
+      deleteTicket: (ticketId) => this.store.deleteTicket(ticketId),
       getTicket: (ticketId) => this.store.tickets.get(ticketId),
+      listInitiativeTickets: (initiativeId) =>
+        Array.from(this.store.tickets.values()).filter((ticket) => ticket.initiativeId === initiativeId),
       upsertInitiative: (updatedInitiative) => this.store.upsertInitiative(updatedInitiative),
+      deletePendingTicketPlanArtifact: (initiativeId) => this.store.deletePendingTicketPlanArtifact(initiativeId),
       upsertTicketCoverageArtifact: (artifact) => this.store.upsertTicketCoverageArtifact(artifact),
       buildTicketCoverageArtifact: ({ initiativeId, items, uncoveredItemIds, sourceUpdatedAts, nowIso: artifactNowIso }) =>
         buildPersistedTicketCoverageArtifact({
@@ -391,14 +448,40 @@ export class PlannerService {
           sourceUpdatedAts,
           nowIso: artifactNowIso
         }),
-      coverageItems: coverageInput.items,
-      coverageSourceUpdatedAts: coverageInput.sourceUpdatedAts,
-      executeCoverageReview: (updatedInitiative) =>
-        this.executeReviewJob(updatedInitiative, "ticket-coverage-review", undefined, signal),
-      upsertPlanningReview: (review) => this.store.upsertPlanningReview(review)
     });
 
     return result;
+  }
+
+  public async commitPendingPlan(input: { initiativeId: string }): Promise<void> {
+    const initiative = this.requireInitiative(input.initiativeId);
+    const pendingPlan = this.store.pendingTicketPlans.get(`${initiative.id}:pending-ticket-plan`);
+    if (!pendingPlan) {
+      throw new Error(`Pending ticket plan is missing for initiative ${initiative.id}`);
+    }
+
+    await commitPendingTicketPlanArtifact({
+      initiative,
+      pendingPlan,
+      nowIso: this.now().toISOString(),
+      idGenerator: this.idGenerator,
+      upsertTicket: (ticket) => this.store.upsertTicket(ticket),
+      deleteTicket: (ticketId) => this.store.deleteTicket(ticketId),
+      getTicket: (ticketId) => this.store.tickets.get(ticketId),
+      listInitiativeTickets: (initiativeId) =>
+        Array.from(this.store.tickets.values()).filter((ticket) => ticket.initiativeId === initiativeId),
+      upsertInitiative: (updatedInitiative) => this.store.upsertInitiative(updatedInitiative),
+      deletePendingTicketPlanArtifact: (initiativeId) => this.store.deletePendingTicketPlanArtifact(initiativeId),
+      upsertTicketCoverageArtifact: (artifact) => this.store.upsertTicketCoverageArtifact(artifact),
+      buildTicketCoverageArtifact: ({ initiativeId, items, uncoveredItemIds, sourceUpdatedAts, nowIso }) =>
+        buildPersistedTicketCoverageArtifact({
+          initiativeId,
+          items,
+          uncoveredItemIds,
+          sourceUpdatedAts,
+          nowIso
+        })
+    });
   }
 
   public async runTriageJob(
@@ -453,6 +536,7 @@ export class PlannerService {
     code: string;
     message: string;
     statusCode: number;
+    details?: unknown;
   } {
     return toStructuredPlannerError(error);
   }
@@ -548,12 +632,75 @@ export class PlannerService {
     };
   }
 
+  private async executeTicketCoverageReviewForPendingPlan(
+    initiative: Initiative,
+    pendingPlan: PendingTicketPlanArtifact,
+    onToken?: LlmTokenHandler,
+    signal?: AbortSignal
+  ): Promise<PlanningReviewArtifact> {
+    const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
+    const traceOutlines: ReviewRunInput["traceOutlines"] = {};
+
+    for (const step of ["brief", "core-flows", "prd", "tech-spec"] as const) {
+      if (!markdownByStep[step]?.trim()) {
+        throw new Error(`Cannot run ticket coverage review before ${step} exists`);
+      }
+
+      const trace = await this.ensureArtifactTrace(initiative, step, signal);
+      traceOutlines[step] = { sections: trace.sections };
+    }
+
+    const result = await this.executePlannerJob<ReviewRunResult>(
+      "review",
+      {
+        initiativeDescription: initiative.description,
+        kind: "ticket-coverage-review",
+        briefMarkdown: markdownByStep.brief,
+        coreFlowsMarkdown: markdownByStep["core-flows"],
+        prdMarkdown: markdownByStep.prd,
+        techSpecMarkdown: markdownByStep["tech-spec"],
+        traceOutlines,
+        coverageItems: pendingPlan.coverageItems,
+        uncoveredCoverageItemIds: pendingPlan.uncoveredItemIds,
+        tickets: pendingPlan.phases.flatMap((phase) => phase.tickets)
+      },
+      onToken,
+      signal
+    );
+
+    validateReviewRunResult(result);
+
+    const nowIso = this.now().toISOString();
+    return {
+      id: `${initiative.id}:ticket-coverage-review`,
+      initiativeId: initiative.id,
+      kind: "ticket-coverage-review",
+      status: result.blockers.length > 0 ? "blocked" : "passed",
+      summary: result.summary,
+      findings: buildReviewFindings("ticket-coverage-review", result),
+      sourceUpdatedAts: {
+        ...pendingPlan.sourceUpdatedAts,
+        validation: nowIso
+      },
+      overrideReason: null,
+      reviewedAt: nowIso,
+      updatedAt: nowIso
+    };
+  }
+
   private async executeReviewJob(
     initiative: Initiative,
     kind: PlanningReviewKind,
     onToken?: LlmTokenHandler,
     signal?: AbortSignal
   ): Promise<PlanningReviewArtifact> {
+    if (kind === "ticket-coverage-review") {
+      const pendingPlan = this.store.pendingTicketPlans.get(`${initiative.id}:pending-ticket-plan`);
+      if (pendingPlan) {
+        return this.executeTicketCoverageReviewForPendingPlan(initiative, pendingPlan, onToken, signal);
+      }
+    }
+
     return executeReviewJobInternal({
       initiative,
       kind,
@@ -568,46 +715,6 @@ export class PlannerService {
       getInitiativeTickets: (currentInitiative) => getInitiativeTickets(currentInitiative, this.store.tickets),
       onToken
     });
-  }
-
-  private validateCoverageMappings(result: PlanResult, coverageItems: TicketCoverageItem[]): void {
-    const knownCoverageItemIds = new Set(coverageItems.map((item) => item.id));
-    const assignedCoverageItemIds = new Set<string>();
-
-    for (const phase of result.phases) {
-      for (const ticket of phase.tickets) {
-        if (knownCoverageItemIds.size > 0 && ticket.coverageItemIds.length === 0) {
-          throw new Error(`Plan ticket "${ticket.title}" must reference at least one coverage item`);
-        }
-
-        for (const coverageItemId of ticket.coverageItemIds) {
-          if (!knownCoverageItemIds.has(coverageItemId)) {
-            throw new Error(`Plan ticket "${ticket.title}" references unknown coverage item "${coverageItemId}"`);
-          }
-
-          assignedCoverageItemIds.add(coverageItemId);
-        }
-      }
-    }
-
-    const uncoveredCoverageItemIds = new Set<string>();
-    for (const coverageItemId of result.uncoveredCoverageItemIds) {
-      if (!knownCoverageItemIds.has(coverageItemId)) {
-        throw new Error(`Plan uncoveredCoverageItemIds references unknown coverage item "${coverageItemId}"`);
-      }
-
-      if (assignedCoverageItemIds.has(coverageItemId)) {
-        throw new Error(`Coverage item "${coverageItemId}" cannot be both assigned and uncovered`);
-      }
-
-      uncoveredCoverageItemIds.add(coverageItemId);
-    }
-
-    for (const coverageItemId of knownCoverageItemIds) {
-      if (!assignedCoverageItemIds.has(coverageItemId) && !uncoveredCoverageItemIds.has(coverageItemId)) {
-        throw new Error(`Coverage item "${coverageItemId}" is missing from the generated plan`);
-      }
-    }
   }
 
   private requireInitiative(initiativeId: string): Initiative {

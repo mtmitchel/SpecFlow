@@ -1398,7 +1398,7 @@ describe("PlannerService", () => {
           JSON.stringify(reviewResult("Tech spec review")),
           JSON.stringify(reviewResult("PRD/tech spec cross-check")),
           JSON.stringify(reviewResult("Spec set review")),
-          JSON.stringify({
+          ...repeatResponseTwice({
             phases: [
               {
                 name: "Phase 1",
@@ -1438,7 +1438,7 @@ describe("PlannerService", () => {
       await planner.runTechSpecJob({ initiativeId: initiative.id });
 
       await expect(planner.runPlanJob({ initiativeId: initiative.id })).rejects.toThrow(
-        'Coverage item "coverage-core-flows-flows-1" is missing from the generated plan'
+        "Missing Core flows flow: User signs in"
       );
 
       await store.close();

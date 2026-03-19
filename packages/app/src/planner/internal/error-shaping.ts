@@ -1,10 +1,12 @@
 import { LlmProviderError } from "../../llm/errors.js";
 import { PlannerConflictError } from "../planner-errors.js";
+import { PlanValidationError } from "./plan-validation.js";
 
 export const toStructuredPlannerError = (error: unknown): {
   code: string;
   message: string;
   statusCode: number;
+  details?: unknown;
 } => {
   if (error instanceof PlannerConflictError) {
     return {
@@ -28,6 +30,17 @@ export const toStructuredPlannerError = (error: unknown): {
       code: error.code,
       message: error.message,
       statusCode
+    };
+  }
+
+  if (error instanceof PlanValidationError) {
+    return {
+      code: "planner_validation_error",
+      message: error.message,
+      statusCode: 500,
+      details: {
+        issues: error.issues
+      }
     };
   }
 
