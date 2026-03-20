@@ -1,6 +1,14 @@
 import type { AgentTarget } from "../../../types.js";
+import { CustomSelect } from "../../components/custom-select.js";
 import { WorkflowSection } from "../../components/workflow-section.js";
 import type { WorkflowPhase } from "./workflow.js";
+
+const AGENT_OPTIONS = [
+  { value: "claude-code", label: "Claude Code" },
+  { value: "codex-cli", label: "Codex CLI" },
+  { value: "opencode", label: "OpenCode" },
+  { value: "generic", label: "Generic" },
+];
 
 const HelpTip = ({ text }: { text: string }) => (
   <span className="help-tip" data-tip={text}>?</span>
@@ -56,12 +64,12 @@ export const ExportSection = ({
       <div className="button-row">
         {showCreateControls ? (
           <>
-            <select value={agentTarget} onChange={(event) => setAgentTarget(event.target.value as AgentTarget)}>
-              <option value="claude-code">Claude Code</option>
-              <option value="codex-cli">Codex CLI</option>
-              <option value="opencode">OpenCode</option>
-              <option value="generic">Generic</option>
-            </select>
+            <CustomSelect
+              options={AGENT_OPTIONS}
+              value={agentTarget}
+              onChange={(val) => setAgentTarget(val as AgentTarget)}
+              aria-label="Agent target"
+            />
             <button
               type="button"
               className="btn-primary"

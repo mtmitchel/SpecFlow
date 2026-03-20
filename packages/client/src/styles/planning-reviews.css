@@ -38,27 +38,42 @@
 
 .checkpoint-gate-banner button,
 .phase-transition-banner button {
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-xs);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
   font-family: inherit;
-  font-size: var(--font-body);
-  background: var(--surface-button);
-  color: var(--text);
+  font-size: var(--font-body-sm);
+  font-weight: 500;
+  background: var(--accent-bg-active);
+  color: var(--accent-text);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.checkpoint-gate-banner button:hover {
+  background: rgba(72, 203, 255, 0.24);
 }
 
 .checkpoint-gate-banner button {
   border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.checkpoint-gate-banner button:hover {
+  background: rgba(243, 187, 82, 0.18);
 }
 
 .planning-review-card {
   display: grid;
   gap: var(--space-3);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  background: var(--gradient-card);
-  padding: var(--space-4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
+    var(--gradient-card);
+  padding: var(--space-5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
 }
 
 .planning-review-header {
@@ -273,9 +288,9 @@
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: 1px solid var(--warning-border);
+  border: 1px solid var(--tone-in-progress-border);
   border-radius: var(--radius-md);
-  background: rgba(243, 187, 82, 0.08);
+  background: var(--tone-in-progress-bg);
 }
 
 .planning-review-override-label {

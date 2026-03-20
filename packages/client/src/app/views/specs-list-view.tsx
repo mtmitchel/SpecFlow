@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot } from "../../types.js";
+import { CustomSelect } from "../components/custom-select.js";
 
 interface SpecsListViewProps {
   snapshot: ArtifactsSnapshot;
@@ -62,12 +63,11 @@ export const SpecsListView = ({ snapshot }: SpecsListViewProps) => {
           onChange={(e) => setSearch(e.target.value)}
           className="aggregate-search"
         />
-        <select value={initiativeFilter} onChange={(e) => setInitiativeFilter(e.target.value)}>
-          <option value="">All initiatives</option>
-          {snapshot.initiatives.map((init) => (
-            <option key={init.id} value={init.id}>{init.title}</option>
-          ))}
-        </select>
+        <CustomSelect
+          options={[{ value: "", label: "All initiatives" }, ...snapshot.initiatives.map((init) => ({ value: init.id, label: init.title }))]}
+          value={initiativeFilter}
+          onChange={setInitiativeFilter}
+        />
       </div>
 
       {filtered.length === 0 ? (

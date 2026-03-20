@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchRuns } from "../../api/runs.js";
 import type { ArtifactsSnapshot, RunListItem } from "../../types.js";
+import { CustomSelect } from "../components/custom-select.js";
 import { useToast } from "../context/toast.js";
 
 interface RunsListViewProps {
@@ -52,17 +53,16 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
       </header>
 
       <div className="aggregate-filters">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "pending" | "complete" | "")}>
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="complete">Complete</option>
-        </select>
-        <select value={ticketFilter} onChange={(e) => setTicketFilter(e.target.value)}>
-          <option value="">All tickets</option>
-          {snapshot.tickets.map((t) => (
-            <option key={t.id} value={t.id}>{t.title}</option>
-          ))}
-        </select>
+        <CustomSelect
+          options={[{ value: "", label: "All statuses" }, { value: "pending", label: "Pending" }, { value: "complete", label: "Complete" }]}
+          value={statusFilter}
+          onChange={(val) => setStatusFilter(val as "pending" | "complete" | "")}
+        />
+        <CustomSelect
+          options={[{ value: "", label: "All tickets" }, ...snapshot.tickets.map((t) => ({ value: t.id, label: t.title }))]}
+          value={ticketFilter}
+          onChange={setTicketFilter}
+        />
       </div>
 
       {loading ? (

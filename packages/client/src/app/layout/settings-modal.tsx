@@ -33,7 +33,6 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const [saving, setSaving] = useState(false);
   const [modelsGeneration, setModelsGeneration] = useState(0);
   const [dirty, setDirty] = useState(false);
-  const [providerOpen, setProviderOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<'general' | 'providers'>('providers');
   const overlayRef = useRef<HTMLDivElement>(null);
   const providerRef = useRef<HTMLDivElement>(null);
@@ -56,24 +55,11 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (providerOpen) { setProviderOpen(false); return; }
-        close();
-      }
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, close, providerOpen]);
-
-  useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (providerRef.current && !providerRef.current.contains(e.target as Node)) {
-        setProviderOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
+  }, [isOpen, close]);
 
   if (!isOpen) return null;
 
@@ -100,7 +86,10 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
     >
       <div className="settings-modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-modal-header">
-          <h2 className="heading-reset settings-modal-heading">Settings</h2>
+          <div>
+            <h2 className="heading-reset settings-modal-heading">Providers &amp; Agents</h2>
+            <p className="text-muted-sm" style={{ margin: '0.2rem 0 0' }}>Configure LLM providers and model preferences</p>
+          </div>
           <button type="button" className="settings-modal-close" onClick={close} aria-label="Close">
             ×
           </button>
@@ -121,10 +110,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
               General
             </button>
             <button className="settings-modal-nav-item disabled" disabled>
-              AI Agents
-            </button>
-            <button className="settings-modal-nav-item disabled" disabled>
-              Local Runtime
+              More options coming later
             </button>
           </nav>
 
@@ -156,57 +142,37 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
             >
               {activeSection === 'providers' ? (
                 <>
-                  <label>
-                    Provider
-                    <div className="settings-provider-picker" ref={providerRef}>
-                      <button
-                        type="button"
-                        className="settings-provider-trigger"
-                        onClick={() => setProviderOpen((prev) => !prev)}
-                        aria-haspopup="listbox"
-                        aria-expanded={providerOpen}
-                      >
-                        <span>{PROVIDER_OPTIONS.find((o) => o.value === form.provider)?.label}</span>
-                        <span className="settings-provider-arrow" aria-hidden="true">{providerOpen ? "\u25B2" : "\u25BC"}</span>
-                      </button>
-                      {providerOpen ? (
-                        <ul className="settings-model-list" role="listbox" onMouseDown={(e) => e.preventDefault()}>
-                          {PROVIDER_OPTIONS.map((opt) => (
-                            <li
-                              key={opt.value}
-                              role="option"
-                              aria-selected={form.provider === opt.value}
-                              className={"settings-model-item" + (form.provider === opt.value ? " selected" : "")}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDirty(true);
-                                const nextHasApiKey = form.providerKeyStatus[opt.value] ?? false;
-                                setForm({
-                                  ...form,
-                                  provider: opt.value,
-                                  model: opt.value === form.provider ? form.model : DEFAULT_PROVIDER_MODELS[opt.value],
-                                  hasApiKey: nextHasApiKey
-                                });
-                                setProviderOpen(false);
-                              }}
-                            >
-                              <span>{opt.label}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                  </label>
-                  <label>
-                    Model
-                    <ModelCombobox
-                      provider={form.provider}
-                      hasApiKey={selectedProviderHasApiKey}
-                      value={form.model}
-                      onSelect={(modelId) => { setDirty(true); setForm({ ...form, model: modelId }); }}
-                      modelsGeneration={modelsGeneration}
-                    />
-                  </label>
+                  <div className="settings-provider-grid" ref={providerRef}>
+                    {PROVIDER_OPTIONS.map((opt) => {
+                      const isSelected = form.provider === opt.value;
+                      const hasKey = form.providerKeyStatus[opt.value] ?? false;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`settings-provider-card${isSelected ? " settings-provider-card-selected" : ""}`}
+                          onClick={() => {
+                            setDirty(true);
+                            const nextHasApiKey = form.providerKeyStatus[opt.value] ?? false;
+                            setForm({
+                              ...form,
+                              provider: opt.value,
+                              model: opt.value === form.provider ? form.model : DEFAULT_PROVIDER_MODELS[opt.value],
+                              hasApiKey: nextHasApiKey,
+                            });
+                          }}
+                        >
+                          <span className="settings-provider-card-icon" aria-hidden="true">
+                            {opt.label.slice(0, 2).toUpperCase()}
+                          </span>
+                          <strong>{opt.label}</strong>
+                          <span className="settings-provider-card-status">
+                            {hasKey ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "Not configured"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <label>
                     API key
                     <input
@@ -220,6 +186,16 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                         ? "Leave this blank to keep the saved key, or paste a new one."
                         : "Paste a key to load models and run planning."}
                     </span>
+                  </label>
+                  <label>
+                    Model
+                    <ModelCombobox
+                      provider={form.provider}
+                      hasApiKey={selectedProviderHasApiKey}
+                      value={form.model}
+                      onSelect={(modelId) => { setDirty(true); setForm({ ...form, model: modelId }); }}
+                      modelsGeneration={modelsGeneration}
+                    />
                   </label>
                 </>
               ) : (

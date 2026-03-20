@@ -56,6 +56,55 @@
   --muted-bg: rgba(142, 167, 195, 0.12);
   --muted-border: rgba(142, 167, 195, 0.3);
 
+  /* Surface tiers */
+  --surface-standard: var(--panel);
+  --surface-flat: rgba(16, 24, 38, 0.6);
+  --surface-glass: rgba(16, 24, 38, 0.45);
+  --surface-editor: rgba(10, 14, 22, 0.95);
+  --surface-terminal: rgba(6, 9, 14, 0.96);
+  --surface-toolbar: rgba(20, 30, 46, 0.7);
+
+  /* Glass effect (onboarding only) */
+  --glass-blur: blur(12px);
+  --glass-border: rgba(152, 188, 220, 0.12);
+
+  /* Status tones */
+  --tone-backlog-text: var(--muted);
+  --tone-backlog-bg: var(--muted-bg);
+  --tone-backlog-border: var(--muted-border);
+  --tone-backlog-tint: rgba(142, 167, 195, 0.04);
+
+  --tone-ready-text: var(--accent-text);
+  --tone-ready-bg: var(--accent-bg-subtle);
+  --tone-ready-border: var(--accent-border-subtle);
+  --tone-ready-tint: rgba(72, 203, 255, 0.04);
+
+  --tone-in-progress-text: var(--warning-text);
+  --tone-in-progress-bg: var(--warning-bg);
+  --tone-in-progress-border: var(--warning-border-subtle);
+  --tone-in-progress-tint: rgba(243, 187, 82, 0.04);
+
+  --tone-verify-text: var(--execution-text);
+  --tone-verify-bg: var(--execution-bg-subtle);
+  --tone-verify-border: var(--execution-border);
+  --tone-verify-tint: rgba(184, 156, 255, 0.04);
+
+  --tone-done-text: var(--success-text);
+  --tone-done-bg: var(--success-bg);
+  --tone-done-border: var(--success-border);
+  --tone-done-tint: rgba(80, 212, 147, 0.04);
+
+  /* Ambient bloom */
+  --bloom-accent: radial-gradient(ellipse at 20% 0%, rgba(72, 203, 255, 0.12) 0%, transparent 55%);
+  --bloom-execution: radial-gradient(ellipse at 80% 0%, rgba(184, 156, 255, 0.08) 0%, transparent 55%);
+
+  /* Glow rules */
+  --glow-accent: 0 0 0 1px rgba(72, 203, 255, 0.15), 0 4px 20px rgba(72, 203, 255, 0.08);
+  --glow-warning: 0 0 0 1px rgba(243, 187, 82, 0.15), 0 4px 20px rgba(243, 187, 82, 0.06);
+  --glow-success: 0 0 0 1px rgba(80, 212, 147, 0.15), 0 4px 20px rgba(80, 212, 147, 0.06);
+  --glow-danger: 0 0 0 1px rgba(255, 127, 120, 0.15), 0 4px 20px rgba(255, 127, 120, 0.06);
+  --glow-execution: 0 0 0 1px rgba(184, 156, 255, 0.15), 0 4px 20px rgba(184, 156, 255, 0.06);
+
   /* Border radius */
   --radius-xs: 12px;
   --radius-sm: 10px;
@@ -105,6 +154,12 @@
   --shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.6);
   --overlay-backdrop: rgba(0, 0, 0, 0.55);
 
+  /* Line heights */
+  --line-height-tight: 1.3;
+  --line-height-normal: 1.5;
+  --line-height-reading: 1.7;
+  --line-height-editorial: 1.8;
+
   /* Transitions */
   --transition-fast: 120ms ease;
   --transition-normal: 200ms ease;
@@ -122,6 +177,12 @@
   box-sizing: border-box;
 }
 
+/* Dark scrollbars */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(152, 188, 220, 0.18); border-radius: var(--radius-pill); }
+*::-webkit-scrollbar-thumb:hover { background: rgba(152, 188, 220, 0.3); }
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -129,6 +190,14 @@ body {
   color: var(--text);
   color-scheme: dark;
   font-family: "Space Grotesk", sans-serif;
+  font-size: var(--font-body-sm);
+  line-height: var(--line-height-normal);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--line-height-tight);
 }
 
 a {
@@ -179,4 +248,23 @@ a {
   animation: pulse-fade 1.6s ease-in-out infinite;
   color: var(--muted);
   font-size: var(--font-caption);
+}
+
+/* Content backdrop with ambient bloom */
+.content-backdrop {
+  position: relative;
+}
+
+.content-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bloom-accent), var(--bloom-execution);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.content-backdrop > * {
+  position: relative;
+  z-index: 1;
 }

@@ -266,18 +266,17 @@ export const TicketView = ({
 
   return (
     <section className="ticket-journey">
-      <header className="section-header ticket-journey-header">
-        <div>
-          <h2>{ticket.title}</h2>
-        </div>
-        <div className="button-row" style={{ marginBottom: 0 }}>
-          {run ? <Link to={`/run/${run.id}`}>Open latest run</Link> : null}
+      <header className="ticket-journey-header">
+        <h2>{ticket.title}</h2>
+        <div className="ticket-journey-header-actions">
+          <span className="ticket-status-badge-inline">{ticketStatusLabel}</span>
           {initiative ? (
             <Link to={`/initiative/${initiative.id}?step=tickets`}>Back to tickets</Link>
           ) : null}
         </div>
       </header>
 
+      <div className="ticket-content-card">
       <TicketAnchorCard
         contextLabel={initiative ? "Tickets" : "Quick task"}
         phaseName={phase?.name ?? "Quick task"}
@@ -301,7 +300,6 @@ export const TicketView = ({
           }
         }}
       />
-
       {visibleBlockingIssues.length > 0 ? (
         <TicketBlockersCard issues={visibleBlockingIssues} />
       ) : null}
@@ -425,6 +423,7 @@ export const TicketView = ({
       ) : null}
 
       <TicketBriefCard ticket={ticket} groupedCoveredItems={groupedCoveredItems} />
+      </div>
     </section>
   );
 };

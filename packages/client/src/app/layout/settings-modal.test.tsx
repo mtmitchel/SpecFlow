@@ -38,8 +38,7 @@ describe("SettingsModal", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Provider" }));
-    fireEvent.click(screen.getByRole("option", { name: "OpenAI" }));
+    fireEvent.click(screen.getByRole("button", { name: /OpenAI/i }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -74,8 +73,7 @@ describe("SettingsModal", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Provider" }));
-    fireEvent.click(screen.getByRole("option", { name: "OpenAI" }));
+    fireEvent.click(screen.getByRole("button", { name: /OpenAI/i }));
 
     expect(screen.getByPlaceholderText("(key set -- leave blank to keep)")).toBeInTheDocument();
     expect(screen.getByText("Leave this blank to keep the saved key, or paste a new one.")).toBeInTheDocument();

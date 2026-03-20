@@ -80,6 +80,7 @@
   height: 12px;
   background: var(--success);
   color: #081014;
+  box-shadow: 0 0 0 3px rgba(80, 212, 147, 0.15);
 }
 
 .pipeline-node-active .pipeline-dot,
@@ -87,7 +88,7 @@
   width: 18px;
   height: 18px;
   background: var(--accent);
-  box-shadow: 0 0 0 8px rgba(72, 203, 255, 0.12);
+  box-shadow: 0 0 0 8px rgba(72, 203, 255, 0.16);
 }
 
 .pipeline-node-execution.pipeline-node-active .pipeline-dot,

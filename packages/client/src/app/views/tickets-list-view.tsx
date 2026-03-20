@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot, TicketStatus } from "../../types.js";
+import { CustomSelect } from "../components/custom-select.js";
 import { statusColumns } from "../constants/status-columns.js";
 
 interface TicketsListViewProps {
@@ -71,19 +72,16 @@ export const TicketsListView = ({ snapshot }: TicketsListViewProps) => {
           onChange={(e) => setSearch(e.target.value)}
           className="aggregate-search"
         />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TicketStatus | "")}>
-          <option value="">All statuses</option>
-          {statusColumns.map((col) => (
-            <option key={col.key} value={col.key}>{col.label}</option>
-          ))}
-        </select>
-        <select value={initiativeFilter} onChange={(e) => setInitiativeFilter(e.target.value)}>
-          <option value="">All initiatives</option>
-          {snapshot.initiatives.map((init) => (
-            <option key={init.id} value={init.id}>{init.title}</option>
-          ))}
-          <option value="__none__">Quick Tasks</option>
-        </select>
+        <CustomSelect
+          options={[{ value: "", label: "All statuses" }, ...statusColumns.map((col) => ({ value: col.key, label: col.label }))]}
+          value={statusFilter}
+          onChange={(val) => setStatusFilter(val as TicketStatus | "")}
+        />
+        <CustomSelect
+          options={[{ value: "", label: "All initiatives" }, ...snapshot.initiatives.map((init) => ({ value: init.id, label: init.title })), { value: "__none__", label: "Quick Tasks" }]}
+          value={initiativeFilter}
+          onChange={setInitiativeFilter}
+        />
       </div>
 
       {filtered.length === 0 ? (

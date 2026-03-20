@@ -133,8 +133,8 @@ describe("TicketsStepSection", () => {
     expect(board?.querySelectorAll(".planning-ticket-status-column")).toHaveLength(
       statusColumns.length,
     );
-    expect(screen.getAllByText("Phase 1")).toHaveLength(2);
-    expect(screen.getAllByText("Phase 2")).toHaveLength(1);
+    // Phase dropdown trigger shows the selected phase
+    expect(screen.getByRole("button", { name: /Phase 1/i })).toBeInTheDocument();
   });
 
   it("defaults to the first phase with unfinished work", () => {
@@ -165,13 +165,9 @@ describe("TicketsStepSection", () => {
       initiativeTickets: [doneTicket, secondTicket],
     });
 
-    expect(screen.getByLabelText("Phase 2 name")).toHaveValue("Polish");
-    const selectedPhaseButton = screen
-      .getAllByRole("button")
-      .find((button) => button.getAttribute("aria-pressed") === "true");
-
-    expect(selectedPhaseButton).toHaveTextContent("Phase 2");
-    expect(selectedPhaseButton).toHaveTextContent("Polish");
+    // Dropdown trigger should show Phase 2 since Phase 1 has all done tickets
+    const trigger = screen.getByRole("button", { name: /Phase 2/i });
+    expect(trigger).toHaveTextContent("Polish");
   });
 
   it("opens a ticket from the board", () => {
@@ -184,16 +180,36 @@ describe("TicketsStepSection", () => {
     expect(onOpenTicket).toHaveBeenCalledWith(baseTicket.id);
   });
 
-  it("commits a renamed phase on blur", () => {
-    const onCommitPhaseName = vi.fn();
+  it("switches phase via dropdown", () => {
+    const secondPhase = {
+      id: "phase-2",
+      name: "Polish",
+      order: 2,
+      status: "active" as const,
+    };
+    const secondTicket: Ticket = {
+      ...baseTicket,
+      id: "ticket-87654321",
+      phaseId: secondPhase.id,
+      title: "Tighten verification copy",
+      coverageItemIds: ["coverage-prd-requirements-1"],
+    };
 
-    renderSection({ onCommitPhaseName });
+    renderSection({
+      initiative: {
+        ...baseInitiative,
+        phases: [...baseInitiative.phases, secondPhase],
+        ticketIds: [baseTicket.id, secondTicket.id],
+      },
+      initiativeTickets: [baseTicket, secondTicket],
+    });
 
-    const input = screen.getByLabelText("Phase 1 name");
-    fireEvent.change(input, { target: { value: "Core backend" } });
-    fireEvent.blur(input);
-
-    expect(onCommitPhaseName).toHaveBeenCalledWith("phase-1", "Core backend");
+    // Open dropdown
+    fireEvent.click(screen.getByRole("button", { name: /Phase 1/i }));
+    // Select Phase 2
+    fireEvent.click(screen.getByRole("option", { name: /Phase 2/i }));
+    // The second ticket should now be visible
+    expect(screen.getByText("Tighten verification copy")).toBeInTheDocument();
   });
 
   it("moves a ticket to a valid next status when dropped", async () => {
@@ -202,12 +218,10 @@ describe("TicketsStepSection", () => {
 
     renderSection({ onMoveTicket });
 
-    const dragHandle = screen.getByRole("button", {
-      name: `Drag ${baseTicket.title}`,
-    });
+    const ticketCard = screen.getByText(baseTicket.title).closest("li");
     const readyColumn = screen.getByLabelText("Ready tickets");
 
-    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragStart(ticketCard!, { dataTransfer });
     fireEvent.dragEnter(readyColumn, { dataTransfer });
     fireEvent.dragOver(readyColumn, { dataTransfer });
     fireEvent.drop(readyColumn, { dataTransfer });
@@ -223,12 +237,10 @@ describe("TicketsStepSection", () => {
 
     renderSection({ onMoveTicket });
 
-    const dragHandle = screen.getByRole("button", {
-      name: `Drag ${baseTicket.title}`,
-    });
+    const ticketCard = screen.getByText(baseTicket.title).closest("li");
     const doneColumn = screen.getByLabelText("Done tickets");
 
-    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragStart(ticketCard!, { dataTransfer });
     fireEvent.dragEnter(doneColumn, { dataTransfer });
     fireEvent.dragOver(doneColumn, { dataTransfer });
     fireEvent.drop(doneColumn, { dataTransfer });

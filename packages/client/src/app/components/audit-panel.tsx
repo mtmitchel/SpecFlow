@@ -10,6 +10,7 @@ import {
 import type { AuditCategory, AuditReport } from "../../types.js";
 import { useToast } from "../context/toast.js";
 import { parseScopeCsv } from "../utils/scope-paths.js";
+import { CustomSelect } from "./custom-select.js";
 import { DiffViewer, findDiffRowsForFinding } from "./diff-viewer.js";
 
 const CLEAR_AUDIT_DESCRIPTION = "No audit findings were detected for the selected scope.";
@@ -157,11 +158,11 @@ export const AuditPanel = ({
             Use these only when you need a different baseline or a narrower review scope than the default run context.
           </p>
           <div className="button-row">
-            <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
-              <option value="branch">Git branch</option>
-              <option value="commit-range">Commit range</option>
-              <option value="snapshot">File snapshot</option>
-            </select>
+            <CustomSelect
+              options={[{ value: "branch", label: "Git branch" }, { value: "commit-range", label: "Commit range" }, { value: "snapshot", label: "File snapshot" }]}
+              value={mode}
+              onChange={(val) => setMode(val as typeof mode)}
+            />
             {mode === "branch" ? (
               <input value={branch} onChange={(event) => setBranch(event.target.value)} placeholder="branch name" />
             ) : null}
@@ -307,16 +308,12 @@ export const AuditPanel = ({
                   >
                     Create follow-up ticket
                   </button>
-                  <select
+                  <CustomSelect
+                    options={[{ value: "claude-code", label: "Claude Code" }, { value: "codex-cli", label: "Codex CLI" }, { value: "opencode", label: "OpenCode" }, { value: "generic", label: "Generic" }]}
                     value={exportAgent}
                     disabled={pendingAction !== null}
-                    onChange={(event) => setExportAgent(event.target.value as typeof exportAgent)}
-                  >
-                    <option value="claude-code">Claude Code</option>
-                    <option value="codex-cli">Codex CLI</option>
-                    <option value="opencode">OpenCode</option>
-                    <option value="generic">Generic</option>
-                  </select>
+                    onChange={(val) => setExportAgent(val as typeof exportAgent)}
+                  />
                   <button
                     type="button"
                     disabled={pendingAction !== null}

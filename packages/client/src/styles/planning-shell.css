@@ -28,9 +28,12 @@
   display: grid;
   gap: 0.95rem;
   padding: 1rem 1.35rem 1.1rem;
-  border: 1px solid rgba(152, 188, 220, 0.16);
+  border: 1px solid rgba(152, 188, 220, 0.12);
   border-radius: var(--radius-lg);
-  background: var(--gradient-topbar);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 60%),
+    var(--gradient-topbar);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
   overflow: hidden;
 }
 
@@ -121,9 +124,12 @@
   display: grid;
   gap: 1.15rem;
   padding: 1.5rem 1.6rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  background: var(--panel);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
+    var(--panel);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
 }
 
 .planning-step-card-quiet {
@@ -183,10 +189,11 @@
 .planning-section-card {
   display: grid;
   gap: 1rem;
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  padding: 1rem;
+  padding: var(--space-5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
 .planning-section-header {
@@ -253,8 +260,67 @@
 .planning-document-card-title {
   margin: 0;
   flex: 1;
-  font-size: var(--font-3xl);
+  font-size: var(--font-2xl);
   line-height: 1.15;
+}
+
+/* PRD editorial surface */
+.planning-document-body-editorial {
+  background: var(--surface-editor);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+}
+
+.planning-document-body-editorial .markdown-view {
+  line-height: var(--line-height-editorial);
+}
+
+.planning-document-body-editorial .markdown-view h1,
+.planning-document-body-editorial .markdown-view h2 {
+  margin-top: var(--space-6);
+  color: var(--text);
+}
+
+.planning-document-body-editorial .markdown-view h3 {
+  margin-top: var(--space-4);
+}
+
+/* Tech spec terminal surface */
+.planning-document-body-terminal {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent,
+    transparent calc(2rem - 1px),
+    rgba(152, 188, 220, 0.03) calc(2rem - 1px),
+    rgba(152, 188, 220, 0.03) 2rem
+  );
+}
+
+.planning-document-body-terminal .markdown-view {
+  line-height: var(--line-height-normal);
+}
+
+.planning-document-body-terminal .markdown-view h1,
+.planning-document-body-terminal .markdown-view h2,
+.planning-document-body-terminal .markdown-view h3 {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+}
+
+/* Floating action toolbar inside document card */
+.planning-document-toolbar {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-toolbar);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(8px);
 }
 
 .planning-icon-button {
@@ -427,7 +493,7 @@
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
-  padding: 1rem 1rem 0.9rem;
+  padding: var(--space-4) var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -465,7 +531,7 @@
 
 .side-drawer-body {
   overflow-y: auto;
-  padding: 1rem;
+  padding: var(--space-6);
 }
 
 .planning-drawer-document {
@@ -529,6 +595,13 @@
 .spec-section-nav-item:hover {
   color: var(--text);
   background: var(--accent-bg-subtle);
+}
+
+.spec-section-nav-item.active {
+  color: var(--accent-text);
+  background: var(--accent-bg);
+  border-left: 3px solid var(--accent);
+  box-shadow: var(--glow-accent);
 }
 
 .spec-section-nav-item--nested {

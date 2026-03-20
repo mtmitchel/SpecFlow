@@ -1,7 +1,9 @@
 /* Ticket execution */
 .ticket-journey {
   display: grid;
-  gap: 0.9rem;
+  gap: var(--space-5);
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 .ticket-journey-header {
@@ -11,15 +13,51 @@
   align-items: flex-start;
 }
 
+.ticket-journey-header h2 {
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.ticket-journey-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.ticket-journey-header-actions a {
+  font-size: var(--font-body-sm);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.ticket-journey-header-actions a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Content card wrapping everything below tabs */
+.ticket-content-card {
+  display: grid;
+  gap: var(--space-5);
+  background: var(--surface-editor);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
 .ticket-anchor-card,
 .ticket-issues-card,
 .ticket-focus-card {
   display: grid;
-  gap: 0.85rem;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-lg);
-  background: var(--gradient-card-accent);
-  padding: 0.95rem 1rem;
+  gap: var(--space-3);
+}
+
+.ticket-brief-card {
+  display: grid;
+  gap: var(--space-5);
 }
 
 .ticket-anchor-top,
@@ -225,6 +263,34 @@
 
 .ticket-brief-card {
   display: grid;
+  gap: var(--space-4);
+}
+
+/* Flat section divider pattern */
+.ticket-flat-section {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ticket-flat-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ticket-flat-section h3 {
+  font-size: var(--font-lg);
+  margin-bottom: var(--space-3);
+}
+
+/* Footer action bar */
+.ticket-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  align-items: center;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--space-4);
 }
 
 .ticket-brief-card .workflow-section {
@@ -312,43 +378,50 @@
   gap: 0.35rem;
 }
 
-/* Tab bar replacing stepper */
+/* Segmented tab bar */
 .ticket-tab-bar {
-  display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--border-subtle);
-  margin: var(--space-3) 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin: var(--space-4) 0;
+  background: var(--surface-deep);
 }
 
 .ticket-tab-item {
   position: relative;
-  padding: var(--space-2) var(--space-3);
-  background: none;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
   border: none;
+  border-right: 1px solid var(--border-subtle);
   color: var(--muted);
   font-family: inherit;
   font-size: var(--font-body-sm);
+  font-weight: 500;
   cursor: pointer;
-  transition: color var(--transition-fast);
+  text-align: center;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
-.ticket-tab-item:hover {
+.ticket-tab-item:last-child {
+  border-right: none;
+}
+
+.ticket-tab-item:hover:not(:disabled) {
   color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .ticket-tab-item-active {
-  color: var(--accent-text);
+  color: var(--text);
+  background: var(--accent-bg);
+  font-weight: 600;
 }
 
 .ticket-tab-item-active::after {
-  content: "";
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
-  border-radius: var(--radius-pill);
+  display: none;
 }
 
 .ticket-tab-item-done {
@@ -358,6 +431,34 @@
 .ticket-tab-item:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Status badge inline with title */
+.ticket-status-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: var(--font-body-sm);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  width: fit-content;
+}
+
+/* Flat section headings -- large like mockup */
+.ticket-flat-section h3 {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: var(--space-3);
+}
+
+.ticket-flat-section h4 {
+  font-weight: 600;
+  margin-bottom: var(--space-2);
 }
 
 @media (max-width: 1000px) {

@@ -9,14 +9,17 @@
 .planning-survey-card {
   display: grid;
   gap: var(--space-4);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  background: var(--gradient-card-accent);
-  box-shadow: var(--shadow-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 40%),
+    var(--gradient-card-accent);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
   align-content: start;
   align-self: start;
   min-height: 0;
   height: auto;
+  padding: var(--space-5);
 }
 
 .planning-survey-card-active {
@@ -179,7 +182,7 @@
 .planning-intake-progress-fill {
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--accent), rgba(72, 203, 255, 0.65));
+  background: linear-gradient(90deg, var(--accent), var(--execution));
   transition: width var(--transition-normal);
 }
 
@@ -255,7 +258,7 @@
 
 .planning-intake-question-list {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .planning-intake-question {

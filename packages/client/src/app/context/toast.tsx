@@ -24,6 +24,19 @@ export const useToast = (): ToastContextValue => {
   return ctx;
 };
 
+function ToastIcon({ level }: { level: ToastLevel }) {
+  const icons: Record<ToastLevel, string> = {
+    success: "M5 12l5 5L20 7",
+    error: "M6 6l12 12M18 6L6 18",
+    info: "M12 8v4m0 4h.01",
+  };
+  return (
+    <svg className="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={icons[level]} />
+    </svg>
+  );
+}
+
 export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const counter = useRef(0);
@@ -54,6 +67,7 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
         <div className="toast-container" aria-live="polite">
           {toasts.map((toast) => (
             <div key={toast.id} className={`toast toast-${toast.level}`}>
+              <ToastIcon level={toast.level} />
               <span>{toast.message}</span>
               <button type="button" className="toast-dismiss" onClick={() => dismiss(toast.id)}>
                 ×

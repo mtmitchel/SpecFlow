@@ -15,10 +15,13 @@
 .run-report-card {
   display: grid;
   gap: var(--space-4);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  background: var(--gradient-card-accent);
-  padding: var(--space-4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
+    var(--gradient-card-accent);
+  padding: var(--space-5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
 }
 
 .run-report-card-header {
@@ -48,16 +51,31 @@
   gap: var(--space-3);
 }
 
-/* Validation score display */
+/* Validation score badge-card */
 .run-validation-score {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  background: var(--gradient-card-accent);
-  margin-bottom: var(--space-4);
+  min-width: 120px;
+}
+
+.run-validation-score.score-pass-bg {
+  background: var(--tone-done-bg);
+  border-color: var(--tone-done-border);
+}
+
+.run-validation-score.score-partial-bg {
+  background: var(--tone-in-progress-bg);
+  border-color: var(--tone-in-progress-border);
+}
+
+.run-validation-score.score-fail-bg {
+  background: var(--tone-backlog-bg);
+  border-color: var(--danger-border);
 }
 
 .run-validation-score-value {
@@ -72,7 +90,49 @@
 
 .run-validation-score-label {
   color: var(--muted);
-  font-size: var(--font-body-sm);
+  font-size: var(--font-caption);
+  text-align: center;
+}
+
+/* Terminal log surface for criteria results */
+.run-criteria-log {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: var(--font-caption);
+  line-height: var(--line-height-normal);
+}
+
+.run-criteria-log-entry {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: baseline;
+}
+
+.run-criteria-log-entry:last-child {
+  border-bottom: none;
+}
+
+.run-criteria-log-time {
+  color: var(--muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+}
+
+.run-criteria-log-icon {
+  font-size: var(--font-caption);
+}
+
+.run-criteria-log-level {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .run-context-list,
@@ -237,11 +297,19 @@
   margin: 0;
   max-height: 320px;
   overflow: auto;
-  border: 1px solid rgba(152, 188, 220, 0.12);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: rgba(4, 7, 13, 0.72);
+  background: var(--surface-terminal);
   padding: var(--space-4);
   font-size: var(--font-body-sm);
+}
+
+/* Terminal surface for audit findings */
+.audit-findings-terminal {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 
 .run-context-row a {

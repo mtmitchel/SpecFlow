@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import type { Ticket, TicketStatus } from "../../../types.js";
-import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
-import { WorkflowSection } from "../../components/workflow-section.js";
+import { CustomSelect } from "../../components/custom-select.js";
 
 export interface TicketPreflightIssue {
   tone: "warn";
@@ -18,21 +17,6 @@ export interface TicketAnchorStep {
   state: ExecutionStageState;
 }
 
-const getStageBadgeLabel = (state: ExecutionStageState): string => {
-  if (state === "active") {
-    return "Up next";
-  }
-
-  if (state === "checkpoint") {
-    return "Needs work";
-  }
-
-  if (state === "complete") {
-    return "Done";
-  }
-
-  return "Waiting";
-};
 
 const renderIssueList = (issues: TicketPreflightIssue[]) => (
   <div className="ticket-issues-list">
@@ -95,11 +79,11 @@ const getTabItemClass = (state: ExecutionStageState): string => {
 };
 
 export const TicketAnchorCard = ({
-  contextLabel,
-  phaseName,
-  ticketStatusLabel,
-  verificationLabel,
-  fileTargetsCount,
+  contextLabel: _contextLabel,
+  phaseName: _phaseName,
+  ticketStatusLabel: _ticketStatusLabel,
+  verificationLabel: _verificationLabel,
+  fileTargetsCount: _fileTargetsCount,
   steps,
   validTransitions,
   moveToStatus,
@@ -107,27 +91,6 @@ export const TicketAnchorCard = ({
   onUpdateStatus,
 }: TicketAnchorCardProps) => (
   <section className="ticket-anchor-card">
-    <div className="ticket-anchor-top">
-      <div className="ticket-anchor-context">
-        <span className="ticket-context-chip">{contextLabel}</span>
-        <span className="ticket-context-chip ticket-context-chip-strong">{phaseName}</span>
-      </div>
-      <div className="ticket-status-pills">
-        <div className="ticket-status-pill">
-          <span>Status</span>
-          <strong>{ticketStatusLabel}</strong>
-        </div>
-        <div className="ticket-status-pill">
-          <span>Verification</span>
-          <strong>{verificationLabel}</strong>
-        </div>
-        <div className="ticket-status-pill">
-          <span>Files in scope</span>
-          <strong>{fileTargetsCount}</strong>
-        </div>
-      </div>
-    </div>
-
     <div className="ticket-tab-bar" role="tablist" aria-label="Ticket execution path">
       {steps.map((step) => (
         <button
@@ -146,16 +109,13 @@ export const TicketAnchorCard = ({
     {validTransitions.length > 0 ? (
       <div className="ticket-status-strip">
         <div className="ticket-status-toolbar">
-          <select value={moveToStatus} onChange={(event) => onMoveToStatusChange(event.target.value as TicketStatus | "")}>
-            <option value="" disabled>
-              Move ticket to
-            </option>
-            {validTransitions.map((column) => (
-              <option key={column.key} value={column.key}>
-                {column.label}
-              </option>
-            ))}
-          </select>
+          <CustomSelect
+            options={validTransitions.map((column) => ({ value: column.key, label: column.label }))}
+            value={moveToStatus}
+            onChange={(val) => onMoveToStatusChange(val as TicketStatus | "")}
+            placeholder="Move ticket to"
+            aria-label="Move ticket to"
+          />
           <button type="button" disabled={!moveToStatus} onClick={() => void onUpdateStatus()}>
             Update status
           </button>
@@ -191,20 +151,16 @@ interface TicketFocusCardProps {
 export const TicketFocusCard = ({
   title,
   body,
-  state,
-  badgeLabel,
+  state: _state,
+  badgeLabel: _badgeLabel,
   children = null,
 }: TicketFocusCardProps) => (
-  <section className={`ticket-focus-card ticket-focus-card-${state}`}>
+  <section className="ticket-focus-card">
     <div className="ticket-focus-header">
       <div>
-        <span className="ticket-focus-eyebrow">Current step</span>
         <h3>{title}</h3>
         <p>{body}</p>
       </div>
-      <span className={`ticket-stage-badge ticket-stage-badge-${state}`}>
-        {badgeLabel ?? getStageBadgeLabel(state)}
-      </span>
     </div>
     {children ? <div className="ticket-focus-body">{children}</div> : null}
   </section>
@@ -232,25 +188,23 @@ interface TicketBriefCardProps {
 
 export const TicketBriefCard = ({
   ticket,
-  groupedCoveredItems,
+  groupedCoveredItems: _groupedCoveredItems,
 }: TicketBriefCardProps) => {
-  const supportEntries = Object.entries(groupedCoveredItems);
   const displayTargets = getDisplayFileTargets(ticket.fileTargets);
-  const supportCount = supportEntries.reduce((count, [, items]) => count + items.length, 0);
 
   return (
     <section className="ticket-brief-card">
-      <WorkflowSection title="What this ticket needs to deliver">
         <div className="ticket-brief-grid">
-          <section className="ticket-brief-section">
+          <section className="ticket-flat-section">
+            <h3>Brief</h3>
             <h4>Why this matters</h4>
             <p className="ticket-brief-copy">
               {ticket.description || `${ticket.title} is the next piece of work for this plan.`}
             </p>
           </section>
 
-          <section className="ticket-brief-section">
-            <h4>Done looks like</h4>
+          <section className="ticket-flat-section">
+            <h3>Requirements</h3>
             {ticket.acceptanceCriteria.length === 0 ? (
               <p className="ticket-empty-note">No must-haves are listed yet.</p>
             ) : (
@@ -262,8 +216,8 @@ export const TicketBriefCard = ({
             )}
           </section>
 
-          <section className="ticket-brief-section">
-            <h4>Likely files</h4>
+          <section className="ticket-flat-section">
+            <h3>Resources</h3>
             {displayTargets.length === 0 ? (
               <p className="ticket-empty-note">No likely files are listed yet.</p>
             ) : (
@@ -277,89 +231,7 @@ export const TicketBriefCard = ({
             )}
           </section>
 
-          <section className="ticket-brief-section">
-            <h4>Supports</h4>
-            {supportEntries.length === 0 ? (
-              <p className="ticket-empty-note">No linked plan commitments yet.</p>
-            ) : (
-              <>
-                <p className="ticket-brief-copy">
-                  This ticket supports {supportCount} planned {supportCount === 1 ? "commitment" : "commitments"} from the initiative.
-                </p>
-                <div className="ticket-support-tags">
-                  {supportEntries.map(([step, items]) => (
-                    <span key={step} className="ticket-support-tag">
-                      {(INITIATIVE_WORKFLOW_LABELS[step as keyof typeof INITIATIVE_WORKFLOW_LABELS] ?? step)} · {items.length}
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
-          </section>
         </div>
-
-        <details className="ticket-brief-details">
-          <summary>Open implementation details</summary>
-          <div className="ticket-brief-detail-grid">
-            <section className="ticket-plan-section">
-              <h4>Exact acceptance criteria</h4>
-              {ticket.acceptanceCriteria.length === 0 ? (
-                <p className="ticket-empty-note">No acceptance criteria yet.</p>
-              ) : (
-                <ul className="ticket-plan-list">
-                  {ticket.acceptanceCriteria.map((criterion) => (
-                    <li key={criterion.id}>{criterion.text}</li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="ticket-plan-section">
-              <h4>Implementation plan</h4>
-              {ticket.implementationPlan ? (
-                <pre className="ticket-plan-copy">{ticket.implementationPlan}</pre>
-              ) : (
-                <p className="ticket-empty-note">No implementation plan yet.</p>
-              )}
-            </section>
-
-            <section className="ticket-plan-section">
-              <h4>Exact files in scope</h4>
-              {ticket.fileTargets.length === 0 ? (
-                <p className="ticket-empty-note">No files in scope yet.</p>
-              ) : (
-                <ul className="ticket-plan-files">
-                  {ticket.fileTargets.map((target) => (
-                    <li key={target} className="ticket-plan-file-item">
-                      <code>{target}</code>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="ticket-plan-section">
-              <h4>Source plan details</h4>
-              {supportEntries.length === 0 ? (
-                <p className="ticket-empty-note">No linked spec items yet.</p>
-              ) : (
-                supportEntries.map(([step, items]) => (
-                  <div key={step} className="ticket-context-group">
-                    <span className="qa-label">
-                      {INITIATIVE_WORKFLOW_LABELS[step as keyof typeof INITIATIVE_WORKFLOW_LABELS] ?? step}
-                    </span>
-                    <ul className="ticket-plan-list">
-                      {items.map((item) => (
-                        <li key={item.id}>{item.text}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))
-              )}
-            </section>
-          </div>
-        </details>
-      </WorkflowSection>
     </section>
   );
 };

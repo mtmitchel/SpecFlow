@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -217,7 +217,7 @@ describe("TicketView", () => {
     });
   });
 
-  it("keeps ticket context collapsed until the user opens the ticket plan", () => {
+  it("shows flat ticket content with brief, requirements and resources visible by default", () => {
     renderView({
       planningReviews: [
         {
@@ -244,28 +244,15 @@ describe("TicketView", () => {
       "href",
       `/initiative/${initiative.id}?step=tickets`
     );
-    expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
     expect(screen.getByRole("tablist", { name: "Ticket execution path" })).toBeInTheDocument();
     expect(screen.getByText("Verify work")).toBeInTheDocument();
     expect(screen.getByText("Close ticket")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "What this ticket needs to deliver" })).toBeInTheDocument();
-    expect(screen.queryByText("Why this matters")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "What this ticket needs to deliver" }));
-
+    // Brief content is flat and visible by default (no accordion)
+    expect(screen.getByText("Brief")).toBeInTheDocument();
     expect(screen.getByText("Why this matters")).toBeInTheDocument();
-    expect(screen.getByText("Done looks like")).toBeInTheDocument();
-    expect(screen.getByText("Supports")).toBeInTheDocument();
-    expect(screen.getByText("This ticket supports 2 planned commitments from the initiative.")).toBeInTheDocument();
-    expect(screen.getByText("Open implementation details")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText("Open implementation details"));
-
-    expect(screen.getByText("Source plan details")).toBeInTheDocument();
-    expect(screen.getAllByText("Brief").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("PRD").length).toBeGreaterThan(0);
-    expect(screen.getByText("Execution cannot start until coverage is reviewed.")).toBeInTheDocument();
-    expect(screen.getByText("The ticket banner must link back to the initiative tickets step.")).toBeInTheDocument();
+    expect(screen.getByText("Requirements")).toBeInTheDocument();
+    expect(screen.getByText("Resources")).toBeInTheDocument();
   });
 
   it("hides the coverage gate banner once the review is overridden", () => {
@@ -291,7 +278,7 @@ describe("TicketView", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows one current step card while later steps stay in the execution path", () => {
+  it("shows the active step content while later steps remain hidden", () => {
     renderView({
       planningReviews: [
         {
@@ -309,7 +296,6 @@ describe("TicketView", () => {
       ]
     });
 
-    expect(screen.getByText("Current step")).toBeInTheDocument();
     expect(screen.getAllByText("Start work").length).toBeGreaterThan(0);
     expect(screen.getByRole("tablist", { name: "Ticket execution path" })).toBeInTheDocument();
     expect(screen.getByText("ExportSection")).toBeInTheDocument();

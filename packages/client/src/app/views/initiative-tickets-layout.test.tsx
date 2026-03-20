@@ -207,12 +207,10 @@ describe("InitiativeView tickets layout", () => {
       ticketCoverageArtifacts: [],
     }, onMoveTicket);
 
-    const dragHandle = screen.getByRole("button", {
-      name: `Drag ${generatedTicket.title}`,
-    });
+    const ticketCard = screen.getByText(generatedTicket.title).closest("li");
     const readyColumn = screen.getByLabelText("Ready tickets");
 
-    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragStart(ticketCard!, { dataTransfer });
     fireEvent.dragEnter(readyColumn, { dataTransfer });
     fireEvent.dragOver(readyColumn, { dataTransfer });
     fireEvent.drop(readyColumn, { dataTransfer });

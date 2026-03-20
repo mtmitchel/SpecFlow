@@ -1,36 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Initiative, InitiativePhase, Ticket, TicketStatus } from "../../../types.js";
 import { canTransition, statusColumns } from "../../constants/status-columns.js";
-
-const PhaseNameEditor = ({
-  name,
-  label,
-  onCommit,
-}: {
-  name: string;
-  label: string;
-  onCommit: (nextName: string) => void;
-}) => {
-  const [localName, setLocalName] = useState(name);
-
-  useEffect(() => {
-    setLocalName(name);
-  }, [name]);
-
-  return (
-    <input
-      className="phase-name-input"
-      aria-label={label}
-      value={localName}
-      onChange={(event) => setLocalName(event.target.value)}
-      onBlur={() => {
-        if (localName !== name) {
-          onCommit(localName);
-        }
-      }}
-    />
-  );
-};
 
 const getOrderedPhases = (initiative: Initiative): InitiativePhase[] =>
   initiative.phases.slice().sort((left, right) => left.order - right.order);
@@ -47,10 +17,8 @@ const getDefaultPhaseId = (
   phases[0]?.id ??
   null;
 
-const getCoverageCopy = (count: number): string =>
-  `${count} covered spec item${count === 1 ? "" : "s"}`;
 
-function getTicketProgress(status: string): number {
+function _getTicketProgress(status: string): number {
   switch (status) {
     case 'backlog': return 0;
     case 'ready': return 25;
@@ -82,7 +50,7 @@ export const TicketsStepSection = ({
   initiative,
   initiativeTickets,
   onOpenTicket,
-  onCommitPhaseName,
+  onCommitPhaseName: _onCommitPhaseName,
   onMoveTicket,
 }: TicketsStepSectionProps) => {
   const hasGeneratedTickets =
@@ -97,6 +65,19 @@ export const TicketsStepSection = ({
     null,
   );
   const [movingTicketId, setMovingTicketId] = useState<string | null>(null);
+  const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
+  const phaseDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!phaseDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (phaseDropdownRef.current && !phaseDropdownRef.current.contains(e.target as Node)) {
+        setPhaseDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [phaseDropdownOpen]);
 
   useEffect(() => {
     if (!selectedPhaseId) {
@@ -141,13 +122,9 @@ export const TicketsStepSection = ({
 
   const selectedPhase =
     orderedPhases.find((phase) => phase.id === selectedPhaseId) ?? orderedPhases[0];
-  const selectedPhaseLabel = `Phase ${selectedPhase.order}`;
   const selectedPhaseTickets = initiativeTickets.filter(
     (ticket) => ticket.phaseId === selectedPhase.id,
   );
-  const selectedPhaseOpenCount = selectedPhaseTickets.filter(
-    (ticket) => ticket.status !== "done",
-  ).length;
   const draggedTicket = draggedTicketId
     ? initiativeTickets.find((ticket) => ticket.id === draggedTicketId) ?? null
     : null;
@@ -201,54 +178,39 @@ export const TicketsStepSection = ({
         </div>
       </div>
 
-      <div className="planning-phase-selector" aria-label="Execution phases">
-        {orderedPhases.map((phase) => {
-          const phaseTickets = initiativeTickets.filter(
-            (ticket) => ticket.phaseId === phase.id,
-          );
-          const phaseOpenCount = phaseTickets.filter(
-            (ticket) => ticket.status !== "done",
-          ).length;
-          const phaseLabel = `Phase ${phase.order}`;
-          const selected = phase.id === selectedPhase.id;
-
-          return (
-            <button
-              key={phase.id}
-              type="button"
-              className={`planning-phase-selector-button${selected ? " planning-phase-selector-button-selected" : ""}`}
-              aria-pressed={selected}
-              onClick={() => setSelectedPhaseId(phase.id)}
-            >
-              <span className="planning-phase-selector-label">{phaseLabel}</span>
-              <strong>{phase.name}</strong>
-              <span className="planning-phase-selector-meta">
-                {phaseTickets.length} ticket{phaseTickets.length === 1 ? "" : "s"}
-                {phaseOpenCount > 0 ? ` · ${phaseOpenCount} open` : ""}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="phase-block planning-phase-focus">
-        <div className="planning-phase-header">
-          <div className="planning-phase-meta">
-            <span className="planning-phase-label">{selectedPhaseLabel}</span>
-            <span className="planning-phase-count">
-              {selectedPhaseTickets.length} ticket
-              {selectedPhaseTickets.length === 1 ? "" : "s"}
-              {selectedPhaseOpenCount > 0 ? ` · ${selectedPhaseOpenCount} open` : ""}
-            </span>
-          </div>
-          <PhaseNameEditor
-            name={selectedPhase.name}
-            label={`${selectedPhaseLabel} name`}
-            onCommit={(nextName) =>
-              onCommitPhaseName(selectedPhase.id, nextName)
-            }
-          />
-        </div>
+      <div className="planning-phase-dropdown-wrap" ref={phaseDropdownRef}>
+        <button
+          type="button"
+          className="planning-phase-dropdown-trigger"
+          onClick={() => setPhaseDropdownOpen((prev) => !prev)}
+          aria-haspopup="listbox"
+          aria-expanded={phaseDropdownOpen}
+        >
+          <span>Phase {selectedPhase.order}: <strong>{selectedPhase.name}</strong></span>
+          <span className="planning-phase-dropdown-chevron" aria-hidden="true">{phaseDropdownOpen ? "\u25B4" : "\u25BE"}</span>
+        </button>
+        {phaseDropdownOpen ? (
+          <ul className="planning-phase-dropdown-panel" role="listbox">
+            {orderedPhases.map((phase) => {
+              const phaseTickets = initiativeTickets.filter(
+                (ticket) => ticket.phaseId === phase.id,
+              );
+              const selected = phase.id === selectedPhase.id;
+              return (
+                <li
+                  key={phase.id}
+                  role="option"
+                  aria-selected={selected}
+                  className={`planning-phase-dropdown-item${selected ? " planning-phase-dropdown-item-selected" : ""}`}
+                  onClick={() => { setSelectedPhaseId(phase.id); setPhaseDropdownOpen(false); }}
+                >
+                  <span>Phase {phase.order}: {phase.name}</span>
+                  <span className="planning-phase-dropdown-item-count">{phaseTickets.length} tickets</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
       </div>
 
       <div
@@ -332,43 +294,53 @@ export const TicketsStepSection = ({
                         <li
                           key={ticket.id}
                           className={`planning-ticket-card${movingTicketId === ticket.id ? " planning-ticket-card-moving" : ""}`}
+                          draggable
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", ticket.id);
+                            setDraggedTicketId(ticket.id);
+                          }}
+                          onDragEnd={resetDragState}
                         >
-                          <div className="planning-ticket-card-header">
+                          <div className="planning-ticket-card-top">
+                            <span className="planning-ticket-card-id">{ticket.id}</span>
                             <button
                               type="button"
-                              className="planning-ticket-card-link"
+                              className="planning-ticket-card-overflow"
                               onClick={() => onOpenTicket(ticket.id)}
+                              aria-label={`Open ${ticket.title}`}
                             >
-                              {ticket.title}
-                            </button>
-                            <button
-                              type="button"
-                              className="planning-ticket-drag-handle"
-                              draggable
-                              disabled={movingTicketId === ticket.id}
-                              aria-label={`Drag ${ticket.title}`}
-                              onDragStart={(event) => {
-                                event.dataTransfer.effectAllowed = "move";
-                                event.dataTransfer.setData("text/plain", ticket.id);
-                                setDraggedTicketId(ticket.id);
-                              }}
-                              onDragEnd={resetDragState}
-                            >
-                              <span aria-hidden="true">::</span>
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                                <circle cx="8" cy="3" r="1.25" />
+                                <circle cx="8" cy="8" r="1.25" />
+                                <circle cx="8" cy="13" r="1.25" />
+                              </svg>
                             </button>
                           </div>
-                          <p className="planning-ticket-card-meta">
-                            {getCoverageCopy(ticket.coverageItemIds.length)}
-                            {unfinishedBlockerCount > 0
-                              ? ` · Blocked by ${unfinishedBlockerCount} ticket${unfinishedBlockerCount === 1 ? "" : "s"}`
-                              : ""}
-                          </p>
-                          <div className="planning-ticket-card-progress">
-                            <div
-                              className="planning-ticket-card-progress-fill"
-                              style={{ width: `${getTicketProgress(ticket.status)}%` }}
-                            />
+                          <button
+                            type="button"
+                            className="planning-ticket-card-link"
+                            onClick={() => onOpenTicket(ticket.id)}
+                          >
+                            {ticket.title}
+                          </button>
+                          <div className="planning-ticket-card-stats">
+                            <span className="planning-ticket-card-stat">
+                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z" />
+                                <path d="M10 6H6M10 10H6" />
+                              </svg>
+                              {ticket.fileTargets.length} file{ticket.fileTargets.length === 1 ? "" : "s"} in scope
+                            </span>
+                            <span className="planning-ticket-card-stat-right">
+                              {ticket.coverageItemIds.length}
+                            </span>
                           </div>
+                          {unfinishedBlockerCount > 0 ? (
+                            <span className="planning-ticket-card-blocker">
+                              Blocked by {unfinishedBlockerCount}
+                            </span>
+                          ) : null}
                         </li>
                       );
                     })}

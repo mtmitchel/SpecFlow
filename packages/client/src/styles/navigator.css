@@ -4,21 +4,21 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  padding: 0.35rem 0.9rem 1rem;
+  padding: 0.5rem 0.75rem 1rem;
 }
 
 .navigator-tree {
   flex: 1;
   overflow-y: auto;
-  padding: 0.25rem 0;
-  border-top: 1px solid var(--panel-border);
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .nav-tree-item {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.7rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
   cursor: pointer;
   font-size: var(--font-body-sm);
   color: var(--muted);
@@ -35,8 +35,9 @@
 }
 
 .nav-tree-item.active {
-  background: var(--accent-bg-active);
+  background: var(--accent-bg);
   color: var(--text);
+  font-weight: 500;
 }
 
 .nav-tree-header {
@@ -45,7 +46,12 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-top: 0.7rem;
+  margin-top: 0.85rem;
+  padding: 0.25rem 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
 }
 
 .nav-tree-chevron {
@@ -56,8 +62,8 @@
 }
 
 .nav-tree-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: var(--radius-pill);
   flex-shrink: 0;
 }

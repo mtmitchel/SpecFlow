@@ -28,8 +28,8 @@
   color: var(--text);
   border: none;
   border-bottom: 1px solid var(--panel-border);
-  padding: 0.85rem 1rem;
-  font-size: var(--font-body-sm);
+  padding: 1rem 1.2rem;
+  font-size: var(--font-lg);
   font-family: inherit;
   outline: none;
 }
@@ -72,8 +72,10 @@
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  padding: 0.55rem 1rem;
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
+  border-radius: var(--radius-sm);
+  margin: 0 var(--space-1);
   transition: background var(--transition-fast);
 }
 
@@ -109,7 +111,10 @@
   gap: 0.7rem;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--panel-border);
-  font-size: var(--font-body);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: var(--muted);
 }
 
@@ -380,7 +385,8 @@ select:focus-visible,
 }
 
 /* Copy feedback (I12) */
+button.btn-copied,
 .btn-copied {
-  border-color: var(--success-border) !important;
-  color: var(--success-text) !important;
+  border-color: var(--success-border);
+  color: var(--success-text);
 }

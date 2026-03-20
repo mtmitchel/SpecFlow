@@ -75,27 +75,31 @@
   display: grid;
   gap: 0.2rem;
   min-height: 5.2rem;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid var(--panel-border);
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  background: rgba(10, 16, 25, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 50%),
+    rgba(10, 16, 25, 0.48);
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+  font-family: inherit;
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .planning-phase-selector-button:hover {
   border-color: var(--accent-border-subtle);
-  background: rgba(12, 20, 31, 0.62);
+  background: rgba(14, 24, 38, 0.7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .planning-phase-selector-button-selected {
-  border-color: var(--accent-border);
+  border-color: rgba(72, 203, 255, 0.45);
   background:
-    linear-gradient(180deg, rgba(72, 203, 255, 0.08), rgba(10, 16, 25, 0.72)),
+    linear-gradient(180deg, rgba(72, 203, 255, 0.1), rgba(10, 16, 25, 0.75)),
     rgba(10, 16, 25, 0.62);
-  box-shadow: inset 0 0 0 1px rgba(72, 203, 255, 0.14);
+  box-shadow: var(--glow-accent);
 }
 
 .planning-phase-selector-label {
@@ -115,6 +119,85 @@
 
 .planning-phase-focus {
   margin-bottom: 0;
+}
+
+/* Compact phase dropdown */
+.planning-phase-dropdown-wrap {
+  position: relative;
+  margin-bottom: var(--space-2);
+  display: inline-block;
+}
+
+.planning-phase-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 50%),
+    var(--surface-deep);
+  color: var(--text);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1rem;
+  font-family: inherit;
+  font-size: var(--font-body-sm);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.planning-phase-dropdown-trigger:hover {
+  border-color: var(--accent-border-subtle);
+}
+
+.planning-phase-dropdown-chevron {
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.planning-phase-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 10;
+  width: max-content;
+  max-width: 420px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: var(--surface-dropdown);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}
+
+.planning-phase-dropdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: 0.55rem 0.75rem;
+  border-radius: calc(var(--radius-md) - 0.2rem);
+  cursor: pointer;
+  font-size: var(--font-body-sm);
+  transition: background var(--transition-fast);
+}
+
+.planning-phase-dropdown-item:hover {
+  background: var(--accent-bg-subtle);
+}
+
+.planning-phase-dropdown-item-selected {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+
+.planning-phase-dropdown-item-count {
+  color: var(--muted);
+  font-size: var(--font-caption);
+  flex-shrink: 0;
 }
 
 .planning-ticket-board {
@@ -146,32 +229,32 @@
 }
 
 .planning-ticket-status-column-backlog {
-  --planning-ticket-column-bg: rgba(18, 24, 34, 0.82);
-  --planning-ticket-column-border: var(--muted-border);
+  --planning-ticket-column-bg: rgba(18, 24, 34, 0.88);
+  --planning-ticket-column-border: rgba(142, 167, 195, 0.18);
   --planning-ticket-column-text: var(--muted);
 }
 
 .planning-ticket-status-column-ready {
-  --planning-ticket-column-bg: rgba(12, 25, 34, 0.82);
-  --planning-ticket-column-border: var(--accent-border-subtle);
-  --planning-ticket-column-text: var(--accent-text-light);
+  --planning-ticket-column-bg: rgba(10, 28, 42, 0.88);
+  --planning-ticket-column-border: rgba(72, 203, 255, 0.22);
+  --planning-ticket-column-text: var(--accent-text);
 }
 
 .planning-ticket-status-column-in-progress {
-  --planning-ticket-column-bg: rgba(28, 24, 14, 0.82);
-  --planning-ticket-column-border: var(--warning-border-subtle);
+  --planning-ticket-column-bg: rgba(34, 28, 12, 0.88);
+  --planning-ticket-column-border: rgba(243, 187, 82, 0.28);
   --planning-ticket-column-text: var(--warning-text);
 }
 
 .planning-ticket-status-column-verify {
-  --planning-ticket-column-bg: rgba(22, 18, 36, 0.82);
-  --planning-ticket-column-border: var(--execution-border);
+  --planning-ticket-column-bg: rgba(24, 16, 42, 0.88);
+  --planning-ticket-column-border: rgba(184, 156, 255, 0.28);
   --planning-ticket-column-text: var(--execution-text);
 }
 
 .planning-ticket-status-column-done {
-  --planning-ticket-column-bg: rgba(14, 28, 22, 0.82);
-  --planning-ticket-column-border: var(--success-border);
+  --planning-ticket-column-bg: rgba(12, 32, 22, 0.88);
+  --planning-ticket-column-border: rgba(80, 212, 147, 0.28);
   --planning-ticket-column-text: var(--success-text);
 }
 
@@ -238,17 +321,97 @@
 .planning-ticket-card {
   display: grid;
   gap: 0.55rem;
-  padding: 0.8rem 0.85rem;
+  padding: 0.85rem 0.95rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  background: rgba(7, 11, 18, 0.48);
-  box-shadow: var(--shadow-md);
-  transition: border-color var(--transition-fast), transform var(--transition-fast);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 40%),
+    rgba(7, 11, 18, 0.58);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .planning-ticket-card:hover {
-  border-color: var(--accent-border-faint);
-  transform: translateY(-1px);
+  border-color: rgba(72, 203, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: var(--glow-accent);
+}
+
+.planning-ticket-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.planning-ticket-card-id {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: var(--font-xs);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.planning-ticket-card-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.planning-ticket-card:hover .planning-ticket-card-overflow {
+  opacity: 1;
+}
+
+.planning-ticket-card-overflow:hover {
+  background: var(--accent-bg-subtle);
+  color: var(--text);
+}
+
+.planning-ticket-card-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.planning-ticket-card-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.planning-ticket-card-stat svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.planning-ticket-card-stat-right {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.planning-ticket-card-blocker {
+  font-size: var(--font-xs);
+  color: var(--warning-text);
+  padding: 0.15rem 0.4rem;
+  background: var(--warning-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--warning-border-subtle);
+  width: fit-content;
 }
 
 .planning-ticket-card-moving {
