@@ -205,7 +205,7 @@ test("completes the main initiative workflow from Home to a passing run", async 
   await expect(page).toHaveURL(/\/run\/run-/);
   await expect(page.getByText("Included files")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Back to ticket" }),
+    page.getByRole("link", { name: "Open ticket" }),
   ).toBeVisible();
 });
 

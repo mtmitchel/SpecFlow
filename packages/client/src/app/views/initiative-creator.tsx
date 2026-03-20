@@ -3,18 +3,21 @@ import { Link, useNavigate } from "react-router-dom";
 import { createInitiative } from "../../api/initiatives.js";
 import { useToast } from "../context/toast.js";
 import { Pipeline } from "../components/pipeline.js";
-import type { PipelineNodeModel } from "../utils/initiative-progress.js";
+import {
+  PIPELINE_NODE_LABELS,
+  PIPELINE_NODE_ORDER,
+  type PipelineNodeKey,
+  type PipelineNodeModel,
+} from "../utils/initiative-progress.js";
 
-const ENTRY_PIPELINE: PipelineNodeModel[] = [
-  { key: "brief", label: "Brief", zone: "planning", state: "future" },
-  { key: "core-flows", label: "Core flows", zone: "planning", state: "future" },
-  { key: "prd", label: "PRD", zone: "planning", state: "future" },
-  { key: "tech-spec", label: "Tech spec", zone: "planning", state: "future" },
-  { key: "tickets", label: "Tickets", zone: "planning", state: "future" },
-  { key: "execute", label: "Execute", zone: "execution", state: "future" },
-  { key: "verify", label: "Verify", zone: "execution", state: "future" },
-  { key: "done", label: "Done", zone: "execution", state: "future" },
-];
+const ENTRY_PIPELINE: PipelineNodeModel[] = PIPELINE_NODE_ORDER.map((key) => ({
+  key,
+  label: PIPELINE_NODE_LABELS[key],
+  zone: (["execute", "verify", "done"] as PipelineNodeKey[]).includes(key)
+    ? "execution"
+    : "planning",
+  state: "future",
+}));
 
 export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void> }) => {
   const navigate = useNavigate();

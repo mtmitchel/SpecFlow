@@ -148,12 +148,12 @@ const flattenVisible = (nodes: NavigatorNode[], expanded: Set<string>): Navigato
 };
 
 const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): string | null => {
+  const ticketForPath = (ticketId: string | null | undefined): Ticket | undefined =>
+    snapshot.tickets.find((ticket) => ticket.id === ticketId);
+
   if (pathname.startsWith("/initiative/")) {
     return pathname.split("/")[2] ?? null;
   }
-
-  const ticketForPath = (ticketId: string | null | undefined): Ticket | undefined =>
-    snapshot.tickets.find((ticket) => ticket.id === ticketId);
 
   if (pathname.startsWith("/ticket/")) {
     return ticketForPath(pathname.split("/")[2])?.initiativeId ?? null;
@@ -163,6 +163,20 @@ const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): s
     const runId = pathname.split("/")[2];
     const run = snapshot.runs.find((candidate) => candidate.id === runId);
     return ticketForPath(run?.ticketId)?.initiativeId ?? null;
+  }
+
+  return null;
+};
+
+const getActiveTicketId = (snapshot: ArtifactsSnapshot, pathname: string): string | null => {
+  if (pathname.startsWith("/ticket/")) {
+    return pathname.split("/")[2] ?? null;
+  }
+
+  if (pathname.startsWith("/run/")) {
+    const runId = pathname.split("/")[2];
+    const run = snapshot.runs.find((candidate) => candidate.id === runId);
+    return run?.ticketId ?? null;
   }
 
   return null;
@@ -178,6 +192,10 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
   const tree = useMemo(() => buildNavigatorTree(snapshot), [snapshot]);
   const activeInitiativeId = useMemo(
     () => getActiveInitiativeId(snapshot, location.pathname),
+    [location.pathname, snapshot],
+  );
+  const activeTicketId = useMemo(
+    () => getActiveTicketId(snapshot, location.pathname),
     [location.pathname, snapshot],
   );
   const contentNodes = useMemo(() => tree, [tree]);
@@ -206,8 +224,12 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
       return matchedNodeId;
     }
 
+    if (activeTicketId) {
+      return `ticket-${activeTicketId}`;
+    }
+
     return activeInitiativeId ? `initiative-${activeInitiativeId}` : null;
-  }, [activeInitiativeId, activeRoute, contentNodes]);
+  }, [activeInitiativeId, activeRoute, activeTicketId, contentNodes]);
 
   const handleToggle = useCallback((id: string) => {
     setManualExpanded((prev) => {

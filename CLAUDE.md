@@ -81,6 +81,9 @@ Important current rules:
 - Planning transition states should name the active phase directly during entry checks, follow-up checks, and artifact generation.
 - Planning reviews remain important, but they are secondary artifacts rather than hard blockers between Brief, Core flows, PRD, and Tech spec.
 - `ticket-coverage-review` is owned by Validation, not Tickets, and remains the real planning-to-execution gate for initiative-linked tickets.
+- Home is the primary resume surface; initiative cards and the expanded sidebar are stable object navigation instead of a second resume system.
+- Run detail is report-first history and should not reintroduce the full initiative pipeline as competing workflow chrome.
+- `Review changes` should open a guided audit flow, with follow-up actions first and advanced compare or diff controls kept behind secondary disclosure.
 
 Planner question policy lives in:
 - `packages/app/src/planner/refinement-check-policy.ts`

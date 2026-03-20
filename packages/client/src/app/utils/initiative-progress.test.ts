@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ArtifactsSnapshot, Initiative, PlanningReviewArtifact, Ticket } from "../../types.js";
-import { getInitiativeProgressModel, getInitiativeResumeHref } from "./initiative-progress.js";
+import {
+  getInitiativeProgressModel,
+  getInitiativeResumeHref,
+  getInitiativeShellHref,
+} from "./initiative-progress.js";
 import { getInitiativeQueueActionLabel } from "./ui-language.js";
 
 const baseInitiative: Initiative = {
@@ -343,6 +347,68 @@ describe("getInitiativeProgressModel", () => {
 
     expect(progress.resumeTicket?.id).toBe("ticket-ready");
     expect(getInitiativeResumeHref(initiative, progress, snapshot)).toBe("/ticket/ticket-ready");
+  });
+
+  it("keeps initiative shell navigation on tickets even when Home resumes a ticket directly", () => {
+    const initiative: Initiative = {
+      ...baseInitiative,
+      workflow: {
+        ...baseInitiative.workflow,
+        activeStep: "tickets",
+        resumeTicketId: "ticket-ready",
+        steps: {
+          brief: { status: "complete", updatedAt: "2026-03-16T10:00:00.000Z" },
+          "core-flows": { status: "complete", updatedAt: "2026-03-16T10:05:00.000Z" },
+          prd: { status: "complete", updatedAt: "2026-03-16T10:10:00.000Z" },
+          "tech-spec": { status: "complete", updatedAt: "2026-03-16T10:15:00.000Z" },
+          validation: { status: "complete", updatedAt: "2026-03-16T10:18:00.000Z" },
+          tickets: { status: "complete", updatedAt: "2026-03-16T10:20:00.000Z" },
+        },
+      },
+      ticketIds: ["ticket-ready"],
+    };
+    const readyTicket: Ticket = {
+      id: "ticket-ready",
+      initiativeId: initiative.id,
+      phaseId: null,
+      title: "Ready ticket",
+      description: "Resume this ticket.",
+      status: "in-progress",
+      acceptanceCriteria: [],
+      implementationPlan: "",
+      fileTargets: [],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
+      runId: null,
+      createdAt: "2026-03-16T10:21:00.000Z",
+      updatedAt: "2026-03-16T10:21:00.000Z",
+    };
+
+    const snapshot = createSnapshot({
+      initiative,
+      tickets: [readyTicket],
+      planningReviews: [
+        {
+          id: `${initiative.id}:ticket-coverage-review`,
+          initiativeId: initiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage check passes.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:25:00.000Z",
+          updatedAt: "2026-03-16T10:25:00.000Z",
+        },
+      ],
+    });
+    const progress = getInitiativeProgressModel(initiative, snapshot);
+
+    expect(getInitiativeResumeHref(initiative, progress, snapshot)).toBe("/ticket/ticket-ready");
+    expect(getInitiativeShellHref(initiative, progress, snapshot)).toBe(
+      `/initiative/${initiative.id}?step=tickets`,
+    );
   });
 
   it.each([

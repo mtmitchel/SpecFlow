@@ -50,12 +50,203 @@
   gap: 0.8rem;
 }
 
+.run-context-list,
+.run-details-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.run-context-row {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.run-context-row dt,
+.run-details-grid span {
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.run-context-row dd {
+  margin: 0;
+}
+
+.audit-review {
+  display: grid;
+  gap: 1rem;
+}
+
+.audit-review-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.audit-review-intro {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.audit-review-intro h3 {
+  margin: 0;
+}
+
+.audit-review-intro p,
+.audit-review-helper {
+  margin: 0;
+}
+
+.audit-review-meta,
+.audit-review-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.audit-review-disclosure {
+  border: 1px solid rgba(152, 188, 220, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.32);
+  overflow: hidden;
+}
+
+.audit-review-disclosure summary {
+  cursor: pointer;
+  padding: 0.75rem 0.9rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.audit-review-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.audit-review-disclosure-body {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0 0.9rem 0.9rem;
+}
+
+.audit-review-findings,
+.audit-review-details {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.audit-review-section-header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.audit-review-section-header h4 {
+  margin: 0;
+}
+
+.audit-review-section-header p {
+  margin: 0;
+}
+
+.audit-review-empty,
+.audit-finding-detail {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(152, 188, 220, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+}
+
+.audit-review-empty strong,
+.audit-finding-description,
+.audit-finding-detail p {
+  margin: 0;
+}
+
+.audit-finding-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-finding-button {
+  width: 100%;
+  display: grid;
+  gap: 0.45rem;
+  text-align: left;
+  border: 1px solid rgba(152, 188, 220, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.25);
+  color: var(--text);
+  padding: 0.8rem 0.9rem;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.audit-finding-button:hover {
+  opacity: 0.85;
+  border-color: var(--accent-border-subtle);
+}
+
+.audit-finding-button.active {
+  border-color: var(--accent-border);
+  background: rgba(38, 88, 134, 0.28);
+}
+
+.audit-finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.audit-finding-path,
+.audit-finding-location,
+.audit-finding-dismissed {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.audit-export-preview {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid rgba(152, 188, 220, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(4, 7, 13, 0.72);
+  padding: 0.9rem;
+  font-size: var(--font-sm);
+}
+
+.run-context-row a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.run-context-row a:hover {
+  color: var(--accent-text-light);
+}
+
+.run-details-grid div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(152, 188, 220, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+}
+
 @media (max-width: 1000px) {
   .run-report-shell {
     grid-template-columns: 1fr;
   }
 
   .run-report-card-header {
+    flex-direction: column;
+  }
+
+  .audit-review-header {
     flex-direction: column;
   }
 }

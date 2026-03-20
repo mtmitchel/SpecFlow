@@ -1,5 +1,5 @@
 import type { ArtifactsSnapshot, Initiative, Ticket, TicketStatus } from "../../types.js";
-import { getInitiativeProgressModel, getInitiativeResumeHref } from "../utils/initiative-progress.js";
+import { getInitiativeProgressModel, getInitiativeShellHref } from "../utils/initiative-progress.js";
 import { getInitiativeDisplayTitle } from "../utils/initiative-titles.js";
 
 export type NavigatorNodeType =
@@ -43,7 +43,7 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
   for (const initiative of initiatives) {
     const initiativeTickets = tickets.filter((t) => t.initiativeId === initiative.id);
     const initiativeProgress = getInitiativeProgressModel(initiative, snapshot);
-    const initiativePath = getInitiativeResumeHref(initiative, initiativeProgress, snapshot);
+    const initiativePath = getInitiativeShellHref(initiative, initiativeProgress, snapshot);
 
     const children: NavigatorNode[] = [];
 

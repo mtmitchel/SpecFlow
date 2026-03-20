@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot } from "../../types.js";
 import { Pipeline } from "../components/pipeline.js";
-import { getInitiativeProgressModel, getInitiativeResumeHref } from "../utils/initiative-progress.js";
+import {
+  getInitiativeProgressModel,
+  getInitiativeResumeHref,
+  getInitiativeShellHref,
+} from "../utils/initiative-progress.js";
 import { getInitiativeQueueActionLabel, getStandaloneTicketActionLabel } from "../utils/ui-language.js";
 
 const modKey =
@@ -20,6 +24,15 @@ interface QueueAction {
   tone: "planning" | "review" | "execution" | "verify" | "audit";
 }
 
+interface RecentRunLink {
+  id: string;
+  href: string;
+  kicker: string;
+  title: string;
+  context: string;
+  tone: "execution" | "audit";
+}
+
 const ACTION_TONE_LABELS: Record<QueueAction["tone"], string> = {
   planning: "Plan",
   review: "Review",
@@ -35,6 +48,14 @@ export const OverviewPanel = ({
   snapshot: ArtifactsSnapshot;
   onOpenCommandPalette: () => void;
 }) => {
+  const ticketMap = useMemo(
+    () => new Map(snapshot.tickets.map((ticket) => [ticket.id, ticket])),
+    [snapshot.tickets],
+  );
+  const initiativeMap = useMemo(
+    () => new Map(snapshot.initiatives.map((initiative) => [initiative.id, initiative])),
+    [snapshot.initiatives],
+  );
   const initiativeCards = useMemo(
     () =>
       snapshot.initiatives
@@ -106,18 +127,6 @@ export const OverviewPanel = ({
       });
     }
 
-    for (const run of snapshot.runs.filter((candidate) => candidate.type === "audit")) {
-      actions.push({
-        id: `audit:${run.id}`,
-        href: `/run/${run.id}`,
-        initiativeName: "Audit activity",
-        label: "Review audit report",
-        priority: 5,
-        updatedAt: run.createdAt,
-        tone: "audit",
-      });
-    }
-
     return actions
       .sort((left, right) => {
         const priority = left.priority - right.priority;
@@ -129,18 +138,26 @@ export const OverviewPanel = ({
       })
       .slice(0, 6);
   }, [initiativeCards, snapshot]);
-  const queuedInitiativeIds = useMemo(
+  const recentRuns = useMemo(
     () =>
-      new Set(
-        upNext
-          .map((action) => snapshot.initiatives.find((initiative) => action.id === initiative.id)?.id ?? null)
-          .filter((initiativeId): initiativeId is string => Boolean(initiativeId)),
-      ),
-    [snapshot.initiatives, upNext],
-  );
-  const visibleInitiativeCards = useMemo(
-    () => initiativeCards.filter(({ initiative }) => !queuedInitiativeIds.has(initiative.id)),
-    [initiativeCards, queuedInitiativeIds],
+      [...snapshot.runs]
+        .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+        .slice(0, 4)
+        .map<RecentRunLink>((run) => {
+          const ticket = run.ticketId ? ticketMap.get(run.ticketId) ?? null : null;
+          const initiative =
+            ticket?.initiativeId ? initiativeMap.get(ticket.initiativeId) ?? null : null;
+
+          return {
+            id: run.id,
+            href: `/run/${run.id}`,
+            kicker: run.type === "audit" ? "Audit report" : "Run report",
+            title: ticket?.title ?? run.id,
+            context: `${initiative?.title ?? (ticket ? "Quick task" : "Standalone run")} · ${run.id}`,
+            tone: run.type === "audit" ? "audit" : "execution",
+          };
+        }),
+    [initiativeMap, snapshot.runs, ticketMap],
   );
   const primaryAction = upNext[0] ?? null;
   const secondaryActions = primaryAction ? upNext.slice(1) : [];
@@ -204,11 +221,40 @@ export const OverviewPanel = ({
         </div>
       ) : null}
 
+      {recentRuns.length > 0 ? (
+        <div className="journey-home-section action-queue">
+          <div className="action-queue-heading">Recent runs</div>
+          <div className="action-queue-list">
+            {recentRuns.map((run) => (
+              <Link
+                key={run.id}
+                to={run.href}
+                className={`action-queue-row action-queue-row-${run.tone}`}
+              >
+                <span className={`action-queue-icon action-queue-icon-${run.tone}`} aria-hidden="true">
+                  {ACTION_TONE_LABELS[run.tone].slice(0, 1)}
+                </span>
+                <div className="action-queue-main">
+                  <span className="action-queue-kicker">{run.kicker}</span>
+                  <span className="action-queue-title">{run.title}</span>
+                  <span className="action-queue-context">{run.context}</span>
+                </div>
+                <div className="action-queue-trailing">
+                  <span className="action-queue-arrow" aria-hidden="true">
+                    →
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="journey-home-section">
         <div className="action-queue-heading">Initiatives</div>
         <div className="initiative-card-grid">
-        {visibleInitiativeCards.map(({ initiative, progress }) => (
-          <Link key={initiative.id} to={getInitiativeResumeHref(initiative, progress, snapshot)} className="initiative-card">
+        {initiativeCards.map(({ initiative, progress }) => (
+          <Link key={initiative.id} to={getInitiativeShellHref(initiative, progress, snapshot)} className="initiative-card">
             <div className="initiative-card-top">
               <div>
                 <h3>{initiative.title}</h3>
@@ -233,6 +279,11 @@ export const OverviewPanel = ({
                 </div>
               </div>
             ) : null}
+
+            <div className="initiative-card-footer">
+              <span>Open initiative</span>
+              <span aria-hidden="true">→</span>
+            </div>
           </Link>
         ))}
 

@@ -108,16 +108,17 @@ If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup mig
 
 ## Key Features
 
-- **Pipeline-centered planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, Validation, and Tickets with a persistent initiative pipeline across Home and planning surfaces, while ticket and run pages stay focused on the current execution object.
+- **Pipeline-centered planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, Validation, and Tickets with initiative-local pipeline chrome across creation and planning surfaces, while Home, ticket, and run pages each keep their own clearer job.
 - **Mandatory brief intake**: fresh initiatives always begin with a short consultation before the first brief is generated, so the product does not hallucinate scope, users, or success criteria from a single paragraph.
 - **Planning reviews and cross-checks**: every major artifact can still be reviewed for gaps and cross-checked against adjacent artifacts, but those reviews are secondary artifacts instead of primary blockers between Brief, Core flows, PRD, and Tech spec.
 - **Validation-owned ticket readiness**: Validation now owns the last planning gate before tickets are committed. It drafts the ticket plan, reroutes actionable blockers into in-place follow-up questions, and only commits tickets once the plan is clear or explicitly overridden.
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
 - **Execution board handoff**: Tickets now reads as a left-to-right phase board that opens the ticket workspace directly, so board selection leads straight into execution.
 - **Execution gating**: initiative-backed tickets carry covered spec items, and unresolved Validation blockers still block export and execution until the user reruns or overrides the check.
-- **Action-oriented home**: the landing view is an Up next queue plus initiative cards with inline progress, so the first screen answers what needs attention now instead of showing aggregate counts.
-- **Durable re-entry**: initiative resume links restore the last meaningful planning surface or active initiative ticket, while run detail stays explicit history instead of hijacking the default resume target.
-- **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals app actions plus the full initiative and quick-task hierarchy.
+- **Action-oriented home**: the landing view is an Up next queue, Recent runs, and initiative cards with inline progress, so the first screen answers what needs attention now without turning history into the primary workflow.
+- **Durable re-entry**: Home's resume actions reopen the last meaningful planning surface or active initiative ticket, while initiative cards and the sidebar stay stable object entry points and run detail stays explicit history.
+- **Report-first runs and guided review**: run detail stays focused on what happened and what changed, while **Review changes** opens a guided audit flow with follow-up actions and keeps advanced compare controls behind secondary disclosure.
+- **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals app actions plus the full initiative and quick-task hierarchy as a stable object navigator.
 - **Command palette (Cmd+K)**: quick access to Quick Task, New Initiative, GitHub Import, Settings, and fuzzy entity search.
 - **Direct planning entry**: `/new-initiative` flows directly into the shared Brief survey instead of bouncing through a separate handoff mode.
 - **Phase-specific planning transitions**: planning entry, follow-up checks, and artifact generation now name the active phase directly and explain the next step instead of falling back to generic waiting copy.

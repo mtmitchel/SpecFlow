@@ -26,7 +26,7 @@ Related docs:
 
 **Steps:**
 
-1. User lands in the same planning shell they will use for the full journey. A persistent initiative pipeline stays visible across Home, creation, planning, ticket, and run surfaces.
+1. User lands in the same planning shell they will use for the full journey. Home stays light with **Up next**, **Recent runs**, and stable initiative cards, while the initiative pipeline becomes initiative-local orientation chrome once the user is inside initiative planning.
 2. User types a free-form idea and continues directly into **Brief intake** in the same screen. The idea card stays visible above the intake so the user does not lose context during the handoff.
 3. Fresh initiatives always begin with **Brief intake**. SpecFlow asks a required four-question consultation before the first brief can be generated. The questions lock the primary problem, primary user, cross-cutting success qualities, and hard boundaries for v1. The intake should separate the dominant pain from the quality bars that define a good first release instead of asking the same thing twice with different wording.
 4. Once the intake is answered or explicitly deferred, the user generates the Brief. SpecFlow then runs a **Brief review** artifact, but the main path remains the artifact review screen rather than a separate blocking checkpoint surface. From review, `Back` should always mean "go to the previous stage." Reopening the answered Brief intake inline should use an explicit action such as `Revise answers` instead of overloading `Back`.
@@ -37,7 +37,7 @@ Related docs:
 9. If Validation finds actionable gaps, it should keep the user in **Validation** and turn those gaps into in-place follow-up questions tied back to Brief, Core flows, PRD, or Tech spec. The user should not be forced backward to answer them. Only if the blockers cannot be turned into answerable questions should Validation fall back to a compact blocked summary with a clear override path.
 10. Once Validation passes or is explicitly overridden, SpecFlow commits the ticket plan and moves into **Tickets**. Tickets should read as an execution board, with one left-to-right column per phase. Clicking a ticket should open the ticket workspace directly. Tickets should not own planning blockers, review questions, or coverage dumps anymore.
 11. The initiative shell keeps each step in one visible stage: **Consult**, **Draft**, **Checkpoint**, or **Complete**. Generated artifacts default to a focused summary, while full document views and review findings stay behind secondary actions instead of flooding the main page. Completed planning steps retain their asked-question history so users can deliberately reopen the exact answered survey for targeted revisions without reconstructing a fresh intake state, but that entry should use an explicit action such as `Revise answers` rather than `Back`. Resume links and bare initiative routes should restore the last meaningful planning surface for the current phase: review by default after generation, or questions if the user deliberately went back into revision. When the phase is checking for more questions or generating the next artifact, the waiting state should name the active phase directly, for example `Checking PRD questions...`, `Generating PRD...`, or `Validating plan...`, instead of falling back to generic loading copy.
-12. The top-level workspace stays light by default: a collapsed icon rail for app-level actions, Up next on Home, and an in-place expandable sidebar that reveals the full initiative and quick-task hierarchy without opening a second panel.
+12. The top-level workspace stays light by default: a collapsed icon rail for app-level actions, **Up next** plus **Recent runs** on Home, and an in-place expandable sidebar that reveals the full initiative and quick-task hierarchy as a stable object navigator without opening a second panel.
 
 **Exit:** Initiative is ready for execution once Validation passes or is overridden and the ticket board is committed. All tickets are in Backlog. User proceeds to Milestone Run.
 
@@ -69,7 +69,7 @@ Related docs:
     - **Re-export with Findings** -- generates a new bundle pre-loaded with failure context and remediation hints (quick-fix mode). A "Re-verify Now" button appears after the fix bundle is ready.
     - **Override to Done** -- two-step safeguard: user enters a required reason, then confirms _"I accept risk"_; reason + confirmation are logged in run history.
 13. Run history is grouped by ticket with expandable attempts, so retries remain auditable without clutter. The ticket page should stay ticket-first: compact initiative context plus a local execution strip at the top, one primary action card expanded at a time, and a plain-language brief that explains why the ticket exists before exposing raw implementation detail.
-14. Resume and re-entry should return initiative work to the active ticket, not to a run report. Explicit run-detail visits remain historical drill-down only; they do not replace the initiative's execution resume target.
+14. Resume and re-entry should return initiative work to the active ticket, not to a run report. Explicit run-detail visits remain historical drill-down only; they do not replace the initiative's execution resume target, and they should not reintroduce the full initiative pipeline as competing workflow chrome.
 15. If an operation is recovered as `abandoned`, `superseded`, or `failed`, Runs and Ticket detail show a status badge with guided retry actions.
 16. Phase guidance is soft. Users can start next-phase tickets early, but SpecFlow shows the warning in the ticket preflight instead of scattering it across multiple banners.
 17. When all tickets in a phase are Done, the phase collapses with a complete indicator.
@@ -111,26 +111,27 @@ Related docs:
 
 **Entry points:**
 
-- **Run view:** user clicks **Run Audit** as a contextual action from within a run's detail view.
-- **Ticket view:** user clicks **Run Audit on Current Changes** as a contextual action.
+- **Run view:** user clicks **Review changes** as a contextual action from within a run report.
+- **Ticket view:** user opens the linked run report and uses **Review changes** there.
 
 **Steps:**
 
 1. User triggers audit from either Runs or a Ticket page contextual action.
-2. User selects a diff source from a segmented control: **Current git diff** / **Git branch** / **Commit range** / **File snapshot**.
-3. When launched from a Ticket page, default scope is prefilled to **ticket file targets + currently changed files** (user can adjust before running).
+2. User starts with the default review for the run. If that baseline is wrong, they open **Review options** and switch the comparison source to **Git branch**, **Commit range**, or **File snapshot**.
+3. Default scope is prefilled from the run and linked ticket context. The user only adjusts it when they need a narrower or wider review than the default run context.
 4. (Optional) User links the audit to an existing ticket. Linking provides acceptance criteria as additional context for the LLM reviewer.
 5. If no git repo is present, user selects folders/files for snapshot comparison scope before running the audit.
-6. User clicks **Run Audit**. When an API key is configured, an LLM reviewer analyzes the diff against the ticket criteria and `specflow/AGENTS.md` conventions. Without an API key, keyword-based analysis is used as a fallback.
-7. Findings are displayed in a two-panel layout:
-   - **Left:** Categorized findings list -- each item shows category (Bug / Performance / Security / Clarity / Drift / Acceptance / Convention), severity badge (Error / Warning / Info), confidence score, description, and affected file.
-   - **Right:** Unified diff viewer with finding markers in the gutter -- clicking a marker highlights the corresponding finding on the left.
+6. User clicks **Review changes**. When an API key is configured, an LLM reviewer analyzes the diff against the ticket criteria and `specflow/AGENTS.md` conventions. Without an API key, keyword-based analysis is used as a fallback.
+7. Findings are displayed in a guided review layout:
+   - **Left:** Categorized findings list -- each item shows category, severity badge, confidence score, description, and affected file.
+   - **Right:** One selected finding at a time, with follow-up actions first and diff context behind secondary disclosure.
 8. For each finding, the user can:
-   - **Create Ticket** -- opens a pre-filled Quick Task panel with the finding as the task description.
-   - **Export Fix Bundle (Quick Fix)** -- generates an agent bundle targeting only that finding, writing linkage metadata to the run attempt (source run + finding ID).
+   - **Create follow-up ticket** -- opens a focused task seeded from the finding.
+   - **Export fix bundle** -- generates an agent bundle targeting only that finding, writing linkage metadata to the run attempt (source run + finding ID).
    - **Dismiss** -- marks the finding as acknowledged (with a required note).
-9. The completed audit is saved to the **Runs** section with a timestamp, diff source label, finding count, and any dismissal notes.
-10. If audit generation or staged commit recovery lands in `abandoned`, `superseded`, or `failed`, Runs shows explicit status badges and guided retry actions.
+9. Diff context and advanced compare controls remain available, but they stay behind explicit disclosure so the default review stays focused on findings and next actions.
+10. The completed audit is saved to the **Runs** section with a timestamp, diff source label, finding count, and any dismissal notes.
+11. If audit generation or staged commit recovery lands in `abandoned`, `superseded`, or `failed`, Runs shows explicit status badges and guided retry actions.
 
 ---
 
@@ -155,7 +156,7 @@ stateDiagram
 
 ```mermaid
 graph TD
-    Rail[Icon rail] --> Home[Home - Up next + initiative cards]
+    Rail[Icon rail] --> Home[Home - Up next + Recent runs + initiative cards]
     Rail --> Sidebar[Expanded sidebar]
     Sidebar --> Initiatives[Initiative and quick-task hierarchy]
     Sidebar --> QuickTasks[Quick Tasks section]
@@ -170,7 +171,7 @@ graph TD
     Initiatives --> TicketView
     Home --> TicketView
     QuickTasks --> TicketView[Ticket View: status dropdown + export + capture + verify + audit]
-    TicketView --> RunView[Run View: secondary execution report + audit]
+    TicketView --> RunView[Run View: historical run report + review changes]
 
     Settings[Settings - Cmd+K or rail button] --> SettingsModal[Settings Modal: provider + model + API key]
 ```

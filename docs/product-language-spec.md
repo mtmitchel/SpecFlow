@@ -94,6 +94,7 @@ Rules:
 - `Execute`, `Verify`, and `Done` are UI progress zones derived from ticket and run state.
 - `Run` remains the canonical object name for execution reports.
 - The pipeline is navigation and orientation chrome, not a second workflow contract.
+- Home and run history should not present the full initiative pipeline as the primary navigation model.
 
 ### Clarification model
 
@@ -201,6 +202,7 @@ Avoid these unless the context is explicitly technical or advanced.
 - `Regenerate` -> `Refresh`
 - `Run Audit` -> `Review changes`
 - `Capture Results` -> `Review changes` or `Verify work`
+- `Create fix bundle` -> `Export fix bundle`
 - `Context Bundle Contents` -> `Included files`
 
 ## Status language
@@ -523,7 +525,7 @@ Avoid:
 - `Capture Results`
 - `Verification Results` as the only framing
 
-Resume behavior should treat the ticket as the primary execution object. If an initiative-backed ticket is the active work item, Home and initiative shortcuts should reopen that ticket. Run detail should reopen only when the user explicitly opens history.
+Resume behavior should treat the ticket as the primary execution object. If an initiative-backed ticket is the active work item, Home's resume actions should reopen that ticket. Initiative cards and sidebar shortcuts should stay stable object entry points that open the initiative shell instead. Run detail should reopen only when the user explicitly opens history.
 
 ### Run page
 
@@ -534,10 +536,14 @@ The run page should answer:
 - what changed
 - what to do next
 
+The run page should read like a report and history surface first. It should not behave like a second initiative navigator.
+`Review changes` should open a guided review flow. Advanced compare controls and raw diff detail should stay behind secondary disclosure until the user explicitly asks for them.
+
 Preferred action labels:
 
 - `Open ticket`
 - `Review changes`
+- `Show changes`
 - `Show drift`
 - `Hide drift`
 
@@ -552,14 +558,17 @@ The home view should be action-oriented, not just archival.
 Preferred section names:
 
 - `Up next`
+- `Recent runs`
 - `Initiatives`
 
-Home cards and queue items should use short status labels that point toward action, for example:
+Home queue items should use short status labels that point toward action, for example:
 
 - `Review brief`
 - `Generating tech spec`
 - `Verify ticket`
 - `Ready to run`
+
+Initiative cards should read like stable entry points into the initiative shell rather than like a second resume queue.
 
 ### Aggregate pages
 

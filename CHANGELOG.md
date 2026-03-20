@@ -9,6 +9,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Changed
 
+**Shell hierarchy and run framing**
+- Split Home resume targets from stable initiative-shell navigation so Home remains the primary resume surface while the sidebar and initiative cards stay stable object entry points
+- Added `Recent runs` to Home and removed audit history from the main resume queue so historical drill-down no longer competes with active work
+- Reframed run detail as a report-first surface with compact ticket and initiative context instead of the full initiative pipeline
+- Recast `Review changes` as a guided audit flow with findings-first follow-up actions and secondary disclosure for review options and diff context
+- Synced the new-initiative entry pipeline to the canonical visual model so it now includes `Validation`
+
 **Validation and ticket handoff**
 - Added a first-class Validation step between Tech spec and Tickets so the planning pipeline is now `Brief -> Core flows -> PRD -> Tech spec -> Validation -> Tickets`
 - Validation now owns the final planning gate before tickets are committed, including in-place follow-up questions when the draft ticket plan exposes unresolved gaps

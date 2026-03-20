@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   fetchRunAttemptDetail,
   fetchRunDetail,
@@ -7,7 +7,6 @@ import {
   fetchRunProgress
 } from "../../api.js";
 import type {
-  ArtifactsSnapshot,
   Initiative,
   PlanningReviewArtifact,
   Run,
@@ -19,9 +18,7 @@ import type {
 import { DiffViewer } from "../components/diff-viewer.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { AuditPanel } from "../components/audit-panel.js";
-import { Pipeline } from "../components/pipeline.js";
 import { useToast } from "../context/toast.js";
-import { getInitiativeProgressModel } from "../utils/initiative-progress.js";
 import { usePersistInitiativeResumeTicket } from "./use-persist-initiative-resume-ticket.js";
 
 const RunReportCard = ({
@@ -44,10 +41,10 @@ const RunReportCard = ({
 
 export const RunView = ({
   initiatives,
-  tickets,
-  planningReviews,
-  runs,
-  ticketCoverageArtifacts,
+  tickets: _tickets,
+  planningReviews: _planningReviews,
+  runs: _runs,
+  ticketCoverageArtifacts: _ticketCoverageArtifacts,
   onRefresh,
 }: {
   initiatives: Initiative[];
@@ -58,7 +55,6 @@ export const RunView = ({
   onRefresh: () => Promise<void>;
 }) => {
   const params = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { showError } = useToast();
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [committedAttemptDetail, setCommittedAttemptDetail] = useState<RunAttemptDetail | null>(null);
@@ -308,21 +304,7 @@ export const RunView = ({
     ...(detail.committed?.bundleManifest?.requiredFiles ?? []),
     ...(detail.committed?.bundleManifest?.contextFiles ?? [])
   ];
-  const progressModel = initiative
-    ? getInitiativeProgressModel(
-        initiative,
-        {
-          config: null,
-          initiatives,
-          tickets,
-          runs,
-          runAttempts: [],
-          specs: [],
-          planningReviews,
-          ticketCoverageArtifacts,
-        } as ArtifactsSnapshot
-      )
-    : null;
+  const runTypeLabel = detail.run.type === "audit" ? "Audit report" : "Run report";
   const reportVerdict = verificationPass === null ? "No verdict yet" : verificationPass ? "Pass" : "Fail";
   const committedHasPrimaryDiff = Boolean(committedAttemptDetail?.primaryDiffPath);
   const committedHasDriftDiff = Boolean(committedAttemptDetail?.driftDiffPath);
@@ -332,38 +314,14 @@ export const RunView = ({
       <header className="section-header ticket-journey-header">
         <div>
           <h2>{detail.run.id}</h2>
-          <p>{detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link> : "No linked ticket"}</p>
+          <p>{runTypeLabel}</p>
         </div>
         {detail.ticket ? (
           <div className="button-row" style={{ marginBottom: 0 }}>
-            <Link to={`/ticket/${detail.ticket.id}`}>Back to ticket</Link>
+            <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link>
           </div>
         ) : null}
       </header>
-
-      {initiative && progressModel ? (
-        <div className="planning-pipeline-card">
-          <Pipeline
-            nodes={progressModel.nodes}
-            selectedKey={verificationPass === null || verificationPass === false ? "verify" : progressModel.currentKey}
-            onNodeClick={(key) => {
-              if (key === "execute" || key === "verify") {
-                if (detail.ticket) {
-                  navigate(`/ticket/${detail.ticket.id}`);
-                }
-                return;
-              }
-
-              if (key === "done") {
-                navigate(`/initiative/${initiative.id}`);
-                return;
-              }
-
-              navigate(`/initiative/${initiative.id}?step=${key}`);
-            }}
-          />
-        </div>
-      ) : null}
 
       <div className="run-report-shell">
         <div className="run-report-main">
@@ -403,7 +361,7 @@ export const RunView = ({
             <MarkdownView content={committedAttemptDetail?.agentSummary || "(no summary provided)"} />
           </RunReportCard>
 
-          <RunReportCard title="Changes" badge={committedHasPrimaryDiff ? (primaryDiff ? "Loaded" : "Available") : "No diff"}>
+          <RunReportCard title="Changes" badge={committedHasPrimaryDiff ? (primaryDiff ? "Loaded" : "Available") : "No changes"}>
             {!committedHasPrimaryDiff ? (
               <p className="ticket-empty-note">No captured changes for this run.</p>
             ) : primaryDiff ? (
@@ -416,7 +374,7 @@ export const RunView = ({
                       <span className="status-loading-spinner" aria-hidden="true" />
                       <span className="loading-label-pulse">Loading diff...</span>
                     </span>
-                  ) : "Show diff"}
+                  ) : "Show changes"}
                 </button>
               </div>
             )}
@@ -440,12 +398,12 @@ export const RunView = ({
                     }
                   }}
                 >
-                  {showDrift ? "Hide diff" : driftDiffLoading ? (
+                  {showDrift ? "Hide drift" : driftDiffLoading ? (
                     <span className="btn-loading">
                       <span className="status-loading-spinner" aria-hidden="true" />
                       <span className="loading-label-pulse">Loading drift diff...</span>
                     </span>
-                  ) : "Show diff"}
+                  ) : "Show drift"}
                 </button>
               </div>
               {showDrift && driftDiff ? <DiffViewer title="Drift diff" diff={driftDiff} /> : null}
@@ -478,8 +436,31 @@ export const RunView = ({
         </div>
 
         <aside className="run-report-side">
+          <RunReportCard title="Context">
+            <dl className="run-context-list">
+              {initiative ? (
+                <div className="run-context-row">
+                  <dt>Initiative</dt>
+                  <dd>
+                    <Link to={`/initiative/${initiative.id}?step=tickets`}>{initiative.title}</Link>
+                  </dd>
+                </div>
+              ) : null}
+              <div className="run-context-row">
+                <dt>Ticket</dt>
+                <dd>
+                  {detail.ticket ? (
+                    <Link to={`/ticket/${detail.ticket.id}`}>{detail.ticket.title}</Link>
+                  ) : (
+                    "Standalone run"
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </RunReportCard>
+
           <RunReportCard title="Details">
-            <div className="ticket-context-metrics">
+            <div className="run-details-grid">
               <div>
                 <span>Verdict</span>
                 <strong>{reportVerdict}</strong>
@@ -491,6 +472,10 @@ export const RunView = ({
               <div>
                 <span>Agent</span>
                 <strong>{detail.run.agentType}</strong>
+              </div>
+              <div>
+                <span>Type</span>
+                <strong>{runTypeLabel}</strong>
               </div>
             </div>
           </RunReportCard>

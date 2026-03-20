@@ -182,10 +182,18 @@ describe("RunView", () => {
     });
 
     expect(screen.getByText("Summary")).toBeInTheDocument();
+    expect(screen.getByText("Context")).toBeInTheDocument();
     expect(screen.getByText("Details")).toBeInTheDocument();
     expect(screen.getByText("Included files")).toBeInTheDocument();
     expect(screen.getByText("Implemented the execution gate and updated tests.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to ticket" })).toHaveAttribute("href", `/ticket/${ticket.id}`);
+    expect(screen.getByRole("link", { name: "Open ticket" })).toHaveAttribute("href", `/ticket/${ticket.id}`);
+    expect(screen.getByRole("link", { name: initiative.title })).toHaveAttribute(
+      "href",
+      `/initiative/${initiative.id}?step=tickets`,
+    );
+    expect(screen.getAllByRole("link", { name: ticket.title })[0]).toHaveAttribute("href", `/ticket/${ticket.id}`);
+    expect(screen.queryByRole("button", { name: "Brief" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Verify" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(updateInitiativeMock).toHaveBeenCalledWith(initiative.id, { resumeTicketId: ticket.id });

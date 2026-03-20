@@ -97,7 +97,7 @@ describe("buildNavigatorTree", () => {
     expect(initiativeNodes).toHaveLength(2);
     expect(tree.some((node) => node.type === "quick-tasks-header")).toBe(true);
     expect(initiativeNodes.map((node) => node.label)).toEqual(["Local Notes", "Design Library"]);
-    expect(initiativeNodes[0]?.path).toBe(`/ticket/${initiativeTicket.id}`);
+    expect(initiativeNodes[0]?.path).toBe(`/initiative/${initiative.id}?step=tickets`);
     expect(initiativeNodes[1]?.path).toBe(`/initiative/${secondInitiative.id}?step=core-flows&surface=questions`);
   });
 });

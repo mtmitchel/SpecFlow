@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import type { ArtifactsSnapshot, Initiative, PlanningReviewArtifact, Ticket } from "../../types.js";
+import type { ArtifactsSnapshot, Initiative, PlanningReviewArtifact, Run, Ticket } from "../../types.js";
 import { OverviewPanel } from "./overview-panel.js";
 
 const initiative: Initiative = {
@@ -64,11 +64,25 @@ const quickVerifyTicket: Ticket = {
   updatedAt: "2026-03-16T10:20:00.000Z",
 };
 
+const auditRun: Run = {
+  id: "run-audit-12345678",
+  ticketId: null,
+  type: "audit",
+  agentType: "codex-cli",
+  status: "complete",
+  attempts: [],
+  committedAttemptId: null,
+  activeOperationId: null,
+  operationLeaseExpiresAt: null,
+  lastCommittedAt: "2026-03-16T10:30:00.000Z",
+  createdAt: "2026-03-16T10:30:00.000Z",
+};
+
 const snapshot: ArtifactsSnapshot = {
   config: null,
   initiatives: [initiative],
   tickets: [quickVerifyTicket],
-  runs: [],
+  runs: [auditRun],
   runAttempts: [],
   specs: [],
   planningReviews: [planningReview],
@@ -85,6 +99,7 @@ describe("OverviewPanel", () => {
 
     expect(screen.getByText("Up next")).toBeInTheDocument();
     expect(screen.getByText("More in progress")).toBeInTheDocument();
+    expect(screen.getByText("Recent runs")).toBeInTheDocument();
     expect(screen.getByText("Initiatives")).toBeInTheDocument();
     expect(screen.getByText("Resume work")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review brief.*Linux Notes/i })).toHaveAttribute(
@@ -92,7 +107,12 @@ describe("OverviewPanel", () => {
       `/initiative/${initiative.id}?step=brief&surface=questions`
     );
     expect(screen.getByText("Verify quick task")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Linux Notes.*Build a Linux-first notes app/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app.*Open initiative/i })).toHaveAttribute(
+      "href",
+      `/initiative/${initiative.id}?step=brief&surface=questions`,
+    );
+    expect(screen.getByText(auditRun.id)).toBeInTheDocument();
+    expect(screen.queryByText("Review audit report")).not.toBeInTheDocument();
     expect(screen.getAllByText("Review brief")).toHaveLength(1);
   });
 
@@ -160,6 +180,10 @@ describe("OverviewPanel", () => {
     expect(screen.getByRole("link", { name: /Resume ticket.*Linux Notes/i })).toHaveAttribute(
       "href",
       "/ticket/initiative-ticket",
+    );
+    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app.*Open initiative/i })).toHaveAttribute(
+      "href",
+      `/initiative/${executionInitiative.id}?step=tickets`,
     );
   });
 });

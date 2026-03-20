@@ -110,16 +110,16 @@ export const VerificationResultsSection = ({
 
       {!verificationResult.overallPass ? (
         <div>
-          <h4>Try another pass</h4>
+          <h4>Next pass</h4>
           <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-            Create a fix bundle with the failed criteria, then verify the ticket again after the next pass lands.
+            Export a fix bundle with the failed criteria, then verify the ticket again after the next pass lands.
           </p>
           <div className="button-row">
             <button
               type="button"
               onClick={() => void handleReExportWithFindings(verificationResult.criteriaResults)}
             >
-              Create fix bundle
+              Export fix bundle
             </button>
             <button
               type="button"

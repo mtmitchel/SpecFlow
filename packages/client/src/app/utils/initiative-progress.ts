@@ -142,6 +142,31 @@ export const getInitiativeResumeHref = (
   );
 };
 
+export const getInitiativeShellHref = (
+  initiative: Initiative,
+  progress: InitiativeProgressModel,
+  snapshot: ArtifactsSnapshot,
+): string => {
+  if (
+    progress.currentKey === "tickets" ||
+    progress.currentKey === "execute" ||
+    progress.currentKey === "verify" ||
+    progress.currentKey === "done"
+  ) {
+    return buildInitiativeStepHref(initiative.id, "tickets");
+  }
+
+  if (progress.currentKey === "validation") {
+    return buildInitiativeStepHref(initiative.id, "validation");
+  }
+
+  return buildInitiativeStepHref(
+    initiative.id,
+    progress.currentKey,
+    getInitiativePlanningSurface(initiative, snapshot.specs, progress.currentKey),
+  );
+};
+
 export const PIPELINE_NODE_ORDER: PipelineNodeKey[] = [
   "brief",
   "core-flows",
