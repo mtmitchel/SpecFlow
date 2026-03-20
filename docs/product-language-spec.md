@@ -135,6 +135,17 @@ Use these descriptions wherever the app introduces a phase.
 - `Tickets`: Break the work into ordered execution phases and show them as a left-to-right ticket board.
 - `Runs`: Review delivery and verification for a ticket.
 
+### Ticket page framing
+
+The ticket page should feel like a guided task workspace, not a system console.
+
+Rules:
+
+- Keep a compact hybrid anchor at the top: initiative context plus a local execution strip.
+- Use one dominant current-step card at a time.
+- Keep the collapsed ticket brief human-first.
+- Push raw implementation detail behind a secondary disclosure.
+
 ## Vocabulary
 
 ### Canonical user-facing terms
@@ -156,6 +167,7 @@ Use these terms consistently.
 - `Needs review`
 - `Up next`
 - `Done`
+- `Close ticket`
 
 ### Terms to avoid in default UI copy
 

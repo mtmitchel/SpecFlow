@@ -89,6 +89,7 @@ const renderView = (snapshot: ArtifactsSnapshot) => {
           path="/initiative/:id"
           element={<InitiativeRouteView snapshot={snapshot} onRefresh={vi.fn(async () => undefined)} />}
         />
+        <Route path="/ticket/:id" element={<div>Ticket route</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -139,7 +140,7 @@ describe("InitiativeView tickets layout", () => {
     expect(screen.queryByText("Coverage check")).not.toBeInTheDocument();
   });
 
-  it("opens a clicked ticket in a right-side drawer", async () => {
+  it("navigates directly to the ticket page when a ticket is clicked", async () => {
     renderView({
       config: null,
       initiatives: [
@@ -160,10 +161,7 @@ describe("InitiativeView tickets layout", () => {
     fireEvent.click(screen.getByRole("button", { name: generatedTicket.title }));
 
     await waitFor(() => {
-      expect(screen.getByRole("dialog", { name: generatedTicket.title })).toBeInTheDocument();
+      expect(screen.getByText("Ticket route")).toBeInTheDocument();
     });
-
-    expect(screen.getByText("Acceptance criteria")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open full ticket" })).toBeInTheDocument();
   });
 });

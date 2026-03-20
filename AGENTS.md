@@ -42,6 +42,34 @@ Before making changes, read the docs that match the area you are about to touch.
 Use [`docs/README.md`](docs/README.md) as the index for additional domain docs. If a change touches product language or review expectations, read the relevant file under `docs/` before editing code.
 If a change touches user-facing copy, read [`docs/product-language-spec.md`](docs/product-language-spec.md) and [`docs/ux-copy-guidelines.md`](docs/ux-copy-guidelines.md) before editing UI text.
 
+### Documentation maintenance boundaries
+
+Treat repo-wide documentation upkeep as applying to the living guidance and entrypoint docs only, such as:
+
+- `README.md`
+- `docs/README.md`
+- `docs/runtime-modes.md`
+- `docs/architecture.md`
+- `docs/workflows.md`
+- `docs/product-language-spec.md`
+- `docs/ux-copy-guidelines.md`
+- `CHANGELOG.md`
+- `CLAUDE.md`
+
+Do not update audit documents, report-style documents, or dated one-off files unless the user explicitly asks for those files.
+
+This exclusion is mandatory. Assume files are one-off and out of scope if they:
+
+- are audits or reports by purpose or filename
+- include a date in the filename
+- were clearly written as a point-in-time analysis rather than living guidance
+
+Example out-of-scope docs unless explicitly requested:
+
+- `docs/product-ux-audit.md`
+- any `*audit*` or `*report*` document
+- any document with a date in its filename
+
 ## 3. Repository Layout
 
 ### `packages/app`

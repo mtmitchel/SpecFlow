@@ -84,7 +84,7 @@ export const VerificationResultsSection = ({
         ))}
       </ul>
 
-      <h4>Unexpected changes in scope</h4>
+      <h4>Other changes in the main files</h4>
       <ul>
         {primaryDrift.length === 0
           ? <li style={{ color: "var(--muted)" }}>None</li>
@@ -99,7 +99,7 @@ export const VerificationResultsSection = ({
       </ul>
 
       <h4>
-        Unexpected changes outside the main scope
+        Also changed outside the main files
         <HelpTip text="Files outside the main scope are checked for unexpected changes, but they are not scored against the acceptance criteria." />
       </h4>
       <ul>
@@ -110,9 +110,9 @@ export const VerificationResultsSection = ({
 
       {!verificationResult.overallPass ? (
         <div>
-          <h4>Fix the issues and verify again</h4>
+          <h4>Try another pass</h4>
           <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-            Create a fix bundle with the failed criteria, then verify the ticket again after the fixes land.
+            Create a fix bundle with the failed criteria, then verify the ticket again after the next pass lands.
           </p>
           <div className="button-row">
             <button

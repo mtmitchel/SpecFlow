@@ -22,6 +22,8 @@ interface ExportSectionProps {
   handleSaveZipBundle: () => Promise<void>;
   desktopRuntime: boolean;
   chrome?: "section" | "plain";
+  showIntro?: boolean;
+  showCreateControls?: boolean;
 }
 
 export const ExportSection = ({
@@ -39,28 +41,36 @@ export const ExportSection = ({
   handleDownloadBundle,
   handleSaveZipBundle,
   desktopRuntime,
-  chrome = "section"
+  chrome = "section",
+  showIntro = true,
+  showCreateControls = true,
 }: ExportSectionProps) => {
   const content = (
     <>
-      <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
-        Create a bundle for your coding agent. Run the agent, then return here to review changes and verify the work.
-        <HelpTip text="Creates a bundle with the ticket plan and the codebase context your coding agent needs." />
-      </p>
+      {showIntro ? (
+        <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
+          Create the handoff bundle, run your coding agent, then come back here to verify the result.
+          <HelpTip text="Creates a bundle with the ticket plan and the codebase context your coding agent needs." />
+        </p>
+      ) : null}
       <div className="button-row">
-        <select value={agentTarget} onChange={(event) => setAgentTarget(event.target.value as AgentTarget)}>
-          <option value="claude-code">Claude Code</option>
-          <option value="codex-cli">Codex CLI</option>
-          <option value="opencode">OpenCode</option>
-          <option value="generic">Generic</option>
-        </select>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => void handleExport()}
-        >
-          Create bundle
-        </button>
+        {showCreateControls ? (
+          <>
+            <select value={agentTarget} onChange={(event) => setAgentTarget(event.target.value as AgentTarget)}>
+              <option value="claude-code">Claude Code</option>
+              <option value="codex-cli">Codex CLI</option>
+              <option value="opencode">OpenCode</option>
+              <option value="generic">Generic</option>
+            </select>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void handleExport()}
+            >
+              Create bundle
+            </button>
+          </>
+        ) : null}
         {exportResult ? (
           <button
             type="button"
@@ -105,7 +115,7 @@ export const ExportSection = ({
 
   return (
     <WorkflowSection
-      title="Start execution"
+      title="Start work"
       badge={exportResult ? "ready" : undefined}
       defaultOpen={workflowPhase === "export"}
     >

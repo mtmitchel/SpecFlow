@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ArtifactsSnapshot, InitiativePlanningStep } from "../../types.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { Pipeline } from "../components/pipeline.js";
@@ -18,7 +18,6 @@ import {
 import { buildReopenedQuestionContext } from "./initiative/refinement-history.js";
 import { PlanningSpecSection } from "./initiative/planning-spec-section.js";
 import { RefinementSection } from "./initiative/refinement-section.js";
-import { InitiativeTicketDrawerContent } from "./initiative/ticket-drawer-content.js";
 import { SAVE_STATE_LABELS, type SaveState } from "./initiative/shared.js";
 import { TicketsStepSection } from "./initiative/tickets-step-section.js";
 import { useInitiativePlanningWorkspace } from "./initiative/use-initiative-planning-workspace.js";
@@ -32,7 +31,6 @@ export const InitiativeView = ({
   onRefresh: () => Promise<void>;
 }) => {
   const workspace = useInitiativePlanningWorkspace(snapshot, onRefresh);
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
 
   const renderSaveState = (state: SaveState) => {
     const label = SAVE_STATE_LABELS[state];
@@ -75,7 +73,6 @@ export const InitiativeView = ({
     reviewOverrideReason,
     ticketGenerationError,
     setReviewOverrideReason,
-    ticketCoverageArtifact,
     validationReview,
     initiativeTickets,
     hasActiveContent,
@@ -128,28 +125,6 @@ export const InitiativeView = ({
   );
   const hasGeneratedTickets =
     (initiative?.phases.length ?? 0) > 0 || initiativeTickets.length > 0;
-  const selectedTicket =
-    selectedTicketId
-      ? initiativeTickets.find((ticket) => ticket.id === selectedTicketId) ?? null
-      : null;
-
-  useEffect(() => {
-    if (activeStep !== "tickets") {
-      setSelectedTicketId(null);
-    }
-  }, [activeStep]);
-
-  useEffect(() => {
-    if (drawerState) {
-      setSelectedTicketId(null);
-    }
-  }, [drawerState]);
-
-  useEffect(() => {
-    if (selectedTicketId && !selectedTicket) {
-      setSelectedTicketId(null);
-    }
-  }, [selectedTicket, selectedTicketId]);
 
   if (!initiative || !progressModel) {
     return (
@@ -158,14 +133,6 @@ export const InitiativeView = ({
       </section>
     );
   }
-
-  const openTicketDrawer = (ticketId: string) => {
-    setSelectedTicketId(ticketId);
-  };
-
-  const closeTicketDrawer = () => {
-    setSelectedTicketId(null);
-  };
 
   const renderDrawer = () => {
     if (!drawerState) {
@@ -289,32 +256,6 @@ export const InitiativeView = ({
         </SideDrawer>
       );
     }
-  };
-
-  const renderTicketDrawer = () => {
-    if (!selectedTicket) {
-      return null;
-    }
-
-    return (
-      <SideDrawer
-        open
-        title={selectedTicket.title}
-        description={selectedTicket.description ?? null}
-        onClose={closeTicketDrawer}
-      >
-        <InitiativeTicketDrawerContent
-          initiative={initiative}
-          ticket={selectedTicket}
-          initiativeTickets={initiativeTickets}
-          ticketCoverageArtifact={ticketCoverageArtifact}
-          onOpenFullPage={() => {
-            closeTicketDrawer();
-            openTicket(selectedTicket.id);
-          }}
-        />
-      </SideDrawer>
-    );
   };
 
   const renderSpecWorkspace = () => {
@@ -514,7 +455,7 @@ export const InitiativeView = ({
             <TicketsStepSection
               initiative={initiative}
               initiativeTickets={initiativeTickets}
-              onOpenTicket={openTicketDrawer}
+              onOpenTicket={openTicket}
               onCommitPhaseName={handlePhaseRename}
             />
           </div>
@@ -522,7 +463,6 @@ export const InitiativeView = ({
       </div>
 
       {isDeletingInitiative ? null : renderDrawer()}
-      {isDeletingInitiative ? null : renderTicketDrawer()}
     </section>
   );
 };

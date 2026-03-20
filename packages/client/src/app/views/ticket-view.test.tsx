@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type {
@@ -50,12 +50,25 @@ vi.mock("../components/audit-panel.js", () => ({
 }));
 
 vi.mock("../components/workflow-section.js", () => ({
-  WorkflowSection: ({ title, children }: { title: string; children: ReactNode }) => (
-    <section>
-      <h3>{title}</h3>
-      {children}
-    </section>
-  )
+  WorkflowSection: ({
+    title,
+    children,
+    defaultOpen = false,
+  }: {
+    title: string;
+    children: ReactNode;
+    defaultOpen?: boolean;
+  }) => {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+      <section>
+        <button type="button" onClick={() => setOpen((current) => !current)}>
+          {title}
+        </button>
+        {open ? children : null}
+      </section>
+    );
+  },
 }));
 
 vi.mock("./ticket/export-section.js", () => ({
@@ -204,7 +217,7 @@ describe("TicketView", () => {
     });
   });
 
-  it("shows the coverage gate banner and covered spec items when execution is blocked", () => {
+  it("keeps ticket context collapsed until the user opens the ticket plan", () => {
     renderView({
       planningReviews: [
         {
@@ -232,13 +245,27 @@ describe("TicketView", () => {
       `/initiative/${initiative.id}?step=tickets`
     );
     expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
-    expect(screen.getByText("Covered spec items")).toBeInTheDocument();
+    expect(screen.getByText("Execution path")).toBeInTheDocument();
+    expect(screen.getByText("Verify work")).toBeInTheDocument();
+    expect(screen.getByText("Close ticket")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What this ticket needs to deliver" })).toBeInTheDocument();
+    expect(screen.queryByText("Why this matters")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "What this ticket needs to deliver" }));
+
+    expect(screen.getByText("Why this matters")).toBeInTheDocument();
+    expect(screen.getByText("Done looks like")).toBeInTheDocument();
+    expect(screen.getByText("Supports")).toBeInTheDocument();
+    expect(screen.getByText("This ticket supports 2 planned commitments from the initiative.")).toBeInTheDocument();
+    expect(screen.getByText("Open implementation details")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Open implementation details"));
+
+    expect(screen.getByText("Source plan details")).toBeInTheDocument();
     expect(screen.getAllByText("Brief").length).toBeGreaterThan(0);
     expect(screen.getAllByText("PRD").length).toBeGreaterThan(0);
     expect(screen.getByText("Execution cannot start until coverage is reviewed.")).toBeInTheDocument();
-    expect(
-      screen.getByText("The ticket banner must link back to the initiative tickets step.")
-    ).toBeInTheDocument();
+    expect(screen.getByText("The ticket banner must link back to the initiative tickets step.")).toBeInTheDocument();
   });
 
   it("hides the coverage gate banner once the review is overridden", () => {
@@ -262,5 +289,31 @@ describe("TicketView", () => {
     expect(
       screen.queryByText("Run the coverage check before you start this ticket.")
     ).not.toBeInTheDocument();
+  });
+
+  it("shows one current step card while later steps stay in the execution path", () => {
+    renderView({
+      planningReviews: [
+        {
+          id: `${initiative.id}:ticket-coverage-review`,
+          initiativeId: initiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage is clear.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:30:00.000Z",
+          updatedAt: "2026-03-16T10:30:00.000Z"
+        }
+      ]
+    });
+
+    expect(screen.getByText("Current step")).toBeInTheDocument();
+    expect(screen.getAllByText("Start work").length).toBeGreaterThan(0);
+    expect(screen.getByText("Create the handoff bundle.")).toBeInTheDocument();
+    expect(screen.getByText("ExportSection")).toBeInTheDocument();
+    expect(screen.queryByText("CaptureVerifySection")).not.toBeInTheDocument();
+    expect(screen.queryByText("VerificationResultsSection")).not.toBeInTheDocument();
   });
 });

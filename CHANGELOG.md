@@ -12,7 +12,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 **Validation and ticket handoff**
 - Added a first-class Validation step between Tech spec and Tickets so the planning pipeline is now `Brief -> Core flows -> PRD -> Tech spec -> Validation -> Tickets`
 - Validation now owns the final planning gate before tickets are committed, including in-place follow-up questions when the draft ticket plan exposes unresolved gaps
-- Tickets is now execution-only: it renders a left-to-right phase board, keeps ticket drill-in in a right-side drawer, and no longer owns planning review dumps or question loops
+- Tickets is now execution-only: it renders a left-to-right phase board, opens the ticket workspace directly, and no longer owns planning review dumps or question loops
+
+**Ticket execution workspace**
+- Rebuilt the ticket page around a compact hybrid anchor, one dominant current-step card, and a human-first ticket brief
+- Renamed the local execution flow to `Start work`, `Verify work`, and `Close ticket`
+- Moved raw implementation detail behind a secondary disclosure so the default ticket surface reads like guided task work instead of an operator console
 
 **Planning and Validation UX**
 - `Back` now consistently means "go to the previous stage" across planning surveys and review surfaces; question-level movement uses explicit actions such as `Previous question` and `Revise answers`

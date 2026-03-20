@@ -36,6 +36,7 @@ interface CaptureVerifySectionProps {
   setVerificationResult: (result: VerificationResult | null) => void;
   onRefresh: () => Promise<void>;
   chrome?: "section" | "plain";
+  showIntro?: boolean;
 }
 
 export const CaptureVerifySection = ({
@@ -57,7 +58,8 @@ export const CaptureVerifySection = ({
   setVerifyState,
   setVerificationResult,
   onRefresh,
-  chrome = "section"
+  chrome = "section",
+  showIntro = true,
 }: CaptureVerifySectionProps) => {
   const { showError } = useToast();
 
@@ -96,10 +98,12 @@ export const CaptureVerifySection = ({
 
   const content = (
     <>
-      <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
-        After the work lands, review the captured changes and check them against the ticket plan.
-        <HelpTip text="Compares the captured changes against the acceptance criteria in the ticket plan." />
-      </p>
+      {showIntro ? (
+        <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
+          Refresh the captured changes and verify them against what this ticket needs to deliver.
+          <HelpTip text="Compares the captured changes against the acceptance criteria in the ticket plan." />
+        </p>
+      ) : null}
       <div className="button-row">
         <button type="button" onClick={() => void refreshCapturePreview()}>
           Refresh changes
@@ -108,20 +112,20 @@ export const CaptureVerifySection = ({
       </div>
       {capturePreviewData ? (
         <>
-          <h4>Files in scope</h4>
+          <h4>Main files to check</h4>
           <input
             className="phase-name-input"
             value={captureScopeInput}
             onChange={(event) => setCaptureScopeInput(event.target.value)}
             placeholder="src/app/ticket-view.tsx, src/app/utils/ui-language.ts"
           />
-          <h4>Changes in scope</h4>
+          <h4>Captured changes</h4>
           <pre>{capturePreviewData.primaryDiff || "(no changes in selected scope)"}</pre>
         </>
       ) : null}
       {capturePreviewData?.source === "snapshot" ? (
         <div className="panel">
-          <h4>Choose files</h4>
+          <h4>Pick files to review</h4>
           <input
             type="file"
             multiple
@@ -154,7 +158,7 @@ export const CaptureVerifySection = ({
         onChange={(event) => setCaptureSummary(event.target.value)}
         placeholder="Example: Added the execution gate and updated the related tests."
       />
-      <h4>Review extra files</h4>
+      <h4>Also check these files</h4>
       <input
         className="phase-name-input"
         value={widenedInput}
@@ -162,8 +166,8 @@ export const CaptureVerifySection = ({
         placeholder="src/app/detail-workspace.tsx, src/app/views/run-view.tsx"
       />
       <div className="status-banner warn" style={{ fontSize: "0.85rem" }}>
-        Files outside the main scope are checked for unexpected changes, but they are not scored against the acceptance criteria.
-        Use this when the agent may have touched related files.
+        These files are reviewed for extra changes, but they do not count toward the ticket's must-haves.
+        Use this when the agent also touched related work.
       </div>
       <div className="button-row">
         <button
@@ -197,7 +201,7 @@ export const CaptureVerifySection = ({
 
   return (
     <WorkflowSection
-      title="Review changes and verify"
+      title="Verify work"
       defaultOpen={workflowPhase === "agent" || workflowPhase === "verify"}
     >
       {content}

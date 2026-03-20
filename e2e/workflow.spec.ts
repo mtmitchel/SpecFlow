@@ -168,8 +168,7 @@ test("completes the main initiative workflow from Home to a passing run", async 
   await expect(
     page.getByRole("heading", { name: "Persist local note edits" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Acceptance criteria" })).toBeVisible();
-  await page.getByRole("button", { name: "Open full ticket" }).click();
+  await expect(page.getByRole("heading", { name: "Start work" })).toBeVisible();
   await page.getByRole("button", { name: "Create bundle" }).click();
 
   await expect(page.getByRole("button", { name: "Copy bundle" })).toBeVisible();
@@ -201,9 +200,8 @@ test("completes the main initiative workflow from Home to a passing run", async 
   await page.getByRole("button", { name: "Verify work" }).click();
 
   await expect(page.getByText("Result: Passed")).toBeVisible();
-  await expect(page.getByText("criterion-note-save")).toBeVisible();
 
-  await page.getByRole("link", { name: "Open run" }).first().click();
+  await page.getByRole("link", { name: "Open latest run" }).click();
   await expect(page).toHaveURL(/\/run\/run-/);
   await expect(page.getByText("Included files")).toBeVisible();
   await expect(

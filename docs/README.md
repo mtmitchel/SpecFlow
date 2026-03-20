@@ -50,7 +50,7 @@ Key capabilities in the current version:
 - Validation now owns the final planning gate before tickets are committed, including in-place follow-up questions when the draft ticket plan exposes unresolved gaps
 - Traceability-backed planning with artifact sidecar trace outlines
 - Spec-driven ticket planning with repo context scanning (grounded file targets)
-- Tickets now render as a left-to-right execution board with one column per phase and a right-side ticket drawer for quick inspection
+- Tickets now render as a left-to-right execution board with one column per phase and direct ticket-page entry for execution
 - Validation blockers can still block initiative ticket export and execution until gaps are resolved or explicitly overridden
 - Verification with per-criterion severity (Critical/Major/Minor/Outdated) and remediation hints
 - Fix-forward loop: quick-fix export mode chains failed verification to enriched re-export to re-verify
