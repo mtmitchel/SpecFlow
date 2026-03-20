@@ -3,8 +3,8 @@
   width: min(100%, 1180px);
   margin: 0 auto;
   display: grid;
-  gap: 2rem;
-  padding: 0.55rem 0 2.5rem;
+  gap: var(--space-8);
+  padding: var(--space-2) 0 var(--space-10);
 }
 
 .journey-home-section {
@@ -18,7 +18,7 @@
 }
 
 .action-queue-heading {
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -30,7 +30,7 @@
 }
 
 .action-queue-kicker {
-  font-size: 0.78rem;
+  font-size: var(--font-sm);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -83,9 +83,9 @@
   justify-content: center;
   width: 2.3rem;
   height: 2.3rem;
-  border-radius: 0.65rem;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
   font-weight: 700;
   border: 1px solid transparent;
 }
@@ -131,18 +131,18 @@
 
 .action-queue-arrow {
   color: var(--muted);
-  font-size: 1.15rem;
+  font-size: var(--font-lg);
 }
 
 .action-queue-title {
   font-weight: 600;
-  font-size: 1.18rem;
+  font-size: var(--font-lg);
   color: var(--text);
 }
 
 .action-queue-context {
   color: var(--muted);
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
 }
 
 .initiative-card-grid {
@@ -153,10 +153,10 @@
 .initiative-card {
   display: grid;
   gap: 1.15rem;
-  padding: 1.25rem 1.35rem;
+  padding: var(--space-5) 1.35rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
-  background: var(--panel);
+  background: var(--gradient-card-accent);
   text-decoration: none;
   transition: border-color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
 }
@@ -176,14 +176,14 @@
 
 .initiative-card-top h3 {
   margin: 0;
-  font-size: 1.28rem;
+  font-size: var(--font-xl);
   line-height: 1.2;
 }
 
 .initiative-card-top p {
   margin: 0.4rem 0 0;
   color: var(--muted);
-  font-size: 1.04rem;
+  font-size: var(--font-body-sm);
   line-height: 1.6;
   max-width: 52rem;
 }
@@ -192,7 +192,7 @@
   display: grid;
   gap: 0.55rem;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
 }
 
 .initiative-card-footer {
@@ -201,20 +201,20 @@
   gap: 0.75rem;
   align-items: center;
   color: var(--muted);
-  font-size: var(--font-body-sm);
+  font-size: var(--font-body);
 }
 
 .initiative-card-progress-bar {
   width: 100%;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 
 .initiative-card-progress-fill {
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--success);
 }
 
@@ -225,7 +225,7 @@
   min-height: 110px;
   border-style: dashed;
   color: var(--muted);
-  font-size: 1.14rem;
+  font-size: var(--font-lg);
   font-weight: 500;
 }
 
@@ -235,25 +235,27 @@
 
 .journey-queue-empty-state {
   display: grid;
-  gap: 0.9rem;
-  padding: 0.65rem 0 0.2rem;
+  gap: var(--space-4);
+  padding: var(--space-8) 0;
+  text-align: center;
+  justify-items: center;
 }
 
 .journey-queue-empty-lead {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: var(--font-2xl);
   font-weight: 600;
 }
 
 .journey-queue-empty-copy {
   margin: 0;
   color: var(--muted);
-  font-size: 1.08rem;
+  font-size: var(--font-body);
   line-height: 1.6;
 }
 
 .journey-queue-empty-state .dash-kbd {
-  font-size: 0.98rem;
+  font-size: var(--font-caption);
 }
 
 @media (max-width: 1000px) {

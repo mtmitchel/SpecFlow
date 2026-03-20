@@ -1,9 +1,30 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { InitiativeArtifactStep } from "../../../types.js";
-import { MarkdownView } from "../../components/markdown-view.js";
+import { MarkdownView, slugifyHeading } from "../../components/markdown-view.js";
 import { useToast } from "../../context/toast.js";
 import { extractDocumentHeading } from "../../utils/document-heading.js";
 import { INITIATIVE_WORKFLOW_LABELS } from "../../utils/initiative-workflow.js";
+
+interface SpecHeading {
+  level: number;
+  text: string;
+  id: string;
+}
+
+function extractHeadings(markdown: string): SpecHeading[] {
+  const headings: SpecHeading[] = [];
+  const lines = markdown.split("\n");
+  for (const line of lines) {
+    const match = line.match(/^(#{2,3})\s+(.+)/);
+    if (match) {
+      const level = match[1].length;
+      const text = match[2].trim();
+      const id = slugifyHeading(text);
+      headings.push({ level, text, id });
+    }
+  }
+  return headings;
+}
 
 interface DocumentSummaryCardProps {
   step: InitiativeArtifactStep;
@@ -25,6 +46,18 @@ export const DocumentSummaryCard = ({
   const trimmedContent = content.trim();
   const stepLabel = INITIATIVE_WORKFLOW_LABELS[step];
   const lowerStepLabel = stepLabel.toLowerCase();
+
+  const { title, body } = trimmedContent
+    ? extractDocumentHeading(
+        trimmedContent,
+        step,
+        INITIATIVE_WORKFLOW_LABELS[step],
+        initiativeTitle,
+      )
+    : { title: "", body: "" };
+  const headings = useMemo(() => extractHeadings(body), [body]);
+  const showNav = headings.length >= 3;
+
   if (!trimmedContent) {
     return (
       <div className="planning-summary-card">
@@ -36,12 +69,6 @@ export const DocumentSummaryCard = ({
     );
   }
 
-  const { title, body } = extractDocumentHeading(
-    trimmedContent,
-    step,
-    INITIATIVE_WORKFLOW_LABELS[step],
-    initiativeTitle
-  );
   const handleCopy = async () => {
     if (!navigator.clipboard?.writeText || copying) {
       if (!navigator.clipboard?.writeText) {
@@ -92,7 +119,33 @@ export const DocumentSummaryCard = ({
           </button>
         </div>
       </div>
-      {body ? <MarkdownView content={body} /> : null}
+      {body ? (
+        <div className={showNav ? "planning-document-card-body--with-nav" : undefined}>
+          {showNav ? (
+            <nav className="spec-section-nav" aria-label="Document sections">
+              {headings.map((h) => (
+                <a
+                  key={h.id}
+                  href={`#${h.id}`}
+                  className={`spec-section-nav-item${h.level === 3 ? " spec-section-nav-item--nested" : ""}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const el = document.getElementById(h.id);
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                  }}
+                >
+                  {h.text}
+                </a>
+              ))}
+            </nav>
+          ) : null}
+          <div className={showNav ? "planning-document-card-content" : undefined}>
+            <MarkdownView content={body} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

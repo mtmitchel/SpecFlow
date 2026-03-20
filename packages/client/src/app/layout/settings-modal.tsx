@@ -34,6 +34,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const [modelsGeneration, setModelsGeneration] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [providerOpen, setProviderOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<'general' | 'providers'>('providers');
   const overlayRef = useRef<HTMLDivElement>(null);
   const providerRef = useRef<HTMLDivElement>(null);
 
@@ -99,127 +100,157 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
     >
       <div className="settings-modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-modal-header">
-          <h2 className="heading-reset" style={{ fontSize: "1.1rem" }}>Settings</h2>
+          <h2 className="heading-reset settings-modal-heading">Settings</h2>
           <button type="button" className="settings-modal-close" onClick={close} aria-label="Close">
             ×
           </button>
         </div>
 
         <div className="settings-modal-body">
-          <form
-            className="settings-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (saving) return;
-              const { hasApiKey: _hasApiKey, providerKeyStatus: _providerKeyStatus, ...rest } = form;
-              const trimmedApiKey = apiKeyInput.trim();
-              const hadKeyInput = Boolean(trimmedApiKey);
-              const payload: ConfigSavePayload = rest;
-              setSaving(true);
-              void onSave(payload, trimmedApiKey || undefined)
-                .then(() => {
-                  showSuccess("Settings saved.");
-                  setDirty(false);
-                  setApiKeyInput("");
-                  if (hadKeyInput) {
-                    setModelsGeneration((n) => n + 1);
-                  }
-                })
-                .catch((err) => {
-                  showError((err as Error).message ?? "We couldn't save settings.");
-                })
-                .finally(() => setSaving(false));
-            }}
-          >
-            <label>
-              Provider
-              <div className="settings-provider-picker" ref={providerRef}>
-                <button
-                  type="button"
-                  className="settings-provider-trigger"
-                  onClick={() => setProviderOpen((prev) => !prev)}
-                  aria-haspopup="listbox"
-                  aria-expanded={providerOpen}
-                >
-                  <span>{PROVIDER_OPTIONS.find((o) => o.value === form.provider)?.label}</span>
-                  <span className="settings-provider-arrow" aria-hidden="true">{providerOpen ? "\u25B2" : "\u25BC"}</span>
-                </button>
-                {providerOpen ? (
-                  <ul className="settings-model-list" role="listbox" onMouseDown={(e) => e.preventDefault()}>
-                    {PROVIDER_OPTIONS.map((opt) => (
-                      <li
-                        key={opt.value}
-                        role="option"
-                        aria-selected={form.provider === opt.value}
-                        className={"settings-model-item" + (form.provider === opt.value ? " selected" : "")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDirty(true);
-                          const nextHasApiKey = form.providerKeyStatus[opt.value] ?? false;
-                          setForm({
-                            ...form,
-                            provider: opt.value,
-                            model: opt.value === form.provider ? form.model : DEFAULT_PROVIDER_MODELS[opt.value],
-                            hasApiKey: nextHasApiKey
-                          });
-                          setProviderOpen(false);
-                        }}
+          <nav className="settings-modal-nav">
+            <button
+              className={`settings-modal-nav-item ${activeSection === 'providers' ? 'active' : ''}`}
+              onClick={() => setActiveSection('providers')}
+            >
+              LLM Providers
+            </button>
+            <button
+              className={`settings-modal-nav-item ${activeSection === 'general' ? 'active' : ''}`}
+              onClick={() => setActiveSection('general')}
+            >
+              General
+            </button>
+            <button className="settings-modal-nav-item disabled" disabled>
+              AI Agents
+            </button>
+            <button className="settings-modal-nav-item disabled" disabled>
+              Local Runtime
+            </button>
+          </nav>
+
+          <div className="settings-modal-content">
+            <form
+              className="settings-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (saving) return;
+                const { hasApiKey: _hasApiKey, providerKeyStatus: _providerKeyStatus, ...rest } = form;
+                const trimmedApiKey = apiKeyInput.trim();
+                const hadKeyInput = Boolean(trimmedApiKey);
+                const payload: ConfigSavePayload = rest;
+                setSaving(true);
+                void onSave(payload, trimmedApiKey || undefined)
+                  .then(() => {
+                    showSuccess("Settings saved.");
+                    setDirty(false);
+                    setApiKeyInput("");
+                    if (hadKeyInput) {
+                      setModelsGeneration((n) => n + 1);
+                    }
+                  })
+                  .catch((err) => {
+                    showError((err as Error).message ?? "We couldn't save settings.");
+                  })
+                  .finally(() => setSaving(false));
+              }}
+            >
+              {activeSection === 'providers' ? (
+                <>
+                  <label>
+                    Provider
+                    <div className="settings-provider-picker" ref={providerRef}>
+                      <button
+                        type="button"
+                        className="settings-provider-trigger"
+                        onClick={() => setProviderOpen((prev) => !prev)}
+                        aria-haspopup="listbox"
+                        aria-expanded={providerOpen}
                       >
-                        <span>{opt.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+                        <span>{PROVIDER_OPTIONS.find((o) => o.value === form.provider)?.label}</span>
+                        <span className="settings-provider-arrow" aria-hidden="true">{providerOpen ? "\u25B2" : "\u25BC"}</span>
+                      </button>
+                      {providerOpen ? (
+                        <ul className="settings-model-list" role="listbox" onMouseDown={(e) => e.preventDefault()}>
+                          {PROVIDER_OPTIONS.map((opt) => (
+                            <li
+                              key={opt.value}
+                              role="option"
+                              aria-selected={form.provider === opt.value}
+                              className={"settings-model-item" + (form.provider === opt.value ? " selected" : "")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDirty(true);
+                                const nextHasApiKey = form.providerKeyStatus[opt.value] ?? false;
+                                setForm({
+                                  ...form,
+                                  provider: opt.value,
+                                  model: opt.value === form.provider ? form.model : DEFAULT_PROVIDER_MODELS[opt.value],
+                                  hasApiKey: nextHasApiKey
+                                });
+                                setProviderOpen(false);
+                              }}
+                            >
+                              <span>{opt.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  </label>
+                  <label>
+                    Model
+                    <ModelCombobox
+                      provider={form.provider}
+                      hasApiKey={selectedProviderHasApiKey}
+                      value={form.model}
+                      onSelect={(modelId) => { setDirty(true); setForm({ ...form, model: modelId }); }}
+                      modelsGeneration={modelsGeneration}
+                    />
+                  </label>
+                  <label>
+                    API key
+                    <input
+                      type="password"
+                      placeholder={selectedProviderHasApiKey ? "(key set -- leave blank to keep)" : "Paste your API key"}
+                      value={apiKeyInput}
+                      onChange={(event) => { setDirty(true); setApiKeyInput(event.target.value); }}
+                    />
+                    <span className="settings-readonly-hint">
+                      {selectedProviderHasApiKey
+                        ? "Leave this blank to keep the saved key, or paste a new one."
+                        : "Paste a key to load models and run planning."}
+                    </span>
+                  </label>
+                </>
+              ) : (
+                <>
+                  <p className="settings-readonly-hint settings-general-hint">
+                    Host and port are set in the CLI.
+                  </p>
+                  <label>
+                    Host
+                    <div className="settings-readonly">
+                      <span className="settings-readonly-value">{form.host}</span>
+                    </div>
+                  </label>
+                  <label>
+                    Port
+                    <div className="settings-readonly">
+                      <span className="settings-readonly-value">{String(form.port)}</span>
+                    </div>
+                  </label>
+                </>
+              )}
+              <div className="settings-button-row">
+                <button type="submit" disabled={saving}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
+                <button type="button" className="settings-cancel" onClick={close}>
+                  Close
+                </button>
               </div>
-            </label>
-            <label>
-              Model
-              <ModelCombobox
-                provider={form.provider}
-                hasApiKey={selectedProviderHasApiKey}
-                value={form.model}
-                onSelect={(modelId) => { setDirty(true); setForm({ ...form, model: modelId }); }}
-                modelsGeneration={modelsGeneration}
-              />
-            </label>
-            <label>
-              API key
-              <input
-                type="password"
-                placeholder={selectedProviderHasApiKey ? "(key set -- leave blank to keep)" : "Paste your API key"}
-                value={apiKeyInput}
-                onChange={(event) => { setDirty(true); setApiKeyInput(event.target.value); }}
-              />
-              <span className="settings-readonly-hint">
-                {selectedProviderHasApiKey
-                  ? "Leave this blank to keep the saved key, or paste a new one."
-                  : "Paste a key to load models and run planning."}
-              </span>
-            </label>
-            <p className="settings-readonly-hint" style={{ margin: "0 0 0.35rem" }}>
-              Host and port are set in the CLI.
-            </p>
-            <label>
-              Host
-              <div className="settings-readonly">
-                <span className="settings-readonly-value">{form.host}</span>
-              </div>
-            </label>
-            <label>
-              Port
-              <div className="settings-readonly">
-                <span className="settings-readonly-value">{String(form.port)}</span>
-              </div>
-            </label>
-            <div className="settings-button-row">
-              <button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save"}
-              </button>
-              <button type="button" className="settings-cancel" onClick={close}>
-                Close
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
     </div>

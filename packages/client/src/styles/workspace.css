@@ -100,7 +100,7 @@
   background: linear-gradient(135deg, var(--accent), var(--execution));
   color: #05080d;
   font-weight: 700;
-  font-size: 1.08rem;
+  font-size: var(--font-body);
   letter-spacing: -0.03em;
 }
 
@@ -218,13 +218,13 @@
 }
 
 .icon-rail-initiative-mark {
-  font-size: 0.96rem;
+  font-size: var(--font-caption);
   font-weight: 600;
   letter-spacing: 0.03em;
 }
 
 .icon-rail-initiative-label {
-  font-size: var(--font-sm);
+  font-size: var(--font-body-sm);
   font-weight: 500;
 }
 
@@ -275,7 +275,7 @@
   justify-content: center;
   width: 14px;
   height: 58px;
-  border: 1px solid rgba(152, 188, 220, 0.18);
+  border: 1px solid var(--border-light);
   border-left: none;
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
   background: rgba(14, 22, 34, 0.88);
@@ -299,7 +299,7 @@
 
 .section-header h2 {
   margin: 0;
-  font-size: 1.45rem;
+  font-size: var(--font-2xl);
 }
 
 .section-header p {
@@ -313,7 +313,7 @@
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-xs);
   padding: 0.58rem 0.78rem;
-  font-size: var(--font-body-sm);
+  font-size: var(--font-body);
 }
 
 .badge {
@@ -324,7 +324,7 @@
   color: var(--accent-text-light);
   border-radius: var(--radius-pill);
   padding: 0.2rem 0.7rem;
-  font-size: var(--font-sm);
+  font-size: var(--font-body-sm);
 }
 
 .badge.warn {

@@ -299,6 +299,11 @@ export const RunView = ({
     );
   }
 
+  const criteriaResults = committedAttemptDetail?.criteriaResults ?? [];
+  const criteriaPassed = criteriaResults.filter((c) => c.pass).length;
+  const criteriaTotal = criteriaResults.length;
+  const validationScore = criteriaTotal > 0 ? Math.round((criteriaPassed / criteriaTotal) * 100) : 0;
+
   const verificationPass = committedAttemptDetail?.overallPass ?? detail.committed?.attempt?.overallPass ?? null;
   const bundleFiles = [
     ...(detail.committed?.bundleManifest?.requiredFiles ?? []),
@@ -338,6 +343,17 @@ export const RunView = ({
               {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link> : null}
             </div>
           ) : null}
+
+          {criteriaTotal > 0 && (
+            <div className="run-validation-score">
+              <span className={`run-validation-score-value ${validationScore >= 80 ? "score-pass" : validationScore >= 50 ? "score-partial" : "score-fail"}`}>
+                {validationScore}%
+              </span>
+              <span className="run-validation-score-label">
+                Validation Score ({criteriaPassed}/{criteriaTotal} criteria passed)
+              </span>
+            </div>
+          )}
 
           <RunReportCard title="Summary" badge={reportVerdict}>
             <div className="button-row">

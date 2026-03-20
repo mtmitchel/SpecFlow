@@ -11,7 +11,7 @@
   align-items: center;
   gap: 0.55rem;
   color: var(--text);
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
   opacity: 0.7;
 }
 
@@ -30,7 +30,7 @@
   padding: 1rem 1.35rem 1.1rem;
   border: 1px solid rgba(152, 188, 220, 0.16);
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(16, 24, 38, 0.62), rgba(16, 24, 38, 0.48));
+  background: var(--gradient-topbar);
   overflow: hidden;
 }
 
@@ -87,7 +87,7 @@
 }
 
 .planning-topbar .pipeline-label {
-  font-size: 0.92rem;
+  font-size: var(--font-caption);
 }
 
 .planning-content-area {
@@ -123,7 +123,7 @@
   padding: 1.5rem 1.6rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
-  background: rgba(16, 24, 38, 0.82);
+  background: var(--panel);
 }
 
 .planning-step-card-quiet {
@@ -133,7 +133,7 @@
 .planning-entry-card h3,
 .planning-entry-card-header h3 {
   margin: 0;
-  font-size: 1.38rem;
+  font-size: var(--font-xl);
   line-height: 1.2;
 }
 
@@ -147,7 +147,7 @@
 .planning-entry-card-header p {
   margin: 0.42rem 0 0;
   color: var(--muted);
-  font-size: 1.06rem;
+  font-size: var(--font-body);
   line-height: 1.55;
 }
 
@@ -172,7 +172,7 @@
 
 .planning-entry-counter {
   color: var(--muted);
-  font-size: var(--font-body-sm);
+  font-size: var(--font-body);
 }
 
 .planning-main-column {
@@ -213,13 +213,13 @@
 .planning-phase-board-status {
   min-height: 2.9rem;
   padding: 0.5rem 0.95rem;
-  font-size: var(--font-sm);
+  font-size: var(--font-body-sm);
   line-height: 1;
 }
 
 .planning-phase-board-heading h4 {
   margin: 0;
-  font-size: 1.55rem;
+  font-size: var(--font-2xl);
   line-height: 1.1;
 }
 
@@ -230,7 +230,7 @@
   gap: 0.55rem;
   min-height: 2.9rem;
   padding: 0.5rem 0.95rem;
-  font-size: var(--font-sm);
+  font-size: var(--font-body-sm);
   line-height: 1;
 }
 
@@ -253,7 +253,7 @@
 .planning-document-card-title {
   margin: 0;
   flex: 1;
-  font-size: 1.75rem;
+  font-size: var(--font-3xl);
   line-height: 1.15;
 }
 
@@ -301,7 +301,7 @@
 .planning-step-copy {
   margin: 0;
   color: var(--muted);
-  font-size: 1.08rem;
+  font-size: var(--font-body);
   line-height: 1.6;
   max-width: 44rem;
 }
@@ -345,10 +345,10 @@
   padding: 0.76rem 1.05rem;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-md);
-  background: rgba(8, 12, 20, 0.35);
+  background: var(--surface-card-inset);
   cursor: pointer;
   user-select: none;
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
 }
 
 .action-menu summary::-webkit-details-marker {
@@ -428,7 +428,7 @@
   gap: 1rem;
   align-items: flex-start;
   padding: 1rem 1rem 0.9rem;
-  border-bottom: 1px solid rgba(152, 188, 220, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .side-drawer-heading {
@@ -438,13 +438,13 @@
 
 .side-drawer-heading h2 {
   margin: 0;
-  font-size: 1.32rem;
+  font-size: var(--font-xl);
 }
 
 .side-drawer-heading p {
   margin: 0;
   color: var(--muted);
-  font-size: 1.04rem;
+  font-size: var(--font-body-sm);
   line-height: 1.55;
 }
 
@@ -458,8 +458,8 @@
   width: 2rem;
   height: 2rem;
   padding: 0;
-  border-radius: 999px;
-  font-size: 1.25rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-xl);
   line-height: 1;
 }
 
@@ -471,7 +471,7 @@
 .planning-drawer-document {
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
-  background: rgba(8, 12, 20, 0.36);
+  background: var(--surface-card-inset-deep);
   padding: 1rem;
 }
 
@@ -482,7 +482,7 @@
   min-height: 48px;
   padding: 0.76rem 1.05rem;
   border-radius: var(--radius-md);
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
 }
 
 .planning-topbar .planning-icon-button {
@@ -497,8 +497,60 @@
 .planning-drawer-textarea {
   min-height: 180px;
   padding: 1rem 1.1rem;
-  font-size: 1.04rem;
+  font-size: var(--font-body-sm);
   line-height: 1.65;
+}
+
+/* Spec section navigation sidebar */
+.spec-section-nav {
+  position: sticky;
+  top: var(--space-4);
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 160px;
+  max-width: 200px;
+  padding-right: var(--space-4);
+  border-right: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.spec-section-nav-item {
+  color: var(--muted);
+  font-size: var(--font-caption);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  cursor: pointer;
+}
+
+.spec-section-nav-item:hover {
+  color: var(--text);
+  background: var(--accent-bg-subtle);
+}
+
+.spec-section-nav-item--nested {
+  padding-left: var(--space-4);
+  font-size: var(--font-sm);
+}
+
+/* Flex layout for document card body with section nav */
+.planning-document-card-body--with-nav {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.planning-document-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Scroll-margin on heading anchors so sticky topbar does not obscure them */
+.markdown-view h2[id],
+.markdown-view h3[id] {
+  scroll-margin-top: 5rem;
 }
 
 @media (max-width: 1000px) {
@@ -518,5 +570,9 @@
   .side-drawer-panel {
     width: 100%;
     border-left: none;
+  }
+
+  .spec-section-nav {
+    display: none;
   }
 }

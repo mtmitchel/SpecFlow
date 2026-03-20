@@ -50,6 +50,17 @@ const getDefaultPhaseId = (
 const getCoverageCopy = (count: number): string =>
   `${count} covered spec item${count === 1 ? "" : "s"}`;
 
+function getTicketProgress(status: string): number {
+  switch (status) {
+    case 'backlog': return 0;
+    case 'ready': return 25;
+    case 'in-progress': return 50;
+    case 'verify': return 75;
+    case 'done': return 100;
+    default: return 0;
+  }
+}
+
 const getUnfinishedBlockerCount = (
   ticket: Ticket,
   initiativeTickets: Ticket[],
@@ -352,6 +363,12 @@ export const TicketsStepSection = ({
                               ? ` · Blocked by ${unfinishedBlockerCount} ticket${unfinishedBlockerCount === 1 ? "" : "s"}`
                               : ""}
                           </p>
+                          <div className="planning-ticket-card-progress">
+                            <div
+                              className="planning-ticket-card-progress-fill"
+                              style={{ width: `${getTicketProgress(ticket.status)}%` }}
+                            />
+                          </div>
                         </li>
                       );
                     })}

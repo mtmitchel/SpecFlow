@@ -19,8 +19,8 @@
   top: 0.55rem;
   width: 100%;
   height: 2px;
-  border-radius: 999px;
-  background: rgba(152, 188, 220, 0.18);
+  border-radius: var(--radius-pill);
+  background: var(--border-light);
   z-index: 0;
 }
 
@@ -35,7 +35,7 @@
   color: var(--muted);
   display: grid;
   justify-items: center;
-  gap: 0.65rem;
+  gap: var(--space-3);
   padding: 0;
   min-width: 94px;
   font: inherit;
@@ -56,7 +56,7 @@
 .pipeline-dot {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.14);
   display: inline-flex;
   align-items: center;
@@ -69,7 +69,7 @@
 }
 
 .pipeline-label {
-  font-size: 1rem;
+  font-size: var(--font-body-sm);
   line-height: 1.3;
   text-align: center;
   color: var(--muted);
@@ -108,7 +108,7 @@
   height: 18px;
   background: var(--accent);
   box-shadow: 0 0 0 8px rgba(72, 203, 255, 0.12);
-  animation: pipeline-pulse 1.6s ease-in-out infinite;
+  animation: pulse-glow 1.6s ease-in-out infinite;
 }
 
 .pipeline-node-execution.pipeline-node-generating .pipeline-dot {
@@ -170,28 +170,15 @@
 
 .planning-pipeline-card {
   display: grid;
-  gap: 0.65rem;
+  gap: var(--space-3);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(circle at top right, rgba(72, 203, 255, 0.06), transparent 20%),
-    linear-gradient(180deg, rgba(18, 27, 40, 0.95), rgba(13, 20, 31, 0.97));
-  padding: 0.78rem 0.9rem;
-}
-
-@keyframes pipeline-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.55;
-  }
+  background: var(--gradient-card-accent);
+  padding: var(--space-3) var(--space-4);
 }
 
 @media (max-width: 720px) {
   .pipeline-label {
-    font-size: 0.86rem;
+    font-size: var(--font-sm);
   }
 }

@@ -245,7 +245,7 @@ describe("TicketView", () => {
       `/initiative/${initiative.id}?step=tickets`
     );
     expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
-    expect(screen.getByText("Execution path")).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Ticket execution path" })).toBeInTheDocument();
     expect(screen.getByText("Verify work")).toBeInTheDocument();
     expect(screen.getByText("Close ticket")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What this ticket needs to deliver" })).toBeInTheDocument();
@@ -311,7 +311,7 @@ describe("TicketView", () => {
 
     expect(screen.getByText("Current step")).toBeInTheDocument();
     expect(screen.getAllByText("Start work").length).toBeGreaterThan(0);
-    expect(screen.getByText("Create the handoff bundle.")).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Ticket execution path" })).toBeInTheDocument();
     expect(screen.getByText("ExportSection")).toBeInTheDocument();
     expect(screen.queryByText("CaptureVerifySection")).not.toBeInTheDocument();
     expect(screen.queryByText("VerificationResultsSection")).not.toBeInTheDocument();

@@ -82,6 +82,18 @@ interface TicketAnchorCardProps {
   onUpdateStatus: () => Promise<void>;
 }
 
+const getTabItemClass = (state: ExecutionStageState): string => {
+  if (state === "active" || state === "checkpoint") {
+    return "ticket-tab-item ticket-tab-item-active";
+  }
+
+  if (state === "complete") {
+    return "ticket-tab-item ticket-tab-item-done";
+  }
+
+  return "ticket-tab-item";
+};
+
 export const TicketAnchorCard = ({
   contextLabel,
   phaseName,
@@ -100,27 +112,6 @@ export const TicketAnchorCard = ({
         <span className="ticket-context-chip">{contextLabel}</span>
         <span className="ticket-context-chip ticket-context-chip-strong">{phaseName}</span>
       </div>
-      <span className="ticket-anchor-label">Execution path</span>
-    </div>
-
-    <ol className="ticket-stepper" aria-label="Ticket execution path">
-      {steps.map((step, index) => (
-        <li key={step.label} className={`ticket-stepper-item ticket-stepper-item-${step.state}`}>
-          <span className="ticket-stepper-index" aria-hidden="true">
-            {index + 1}
-          </span>
-          <div className="ticket-stepper-copy">
-            <strong>{step.label}</strong>
-            <p>{step.summary}</p>
-          </div>
-          <span className={`ticket-stage-badge ticket-stage-badge-${step.state}`}>
-            {getStageBadgeLabel(step.state)}
-          </span>
-        </li>
-      ))}
-    </ol>
-
-    <div className="ticket-status-strip">
       <div className="ticket-status-pills">
         <div className="ticket-status-pill">
           <span>Status</span>
@@ -135,8 +126,25 @@ export const TicketAnchorCard = ({
           <strong>{fileTargetsCount}</strong>
         </div>
       </div>
+    </div>
 
-      {validTransitions.length > 0 ? (
+    <div className="ticket-tab-bar" role="tablist" aria-label="Ticket execution path">
+      {steps.map((step) => (
+        <button
+          key={step.label}
+          type="button"
+          role="tab"
+          className={getTabItemClass(step.state)}
+          disabled={step.state === "future"}
+          aria-selected={step.state === "active" || step.state === "checkpoint"}
+        >
+          {step.label}
+        </button>
+      ))}
+    </div>
+
+    {validTransitions.length > 0 ? (
+      <div className="ticket-status-strip">
         <div className="ticket-status-toolbar">
           <select value={moveToStatus} onChange={(event) => onMoveToStatusChange(event.target.value as TicketStatus | "")}>
             <option value="" disabled>
@@ -152,8 +160,8 @@ export const TicketAnchorCard = ({
             Update status
           </button>
         </div>
-      ) : null}
-    </div>
+      </div>
+    ) : null}
   </section>
 );
 
