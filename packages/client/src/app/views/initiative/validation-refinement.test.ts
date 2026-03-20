@@ -102,11 +102,14 @@ const initiative: Initiative = {
 };
 
 describe("buildValidationRefinement", () => {
-  it("keeps the validation deck scoped to active validation questions instead of replaying prior planning history", () => {
+  it("keeps active validation questions in the deck and preserves prior question history for later revision", () => {
     const refinement = buildValidationRefinement(initiative);
 
     expect(refinement.questions.map((question) => question.id)).toEqual(["tech-stack-v1"]);
-    expect(refinement.history?.map((question) => question.id)).toEqual(["tech-stack-v1"]);
+    expect(refinement.history?.map((question) => question.id)).toEqual([
+      "brief-problem",
+      "tech-stack-v1",
+    ]);
     expect(refinement.answers["brief-problem"]).toBe("Fast capture");
     expect(refinement.answers["tech-stack-v1"]).toBe("Tauri");
   });

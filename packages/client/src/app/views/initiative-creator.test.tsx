@@ -31,7 +31,7 @@ describe("InitiativeCreator", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("New initiative")).toBeInTheDocument();
+    expect(screen.getByText("New project")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What are you planning?" })).toBeInTheDocument();
     expect(screen.getByText("Validation")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start brief intake" })).toBeInTheDocument();

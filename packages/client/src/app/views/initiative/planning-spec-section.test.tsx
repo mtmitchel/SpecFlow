@@ -107,7 +107,7 @@ describe("PlanningSpecSection", () => {
           hasPhaseSpecificRefinementDecisions
           unresolvedQuestionCount={0}
           nextStep="validation"
-          nextStepActionLabel="Validate plan"
+          nextStepActionLabel="Continue"
           handlePhaseCheckResult={vi.fn()}
           flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
           refinementAnswers={{ "tech-architecture": "Tauri" }}
@@ -133,6 +133,7 @@ describe("PlanningSpecSection", () => {
           updateRefinementAnswer={vi.fn()}
           deferRefinementQuestion={vi.fn()}
           openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
           renderSaveState={() => <span>Saved</span>}
         />
       </ToastProvider>,
@@ -170,7 +171,7 @@ describe("PlanningSpecSection", () => {
           hasPhaseSpecificRefinementDecisions={false}
           unresolvedQuestionCount={0}
           nextStep="prd"
-          nextStepActionLabel="Continue to PRD"
+          nextStepActionLabel="Continue"
           handlePhaseCheckResult={vi.fn()}
           flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
           refinementAnswers={{}}
@@ -196,6 +197,7 @@ describe("PlanningSpecSection", () => {
           updateRefinementAnswer={vi.fn()}
           deferRefinementQuestion={vi.fn()}
           openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
           renderSaveState={() => null}
         />
       </ToastProvider>,
@@ -230,7 +232,7 @@ describe("PlanningSpecSection", () => {
           hasPhaseSpecificRefinementDecisions={false}
           unresolvedQuestionCount={0}
           nextStep="prd"
-          nextStepActionLabel="Continue to PRD"
+          nextStepActionLabel="Continue"
           handlePhaseCheckResult={vi.fn()}
           flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
           refinementAnswers={{}}
@@ -256,6 +258,7 @@ describe("PlanningSpecSection", () => {
           updateRefinementAnswer={vi.fn()}
           deferRefinementQuestion={vi.fn()}
           openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
           renderSaveState={() => null}
         />
       </ToastProvider>,
@@ -318,7 +321,7 @@ describe("PlanningSpecSection", () => {
           hasPhaseSpecificRefinementDecisions
           unresolvedQuestionCount={0}
           nextStep="prd"
-          nextStepActionLabel="Continue to PRD"
+          nextStepActionLabel="Continue"
           handlePhaseCheckResult={vi.fn()}
           flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
           refinementAnswers={{ "core-flow-primary": "Capture first, organize later" }}
@@ -344,16 +347,149 @@ describe("PlanningSpecSection", () => {
           updateRefinementAnswer={vi.fn()}
           deferRefinementQuestion={vi.fn()}
           openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
           renderSaveState={() => <span>Saved</span>}
         />
       </ToastProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Brief" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(navigateToStep).toHaveBeenCalledWith("brief", "review");
 
     fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
     expect(setActiveSurface).toHaveBeenCalledWith("questions");
+  });
+
+  it("keeps a revise action available when saved decisions exist without reopenable question history", () => {
+    const openRefinementDrawer = vi.fn();
+    const handleCheckAndAdvance = vi.fn().mockResolvedValue("completed");
+
+    render(
+      <ToastProvider>
+        <PlanningSpecSection
+          initiativeId="initiative-1"
+          initiativeTitle="Simple desktop notes"
+          activeSpecStep="prd"
+          activeSurface="review"
+          activeRefinement={{
+            questions: [],
+            history: [],
+            answers: {
+              "prd-scope": "Keep collaboration out of v1",
+            },
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-19T09:00:00.000Z",
+          }}
+          busyAction={null}
+          isBusy={false}
+          isDeletingInitiative={false}
+          hasActiveContent
+          hasRefinementQuestions={false}
+          hasPhaseSpecificRefinementDecisions
+          unresolvedQuestionCount={0}
+          nextStep="tech-spec"
+          nextStepActionLabel="Continue"
+          handlePhaseCheckResult={vi.fn()}
+          flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
+          refinementAnswers={{ "prd-scope": "Keep collaboration out of v1" }}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="saved"
+          guidanceQuestionId={null}
+          guidanceText={null}
+          savedDrafts={{
+            brief: "# Brief",
+            "core-flows": "# Core flows",
+            prd: "# PRD",
+            "tech-spec": "",
+          }}
+          autoQuestionLoadStep={null}
+          autoQuestionLoadFailedStep={null}
+          onRefresh={vi.fn().mockResolvedValue(undefined)}
+          navigateToStep={vi.fn()}
+          setActiveSurface={vi.fn()}
+          handleCheckAndAdvance={handleCheckAndAdvance}
+          onAdvanceToNextStep={vi.fn()}
+          handleRequestGuidance={vi.fn()}
+          updateRefinementAnswer={vi.fn()}
+          deferRefinementQuestion={vi.fn()}
+          openEditDrawer={vi.fn()}
+          openRefinementDrawer={openRefinementDrawer}
+          renderSaveState={() => <span>Saved</span>}
+        />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
+
+    expect(openRefinementDrawer).toHaveBeenCalledWith("prd");
+    expect(handleCheckAndAdvance).toHaveBeenCalledWith("prd");
+  });
+
+  it("keeps a revise action available when the step was previously checked even if answers are not present", () => {
+    const openRefinementDrawer = vi.fn();
+    const handleCheckAndAdvance = vi.fn().mockResolvedValue("completed");
+
+    render(
+      <ToastProvider>
+        <PlanningSpecSection
+          initiativeId="initiative-1"
+          initiativeTitle="Simple desktop notes"
+          activeSpecStep="prd"
+          activeSurface="review"
+          activeRefinement={{
+            questions: [],
+            history: [],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-19T09:00:00.000Z",
+          }}
+          busyAction={null}
+          isBusy={false}
+          isDeletingInitiative={false}
+          hasActiveContent
+          hasRefinementQuestions={false}
+          hasPhaseSpecificRefinementDecisions={false}
+          unresolvedQuestionCount={0}
+          nextStep="tech-spec"
+          nextStepActionLabel="Continue"
+          handlePhaseCheckResult={vi.fn()}
+          flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
+          refinementAnswers={{}}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="saved"
+          guidanceQuestionId={null}
+          guidanceText={null}
+          savedDrafts={{
+            brief: "# Brief",
+            "core-flows": "# Core flows",
+            prd: "# PRD",
+            "tech-spec": "",
+          }}
+          autoQuestionLoadStep={null}
+          autoQuestionLoadFailedStep={null}
+          onRefresh={vi.fn().mockResolvedValue(undefined)}
+          navigateToStep={vi.fn()}
+          setActiveSurface={vi.fn()}
+          handleCheckAndAdvance={handleCheckAndAdvance}
+          onAdvanceToNextStep={vi.fn()}
+          handleRequestGuidance={vi.fn()}
+          updateRefinementAnswer={vi.fn()}
+          deferRefinementQuestion={vi.fn()}
+          openEditDrawer={vi.fn()}
+          openRefinementDrawer={openRefinementDrawer}
+          renderSaveState={() => <span>Saved</span>}
+        />
+      </ToastProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
+
+    expect(openRefinementDrawer).toHaveBeenCalledWith("prd");
+    expect(handleCheckAndAdvance).toHaveBeenCalledWith("prd");
   });
 
   it("uses the survey Back action to leave for the previous pipeline stage", () => {
@@ -411,7 +547,7 @@ describe("PlanningSpecSection", () => {
           hasPhaseSpecificRefinementDecisions
           unresolvedQuestionCount={0}
           nextStep="prd"
-          nextStepActionLabel="Continue to PRD"
+          nextStepActionLabel="Continue"
           handlePhaseCheckResult={vi.fn()}
           flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
           refinementAnswers={{ "core-flow-primary": "Capture first, organize later" }}
@@ -437,12 +573,13 @@ describe("PlanningSpecSection", () => {
           updateRefinementAnswer={vi.fn()}
           deferRefinementQuestion={vi.fn()}
           openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
           renderSaveState={() => <span>Saved</span>}
         />
       </ToastProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Brief" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
     expect(navigateToStep).toHaveBeenCalledWith("brief", "review");
     expect(setActiveSurface).not.toHaveBeenCalled();

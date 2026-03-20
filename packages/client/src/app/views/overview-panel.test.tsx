@@ -90,7 +90,7 @@ const snapshot: ArtifactsSnapshot = {
 };
 
 describe("OverviewPanel", () => {
-  it("shows one clear resume action, then secondary work and recent initiatives", () => {
+  it("shows one clear resume action, then secondary work and recent projects", () => {
     render(
       <MemoryRouter>
         <OverviewPanel snapshot={snapshot} onOpenCommandPalette={vi.fn()} />
@@ -100,14 +100,14 @@ describe("OverviewPanel", () => {
     expect(screen.getByText("Up next")).toBeInTheDocument();
     expect(screen.getByText("More in progress")).toBeInTheDocument();
     expect(screen.getByText("Recent runs")).toBeInTheDocument();
-    expect(screen.getByText("Initiatives")).toBeInTheDocument();
+    expect(screen.getByText("Projects")).toBeInTheDocument();
     expect(screen.getByText("Resume work")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review brief.*Linux Notes/i })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=brief&surface=questions`
     );
     expect(screen.getByText("Verify quick task")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app.*Open initiative/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app.*Open project/i })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=brief&surface=questions`,
     );
@@ -116,7 +116,7 @@ describe("OverviewPanel", () => {
     expect(screen.getAllByText("Review brief")).toHaveLength(1);
   });
 
-  it("uses the stored initiative ticket as the resume target when execution intent exists", () => {
+  it("uses the stored project ticket as the resume target when execution intent exists", () => {
     const executionInitiative: Initiative = {
       ...initiative,
       workflow: {
@@ -181,7 +181,7 @@ describe("OverviewPanel", () => {
       "href",
       "/ticket/initiative-ticket",
     );
-    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app.*Open initiative/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Linux Notes.*Build a Linux-first notes app.*Open project/i })).toHaveAttribute(
       "href",
       `/initiative/${executionInitiative.id}?step=tickets`,
     );

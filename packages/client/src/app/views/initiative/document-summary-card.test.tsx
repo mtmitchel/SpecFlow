@@ -62,4 +62,37 @@ describe("DocumentSummaryCard", () => {
     });
     expect(showSuccess).toHaveBeenCalledWith("Core flows copied.");
   });
+
+  it("applies the editorial document surface and marks the first section active for PRD content", async () => {
+    const { container } = render(
+      <DocumentSummaryCard
+        step="prd"
+        content={
+          "# Product Requirements\n\n## Problem statement\n\nA short summary.\n\n## User stories\n\nStory body.\n\n### Edge cases\n\nMore detail."
+        }
+        initiativeTitle="Local Notes"
+        isBusy={false}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector(".planning-document-body-editorial")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Problem statement" })).toHaveClass("active");
+    });
+  });
+
+  it("applies the terminal document surface for the tech spec", () => {
+    const { container } = render(
+      <DocumentSummaryCard
+        step="tech-spec"
+        content={"# Tech Spec\n\n## Architecture\n\nBody copy."}
+        initiativeTitle="Local Notes"
+        isBusy={false}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector(".planning-document-body-terminal")).not.toBeNull();
+  });
 });

@@ -45,9 +45,9 @@ All new tokens added to `base.css`:
 - **Replaced ALL native `<select>` elements** across the entire app:
   - `ticket-detail-sections.tsx` -- "Move ticket to"
   - `export-section.tsx` -- Agent target (Codex CLI / Claude Code / etc.)
-  - `tickets-list-view.tsx` -- Status filter + Initiative filter
+  - `tickets-list-view.tsx` -- Status filter + Project filter
   - `runs-list-view.tsx` -- Status filter + Ticket filter
-  - `specs-list-view.tsx` -- Initiative filter
+  - `specs-list-view.tsx` -- Project filter
   - `audit-panel.tsx` -- Diff mode + Export agent
 
 ### Cards (shared-ui.css)
@@ -65,7 +65,7 @@ All new tokens added to `base.css`:
 
 ### Command palette (command-palette.css)
 - Larger input (`var(--font-lg)`)
-- Uppercase mode headers with letter-spacing
+- Sentence-case mode headers with restrained letter-spacing
 - Rounded palette items
 
 ### Spinners (shared-ui.css)
@@ -100,8 +100,8 @@ All new tokens added to `base.css`:
 
 ### Overview (overview.css)
 - Action queue rows: subtle gradient overlay, glow on hover matching tone (accent/warning/execution)
-- Initiative cards: `border-light`, box-shadow, glow-accent on hover
-- Section headings: `font-sm` weight 600, letter-spacing 0.06em
+- Project cards: `border-light`, box-shadow, glow-accent on hover
+- Section headings: `font-sm` weight 600 with sentence-case styling
 
 ### Kanban board -- DONE (major restructure)
 - **Phase selector**: Replaced grid of phase cards with compact custom dropdown trigger + panel
@@ -187,7 +187,7 @@ All new tokens added to `base.css`:
 
 ### NOT DONE
 - No TSX changes to navigator component
-- Mockup shows search input at top of sidebar, collapsible "Initiatives" section header -- needs TSX work
+- Mockup shows search input at top of sidebar and a `Projects` section header -- needs TSX work
 
 ---
 
@@ -204,9 +204,9 @@ All new tokens added to `base.css`:
 | `base.css` | Surface tiers, tones, glows, bloom, scrollbars, typography, line heights |
 | `shared-ui.css` | Buttons, badges, custom select, cards, panel headers, empty states, spinners, markdown typography |
 | `feedback-and-settings.css` | Toasts, confirm dialog, settings modal, provider card grid |
-| `command-palette.css` | Larger input, uppercase mode headers, rounded items |
+| `command-palette.css` | Larger input, sentence-case mode headers, rounded items |
 | `entry-flows.css` | Onboarding glassmorphism, card sizing, icon separation |
-| `overview.css` | Action queue glow, initiative card shadow/glow, section headings |
+| `overview.css` | Action queue glow, project card shadow/glow, section headings |
 | `planning-tickets.css` | Phase dropdown, ticket card restructure, column tinting, card stats |
 | `planning-shell.css` | Topbar shadow, step card gradient, section card editor surface, spec nav active, editorial/terminal surfaces |
 | `ticket-execution.css` | Segmented tabs, flat sections, content card, status badge, header actions, large headings |

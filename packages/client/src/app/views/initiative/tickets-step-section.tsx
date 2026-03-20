@@ -169,24 +169,19 @@ export const TicketsStepSection = ({
 
   return (
     <div className="planning-main-column">
-      <div className="planning-phase-board-header">
-        <div className="planning-phase-board-heading">
-          <h4 className="heading-reset">Execution board</h4>
-          <span className="planning-phase-board-meta">
-            {orderedPhases.length} phase{orderedPhases.length === 1 ? "" : "s"}
-          </span>
-        </div>
-      </div>
-
       <div className="planning-phase-dropdown-wrap" ref={phaseDropdownRef}>
+        <span className="planning-phase-dropdown-label">Phase</span>
         <button
           type="button"
           className="planning-phase-dropdown-trigger"
           onClick={() => setPhaseDropdownOpen((prev) => !prev)}
           aria-haspopup="listbox"
           aria-expanded={phaseDropdownOpen}
+          aria-label={`Select phase. Current phase ${selectedPhase.name}`}
         >
-          <span>Phase {selectedPhase.order}: <strong>{selectedPhase.name}</strong></span>
+          <span>
+            <strong>{selectedPhase.name}</strong>
+          </span>
           <span className="planning-phase-dropdown-chevron" aria-hidden="true">{phaseDropdownOpen ? "\u25B4" : "\u25BE"}</span>
         </button>
         {phaseDropdownOpen ? (
@@ -204,7 +199,7 @@ export const TicketsStepSection = ({
                   className={`planning-phase-dropdown-item${selected ? " planning-phase-dropdown-item-selected" : ""}`}
                   onClick={() => { setSelectedPhaseId(phase.id); setPhaseDropdownOpen(false); }}
                 >
-                  <span>Phase {phase.order}: {phase.name}</span>
+                  <span>{phase.name}</span>
                   <span className="planning-phase-dropdown-item-count">{phaseTickets.length} tickets</span>
                 </li>
               );

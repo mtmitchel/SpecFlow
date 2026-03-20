@@ -46,7 +46,7 @@ const createInitiativeThroughCoreFlowsReview = async (
   if (options.startFromHome) {
     await page.goto(E2E_BASE_URL);
     await expect(page.getByText("No work is in motion yet.")).toBeVisible();
-    await page.getByRole("link", { name: "Start new initiative" }).click();
+    await page.getByRole("link", { name: "Start new project" }).click();
   } else {
     await page.goto(`${E2E_BASE_URL}/new-initiative`);
   }
@@ -87,13 +87,11 @@ const createInitiativeThroughCoreFlowsReview = async (
   );
   await continueSurvey(page);
 
-  await expect(
-    page.getByRole("button", { name: "Continue to core flows" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
   await expect(
     page.getByText("helps solo writers capture and edit notes locally"),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Continue to core flows" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect(
     page.getByRole("heading", {
@@ -106,15 +104,13 @@ const createInitiativeThroughCoreFlowsReview = async (
   );
   await continueSurvey(page);
 
-  await expect(
-    page.getByRole("button", { name: "Continue to PRD" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
   await expect(page.getByText("Create a note.")).toBeVisible();
 };
 
 test.describe.configure({ mode: "serial" });
 
-test("completes the main initiative workflow from Home to a passing run", async ({
+test("completes the main project workflow from Home to a passing verification", async ({
   page,
 }) => {
   await createInitiativeThroughCoreFlowsReview(
@@ -122,7 +118,7 @@ test("completes the main initiative workflow from Home to a passing run", async 
     "Lightweight local note app for solo writers who want fast capture and offline editing",
     { startFromHome: true },
   );
-  await page.getByRole("button", { name: "Continue to PRD" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect(
     page.getByRole("heading", { name: "What has to be true in v1?" }),
@@ -133,13 +129,11 @@ test("completes the main initiative workflow from Home to a passing run", async 
   );
   await continueSurvey(page);
 
-  await expect(
-    page.getByRole("button", { name: "Continue to tech spec" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
   await expect(
     page.getByText("Users can create, edit, and reopen local notes."),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Continue to tech spec" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect(
     page.getByRole("heading", {
@@ -149,17 +143,14 @@ test("completes the main initiative workflow from Home to a passing run", async 
   await chooseSurveyOption(page, "Notes stay local and readable on disk");
   await continueSurvey(page);
 
-  await expect(
-    page.getByRole("button", { name: "Validate plan" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
   await expect(
     page.getByText("Keep note persistence local and readable on disk."),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Validate plan" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 
-  await expect(
-    page.getByRole("heading", { name: "Execution board" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(
     page.getByRole("button", { name: "Persist local note edits", exact: true }),
   ).toBeVisible();
@@ -200,13 +191,8 @@ test("completes the main initiative workflow from Home to a passing run", async 
   await page.getByRole("button", { name: "Verify work" }).click();
 
   await expect(page.getByText("Result: Passed")).toBeVisible();
-
-  await page.getByRole("link", { name: "Open latest run" }).click();
-  await expect(page).toHaveURL(/\/run\/run-/);
-  await expect(page.getByText("Included files")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Open ticket" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Close ticket" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to tickets" })).toBeVisible();
 });
 
 test("reopens core flows from review and updates the artifact after an answer change", async ({
@@ -253,7 +239,5 @@ test("reopens core flows from review and updates the artifact after an answer ch
   await expect(
     page.getByText("the app moves it to Trash automatically"),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Continue to PRD" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
 });

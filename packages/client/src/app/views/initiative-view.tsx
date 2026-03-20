@@ -14,12 +14,16 @@ import {
 } from "../utils/initiative-workflow.js";
 import {
   getInitiativeProgressModel,
+  getInitiativePlanningSurface,
   type PipelineNodeKey,
 } from "../utils/initiative-progress.js";
 import {
-  getPlanningNextActionLabel,
+  getPlanningShellAdvanceActionLabel,
 } from "../utils/ui-language.js";
-import { buildReopenedQuestionContext } from "./initiative/refinement-history.js";
+import {
+  buildReopenedQuestionContext,
+  getVisibleRefinementQuestions,
+} from "./initiative/refinement-history.js";
 import { PlanningSpecSection } from "./initiative/planning-spec-section.js";
 import { RefinementSection } from "./initiative/refinement-section.js";
 import { SAVE_STATE_LABELS, type SaveState } from "./initiative/shared.js";
@@ -106,6 +110,7 @@ export const InitiativeView = ({
     updateRefinementAnswer,
     deferRefinementQuestion,
     openEditDrawer,
+    openRefinementDrawer,
     closeDrawer,
   } = workspace;
   const generatingKey = useMemo<PipelineNodeKey | null>(() => {
@@ -135,7 +140,7 @@ export const InitiativeView = ({
   if (!initiative || !progressModel) {
     return (
       <section>
-        <h2>Initiative not found</h2>
+        <h2>Project not found</h2>
       </section>
     );
   }
@@ -189,6 +194,10 @@ export const InitiativeView = ({
     }
 
     if (drawerState.type === "refinement") {
+      const hasVisibleRefinementQuestions =
+        activeRefinement !== null &&
+        getVisibleRefinementQuestions(activeRefinement).length > 0;
+
       return (
         <SideDrawer
           open
@@ -196,7 +205,7 @@ export const InitiativeView = ({
           headerActions={renderSaveState(refinementSaveState)}
           onClose={closeDrawer}
         >
-          {activeRefinement && activeRefinement.questions.length > 0 ? (
+          {hasVisibleRefinementQuestions ? (
             <div className="planning-drawer-refinement">
               <RefinementSection
                 activeSpecStep={drawerState.step}
@@ -247,9 +256,17 @@ export const InitiativeView = ({
           ) : (
             <div className="planning-step-card planning-step-card-quiet">
               <p className="ticket-empty-note">
-                No answers need revising right now.
+                This step does not have saved question history to reopen yet.
               </p>
               <div className="planning-step-actions planning-step-actions-centered">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void handleCheckAndAdvance(drawerState.step)}
+                  disabled={isBusy}
+                >
+                  Check questions again
+                </button>
                 <button
                   type="button"
                   onClick={() => openEditDrawer(drawerState.step)}
@@ -269,7 +286,7 @@ export const InitiativeView = ({
       return null;
     }
     const nextStepActionLabel = nextStep
-      ? getPlanningNextActionLabel(nextStep)
+      ? getPlanningShellAdvanceActionLabel()
       : null;
 
     return (
@@ -320,6 +337,7 @@ export const InitiativeView = ({
         updateRefinementAnswer={updateRefinementAnswer}
         deferRefinementQuestion={deferRefinementQuestion}
         openEditDrawer={openEditDrawer}
+        openRefinementDrawer={openRefinementDrawer}
         renderSaveState={renderSaveState}
       />
     );
@@ -328,6 +346,7 @@ export const InitiativeView = ({
   const renderValidationWorkspace = () => (
     <ValidationSection
       activeRefinement={activeRefinement}
+      hasGeneratedTickets={hasGeneratedTickets}
       reopenedQuestionContext={reopenedQuestionContext}
       refinementAnswers={refinementAnswers}
       defaultAnswerQuestionIds={defaultAnswerQuestionIds}
@@ -347,6 +366,7 @@ export const InitiativeView = ({
       onAnswerLater={deferRefinementQuestion}
       onRequestGuidance={handleRequestGuidance}
       onBackToTechSpec={() => navigateToStep("tech-spec", "review")}
+      onOpenTickets={() => navigateToStep("tickets")}
       onSetReviewOverride={setReviewOverride}
       onClearReviewOverride={clearReviewOverride}
       onChangeReviewOverrideReason={setReviewOverrideReason}
@@ -364,8 +384,8 @@ export const InitiativeView = ({
           <button
             type="button"
             className="planning-icon-button planning-icon-button-danger"
-            aria-label="Delete initiative"
-            title="Delete initiative"
+            aria-label="Delete project"
+            title="Delete project"
             disabled={isDeletingInitiative}
             onClick={() => void handleDeleteInitiative()}
           >
@@ -405,9 +425,21 @@ export const InitiativeView = ({
                   return;
                 }
 
+                const targetSurface =
+                  step === activeStep
+                    ? activeSurface
+                    : step === "validation" || step === "tickets"
+                      ? null
+                      : getInitiativePlanningSurface(
+                          initiative,
+                          snapshot.specs,
+                          step,
+                          "review",
+                        );
+
                 navigateToStep(
                   step,
-                  step === activeStep ? activeSurface : null,
+                  targetSurface,
                 );
                 return;
               }
@@ -438,10 +470,10 @@ export const InitiativeView = ({
             >
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
-                <strong>Deleting initiative</strong>
+                <strong>Deleting project</strong>
                 <span>
                   SpecFlow is stopping the current work and removing this
-                  initiative.
+                  project.
                 </span>
               </div>
             </div>

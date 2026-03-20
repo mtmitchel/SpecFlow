@@ -3,7 +3,7 @@ import type { TicketStatus } from "../../types";
 export const statusColumns: Array<{ key: TicketStatus; label: string }> = [
   { key: "backlog", label: "Backlog" },
   { key: "ready", label: "Ready" },
-  { key: "in-progress", label: "In Progress" },
+  { key: "in-progress", label: "In progress" },
   { key: "verify", label: "Verify" },
   { key: "done", label: "Done" }
 ];

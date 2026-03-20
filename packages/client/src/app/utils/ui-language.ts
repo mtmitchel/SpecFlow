@@ -64,6 +64,8 @@ export const getPlanningResumeActionLabel = (
       ? "Open tickets"
       : `Review ${getPlanningStepName(step)}`;
 
+export const getPlanningShellAdvanceActionLabel = (): string => "Continue";
+
 export const getTicketsHandoffActionLabel = (
   stepStatus: InitiativePlanningStepStatus,
   hasGeneratedTickets: boolean,

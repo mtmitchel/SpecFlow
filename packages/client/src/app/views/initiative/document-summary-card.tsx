@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { InitiativeArtifactStep } from "../../../types.js";
 import { MarkdownView, slugifyHeading } from "../../components/markdown-view.js";
 import { useToast } from "../../context/toast.js";
@@ -34,6 +34,9 @@ interface DocumentSummaryCardProps {
   onEdit: () => void;
 }
 
+const getDocumentSurfaceClass = (step: InitiativeArtifactStep): string =>
+  step === "tech-spec" ? "planning-document-body-terminal" : "planning-document-body-editorial";
+
 export const DocumentSummaryCard = ({
   step,
   content,
@@ -43,6 +46,7 @@ export const DocumentSummaryCard = ({
 }: DocumentSummaryCardProps) => {
   const { showError, showSuccess } = useToast();
   const [copying, setCopying] = useState(false);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const trimmedContent = content.trim();
   const stepLabel = INITIATIVE_WORKFLOW_LABELS[step];
   const lowerStepLabel = stepLabel.toLowerCase();
@@ -57,6 +61,52 @@ export const DocumentSummaryCard = ({
     : { title: "", body: "" };
   const headings = useMemo(() => extractHeadings(body), [body]);
   const showNav = headings.length >= 3;
+  const documentSurfaceClass = getDocumentSurfaceClass(step);
+
+  useEffect(() => {
+    setActiveHeadingId(headings[0]?.id ?? null);
+  }, [headings]);
+
+  useEffect(() => {
+    if (!showNav || typeof window === "undefined") {
+      return;
+    }
+
+    const updateActiveHeading = () => {
+      let nextActiveHeadingId = headings[0]?.id ?? null;
+      const headingElements = headings
+        .map((heading) => document.getElementById(heading.id))
+        .filter((element): element is HTMLElement => Boolean(element));
+
+      const visibleHeading = headingElements.find((element) => {
+        const { top } = element.getBoundingClientRect();
+        return top >= 0 && top <= 200;
+      });
+
+      if (visibleHeading) {
+        nextActiveHeadingId = visibleHeading.id;
+      } else {
+        for (const element of headingElements) {
+          if (element.getBoundingClientRect().top <= 160) {
+            nextActiveHeadingId = element.id;
+            continue;
+          }
+
+          break;
+        }
+      }
+
+      setActiveHeadingId((current) => (current === nextActiveHeadingId ? current : nextActiveHeadingId));
+    };
+
+    updateActiveHeading();
+    window.addEventListener("scroll", updateActiveHeading, { passive: true });
+    window.addEventListener("resize", updateActiveHeading);
+    return () => {
+      window.removeEventListener("scroll", updateActiveHeading);
+      window.removeEventListener("resize", updateActiveHeading);
+    };
+  }, [headings, showNav]);
 
   if (!trimmedContent) {
     return (
@@ -127,9 +177,12 @@ export const DocumentSummaryCard = ({
                 <a
                   key={h.id}
                   href={`#${h.id}`}
-                  className={`spec-section-nav-item${h.level === 3 ? " spec-section-nav-item--nested" : ""}`}
+                  className={`spec-section-nav-item${activeHeadingId === h.id ? " active" : ""}${
+                    h.level === 3 ? " spec-section-nav-item--nested" : ""
+                  }`}
                   onClick={(e) => {
                     e.preventDefault();
+                    setActiveHeadingId(h.id);
                     const el = document.getElementById(h.id);
                     if (el) {
                       el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -141,7 +194,9 @@ export const DocumentSummaryCard = ({
               ))}
             </nav>
           ) : null}
-          <div className={showNav ? "planning-document-card-content" : undefined}>
+          <div
+            className={`${showNav ? "planning-document-card-content " : ""}${documentSurfaceClass}`}
+          >
             <MarkdownView content={body} />
           </div>
         </div>

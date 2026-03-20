@@ -44,7 +44,7 @@ export const PaletteQuickTaskMode = ({ inputRef, onClose, onRefresh, onBack }: P
         <span>Quick task</span>
       </div>
       <div className="palette-context">
-        Describe the work. If it grows, SpecFlow will turn it into an initiative.
+        Describe the work. If it grows, SpecFlow will turn it into a project.
       </div>
       <textarea
         ref={inputRef as React.RefObject<HTMLTextAreaElement>}

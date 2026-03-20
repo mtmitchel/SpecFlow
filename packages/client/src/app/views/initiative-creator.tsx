@@ -46,7 +46,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
       await onRefresh();
       navigate(`/initiative/${result.initiativeId}?step=brief`);
     } catch (err) {
-      showError((err as Error).message ?? "We couldn't start the initiative.");
+      showError((err as Error).message ?? "We couldn't start the project.");
     } finally {
       setBusy(false);
     }
@@ -59,7 +59,7 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
           <div className="planning-breadcrumb">
             <Link to="/">Home</Link>
             <span>/</span>
-            <span>New initiative</span>
+            <span>New project</span>
           </div>
         </div>
         <div className="planning-topbar-pipeline">

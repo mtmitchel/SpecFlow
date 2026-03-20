@@ -17,7 +17,10 @@ export const ModelCombobox = ({ provider, hasApiKey, value, onSelect, modelsGene
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [openAbove, setOpenAbove] = useState(false);
+  const [dropdownMaxHeight, setDropdownMaxHeight] = useState(280);
   const comboRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
@@ -78,6 +81,75 @@ export const ModelCombobox = ({ provider, hasApiKey, value, onSelect, modelsGene
     return filtered;
   }, [availableModels, value, modelSearch]);
 
+  useEffect(() => {
+    if (!dropdownOpen) {
+      return;
+    }
+
+    const updateDropdownPlacement = () => {
+      const input = inputRef.current;
+      if (!input) {
+        return;
+      }
+
+      const rect = input.getBoundingClientRect();
+      const viewportPadding = 16;
+      const listSpacing = 8;
+      const minimumListHeight = 120;
+      const preferredListHeight = 280;
+      let clippingTop = viewportPadding;
+      let clippingBottom = window.innerHeight - viewportPadding;
+      let ancestor: HTMLElement | null = input.parentElement;
+
+      while (ancestor) {
+        const { overflowY } = window.getComputedStyle(ancestor);
+        if (
+          overflowY === "auto" ||
+          overflowY === "scroll" ||
+          overflowY === "hidden" ||
+          overflowY === "clip"
+        ) {
+          const ancestorRect = ancestor.getBoundingClientRect();
+          clippingTop = ancestorRect.top + viewportPadding;
+          clippingBottom = ancestorRect.bottom - viewportPadding;
+          break;
+        }
+
+        ancestor = ancestor.parentElement;
+      }
+
+      const availableBelow = Math.max(
+        0,
+        clippingBottom - rect.bottom - listSpacing,
+      );
+      const availableAbove = Math.max(0, rect.top - clippingTop - listSpacing);
+      const shouldOpenAbove =
+        availableBelow < minimumListHeight && availableAbove > availableBelow;
+      const preferredSpace = shouldOpenAbove ? availableAbove : availableBelow;
+      const fallbackSpace = shouldOpenAbove ? availableBelow : availableAbove;
+      const resolvedSpace =
+        preferredSpace >= minimumListHeight
+          ? preferredSpace
+          : Math.max(preferredSpace, fallbackSpace);
+      const boundedHeight = Math.max(
+        96,
+        Math.min(preferredListHeight, resolvedSpace),
+      );
+
+      setOpenAbove(shouldOpenAbove);
+      setDropdownMaxHeight(boundedHeight);
+    };
+
+    updateDropdownPlacement();
+    window.addEventListener("resize", updateDropdownPlacement);
+    window.addEventListener("scroll", updateDropdownPlacement, true);
+
+    return () => {
+      window.removeEventListener("resize", updateDropdownPlacement);
+      window.removeEventListener("scroll", updateDropdownPlacement, true);
+    };
+  }, [dropdownOpen, filteredModels.length]);
+
   const showModelPicker = availableModels.length > 0 || modelsLoading;
 
   if (!showModelPicker) {
@@ -87,6 +159,7 @@ export const ModelCombobox = ({ provider, hasApiKey, value, onSelect, modelsGene
   return (
     <div className="settings-model-picker" ref={comboRef}>
       <input
+        ref={inputRef}
         placeholder={modelsLoading ? "Loading models" : `Search ${provider} models`}
         value={dropdownOpen ? modelSearch : value}
         onChange={(event) => {
@@ -121,7 +194,12 @@ export const ModelCombobox = ({ provider, hasApiKey, value, onSelect, modelsGene
         }}
       />
       {dropdownOpen ? (
-        <ul className="settings-model-list" ref={listRef} onMouseDown={(e) => e.preventDefault()}>
+        <ul
+          className={`settings-model-list${openAbove ? " settings-model-list-above" : ""}`}
+          ref={listRef}
+          style={{ maxHeight: `${dropdownMaxHeight}px` }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
           {filteredModels.length === 0 ? (
             <li className="settings-model-item disabled">
               {modelsLoading ? "Loading models" : "No models found"}

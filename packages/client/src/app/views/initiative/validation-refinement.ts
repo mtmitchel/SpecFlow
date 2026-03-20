@@ -36,6 +36,10 @@ export const buildValidationRefinement = (
   const questions = VALIDATION_REFINEMENT_STEPS.flatMap(
     (step) => initiative.workflow.refinements[step].questions
   );
+  const history = VALIDATION_REFINEMENT_STEPS.flatMap((step) => [
+    ...(initiative.workflow.refinements[step].history ?? []),
+    ...initiative.workflow.refinements[step].questions,
+  ]);
   const answers = VALIDATION_REFINEMENT_STEPS.reduce<Record<string, string | string[] | boolean>>(
     (accumulator, step) => ({
       ...accumulator,
@@ -63,7 +67,7 @@ export const buildValidationRefinement = (
 
   return {
     questions: dedupeQuestions(questions),
-    history: dedupeQuestions(questions),
+    history: dedupeQuestions(history),
     answers,
     defaultAnswerQuestionIds,
     baseAssumptions,

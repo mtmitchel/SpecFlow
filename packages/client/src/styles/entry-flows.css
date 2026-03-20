@@ -102,8 +102,7 @@
 .dash-section-title {
   font-size: var(--font-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.01em;
   color: var(--muted);
 }
 
@@ -219,8 +218,7 @@
 .dash-verdict {
   font-size: var(--font-xs);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
 }
 
 .dash-row-time {
@@ -602,4 +600,3 @@
   line-height: 1.4;
   border-bottom: 1px solid var(--panel-border);
 }
-

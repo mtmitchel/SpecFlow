@@ -9,6 +9,14 @@ const HelpTip = ({ text }: { text: string }) => (
   <span className="help-tip" data-tip={text}>?</span>
 );
 
+const formatSeverityLabel = (value?: string): string => {
+  if (!value) {
+    return "";
+  }
+
+  return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+};
+
 interface VerificationResultsSectionProps {
   ticketId: string;
   verificationResult: VerificationResult;
@@ -74,7 +82,7 @@ export const VerificationResultsSection = ({
         {verificationResult.criteriaResults.map((criterion) => (
           <li key={criterion.criterionId}>
             <span className={`severity-badge severity-${criterion.severity ?? "minor"}`}>
-              {criterion.severity ?? ""}
+              {formatSeverityLabel(criterion.severity)}
             </span>
             {" "}{criterion.criterionId} · {criterion.pass ? "passed" : "needs work"} · {criterion.evidence}
             {!criterion.pass && criterion.remediationHint ? (
@@ -91,7 +99,7 @@ export const VerificationResultsSection = ({
           : primaryDrift.map((flag) => (
             <li key={`${flag.type}-${flag.file}`}>
               {flag.severity ? (
-                <span className={`severity-badge severity-${flag.severity}`}>{flag.severity}</span>
+                <span className={`severity-badge severity-${flag.severity}`}>{formatSeverityLabel(flag.severity)}</span>
               ) : null}
               {" "}{flag.type} · {flag.file} · {flag.description}
             </li>

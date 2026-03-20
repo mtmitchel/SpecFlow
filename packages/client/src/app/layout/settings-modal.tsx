@@ -35,7 +35,6 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const [dirty, setDirty] = useState(false);
   const [activeSection, setActiveSection] = useState<'general' | 'providers'>('providers');
   const overlayRef = useRef<HTMLDivElement>(null);
-  const providerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!dirty) {
@@ -87,8 +86,8 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
       <div className="settings-modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-modal-header">
           <div>
-            <h2 className="heading-reset settings-modal-heading">Providers &amp; Agents</h2>
-            <p className="text-muted-sm" style={{ margin: '0.2rem 0 0' }}>Configure LLM providers and model preferences</p>
+            <h2 className="heading-reset settings-modal-heading">Providers and agents</h2>
+            <p className="text-muted-sm" style={{ margin: '0.2rem 0 0' }}>Configure providers and model preferences</p>
           </div>
           <button type="button" className="settings-modal-close" onClick={close} aria-label="Close">
             ×
@@ -101,7 +100,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
               className={`settings-modal-nav-item ${activeSection === 'providers' ? 'active' : ''}`}
               onClick={() => setActiveSection('providers')}
             >
-              LLM Providers
+              Providers
             </button>
             <button
               className={`settings-modal-nav-item ${activeSection === 'general' ? 'active' : ''}`}
@@ -142,7 +141,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
             >
               {activeSection === 'providers' ? (
                 <>
-                  <div className="settings-provider-grid" ref={providerRef}>
+                  <div className="settings-provider-grid">
                     {PROVIDER_OPTIONS.map((opt) => {
                       const isSelected = form.provider === opt.value;
                       const hasKey = form.providerKeyStatus[opt.value] ?? false;
@@ -163,11 +162,11 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                           }}
                         >
                           <span className="settings-provider-card-icon" aria-hidden="true">
-                            {opt.label.slice(0, 2).toUpperCase()}
+                            {opt.label.slice(0, 1)}
                           </span>
                           <strong>{opt.label}</strong>
                           <span className="settings-provider-card-status">
-                            {hasKey ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "Not configured"}
+                            {hasKey ? "Key saved" : "Not configured"}
                           </span>
                         </button>
                       );

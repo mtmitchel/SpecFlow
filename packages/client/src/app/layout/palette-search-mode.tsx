@@ -41,8 +41,8 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
   const staticActions: ResultItem[] = [
     {
       id: "action-new-initiative",
-      label: "New initiative",
-      sublabel: "Start an initiative",
+      label: "New project",
+      sublabel: "Start a project",
       isAction: true,
       action: () => { go("/new-initiative"); }
     },
@@ -72,7 +72,7 @@ export const PaletteSearchMode = ({ snapshot, inputRef, onClose, onSwitchMode }:
   const initiativeItems: ResultItem[] = snapshot.initiatives.map((init) => ({
     id: `nav-initiative-${init.id}`,
     label: init.title,
-    sublabel: `Initiative · ${init.status}`,
+    sublabel: `Project · ${init.status}`,
     path: `/initiative/${init.id}`
   }));
 

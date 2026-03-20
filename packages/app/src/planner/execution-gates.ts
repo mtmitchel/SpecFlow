@@ -4,7 +4,7 @@ import { getTicketCoverageReviewId } from "./ticket-coverage.js";
 
 export const TICKET_EXECUTION_GATE_REVIEW_KIND: PlanningReviewKind = "ticket-coverage-review";
 export const TICKET_EXECUTION_GATE_MESSAGE =
-  "Resolve the coverage check for this initiative before starting execution";
+  "Resolve the coverage check for this project before starting execution";
 
 export type TicketExecutionGateResult =
   | { allowed: true }

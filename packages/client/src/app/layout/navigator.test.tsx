@@ -1,6 +1,8 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { ArtifactsSnapshot, Initiative, Ticket } from "../../types.js";
-import { buildNavigatorTree } from "./navigator-tree.js";
+import { Navigator } from "./navigator.js";
 
 const initiative: Initiative = {
   id: "initiative-12345678",
@@ -18,27 +20,17 @@ const initiative: Initiative = {
       prd: { status: "locked", updatedAt: null },
       "tech-spec": { status: "locked", updatedAt: null },
       validation: { status: "locked", updatedAt: null },
-      tickets: { status: "locked", updatedAt: null }
+      tickets: { status: "locked", updatedAt: null },
     },
     refinements: {
       brief: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
       "core-flows": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
       prd: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
-      "tech-spec": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null }
-    }
+      "tech-spec": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
+    },
   },
   createdAt: "2026-03-16T12:00:00.000Z",
-  updatedAt: "2026-03-16T12:30:00.000Z"
-};
-
-const secondInitiative: Initiative = {
-  ...initiative,
-  id: "initiative-87654321",
-  title: "Design Library",
-  description: "A shared component reference.",
-  ticketIds: [],
-  createdAt: "2026-03-16T12:40:00.000Z",
-  updatedAt: "2026-03-16T12:40:00.000Z"
+  updatedAt: "2026-03-16T12:30:00.000Z",
 };
 
 const initiativeTicket: Ticket = {
@@ -56,7 +48,7 @@ const initiativeTicket: Ticket = {
   blocks: [],
   runId: null,
   createdAt: "2026-03-16T12:10:00.000Z",
-  updatedAt: "2026-03-16T12:10:00.000Z"
+  updatedAt: "2026-03-16T12:10:00.000Z",
 };
 
 const quickTask: Ticket = {
@@ -74,32 +66,42 @@ const quickTask: Ticket = {
   blocks: [],
   runId: null,
   createdAt: "2026-03-16T12:12:00.000Z",
-  updatedAt: "2026-03-16T12:12:00.000Z"
+  updatedAt: "2026-03-16T12:12:00.000Z",
 };
 
 const snapshot: ArtifactsSnapshot = {
   config: null,
-  initiatives: [initiative, secondInitiative],
+  initiatives: [initiative],
   tickets: [initiativeTicket, quickTask],
   runs: [],
   runAttempts: [],
   specs: [],
   planningReviews: [],
-  ticketCoverageArtifacts: []
+  ticketCoverageArtifacts: [],
 };
 
-describe("buildNavigatorTree", () => {
-  it("builds the full project and quick-task hierarchy without aggregate ticket or run links", () => {
-    const tree = buildNavigatorTree(snapshot);
-    const initiativesHeader = tree.find((node) => node.id === "initiatives-header");
-    const initiativeNodes = initiativesHeader?.children ?? [];
+describe("Navigator", () => {
+  it("shows projects beneath a static section header", () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Navigator snapshot={snapshot} />
+      </MemoryRouter>,
+    );
 
-    expect(tree.some((node) => node.type === "aggregate-link")).toBe(false);
-    expect(initiativesHeader?.label).toBe("Projects");
-    expect(initiativeNodes).toHaveLength(2);
-    expect(tree.some((node) => node.type === "quick-tasks-header")).toBe(true);
-    expect(initiativeNodes.map((node) => node.label)).toEqual(["Local Notes", "Design Library"]);
-    expect(initiativeNodes[0]?.path).toBe(`/initiative/${initiative.id}?step=tickets`);
-    expect(initiativeNodes[1]?.path).toBe(`/initiative/${secondInitiative.id}?step=core-flows&surface=questions`);
+    expect(screen.getByText("Local Notes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Projects"));
+
+    expect(screen.getByText("Local Notes")).toBeInTheDocument();
+  });
+
+  it("does not render a second search field inside the navigator tree", () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Navigator snapshot={snapshot} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("searchbox", { name: "Search workspace" })).not.toBeInTheDocument();
   });
 });

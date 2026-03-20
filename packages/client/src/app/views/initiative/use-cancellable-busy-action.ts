@@ -32,7 +32,7 @@ export const useCancellableBusyAction = () => {
           return "cancelled";
         }
 
-        showError((error as Error).message ?? "Initiative action failed");
+        showError((error as Error).message ?? "Project action failed");
         return "failed";
       } finally {
         if (activeControllerRef.current === controller) {

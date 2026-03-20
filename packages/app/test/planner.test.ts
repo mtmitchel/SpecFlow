@@ -171,7 +171,7 @@ describe("PlannerService", () => {
       "team-rules: always include tests"
     );
 
-    expect(prompt.userPrompt).toContain("first required Brief consultation for a fresh initiative");
+    expect(prompt.userPrompt).toContain("first required Brief consultation for a fresh project");
     expect(prompt.userPrompt).toContain('You must return "ask"');
     expect(prompt.userPrompt).toContain("Ask exactly 4 short consultation questions");
     expect(prompt.userPrompt).toContain('Every question must use "select", "multi-select", or "boolean"');

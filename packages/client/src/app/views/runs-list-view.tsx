@@ -66,7 +66,7 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
       </div>
 
       {loading ? (
-        <div className="aggregate-empty">
+        <div className="aggregate-empty empty-state">
           <div className="status-loading-card" role="status" aria-live="polite">
             <span className="status-loading-spinner" aria-hidden="true" />
             <div className="status-loading-copy">
@@ -76,10 +76,12 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
           </div>
         </div>
       ) : runs.length === 0 ? (
-        <div className="aggregate-empty">
+        <div className="aggregate-empty empty-state">
           <p>{isFiltered ? "No runs match these filters." : "No runs yet"}</p>
           {!isFiltered && (
-            <p className="aggregate-empty-hint">Runs appear after you export a ticket and review the work.</p>
+            <p className="aggregate-empty-hint empty-state-hint">
+              Runs appear after you export a ticket and review the work.
+            </p>
           )}
         </div>
       ) : (

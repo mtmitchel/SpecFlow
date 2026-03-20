@@ -14,6 +14,7 @@ import {
   canOpenInitiativeStep,
   getInitiativeBlockedStep,
   getInitiativeResumeStep,
+  INITIATIVE_WORKFLOW_STEPS,
 } from "../../utils/initiative-workflow.js";
 
 export interface InitiativePlanningRouteState {
@@ -48,11 +49,10 @@ export const resolveInitiativePlanningRouteState = ({
     ? requestedStep
     : resumeStep;
   const activeStep: InitiativePlanningStep =
-    requestedPlanningStep === "validation" &&
-    reviewBlockedStep !== "validation" &&
-    initiative.workflow.steps.validation.status === "complete" &&
-    initiative.workflow.steps.tickets.status !== "locked"
-      ? "tickets"
+    reviewBlockedStep &&
+    INITIATIVE_WORKFLOW_STEPS.indexOf(requestedPlanningStep) >
+      INITIATIVE_WORKFLOW_STEPS.indexOf(reviewBlockedStep)
+      ? reviewBlockedStep
       : requestedPlanningStep;
   const normalizedRequestedSurface = isInitiativePlanningSurface(requestedSurface) ? requestedSurface : null;
   const activeSurface =

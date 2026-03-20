@@ -21,10 +21,10 @@ export const requireValidEntityId = (value: string, label: string): void => {
 };
 
 export const readInitiative = (runtime: SpecFlowRuntime, initiativeId: string): Initiative => {
-  requireValidEntityId(initiativeId, "initiative ID");
+  requireValidEntityId(initiativeId, "project ID");
   const initiative = runtime.store.initiatives.get(initiativeId);
   if (!initiative) {
-    throw notFound(`Initiative ${initiativeId} not found`);
+    throw notFound(`Project ${initiativeId} not found`);
   }
 
   return initiative;

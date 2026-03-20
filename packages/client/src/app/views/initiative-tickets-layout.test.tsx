@@ -153,9 +153,13 @@ describe("InitiativeView tickets layout", () => {
       ticketCoverageArtifacts: [],
     });
 
-    expect(screen.getByText("Execution board")).toBeInTheDocument();
+    expect(screen.queryByText("Execution board")).not.toBeInTheDocument();
     expect(
-      screen.getByText("Execution board").closest(".planning-step-column"),
+      screen
+        .getByRole("button", {
+          name: "Select phase. Current phase Foundation",
+        })
+        .closest(".planning-step-column"),
     ).toHaveClass("planning-step-column-wide");
     expect(screen.queryByText("Review questions")).not.toBeInTheDocument();
     expect(screen.queryByText("Coverage check")).not.toBeInTheDocument();

@@ -589,6 +589,13 @@ export const useInitiativePlanningWorkspace = (
     setDrawerState({ type: "edit", step });
   };
 
+  const openRefinementDrawer = (step: SpecStep) => {
+    setReviewOverrideKind(null);
+    setReviewOverrideReason("");
+    setEditingStep(null);
+    setDrawerState({ type: "refinement", step });
+  };
+
   const closeDrawer = () => {
     setDrawerState(null);
     setReviewOverrideKind(null);
@@ -620,7 +627,7 @@ export const useInitiativePlanningWorkspace = (
     }
 
     const confirmed = await confirm({
-      message: `Delete initiative "${headerTitle}"? This cannot be undone.`,
+      message: `Delete project "${headerTitle}"? This cannot be undone.`,
       confirmLabel: "Delete",
       destructive: true,
     });
@@ -714,6 +721,7 @@ export const useInitiativePlanningWorkspace = (
     clearReviewOverride,
     setReviewOverrideReason,
     openEditDrawer,
+    openRefinementDrawer,
     closeDrawer
   };
 };

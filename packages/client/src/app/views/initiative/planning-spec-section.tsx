@@ -15,7 +15,10 @@ import {
 } from "../../utils/ui-language.js";
 import { DocumentSummaryCard } from "./document-summary-card.js";
 import { RefinementSection } from "./refinement-section.js";
-import type { ReopenedQuestionContext } from "./refinement-history.js";
+import {
+  getVisibleRefinementQuestions,
+  type ReopenedQuestionContext,
+} from "./refinement-history.js";
 import type { SaveState, SpecStep } from "./shared.js";
 import type { BusyActionResult } from "./use-cancellable-busy-action.js";
 import { usePhaseAutoAdvance } from "./use-phase-auto-advance.js";
@@ -68,6 +71,7 @@ interface PlanningSpecSectionProps {
   ) => void;
   deferRefinementQuestion: (questionId: string) => void;
   openEditDrawer: (step: SpecStep) => void;
+  openRefinementDrawer: (step: SpecStep) => void;
   renderSaveState: (state: SaveState) => ReactNode;
 }
 
@@ -107,6 +111,7 @@ export const PlanningSpecSection = ({
   updateRefinementAnswer,
   deferRefinementQuestion,
   openEditDrawer,
+  openRefinementDrawer,
   renderSaveState,
 }: PlanningSpecSectionProps) => {
   const [surveyResumeKey, setSurveyResumeKey] = useState(0);
@@ -140,14 +145,15 @@ export const PlanningSpecSection = ({
   const refinementCheckedAt = activeRefinement?.checkedAt ?? null;
   const label = INITIATIVE_WORKFLOW_LABELS[activeSpecStep];
   const previousStep = getPreviousInitiativeStep(activeSpecStep);
-  const previousStepLabel = previousStep
-    ? `Back to ${INITIATIVE_WORKFLOW_LABELS[previousStep]}`
-    : null;
-  const hasQuestionHistory = Boolean(
-    (activeRefinement?.history?.length ?? 0) > 0,
-  );
+  const previousStepLabel = previousStep ? "Back" : null;
+  const hasRevisableQuestions =
+    getVisibleRefinementQuestions(activeRefinement).length > 0;
+  const canReviseAnswers =
+    refinementCheckedAt !== null ||
+    hasRevisableQuestions ||
+    hasPhaseSpecificRefinementDecisions;
   const showingInlineSurvey =
-    activeSurface === "questions" && hasQuestionHistory;
+    activeSurface === "questions" && hasRevisableQuestions;
   const shouldAutoStartBrief =
     activeSpecStep === "brief" &&
     !hasActiveContent &&
@@ -219,6 +225,7 @@ export const PlanningSpecSection = ({
     autoQuestionLoadFailedStep,
     autoQuestionLoadStep,
     beginAutoAdvance,
+    refinementCheckedAt,
     shouldAutoGenerateAfterEntryCheck,
   ]);
 
@@ -248,6 +255,15 @@ export const PlanningSpecSection = ({
     }
 
     navigateToStep(previousStep, "review");
+  };
+  const handleReviseAnswers = () => {
+    if (hasRevisableQuestions) {
+      setActiveSurface("questions");
+      return;
+    }
+
+    openRefinementDrawer(activeSpecStep);
+    void handleCheckAndAdvance(activeSpecStep);
   };
   const loadingStateLabel = loadingStateCopy?.title ?? null;
   const loadingStateBody = loadingStateCopy?.body ?? null;
@@ -330,8 +346,8 @@ export const PlanningSpecSection = ({
           >
             <span className="status-loading-spinner" aria-hidden="true" />
             <div className="status-loading-copy">
-              <strong>Deleting initiative</strong>
-              <span>Stopping work on this initiative and removing it.</span>
+              <strong>Deleting project</strong>
+              <span>Stopping work on this project and removing it.</span>
             </div>
           </div>,
           { compact: true, transient: true },
@@ -492,10 +508,10 @@ export const PlanningSpecSection = ({
               {previousStepLabel}
             </button>
           ) : null}
-          {hasQuestionHistory ? (
+          {canReviseAnswers ? (
             <button
               type="button"
-              onClick={() => setActiveSurface("questions")}
+              onClick={handleReviseAnswers}
               disabled={isBusy}
             >
               Revise answers

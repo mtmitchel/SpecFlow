@@ -389,7 +389,7 @@ describe("RefinementSection", () => {
     expect(earlierDecisionContext).toHaveTextContent("Brief");
     expect(earlierDecisionContext).toHaveTextContent("Earlier answer: Capture something quickly");
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Brief" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
     expect(onBackToPreviousStep).toHaveBeenCalledTimes(1);
   });
@@ -438,7 +438,7 @@ describe("RefinementSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(screen.getByRole("heading", { name: "Who is this for first?" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Back to Core flows" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous question" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Previous question" }));
@@ -447,7 +447,7 @@ describe("RefinementSection", () => {
     expect(onBackToPreviousStep).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Back to Core flows" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
     expect(onBackToPreviousStep).toHaveBeenCalledTimes(1);
   });

@@ -128,13 +128,12 @@ describe("TicketsStepSection", () => {
 
     const board = container.querySelector(".planning-ticket-board");
 
-    expect(screen.getByRole("heading", { name: "Execution board" })).toBeInTheDocument();
-    expect(screen.getByText("2 phases")).toBeInTheDocument();
+    expect(screen.queryByText("Execution board")).not.toBeInTheDocument();
+    expect(screen.getByText("Phase")).toBeInTheDocument();
     expect(board?.querySelectorAll(".planning-ticket-status-column")).toHaveLength(
       statusColumns.length,
     );
-    // Phase dropdown trigger shows the selected phase
-    expect(screen.getByRole("button", { name: /Phase 1/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select phase. Current phase Foundation" })).toBeInTheDocument();
   });
 
   it("defaults to the first phase with unfinished work", () => {
@@ -165,8 +164,9 @@ describe("TicketsStepSection", () => {
       initiativeTickets: [doneTicket, secondTicket],
     });
 
-    // Dropdown trigger should show Phase 2 since Phase 1 has all done tickets
-    const trigger = screen.getByRole("button", { name: /Phase 2/i });
+    const trigger = screen.getByRole("button", {
+      name: "Select phase. Current phase Polish",
+    });
     expect(trigger).toHaveTextContent("Polish");
   });
 
@@ -205,10 +205,12 @@ describe("TicketsStepSection", () => {
     });
 
     // Open dropdown
-    fireEvent.click(screen.getByRole("button", { name: /Phase 1/i }));
-    // Select Phase 2
-    fireEvent.click(screen.getByRole("option", { name: /Phase 2/i }));
-    // The second ticket should now be visible
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Select phase. Current phase Foundation",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: /Polish/i }));
     expect(screen.getByText("Tighten verification copy")).toBeInTheDocument();
   });
 

@@ -58,7 +58,7 @@ const createSnapshot = ({
 });
 
 describe("getInitiativeProgressModel", () => {
-  it("keeps a fresh initiative at brief intake", () => {
+  it("keeps a fresh project at brief intake", () => {
     const progress = getInitiativeProgressModel(baseInitiative, createSnapshot());
 
     expect(progress.currentKey).toBe("brief");

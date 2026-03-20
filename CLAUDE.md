@@ -202,7 +202,7 @@ Security rules:
 - Client tests live under `packages/client/src/**/*.test.tsx`.
 - Browser end-to-end coverage lives in `e2e/workflow.spec.ts`.
 - Before finishing normal development work, run `npm run check && npm test`.
-- Run `npm run test:e2e` when a change affects initiative workflow handoffs, review-back flows, or other multi-step browser journeys.
+- Run `npm run test:e2e` when a change affects project workflow handoffs, review-back flows, or other multi-step browser journeys.
 - Add or adjust tests when behavior changes in routes, planner or verifier logic, diff behavior, bundle generation, artifact-store semantics, or meaningful client UI state.
 - Do not mock behavior that can be tested directly.
 - Do not write tests that only assert that a mock was called.

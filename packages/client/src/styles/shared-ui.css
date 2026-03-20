@@ -65,8 +65,7 @@
   color: var(--muted);
   font-weight: 500;
   font-size: var(--font-body-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   text-align: left;
   border-bottom: 1px solid var(--panel-border);
 }
@@ -649,7 +648,8 @@ a.btn-success:hover,
 .settings-form {
   display: grid;
   gap: 0.75rem;
-  max-width: 520px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .settings-form label {
@@ -711,11 +711,10 @@ a.btn-success:hover,
 
 .settings-model-list {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 0.35rem);
   left: 0;
   right: 0;
   z-index: 20;
-  max-height: 280px;
   overflow-y: auto;
   margin: 0;
   padding: 0.3rem 0;
@@ -724,6 +723,11 @@ a.btn-success:hover,
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-xs);
   box-shadow: var(--shadow-md);
+}
+
+.settings-model-list-above {
+  top: auto;
+  bottom: calc(100% + 0.35rem);
 }
 
 .settings-model-item {

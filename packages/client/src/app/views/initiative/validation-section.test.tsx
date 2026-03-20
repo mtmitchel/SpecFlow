@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { InitiativePlanningQuestion, InitiativeRefinementState, PlanningReviewArtifact } from "../../../types.js";
 import { ValidationSection } from "./validation-section.js";
@@ -45,16 +45,25 @@ const buildRefinement = (questions: InitiativePlanningQuestion[]): InitiativeRef
   checkedAt: "2026-03-19T10:00:00.000Z",
 });
 
-const renderSection = ({
-  activeRefinement = buildRefinement([validationQuestion]),
-  validationReview = blockedReview,
-}: {
+const renderSection = (options: {
   activeRefinement?: InitiativeRefinementState | null;
   validationReview?: PlanningReviewArtifact | undefined;
-} = {}) =>
-  render(
+  hasGeneratedTickets?: boolean;
+} = {}) => {
+  const {
+    activeRefinement = buildRefinement([validationQuestion]),
+    hasGeneratedTickets = false,
+  } = options;
+  const validationReview =
+    "validationReview" in options ? options.validationReview : blockedReview;
+  const onOpenTickets = vi.fn();
+  const onValidatePlan = vi.fn();
+  const onBackToTechSpec = vi.fn();
+
+  const rendered = render(
     <ValidationSection
       activeRefinement={activeRefinement}
+      hasGeneratedTickets={hasGeneratedTickets}
       reopenedQuestionContext={{}}
       refinementAnswers={{}}
       defaultAnswerQuestionIds={[]}
@@ -69,11 +78,12 @@ const renderSection = ({
       validationReview={validationReview}
       reviewOverrideKind={null}
       reviewOverrideReason=""
-      onValidatePlan={vi.fn()}
+      onValidatePlan={onValidatePlan}
       onAnswerChange={vi.fn()}
       onAnswerLater={vi.fn()}
       onRequestGuidance={vi.fn()}
-      onBackToTechSpec={vi.fn()}
+      onBackToTechSpec={onBackToTechSpec}
+      onOpenTickets={onOpenTickets}
       onSetReviewOverride={vi.fn()}
       onClearReviewOverride={vi.fn()}
       onChangeReviewOverrideReason={vi.fn()}
@@ -81,11 +91,15 @@ const renderSection = ({
     />,
   );
 
+  return { ...rendered, onOpenTickets, onValidatePlan, onBackToTechSpec };
+};
+
 describe("ValidationSection", () => {
   it("hides the risk override while active validation questions are on screen", () => {
     renderSection();
 
     expect(screen.getByText(validationQuestion.label)).toBeInTheDocument();
+    expect(screen.getByText("1 question")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Accept risk" })).not.toBeInTheDocument();
   });
 
@@ -95,6 +109,70 @@ describe("ValidationSection", () => {
     });
 
     expect(screen.getByText("Validation needs review")).toBeInTheDocument();
+    expect(screen.getByText("Needs review", { selector: ".badge" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Accept risk" })).toBeInTheDocument();
+  });
+
+  it("shows a completed validation summary when tickets already exist", () => {
+    const { onOpenTickets, onBackToTechSpec } = renderSection({
+      activeRefinement: buildRefinement([]),
+      validationReview: undefined,
+      hasGeneratedTickets: true,
+    });
+
+    expect(screen.getByText("Validation")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Validation is complete. The ticket plan is committed and ready in Tickets.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/ticket board\./i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(onOpenTickets).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(onBackToTechSpec).toHaveBeenCalledTimes(1);
+  });
+
+  it("reopens the combined validation question history from the completed state", () => {
+    renderSection({
+      activeRefinement: {
+        questions: [],
+        history: [validationQuestion],
+        answers: {
+          [validationQuestion.id]: "Keep the empty note visible",
+        },
+        defaultAnswerQuestionIds: [],
+        baseAssumptions: [],
+        checkedAt: "2026-03-19T10:00:00.000Z",
+      },
+      validationReview: undefined,
+      hasGeneratedTickets: true,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
+
+    expect(screen.getByText("Step 1 of 1")).toBeInTheDocument();
+    expect(screen.getByText(validationQuestion.label)).toBeInTheDocument();
+  });
+
+  it("keeps revise answers available when completed validation only has saved decisions", () => {
+    const { onValidatePlan } = renderSection({
+      activeRefinement: {
+        questions: [],
+        history: [],
+        answers: {
+          [validationQuestion.id]: "Keep the empty note visible",
+        },
+        defaultAnswerQuestionIds: [],
+        baseAssumptions: [],
+        checkedAt: "2026-03-19T10:00:00.000Z",
+      },
+      validationReview: undefined,
+      hasGeneratedTickets: true,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
+
+    expect(onValidatePlan).toHaveBeenCalledTimes(1);
   });
 });

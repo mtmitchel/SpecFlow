@@ -125,7 +125,16 @@
 .planning-phase-dropdown-wrap {
   position: relative;
   margin-bottom: var(--space-2);
-  display: inline-block;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.planning-phase-dropdown-label {
+  color: var(--muted);
+  font-size: var(--font-caption);
+  font-weight: 600;
 }
 
 .planning-phase-dropdown-trigger {

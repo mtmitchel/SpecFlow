@@ -54,7 +54,7 @@ export const TicketsListView = ({ snapshot }: TicketsListViewProps) => {
   return (
     <section>
       <header className="section-header">
-        <h2>All Tickets</h2>
+        <h2>All tickets</h2>
         {hasAnyTickets && (
           <p>
             {isFiltered
@@ -78,17 +78,19 @@ export const TicketsListView = ({ snapshot }: TicketsListViewProps) => {
           onChange={(val) => setStatusFilter(val as TicketStatus | "")}
         />
         <CustomSelect
-          options={[{ value: "", label: "All initiatives" }, ...snapshot.initiatives.map((init) => ({ value: init.id, label: init.title })), { value: "__none__", label: "Quick Tasks" }]}
+          options={[{ value: "", label: "All projects" }, ...snapshot.initiatives.map((init) => ({ value: init.id, label: init.title })), { value: "__none__", label: "Quick tasks" }]}
           value={initiativeFilter}
           onChange={setInitiativeFilter}
         />
       </div>
 
       {filtered.length === 0 ? (
-        <div className="aggregate-empty">
+        <div className="aggregate-empty empty-state">
           <p>{hasAnyTickets ? "No tickets match these filters." : "No tickets yet"}</p>
           {!hasAnyTickets && (
-            <p className="aggregate-empty-hint">Tickets appear after you generate them from an initiative or start a quick task.</p>
+            <p className="aggregate-empty-hint empty-state-hint">
+              Tickets appear after you generate them from a project or start a quick task.
+            </p>
           )}
         </div>
       ) : (
@@ -98,7 +100,7 @@ export const TicketsListView = ({ snapshot }: TicketsListViewProps) => {
               <tr>
                 <th>Title</th>
                 <th>Status</th>
-                <th>Initiative</th>
+                <th>Project</th>
                 <th>Phase</th>
               </tr>
             </thead>
@@ -121,7 +123,7 @@ export const TicketsListView = ({ snapshot }: TicketsListViewProps) => {
                         {initiativeMap.get(ticket.initiativeId) ?? ticket.initiativeId}
                       </Link>
                     ) : (
-                      "Quick Task"
+                      "Quick task"
                     )}
                   </td>
                   <td className="aggregate-table-muted">

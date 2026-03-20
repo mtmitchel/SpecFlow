@@ -251,7 +251,7 @@ export const OverviewPanel = ({
       ) : null}
 
       <div className="journey-home-section">
-        <div className="action-queue-heading">Initiatives</div>
+        <div className="action-queue-heading">Projects</div>
         <div className="initiative-card-grid">
         {initiativeCards.map(({ initiative, progress }) => (
           <Link key={initiative.id} to={getInitiativeShellHref(initiative, progress, snapshot)} className="initiative-card">
@@ -281,14 +281,14 @@ export const OverviewPanel = ({
             ) : null}
 
             <div className="initiative-card-footer">
-              <span>Open initiative</span>
+              <span>Open project</span>
               <span aria-hidden="true">→</span>
             </div>
           </Link>
         ))}
 
         <Link to="/new-initiative" className="initiative-card initiative-card-new">
-          <span>Start new initiative</span>
+          <span>Start new project</span>
         </Link>
       </div>
       </div>

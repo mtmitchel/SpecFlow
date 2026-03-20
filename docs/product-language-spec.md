@@ -21,7 +21,7 @@ Its job is to keep the app coherent across planning, execution, and review. It c
 - transition messages
 - copy rules
 
-This spec is authoritative for user-facing UI text. Internal implementation terms may still exist in code and APIs, but they should not leak into the default product experience unless they are necessary for expert users.
+This spec is authoritative for user-facing UI text. Internal implementation terms may still exist in code, routes, APIs, and artifact paths, but they should not leak into the default product experience unless they are necessary for expert users.
 
 Use [`ux-copy-guidelines.md`](ux-copy-guidelines.md) as the companion style guide for tone, grammar, button labels, empty states, errors, and other component-level copy patterns.
 
@@ -64,7 +64,7 @@ Those may exist as supporting behaviors, but the UI should always anchor the use
 
 The user-facing workflow is:
 
-1. Initiative
+1. Project
 2. Brief
 3. Core flows
 4. PRD
@@ -75,9 +75,9 @@ The user-facing workflow is:
 
 ### Pipeline model
 
-The UI may render a wider initiative pipeline than the canonical noun sequence when that helps orientation.
+The UI may render a wider project pipeline than the canonical noun sequence when that helps orientation.
 
-The current initiative pipeline is:
+The current project pipeline is:
 
 1. Brief
 2. Core flows
@@ -94,7 +94,7 @@ Rules:
 - `Execute`, `Verify`, and `Done` are UI progress zones derived from ticket and run state.
 - `Run` remains the canonical object name for execution reports.
 - The pipeline is navigation and orientation chrome, not a second workflow contract.
-- Home and run history should not present the full initiative pipeline as the primary navigation model.
+- Home and run history should not present the full project pipeline as the primary navigation model.
 
 ### Clarification model
 
@@ -102,16 +102,16 @@ Clarification is not a named top-level phase.
 
 Clarification is a refinement mechanism that can appear:
 
-- before the Brief, always as the required brief intake for a fresh initiative
+- before the Brief, always as the required brief intake for a fresh project
 - before Core flows, as the required first consultation that locks the primary flow, a meaningful branch, and a flow condition that changes the map
 - before the PRD, as the required first scope-setting question before the initial PRD draft, with up to three additional targeted blockers when the product contract is still ambiguous
 - before the Tech spec, as the required first architecture question before the initial Tech spec draft, with up to four additional targeted blockers when implementation consequences are still ambiguous
 - inside Validation, when the draft ticket plan exposes unresolved gaps that can be turned back into targeted artifact-level follow-up questions without sending the user backward through the pipeline
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
-When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` should always mean "go to the previous stage." Reopening the current step's answered questions should use an explicit action such as `Revise answers`, not `Back`. Resume behavior should remember that deliberate choice: artifact generation defaults the phase back to review, but if the user deliberately reopens the answered questions, Home and bare initiative routes should restore that questions surface until the user returns to review or leaves the phase.
+When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` should always mean "go to the previous stage." Reopening the current step's answered questions should use an explicit action such as `Revise answers`, not `Back`. Resume behavior should remember that deliberate choice: artifact generation defaults the phase back to review, but if the user deliberately reopens the answered questions, Home and bare project routes should restore that questions surface until the user returns to review or leaves the phase.
 
-For a fresh initiative, the required Brief intake always captures four framing decisions:
+For a fresh project, the required Brief intake always captures four framing decisions:
 
 - the primary problem
 - the primary user
@@ -133,7 +133,7 @@ Use these descriptions wherever the app introduces a phase.
 - `PRD`: Define the user-visible behavior, rules, priorities, scope, compatibility promises, and failure behavior.
 - `Tech spec`: Define how it should be built, integrated, operated, and validated for quality.
 - `Validation`: Validate the draft ticket plan and resolve the last planning blockers before tickets are committed.
-- `Tickets`: Break the work into ordered execution phases, keep those phases visible, and show the selected phase as a status-based ticket board.
+- `Tickets`: Break the work into ordered execution phases, keep those phases visible, and show the selected phase as a status-based ticket board with a labeled phase selector.
 - `Runs`: Review delivery and verification for a ticket.
 
 ### Ticket page framing
@@ -142,7 +142,7 @@ The ticket page should feel like a guided task workspace, not a system console.
 
 Rules:
 
-- Keep a compact hybrid anchor at the top: initiative context plus a local execution strip.
+- Keep a compact hybrid anchor at the top: project context plus a local execution strip.
 - Use one dominant current-step card at a time.
 - Keep the collapsed ticket brief human-first.
 - Push raw implementation detail behind a secondary disclosure.
@@ -153,7 +153,7 @@ Rules:
 
 Use these terms consistently.
 
-- `Initiative`
+- `Project`
 - `Brief`
 - `PRD`
 - `Core flows`
@@ -265,21 +265,28 @@ The primary action should answer:
 - Name the object when the action is high impact.
 - Avoid generic labels like `Edit`, `View`, `Move`, and `Delete` without context.
 - Avoid `Yes` and `No` for confirmations.
+- In the project planning shell, use `Back` and `Continue` for stage-navigation buttons on review and handoff surfaces. The pipeline already provides the stage context, so repeating the destination in the button label adds noise.
+- Keep explicit labels such as `Validate plan`, `Generate tickets`, `Open tickets`, `Refresh tickets`, or `Review validation` for Home, empty states, queue surfaces, and other contexts where the pipeline is not already visible.
+
+### Planning shell stage navigation
+
+- `Back`
+- `Continue`
 
 ### Canonical planning CTAs
 
-- `Continue to brief intake`
+- `Back`
+- `Continue`
 - `Start brief intake`
 - `Generate brief`
-- `Continue to core flows`
 - `Generate core flows`
-- `Continue to PRD`
 - `Generate PRD`
-- `Continue to tech spec`
-- `Validate plan`
 - `Generate tech spec`
+- `Validate plan`
 - `Generate tickets`
 - `Open tickets`
+- `Refresh tickets`
+- `Review validation`
 - `Open checkpoint`
 - `Open first ticket`
 - `Open ticket`
@@ -304,9 +311,9 @@ The primary action should answer:
 
 Use explicit object names.
 
-- `Delete initiative`
+- `Delete project`
 - `Delete ticket`
-- `Keep initiative`
+- `Keep project`
 - `Keep ticket`
 
 ## Autosave and persistence language
@@ -354,16 +361,16 @@ Avoid empty states that only state absence.
 
 - Title: `No work is in motion yet`
 - Body: `Start planning for multi-step work, use a quick task for something small, or import an issue.`
-- Primary action: `Start new initiative`
+- Primary action: `Start new project`
 - Secondary action: `Quick task`
 
-#### Initiative without a brief
+#### Project without a brief
 
 - Title: `No brief yet`
 - Body: `Start brief intake to lock the problem, goals, and scope before the first brief is generated.`
 - Primary action: `Start brief intake`
 
-#### Initiative without tickets
+#### Project without tickets
 
 - Title: `No tickets yet`
 - Body: `Validate the plan before tickets are created.`
@@ -378,8 +385,8 @@ Avoid empty states that only state absence.
 #### No specs
 
 - Title: `No planning docs yet`
-- Body: `Briefs, PRDs, and tech specs appear as you shape an initiative.`
-- Primary action: `Open initiative`
+- Body: `Briefs, PRDs, and tech specs appear as you shape a project.`
+- Primary action: `Open project`
 
 ## Transition messaging
 
@@ -427,36 +434,38 @@ Avoid generic copy such as `Preparing questions...`, `Generating...`, or `Stay h
 
 - Heading: `Brief ready`
 - Body: `The brief now defines the problem, audience, goals, and scope.`
-- Primary action: `Continue to core flows`
+- Primary action: `Continue`
 
 #### Core flows complete
 
 - Heading: `Core flows ready`
 - Body: `The primary journeys and states are ready for product requirements.`
-- Primary action: `Continue to PRD`
+- Primary action: `Continue`
 
 #### PRD complete
 
 - Heading: `PRD ready`
 - Body: `The product requirements are ready for implementation planning.`
-- Primary action: `Continue to tech spec`
+- Primary action: `Continue`
 
 #### Tech spec complete
 
 - Heading: `Tech spec ready`
 - Body: `The implementation approach is ready for ticket validation.`
-- Primary action: `Validate plan`
+- Primary action: `Continue`
 
 #### Validation complete
 
-- Heading: `Validation ready`
-- Body: `The ticket plan is clear enough to commit and open for execution.`
-- Primary action: `Open tickets`
+- Heading: `Validation`
+- Status badge: `Passed`
+- Body: `Validation is complete. The ticket plan is committed and ready in Tickets.`
+- Primary action: `Continue`
+- Secondary action: `Revise answers`
 
 #### Tickets complete
 
 - Heading: `Tickets ready`
-- Body: `The execution board is ready. Open the next ticket when you are ready to start work.`
+- Body: `The ticket board is ready. Open the next ticket when you are ready to start work.`
 - Primary action: `Open first ticket`
 
 ## Guidance and question copy
@@ -469,7 +478,7 @@ Preferred framing:
 
 - `Step 2 of 4`
 - `This answer shapes the brief.`
-- `Choose the option that best fits this initiative.`
+- `Choose the option that best fits this project.`
 
 ### Guidance CTA
 
@@ -525,7 +534,7 @@ Avoid:
 - `Capture Results`
 - `Verification Results` as the only framing
 
-Resume behavior should treat the ticket as the primary execution object. If an initiative-backed ticket is the active work item, Home's resume actions should reopen that ticket. Initiative cards and sidebar shortcuts should stay stable object entry points that open the initiative shell instead. Run detail should reopen only when the user explicitly opens history.
+Resume behavior should treat the ticket as the primary execution object. If a project-backed ticket is the active work item, Home's resume actions should reopen that ticket. Project cards and sidebar shortcuts should stay stable object entry points that open the project shell instead. Run detail should reopen only when the user explicitly opens history.
 
 ### Run page
 
@@ -536,7 +545,7 @@ The run page should answer:
 - what changed
 - what to do next
 
-The run page should read like a report and history surface first. It should not behave like a second initiative navigator.
+The run page should read like a report and history surface first. It should not behave like a second project navigator.
 `Review changes` should open a guided review flow. Advanced compare controls and raw diff detail should stay behind secondary disclosure until the user explicitly asks for them.
 
 Preferred action labels:
@@ -559,7 +568,7 @@ Preferred section names:
 
 - `Up next`
 - `Recent runs`
-- `Initiatives`
+- `Projects`
 
 Home queue items should use short status labels that point toward action, for example:
 
@@ -568,7 +577,7 @@ Home queue items should use short status labels that point toward action, for ex
 - `Verify ticket`
 - `Ready to run`
 
-Initiative cards should read like stable entry points into the initiative shell rather than like a second resume queue.
+Project cards should read like stable entry points into the project shell rather than like a second resume queue.
 
 ### Aggregate pages
 
@@ -576,9 +585,9 @@ Initiative cards should read like stable entry points into the initiative shell 
 
 Examples:
 
-- `All Tickets` -> `Track execution across initiatives and quick tasks.`
+- `All Tickets` -> `Track execution across projects and quick tasks.`
 - `All Runs` -> `Review delivery and verification history.`
-- `All Specs` -> `Browse planning documents across initiatives.`
+- `All Specs` -> `Browse planning documents across projects.`
 
 ## Tone and style rules
 

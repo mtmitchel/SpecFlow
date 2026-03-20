@@ -234,7 +234,7 @@ const getArtifactSections = (input: {
   traceOutlines?: Partial<Record<RefinementStep, { sections: Array<{ key: string; label: string; items: string[] }> }>>;
 }): string[] =>
   [
-    `Initiative description:\n${normalizePromptText(input.initiativeDescription)}`,
+    `Project description:\n${normalizePromptText(input.initiativeDescription)}`,
     input.savedContext && Object.keys(input.savedContext).length > 0
       ? `Saved refinement context:\n${stringifyPromptValue(input.savedContext)}`
       : null,
@@ -277,7 +277,7 @@ const buildCheckPrompt = (
       "Rules:",
       ...(requiresInitialConsultation
         ? [
-            '- This is the first required Brief consultation for a fresh initiative. You must return "ask".',
+            '- This is the first required Brief consultation for a fresh project. You must return "ask".',
             "- Ask exactly 4 short consultation questions that cover the primary problem, primary first-release user, success outcomes, and hard boundaries.",
             "- Do not return proceed or an empty questions array for this first Brief consultation."
           ]
@@ -332,7 +332,7 @@ const buildGenerationPrompt = (
 ): PromptBuildResult => ({
   systemPrompt,
   userPrompt: [
-    `Generate the ${artifactDescription} markdown document for this initiative.`,
+    `Generate the ${artifactDescription} markdown document for this project.`,
     "Return both polished markdown and a structured traceOutline with concise fact lists. The traceOutline must only include facts grounded in the markdown you generated.",
     ...extraRules,
     `Assumptions:\n${JSON.stringify(input.assumptions, null, 2)}`,
@@ -352,7 +352,7 @@ const buildTraceOutlinePrompt = (systemPrompt: string, input: SpecGenInput & { a
 const buildReviewPrompt = (systemPrompt: string, input: ReviewRunInput): PromptBuildResult => ({
   systemPrompt,
   userPrompt: [
-    `Review this initiative artifact set for ${input.kind}.`,
+    `Review this project artifact set for ${input.kind}.`,
     "Rules:",
     "- Identify only material blockers and meaningful warnings.",
     "- Use traceabilityGaps for missing or inconsistent links between artifacts.",
@@ -418,8 +418,8 @@ export const buildPlannerPrompt = (
         "- Explain what the question is trying to decide and why it matters for this specific artifact.",
         "- If the user supplied a note, answer it directly before giving decision guidance.",
         "- Compare the relevant options when options are provided.",
-        "- End with a concrete recommendation only if one option is clearly the best fit from the initiative description and saved context.",
-        `Initiative description:\n${normalizePromptText(clarifyHelpInput.initiativeDescription)}`,
+        "- End with a concrete recommendation only if one option is clearly the best fit from the project description and saved context.",
+        `Project description:\n${normalizePromptText(clarifyHelpInput.initiativeDescription)}`,
         `Saved refinement context:\n${stringifyPromptValue(clarifyHelpInput.savedContext)}`,
         `Question:\n${normalizePromptText(clarifyHelpInput.question.label)}`,
         `Question type: ${clarifyHelpInput.question.type}`,
@@ -434,7 +434,7 @@ export const buildPlannerPrompt = (
   if (job === "brief-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Brief", [
       "Capture the problem, target user, goals, success criteria, scope, constraints, and explicit assumptions.",
-      'Use a neutral top-level heading. If the initiative does not explicitly provide a product name, the heading must be exactly "# Brief". Never invent or assign a product, app, or code name.',
+      'Use a neutral top-level heading. If the project does not explicitly provide a product name, the heading must be exactly "# Brief". Never invent or assign a product, app, or code name.',
       ...getPromptPolicy("brief").generationRules,
       'The traceOutline should include sections for "users", "goals", "constraints", "assumptions", and "success-criteria".'
     ]);
@@ -512,7 +512,7 @@ export const buildPlannerPrompt = (
       "Every coverage item must be accounted for. Assign each one to one or more tickets through coverageItemIds, or list it in uncoveredCoverageItemIds when the current plan intentionally leaves it out.",
       "Write acceptance criteria as specific, observable outcomes that can be judged from a code diff. Avoid vague criteria like 'works well' or 'is intuitive'.",
       "Each ticket must have at least one coverageItemId unless the plan is invalid.",
-      `Initiative description:\n${normalizePromptText(planInput.initiativeDescription)}`,
+      `Project description:\n${normalizePromptText(planInput.initiativeDescription)}`,
       isRepair ? null : `Brief:\n${planInput.briefMarkdown}`,
       isRepair ? null : `Core flows:\n${planInput.coreFlowsMarkdown}`,
       isRepair ? null : `PRD:\n${planInput.prdMarkdown}`,
@@ -538,7 +538,7 @@ export const buildPlannerPrompt = (
   return {
     systemPrompt,
     userPrompt: [
-      "Assess whether the task is focused enough for Quick Build or should become a larger initiative.",
+      "Assess whether the task is focused enough for Quick Build or should become a larger project.",
       `Task description:\n${triageInput.description}`
     ].join("\n\n")
   };

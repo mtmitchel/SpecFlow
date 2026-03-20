@@ -92,7 +92,7 @@ export const updateInitiative = async (
   if (nextResumeTicketId) {
     const resumeTicket = runtime.store.tickets.get(nextResumeTicketId);
     if (!resumeTicket || resumeTicket.initiativeId !== initiative.id) {
-      throw badRequest("resumeTicketId must reference a ticket in this initiative");
+      throw badRequest("resumeTicketId must reference a ticket in this project");
     }
   }
   const nowIso = new Date().toISOString();
@@ -391,11 +391,11 @@ export const validateInitiativePlanGeneration = (
   const validationStatus = initiative.workflow.steps.validation.status;
   const ticketsStatus = initiative.workflow.steps.tickets.status;
   if (validationStatus === "complete" && ticketsStatus === "complete") {
-    throw conflict("Tickets already exist for this initiative");
+    throw conflict("Tickets already exist for this project");
   }
 
   if ((validationStatus === "stale" || ticketsStatus === "stale") && !canReplacePlanningTickets(runtime, initiative)) {
-    throw conflict("This initiative needs review before tickets can be replanned because work has already started");
+    throw conflict("This project needs review before tickets can be replanned because work has already started");
   }
 };
 

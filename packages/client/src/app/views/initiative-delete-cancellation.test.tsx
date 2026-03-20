@@ -78,14 +78,14 @@ const snapshot: ArtifactsSnapshot = {
   ticketCoverageArtifacts: [],
 };
 
-describe("Initiative delete cancellation", () => {
+describe("Project delete cancellation", () => {
   beforeEach(() => {
     checkInitiativePhaseMock.mockReset();
     deleteInitiativeMock.mockReset();
     confirmMock.mockReset();
   });
 
-  it("cancels the in-flight question load before deleting the initiative", async () => {
+  it("cancels the in-flight question load before deleting the project", async () => {
     let aborted = false;
     checkInitiativePhaseMock.mockImplementation(
       (_initiativeId: string, _step: string, options?: { signal?: AbortSignal }) =>
@@ -117,9 +117,9 @@ describe("Initiative delete cancellation", () => {
 
     expect(await screen.findByText("Preparing core flows questions...")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete initiative" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete project" }));
 
-    expect(await screen.findByText("Deleting initiative")).toBeInTheDocument();
+    expect(await screen.findByText("Deleting project")).toBeInTheDocument();
     expect(screen.queryByText("Preparing core flows questions...")).not.toBeInTheDocument();
 
     await waitFor(() => {

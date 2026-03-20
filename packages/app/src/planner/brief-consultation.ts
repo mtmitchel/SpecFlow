@@ -76,7 +76,7 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume the first release focuses on the most urgent problem implied by the initiative description."
+        "Assume the first release focuses on the most urgent problem implied by the project description."
     },
     {
       id: "brief-primary-user",
@@ -95,7 +95,7 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume the first release targets the most obvious primary user implied by the initiative description."
+        "Assume the first release targets the most obvious primary user implied by the project description."
     },
     {
       id: "brief-success",
@@ -160,7 +160,7 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume there are no extra hard constraints beyond the initiative description and prefer the smallest viable first-release operating surface."
+        "Assume there are no extra hard constraints beyond the project description and prefer the smallest viable first-release operating surface."
     }
   ]),
   assumptions: []

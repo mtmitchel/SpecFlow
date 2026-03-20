@@ -11,6 +11,7 @@ const RailButton = ({
   ariaLabel,
   icon,
   label,
+  variant,
   children,
   onClick,
 }: {
@@ -18,12 +19,13 @@ const RailButton = ({
   ariaLabel: string;
   icon?: React.ReactNode;
   label?: string;
+  variant?: "primary" | "plain";
   children: React.ReactNode;
   onClick: () => void;
 }) => (
   <button
     type="button"
-    className={`icon-rail-button${active ? " active" : ""}`}
+    className={`icon-rail-button${variant ? ` icon-rail-button-${variant}` : ""}${active ? " active" : ""}`}
     onClick={onClick}
     aria-label={ariaLabel}
     title={ariaLabel}
@@ -53,15 +55,20 @@ export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent
           <span className="icon-rail-logo-mark">SF</span>
           <span className="icon-rail-logo-label">SpecFlow</span>
         </button>
-        <RailButton ariaLabel="Search and commands" label="Search" onClick={onOpenCommandPalette}>
-          <svg viewBox="0 0 16 16">
-            <path d="M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm3.1 7.1L13 13" />
-          </svg>
-        </RailButton>
-        <RailButton ariaLabel="New initiative" label="New Initiative" onClick={() => navigate("/new")}>
+        <RailButton
+          ariaLabel="New project"
+          label="New project"
+          variant="primary"
+          onClick={() => navigate("/new")}
+        >
           <svg viewBox="0 0 16 16">
             <path d="M8 3v10" />
             <path d="M3 8h10" />
+          </svg>
+        </RailButton>
+        <RailButton ariaLabel="Search and commands" label="Search" variant="plain" onClick={onOpenCommandPalette}>
+          <svg viewBox="0 0 16 16">
+            <path d="M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm3.1 7.1L13 13" />
           </svg>
         </RailButton>
       </div>
@@ -81,6 +88,7 @@ export const IconRail = ({ onOpenCommandPalette, navigatorOpen, navigatorContent
           active={location.pathname === "/settings"}
           ariaLabel="Settings"
           label="Settings"
+          variant="plain"
           onClick={() => navigate("/settings")}
         >
           <svg viewBox="0 0 24 24">

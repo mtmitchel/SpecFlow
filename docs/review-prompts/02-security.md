@@ -23,7 +23,7 @@ You are performing a security review of a local-first desktop-first application.
 - `packages/app/src/server/routes/run-audit-routes.ts` -- audit with diff sources
 - `packages/app/src/server/routes/run-query-routes.ts` -- serves files from disk
 - `packages/app/src/server/routes/ticket-routes.ts` -- ticket CRUD, export, capture
-- `packages/app/src/server/routes/initiative-routes.ts` -- initiative CRUD
+- `packages/app/src/server/routes/initiative-routes.ts` -- project CRUD
 - `packages/app/src/server/routes/operation-routes.ts` -- operation state
 - `packages/app/src/llm/client.ts` -- outbound LLM API calls
 - `packages/app/src/llm/sse-parser.ts` -- SSE stream parsing

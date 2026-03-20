@@ -7,7 +7,6 @@ import type {
 import { getDecisionTypeLabel } from "../../../planning-decision-types.js";
 import { MarkdownView } from "../../components/markdown-view.js";
 import {
-  getPreviousInitiativeStep,
   INITIATIVE_WORKFLOW_LABELS,
 } from "../../utils/initiative-workflow.js";
 import { RefinementField } from "./refinement-fields.js";
@@ -166,11 +165,7 @@ export const RefinementSection = ({
       ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + visibleQuestions.length}`
       : null;
   const completionReviewQuestionId = questionIds[questionIds.length - 1] ?? null;
-  const previousStage = getPreviousInitiativeStep(activeSpecStep);
-  const backButtonLabel =
-    previousStage === null
-      ? "Back"
-      : `Back to ${INITIATIVE_WORKFLOW_LABELS[previousStage]}`;
+  const backButtonLabel = "Back";
 
   const renderReopenedQuestionContext = (
     question: InitiativePlanningQuestion,
@@ -228,7 +223,7 @@ export const RefinementSection = ({
       {questionDeck ? (
         <div className="planning-survey-step-header">
           {surveyStepLabel ? <span className="planning-survey-card-step">{surveyStepLabel}</span> : null}
-              {saveStateIndicator}
+          {saveStateIndicator}
         </div>
       ) : !compact ? (
         <div className="planning-intake-header">

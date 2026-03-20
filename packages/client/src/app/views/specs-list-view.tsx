@@ -11,7 +11,7 @@ const SPEC_TYPE_LABELS: Record<string, string> = {
   brief: "Brief",
   "core-flows": "Core flows",
   prd: "PRD",
-  "tech-spec": "Tech Spec",
+  "tech-spec": "Tech spec",
   decision: "Decision"
 };
 
@@ -64,17 +64,19 @@ export const SpecsListView = ({ snapshot }: SpecsListViewProps) => {
           className="aggregate-search"
         />
         <CustomSelect
-          options={[{ value: "", label: "All initiatives" }, ...snapshot.initiatives.map((init) => ({ value: init.id, label: init.title }))]}
+          options={[{ value: "", label: "All projects" }, ...snapshot.initiatives.map((init) => ({ value: init.id, label: init.title }))]}
           value={initiativeFilter}
           onChange={setInitiativeFilter}
         />
       </div>
 
       {filtered.length === 0 ? (
-        <div className="aggregate-empty">
+        <div className="aggregate-empty empty-state">
           <p>{hasAnySpecs ? "No planning docs match these filters." : "No planning docs yet"}</p>
           {!hasAnySpecs && (
-            <p className="aggregate-empty-hint">Briefs, core flows, PRDs, and tech specs appear as you shape an initiative.</p>
+            <p className="aggregate-empty-hint empty-state-hint">
+              Briefs, core flows, PRDs, and tech specs appear as you shape a project.
+            </p>
           )}
         </div>
       ) : (
@@ -84,7 +86,7 @@ export const SpecsListView = ({ snapshot }: SpecsListViewProps) => {
               <tr>
                 <th>Title</th>
                 <th>Type</th>
-                <th>Initiative</th>
+                <th>Project</th>
                 <th>Updated</th>
               </tr>
             </thead>

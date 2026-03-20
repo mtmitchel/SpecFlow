@@ -9,7 +9,7 @@ SpecFlow is a local-first desktop-first tool for a **solo non-developer who uses
 The tool's value proposition is: **turn a vague idea into structured planning artifacts, break those into ordered tickets, generate agent-ready prompt bundles, then verify the agent's output against acceptance criteria.**
 
 The four workflows are:
-1. **Groundwork** -- describe idea -> required brief intake for fresh initiatives -> AI creates Brief / Core flows / PRD / Tech spec with targeted blocker questions only when needed -> AI can run planning reviews and cross-checks as secondary artifacts -> AI generates phased ticket plan
+1. **Groundwork** -- describe idea -> required brief intake for fresh projects -> AI creates Brief / Core flows / PRD / Tech spec with targeted blocker questions only when needed -> AI can run planning reviews and cross-checks as secondary artifacts -> AI generates phased ticket plan
 2. **Milestone Run** -- export ticket as agent prompt -> user runs agent -> capture results -> AI verifies against criteria -> pass/fail with remediation hints
 3. **Quick Build** -- single-task shortcut (describe -> AI triages -> ticket -> export -> verify)
 4. **Drift Audit** -- point at a diff, AI categorizes findings (bug/security/performance/etc.)
@@ -23,9 +23,9 @@ The four workflows are:
 - `packages/app/src/planner/planning-reviews.ts` -- planning review and cross-check ownership
 - `packages/app/src/planner/workflow-state.ts` -- phase progression, refinement state, and stale invalidation
 - `packages/app/src/verify/internal/prompt.ts` -- the verifier prompt that checks agent output
-- `packages/client/src/app/views/initiative-creator.tsx` -- the UI flow for creating an initiative
+- `packages/client/src/app/views/initiative-creator.tsx` -- the UI flow for creating a project
 - `packages/client/src/app/views/ticket-view.tsx` -- the export/capture/verify UI
-- `packages/client/src/app/views/initiative-view.tsx` -- initiative detail page
+- `packages/client/src/app/views/initiative-view.tsx` -- project detail page
 - `packages/client/src/app/layout/command-palette.tsx` -- Cmd+K quick actions
 - `packages/client/src/app/views/overview-panel.tsx` -- what the user sees on first load
 
@@ -72,7 +72,7 @@ AGENTS.md:
 User: Decide whether SpecFlow can create the next artifact now or must ask targeted blocker questions first.
 
 Rules:
-- Fresh initiatives must start with a required brief intake before the first brief is generated.
+- Fresh projects must start with a required brief intake before the first brief is generated.
 - After that first intake, default to "proceed".
 - Ask questions only when missing information would materially change the current artifact and would be costly to unwind later.
 - Use finite options whenever reasonable.
@@ -94,14 +94,14 @@ Respond ONLY as JSON:
   }
 }
 
-User: Generate the {artifact} markdown document for this initiative.
+User: Generate the {artifact} markdown document for this project.
 
 Rules:
 - Return polished markdown plus a structured traceOutline.
 - The traceOutline must only include facts grounded in the markdown you generated.
 - Use saved refinement context and accepted assumptions.
 
-Initiative description:
+Project description:
 {user's description}
 
 Saved refinement context:
@@ -129,7 +129,7 @@ Respond ONLY as JSON:
   "recommendedFixes": ["string"]
 }
 
-User: Review this initiative artifact set for {review kind}.
+User: Review this project artifact set for {review kind}.
 
 Rules:
 - Identify only material blockers and meaningful warnings.
@@ -152,7 +152,7 @@ System: (same as above, with plan JSON contract)
 
 User: Generate an ordered phase plan and ticket breakdown. The textual phase/ticket structure is canonical. Use the repository file tree to generate accurate fileTargets -- only reference paths that exist in the repo.
 
-Initiative description:
+Project description:
 {description}
 
 Brief:
@@ -181,7 +181,7 @@ Key config files:
 ```
 System: (same as above, with triage JSON contract)
 
-User: Assess whether the task is focused enough for Quick Build or should become a larger initiative.
+User: Assess whether the task is focused enough for Quick Build or should become a larger project.
 
 Task description:
 {user's description}
@@ -207,7 +207,7 @@ After export, the user manually runs an agent. The bundle is a markdown file. Re
 The verifier checks a code diff against acceptance criteria. But the user is a non-developer -- they cannot evaluate whether the verifier's pass/fail is correct. How much should the user trust the verifier? What are the failure modes? (False passes where the code looks related but doesn't actually satisfy the criterion? False fails on trivially correct code?) Read `packages/app/src/verify/internal/prompt.ts` to assess the verifier prompt quality.
 
 ### 6. Decision memory
-The product brief mentions "context collapse" as a core problem. But where are decisions stored? If the user decides "use SQLite, not Postgres" during a blocker-question phase, does that decision persist into later artifacts, reviews, and future ticket bundles for the same initiative? Or is it lost after one artifact is generated? Trace how saved refinement answers, assumptions, reviews, and trace outlines flow through the system.
+The product brief mentions "context collapse" as a core problem. But where are decisions stored? If the user decides "use SQLite, not Postgres" during a blocker-question phase, does that decision persist into later artifacts, reviews, and future ticket bundles for the same project? Or is it lost after one artifact is generated? Trace how saved refinement answers, assumptions, reviews, and trace outlines flow through the system.
 
 ### 7. Onboarding & first experience
 The user arrives at the board for the first time. Read `overview-panel.tsx`. Does the empty state guide them effectively? Is the Cmd+K palette discoverable enough for a non-technical user? Is the Groundwork flow self-explanatory, or does it assume the user already knows what "Brief", "Core flows", "PRD", and "Tech spec" mean?

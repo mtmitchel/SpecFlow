@@ -10,11 +10,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Changed
 
 **Shell hierarchy and run framing**
-- Split Home resume targets from stable initiative-shell navigation so Home remains the primary resume surface while the sidebar and initiative cards stay stable object entry points
+- Split Home resume targets from stable project-shell navigation so Home remains the primary resume surface while the sidebar and project cards stay stable object entry points
 - Added `Recent runs` to Home and removed audit history from the main resume queue so historical drill-down no longer competes with active work
-- Reframed run detail as a report-first surface with compact ticket and initiative context instead of the full initiative pipeline
+- Reframed run detail as a report-first surface with compact ticket and project context instead of the full project pipeline
 - Recast `Review changes` as a guided audit flow with findings-first follow-up actions and secondary disclosure for review options and diff context
-- Synced the new-initiative entry pipeline to the canonical visual model so it now includes `Validation`
+- Synced the new-project entry pipeline (`/new-initiative`) to the canonical visual model so it now includes `Validation`
 
 **Validation and ticket handoff**
 - Added a first-class Validation step between Tech spec and Tickets so the planning pipeline is now `Brief -> Core flows -> PRD -> Tech spec -> Validation -> Tickets`
@@ -31,6 +31,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Reopened questions now show compact prior-answer context in survey mode instead of rendering like a duplicate answer option or a separate fake card
 - Choice questions always preserve an `Other` path so the user is not trapped by planner-provided option lists
 - Planning document summary cards now expose the copy-to-clipboard action consistently across Brief, Core flows, PRD, and Tech spec
+- Completed Validation now keeps a `Revise answers` path available, even when it has to rebuild the question deck from saved state
+- Completed Validation no longer shows the old phase and ticket count sentence; it stays a simpler handoff card aligned with the other planning surfaces
+
+**Product naming and copy polish**
+- Standardized user-facing `Initiative` language to `Project` and `Projects` while keeping internal `initiative` routes and storage paths as compatibility details
+- Standardized planning-shell review and handoff navigation to generic `Back` and `Continue`
+- Enforced sentence case across shared headings, labels, badges, and modal chrome instead of forced uppercase styling
+- Simplified the sidebar to one search entry point plus a clearer `Projects` hierarchy without the duplicate navigator search field
 
 **Plan validation and provider hardening**
 - Ticket-plan validation now emits structured coverage issues, retries once through a focused repair path, and routes attributable failures back into Validation as step-owned follow-up questions
@@ -64,7 +72,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 **End-to-end workflow coverage**
 - Added a Playwright browser E2E harness with a deterministic planner/verifier backend
-- Covered the main initiative workflow end to end plus the Core flows review-back/update revision path
+- Covered the main project workflow end to end plus the Core flows review-back/update revision path
 
 **Repo-local Codex skills**
 - Removed the generic repo-local skills that no longer matched SpecFlow's real workflow shape
@@ -103,14 +111,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 **UI: master-detail layout replaces page-based navigation**
 - Two-panel `WorkspaceShell`: 280px navigator sidebar + detail workspace; Kanban board removed
-- `Navigator` component: WAI-ARIA TreeView with full keyboard navigation (ArrowUp/Down/Left/Right, Enter, Home, End); hierarchy: initiatives > specs/phases > tickets + Quick Tasks section; auto-expands to reveal the active route; filter input
-- `CommandPalette` (Cmd+K / Ctrl+K): fuzzy search across initiatives, tickets, runs, and specs; inline Quick Task flow; inline GitHub Import flow; New Initiative shortcut; Settings shortcut
+- `Navigator` component: WAI-ARIA TreeView with full keyboard navigation (ArrowUp/Down/Left/Right, Enter, Home, End); hierarchy: projects > specs/phases > tickets + Quick Tasks section; auto-expands to reveal the active route; filter input
+- `CommandPalette` (Cmd+K / Ctrl+K): fuzzy search across projects, tickets, runs, and specs; inline Quick Task flow; inline GitHub Import flow; New Project shortcut; Settings shortcut
 - `SettingsModal`: settings form rendered as a modal overlay at `/settings` (previously a dedicated page); `navigate(-1)` to close
-- `StatusBar`: bottom bar showing per-initiative progress (done/blocked/in-verify counts)
+- `StatusBar`: bottom bar showing per-project progress (done/blocked/in-verify counts)
 - All detail views ported to `src/app/views/`: `initiative-view`, `spec-view`, `ticket-view`, `run-view`, `overview-panel`, `initiative-creator`
 - `TicketView` status change: status dropdown in ticket header using `canTransition()` replaces Kanban drag-and-drop
 - `SpecView`: dedicated route at `/initiative/:id/spec/:type` for inline spec editing
-- `InitiativeCreator`: multi-step flow at `/new-initiative` (describe → analyze → answer questions → generate specs → navigate)
+- `InitiativeCreator`: project-creation flow at `/new-initiative` (describe → analyze → answer questions → generate specs → navigate)
 - Route canonicalization: `/tickets/:id` → `/ticket/:id`, `/initiatives/:id` → `/initiative/:id`, `/runs/:id` → `/run/:id` (backward-compat redirects in place)
 - `audit-panel` moved from `pages/` to `components/`
 - CSS token system: `--surface-*`, `--accent-*`, `--warning-*`, `--danger-*`, `--success-*` custom properties; `--radius-sm/md/lg/pill`; `--transition-fast/normal`; hover/focus transitions on all interactive elements
@@ -139,7 +147,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 **Planning quality**
 - Repo context scanning (`repo-scanner.ts`): `git ls-files` + key config files condensed into a file tree injected into plan prompts, grounding file targets in the actual codebase
 - `mermaidDiagram` field on `Initiative` and `PlanResult`; planner prompt includes Mermaid diagram contract
-- Mermaid phase-dependency diagram rendered on initiative detail page (`MermaidView` component with DOMPurify SVG sanitization)
+- Mermaid phase-dependency diagram rendered on the project detail page (`MermaidView` component with DOMPurify SVG sanitization)
 
 **LLM streaming**
 - Real SSE token streaming for both Anthropic and OpenAI/OpenRouter providers; previously the client simulated streaming after a full response
@@ -191,9 +199,9 @@ Initial release.
 - `specflow export-bundle` and `specflow verify` CLI commands with prefer-server delegation
 
 **Planner**
-- Spec generation (Brief, PRD, Tech Spec) from free-text initiative descriptions
+- Spec generation (Brief, PRD, Tech Spec) from free-text project descriptions
 - Phase + ticket plan generation with acceptance criteria, implementation plans, and file targets
-- Quick Task triage: small tasks become tickets, large tasks convert to draft initiatives
+- Quick Task triage: small tasks become tickets, large tasks convert to draft projects
 
 **Verification**
 - Git-based diff verification using `simple-git`
@@ -220,7 +228,7 @@ Initial release.
 
 **Board UI**
 - Kanban board: Backlog / Ready / In Progress / Verify / Done
-- Initiative detail with Brief, PRD, Tech Spec tabs
+- Project detail with Brief, PRD, Tech Spec tabs
 - Run detail with diff viewer and verification panel
 - Settings page: provider, model, API key; OpenRouter model picker
 - SSE streaming for planner and verification progress

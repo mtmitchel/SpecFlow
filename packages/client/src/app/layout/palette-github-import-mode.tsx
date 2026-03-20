@@ -43,7 +43,7 @@ export const PaletteGithubImportMode = ({ inputRef, onClose, onRefresh, onBack }
         </button>
         <span>GitHub issue</span>
       </div>
-      <div className="palette-context">Paste an issue URL. SpecFlow will turn it into a task or initiative.</div>
+      <div className="palette-context">Paste an issue URL. SpecFlow will turn it into a task or project.</div>
       <input
         ref={inputRef as React.RefObject<HTMLInputElement>}
         className="palette-input"

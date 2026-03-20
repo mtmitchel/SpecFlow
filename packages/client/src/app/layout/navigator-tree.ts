@@ -27,62 +27,70 @@ const statusDotClass = (status: Initiative["status"]): string => {
   return "draft";
 };
 
+const ticketNode = (ticket: Ticket): NavigatorNode => ({
+  id: `ticket-${ticket.id}`,
+  type: ticket.initiativeId ? "ticket" : "quick-task",
+  label: ticket.title,
+  path: `/ticket/${ticket.id}`,
+  ticketStatus: ticket.status,
+});
+
+const initiativeNode = (
+  initiative: Initiative,
+  snapshot: ArtifactsSnapshot,
+  tickets: Ticket[],
+): NavigatorNode => {
+  const initiativeTickets = tickets.filter((ticket) => ticket.initiativeId === initiative.id);
+  const initiativeProgress = getInitiativeProgressModel(initiative, snapshot);
+  const initiativePath = getInitiativeShellHref(initiative, initiativeProgress, snapshot);
+  const children: NavigatorNode[] = [];
+
+  if (initiative.phases.length > 0) {
+    const sortedPhases = [...initiative.phases].sort((left, right) => left.order - right.order);
+    for (const phase of sortedPhases) {
+      const phaseTickets = initiativeTickets.filter((ticket) => ticket.phaseId === phase.id);
+      children.push({
+        id: `phase-${phase.id}`,
+        type: "phase",
+        label: phase.name,
+        path: `/initiative/${initiative.id}?step=tickets`,
+        status: phase.status,
+        children: phaseTickets.map((ticket) => ticketNode(ticket)),
+      });
+    }
+
+    const unphasedTickets = initiativeTickets.filter((ticket) => !ticket.phaseId);
+    for (const ticket of unphasedTickets) {
+      children.push(ticketNode(ticket));
+    }
+  } else {
+    for (const ticket of initiativeTickets) {
+      children.push(ticketNode(ticket));
+    }
+  }
+
+  return {
+    id: `initiative-${initiative.id}`,
+    type: "initiative",
+    label: getInitiativeDisplayTitle(initiative.title, initiative.description),
+    path: initiativePath,
+    status: statusDotClass(initiative.status),
+    children,
+  };
+};
+
 export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[] => {
   const { initiatives, tickets } = snapshot;
   const nodes: NavigatorNode[] = [];
+  const initiativeNodes = initiatives.map((initiative) => initiativeNode(initiative, snapshot, tickets));
 
-  if (initiatives.length > 0) {
+  if (initiativeNodes.length > 0) {
     nodes.push({
       id: "initiatives-header",
       type: "section-header",
-      label: "Initiatives",
-      path: "/"
-    });
-  }
-
-  for (const initiative of initiatives) {
-    const initiativeTickets = tickets.filter((t) => t.initiativeId === initiative.id);
-    const initiativeProgress = getInitiativeProgressModel(initiative, snapshot);
-    const initiativePath = getInitiativeShellHref(initiative, initiativeProgress, snapshot);
-
-    const children: NavigatorNode[] = [];
-
-    if (initiative.phases.length > 0) {
-      // Group tickets by phase
-      const sortedPhases = [...initiative.phases].sort((a, b) => a.order - b.order);
-      for (const phase of sortedPhases) {
-        const phaseTickets = initiativeTickets.filter((t) => t.phaseId === phase.id);
-        const phaseChildren: NavigatorNode[] = phaseTickets.map((t) => ticketNode(t));
-
-        children.push({
-          id: `phase-${phase.id}`,
-          type: "phase",
-          label: phase.name,
-          path: `/initiative/${initiative.id}?step=tickets`,
-          status: phase.status,
-          children: phaseChildren
-        });
-      }
-
-      // Tickets not in any phase under this initiative
-      const unphased = initiativeTickets.filter((t) => !t.phaseId);
-      for (const t of unphased) {
-        children.push(ticketNode(t));
-      }
-    } else {
-      // Flat ticket list under initiative
-      for (const t of initiativeTickets) {
-        children.push(ticketNode(t));
-      }
-    }
-
-    nodes.push({
-      id: `initiative-${initiative.id}`,
-      type: "initiative",
-      label: getInitiativeDisplayTitle(initiative.title, initiative.description),
-      path: initiativePath,
-      status: statusDotClass(initiative.status),
-      children
+      label: "Projects",
+      path: "/",
+      children: initiativeNodes,
     });
   }
 
@@ -92,7 +100,7 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
     nodes.push({
       id: "quick-tasks-header",
       type: "quick-tasks-header",
-      label: "Quick Tasks",
+      label: "Quick tasks",
       path: "/#quick-tasks",
       children: quickTasks.map((t) => ticketNode(t))
     });
@@ -100,14 +108,6 @@ export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[]
 
   return nodes;
 };
-
-const ticketNode = (t: Ticket): NavigatorNode => ({
-  id: `ticket-${t.id}`,
-  type: t.initiativeId ? "ticket" : "quick-task",
-  label: t.title,
-  path: `/ticket/${t.id}`,
-  ticketStatus: t.status
-});
 
 // Returns node IDs that must be expanded to reveal the active path
 export const computeAutoExpansion = (tree: NavigatorNode[], pathname: string): Set<string> => {

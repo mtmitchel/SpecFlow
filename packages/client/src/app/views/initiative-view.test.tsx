@@ -1193,7 +1193,7 @@ describe("InitiativeView", () => {
       expect(screen.getByText("?step=core-flows&surface=review")).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("button", { name: "Continue to PRD" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
     expect(screen.getByText("Open into note capture.")).toBeInTheDocument();
   });
 
@@ -1218,7 +1218,7 @@ describe("InitiativeView", () => {
         name: /Server-assigned canonical timestamps \(server authoritative\)/i
       })
     );
-    fireEvent.click(screen.getByRole("button", { name: "Generate tickets" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect(checkInitiativePhaseMock).toHaveBeenCalledTimes(1);
@@ -1287,7 +1287,7 @@ describe("InitiativeView", () => {
         name: /Server-assigned canonical timestamps \(server authoritative\)/i
       })
     );
-    fireEvent.click(screen.getByRole("button", { name: "Generate tickets" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect(generateInitiativePlanMock).toHaveBeenCalledWith(initiative.id, expect.anything());
@@ -1337,7 +1337,7 @@ describe("InitiativeView", () => {
     expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revise answers" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit text" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue to core flows" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
   });
 
   it("returns to the brief intake survey inline and offers regenerate instead of opening the drawer", async () => {
@@ -1362,7 +1362,7 @@ describe("InitiativeView", () => {
 
     expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Continue to core flows" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit text" })).not.toBeInTheDocument();
   });
 
   it("keeps blocked brief work in the clarification flow instead of dumping review findings into the page", async () => {

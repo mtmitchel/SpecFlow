@@ -43,7 +43,7 @@ Fastify remains as a fallback adapter over the same shared runtime handlers. Rou
 
 ## Artifact Store
 
-On server startup, the store scans `specflow/` and loads all artifacts into typed in-memory maps (initiatives, tickets, runs, specs, config). All board API reads are served from memory -- no filesystem I/O per request. Mutations follow a **staged commit model**:
+On server startup, the store scans `specflow/` and loads all artifacts into typed in-memory maps (projects, tickets, runs, specs, config). All board API reads are served from memory -- no filesystem I/O per request. Mutations follow a **staged commit model**:
 
 1. Build full operation output in a temp attempt directory (bundle files, snapshot, diff, verification output).
 2. Validate integrity and write a temp manifest.
@@ -98,9 +98,9 @@ The browser never calls provider APIs directly. In legacy web mode, AI operation
 
 ## Workflow Contract and Execution Gates
 
-Planning workflow metadata lives in one shared contract module: `packages/app/src/planner/workflow-contract.ts`. Step order, review kinds, labels, source-step ownership, and prerequisite review rules are defined there and imported by both the server and client so the initiative workspace cannot drift from backend gating behavior.
+Planning workflow metadata lives in one shared contract module: `packages/app/src/planner/workflow-contract.ts`. Step order, review kinds, labels, source-step ownership, and prerequisite review rules are defined there and imported by both the server and client so the project workspace cannot drift from backend gating behavior.
 
-Initiative-linked execution gating is centralized in `packages/app/src/planner/execution-gates.ts`. Ticket status transitions and bundle export both use the same helper, so the rule "resolve the coverage check before starting execution" is enforced consistently across server routes and surfaced with the same message in the UI.
+Project-linked execution gating is centralized in `packages/app/src/planner/execution-gates.ts`. Ticket status transitions and bundle export both use the same helper, so the rule "resolve the coverage check before starting execution" is enforced consistently across server routes and surfaced with the same message in the UI.
 
 For the user-facing version of these workflow rules, see [`workflows.md`](workflows.md).
 
@@ -112,7 +112,7 @@ For the user-facing version of these workflow rules, see [`workflows.md`](workfl
 
 Desktop mode replaces the legacy HTTP ZIP download anchor with a native save flow. The client asks the user for a destination path through the Tauri dialog plugin, then Tauri forwards a `runs.saveBundleZip` sidecar request that writes the ZIP to the chosen filesystem path without exposing a temporary HTTP download endpoint.
 
-Bundle contracts are versioned: every bundle includes a manifest with `bundleSchemaVersion`, `agentTarget`, and `exportMode` (standard vs quick-fix). Quick-fix exports include source linkage metadata (`sourceRunId`, `sourceFindingId`) for audit traceability. For initiative-linked tickets, `PROMPT.md` also surfaces the ticket's covered spec items before the acceptance criteria so the agent sees the originating requirement and flow context, not only the ticket summary. Coverage-gated initiative tickets cannot export until the shared execution-gate helper reports that the initiative's coverage review is resolved. Agent renderers are validated by golden tests against fixed fixtures.
+Bundle contracts are versioned: every bundle includes a manifest with `bundleSchemaVersion`, `agentTarget`, and `exportMode` (standard vs quick-fix). Quick-fix exports include source linkage metadata (`sourceRunId`, `sourceFindingId`) for audit traceability. For project-linked tickets, `PROMPT.md` also surfaces the ticket's covered spec items before the acceptance criteria so the agent sees the originating requirement and flow context, not only the ticket summary. Coverage-gated project tickets cannot export until the shared execution-gate helper reports that the project's coverage review is resolved. Agent renderers are validated by golden tests against fixed fixtures.
 
 ---
 
@@ -139,9 +139,9 @@ The Verifier LLM receives the primary diff, acceptance criteria, and `specflow/A
 specflow/
   config.yaml                        # provider, model, host, port, repoInstructionFile (non-secret)
   AGENTS.md                          # repo instruction file (conventions)
-  initiatives/
+  initiatives/                      # persisted project artifacts (legacy path name retained internally)
     <id>/
-      initiative.yaml                # metadata, workflow state, phase list
+      initiative.yaml                # project metadata, workflow state, phase list
       brief.md
       core-flows.md
       prd.md
@@ -190,7 +190,7 @@ specflow/
 
 ### Core Entities
 
-**Initiative**
+**Project**
 ```yaml
 id: string
 title: string
@@ -204,7 +204,7 @@ phases:
 specIds: string[]
 ticketIds: string[]
 workflow:
-  activeStep: brief | core-flows | prd | tech-spec | tickets
+  activeStep: brief | core-flows | prd | tech-spec | validation | tickets
   resumeTicketId: string | null
   steps:
     brief:
@@ -217,6 +217,9 @@ workflow:
       status: locked | ready | complete | stale
       updatedAt: ISO8601 | null
     tech-spec:
+      status: locked | ready | complete | stale
+      updatedAt: ISO8601 | null
+    validation:
       status: locked | ready | complete | stale
       updatedAt: ISO8601 | null
     tickets:
@@ -235,12 +238,12 @@ createdAt: ISO8601
 updatedAt: ISO8601
 ```
 
-Planner refinement checks now consume both the flattened saved answers and the persisted refinement question history for the current and earlier stages. Each refinement step stores the current blocker set in `questions` plus a durable `history` list that survives artifact generation, so completed phases can still reopen the exact answered survey later without losing blocker provenance. Refinement state also stores a `preferredSurface` value so the initiative route and Home resume links can restore the last meaningful planning surface for that phase. Artifact completion resets that preference to `review`, while an intentional `Back` or reopen flow can persist `questions` again later. The initiative workflow also stores a `resumeTicketId` so execution re-entry can reopen the active initiative ticket instead of re-deriving it from ticket sorting alone. Run detail stays explicit history: visiting a run report does not replace the ticket as the initiative's default execution resume target. That lets later checks see the original blocker questions, avoid same-stage duplicate re-asks, and reopen an earlier concern only when a real downstream constraint still blocks the next artifact. Reopened questions now carry explicit `reopensQuestionIds` references so cross-stage follow-ups are structural instead of prompt-only, and the client can render the earlier step/question/answer context inline when a blocker revisits prior work. PRD checks can receive lightweight repo context when earlier artifacts already indicate existing-system or compatibility work, while Tech spec checks and generation continue to receive repo context when existing-system, compatibility, failure-handling, performance, quality-strategy, or operations constraints matter. The planner now treats `quality-strategy` as the canonical tech-spec decision type and accepts legacy `verification` values as a compatibility alias.
+Planner refinement checks now consume both the flattened saved answers and the persisted refinement question history for the current and earlier stages. Each refinement step stores the current blocker set in `questions` plus a durable `history` list that survives artifact generation, so completed phases can still reopen the exact answered survey later without losing blocker provenance. Refinement state also stores a `preferredSurface` value so the project route and Home resume links can restore the last meaningful planning surface for that phase. Artifact completion resets that preference to `review`, while an intentional `Back` or reopen flow can persist `questions` again later. The project workflow also stores a `resumeTicketId` so execution re-entry can reopen the active project ticket instead of re-deriving it from ticket sorting alone. Run detail stays explicit history: visiting a run report does not replace the ticket as the project's default execution resume target. That lets later checks see the original blocker questions, avoid same-stage duplicate re-asks, and reopen an earlier concern only when a real downstream constraint still blocks the next artifact. Reopened questions now carry explicit `reopensQuestionIds` references so cross-stage follow-ups are structural instead of prompt-only, and the client can render the earlier step/question/answer context inline when a blocker revisits prior work. PRD checks can receive lightweight repo context when earlier artifacts already indicate existing-system or compatibility work, while Tech spec checks and generation continue to receive repo context when existing-system, compatibility, failure-handling, performance, quality-strategy, or operations constraints matter. The planner now treats `quality-strategy` as the canonical tech-spec decision type and accepts legacy `verification` values as a compatibility alias.
 
 **Ticket**
 ```yaml
 id: string
-initiativeId: string | null  # null for Quick Tasks
+initiativeId: string | null  # null for Quick tasks
 phaseId: string | null
 title: string
 description: string
@@ -250,7 +253,7 @@ acceptanceCriteria:
     text: string
 implementationPlan: string   # Markdown
 fileTargets: string[]        # relative paths
-coverageItemIds: string[]    # initiative coverage ledger items this ticket is expected to satisfy
+coverageItemIds: string[]    # project coverage ledger items this ticket is expected to satisfy
 blockedBy: string[]          # ticket IDs that must be done before this one starts
 blocks: string[]             # ticket IDs that this one blocks
 runId: string | null         # current active run
@@ -416,12 +419,12 @@ updatedAt: ISO8601
 
 ```mermaid
 graph TD
-    Initiative --> Phase
-    Initiative --> Spec
-    Initiative --> PlanningReview
-    Initiative --> TicketCoverage[TicketCoverageArtifact]
-    Initiative --> TraceOutline
-    Initiative --> Ticket
+    Project --> Phase
+    Project --> Spec
+    Project --> PlanningReview
+    Project --> TicketCoverage[TicketCoverageArtifact]
+    Project --> TraceOutline
+    Project --> Ticket
     Phase --> Ticket
     TicketCoverage --> Ticket
     Ticket --> Ticket2[Ticket blockedBy/blocks]
@@ -461,7 +464,7 @@ graph TD
 | **Transport adapter (`src/api/transport.ts`)** | Switches between desktop transport (`invoke`, `Channel`, native dialogs, Tauri events) and legacy web transport (`fetch`, SSE, HTTP downloads) |
 | **API modules (`src/api/*`)** | Keep domain-level client APIs stable while routing them through the active transport |
 | **Workspace shell + navigation** | Provide the collapsing/expanding left sidebar, command palette, and route-level workspace structure |
-| **Initiative / ticket / run views** | Render planning, execution, and verification flows using backend-owned workflow and verification state |
+| **Project / ticket / run views** | Render planning, execution, and verification flows using backend-owned workflow and verification state |
 | **Execution hooks** | Manage local UI concerns such as verification log display, capture preview debouncing, export workflow state, and error toasts |
 
 ### packages/tauri - Desktop Bridge
@@ -486,7 +489,7 @@ The desktop runtime uses correlated JSON-RPC requests over stdin/stdout between 
 | `runtime.*` / `artifacts.*` | Runtime status and full snapshot reads |
 | `config.*` / `providers.*` | Non-secret settings writes, provider-key saves, and provider model discovery |
 | `operations.*` | Operation-status probing for idempotent retries |
-| `initiatives.*` | Planning workflow actions, reviews, and ticket-plan generation |
+| `initiatives.*` | Project workflow actions, reviews, and ticket-plan generation |
 | `tickets.*` | Ticket CRUD, bundle export, capture preview, verification, and override flows |
 | `runs.*` | Run list/detail/state plus desktop ZIP save |
 | `audit.*` | Drift audit execution and finding actions |

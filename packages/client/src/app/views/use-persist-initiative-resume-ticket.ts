@@ -36,7 +36,7 @@ export const usePersistInitiativeResumeTicket = ({
           return;
         }
 
-        showError((error as Error).message ?? "We couldn't save where to resume this initiative.");
+        showError((error as Error).message ?? "We couldn't save where to resume this project.");
       });
 
     return () => {

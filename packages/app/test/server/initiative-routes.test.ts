@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createServerFixture } from "../helpers/server-fixture.js";
 
 describe("initiative routes", () => {
-  it("returns required brief consultation questions for a fresh initiative", async () => {
+  it("returns required brief consultation questions for a fresh project", async () => {
     const fixture = await createServerFixture();
 
     try {

@@ -182,9 +182,12 @@ describe("RunView", () => {
     });
 
     expect(screen.getByText("Summary")).toBeInTheDocument();
+    expect(screen.getByText("Verification log")).toBeInTheDocument();
     expect(screen.getByText("Context")).toBeInTheDocument();
     expect(screen.getByText("Details")).toBeInTheDocument();
     expect(screen.getByText("Included files")).toBeInTheDocument();
+    expect(screen.getByText("Match to ticket criteria")).toBeInTheDocument();
+    expect(screen.getAllByText("Pass").length).toBeGreaterThan(0);
     expect(screen.getByText("Implemented the execution gate and updated tests.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open ticket" })).toHaveAttribute("href", `/ticket/${ticket.id}`);
     expect(screen.getByRole("link", { name: initiative.title })).toHaveAttribute(
@@ -192,6 +195,7 @@ describe("RunView", () => {
       `/initiative/${initiative.id}?step=tickets`,
     );
     expect(screen.getAllByRole("link", { name: ticket.title })[0]).toHaveAttribute("href", `/ticket/${ticket.id}`);
+    expect(document.querySelector(".run-validation-score.score-pass-bg")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Brief" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Verify" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();

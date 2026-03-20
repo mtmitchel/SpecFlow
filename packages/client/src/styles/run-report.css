@@ -128,11 +128,51 @@
   font-size: var(--font-caption);
 }
 
+.run-criteria-log-icon-pass {
+  color: var(--success-text);
+}
+
+.run-criteria-log-icon-fail {
+  color: var(--danger-text);
+}
+
 .run-criteria-log-level {
   font-size: var(--font-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
+}
+
+.run-criteria-log-level-pass,
+.run-criteria-log-level-minor {
+  color: var(--success-text);
+}
+
+.run-criteria-log-level-major {
+  color: var(--warning-text);
+}
+
+.run-criteria-log-level-critical,
+.run-criteria-log-level-fail {
+  color: var(--danger-text);
+}
+
+.run-criteria-log-level-outdated {
+  color: var(--accent-text-light);
+}
+
+.run-criteria-log-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.run-criteria-log-copy strong,
+.run-criteria-log-copy span {
+  min-width: 0;
+}
+
+.run-criteria-log-remediation {
+  color: var(--muted);
 }
 
 .run-context-list,

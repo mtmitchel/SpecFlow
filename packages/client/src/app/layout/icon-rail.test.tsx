@@ -9,7 +9,7 @@ const LocationProbe = () => {
 };
 
 describe("IconRail", () => {
-  it("uses the SF logo as home and exposes search and new initiative actions", () => {
+  it("uses the SF logo as home and exposes search and new project actions", () => {
     const onOpenCommandPalette = vi.fn();
 
     render(
@@ -32,7 +32,7 @@ describe("IconRail", () => {
     fireEvent.click(screen.getByRole("button", { name: "Search and commands" }));
     expect(onOpenCommandPalette).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "New initiative" }));
+    fireEvent.click(screen.getByRole("button", { name: "New project" }));
     expect(screen.getByTestId("location")).toHaveTextContent("/new");
   });
 
@@ -49,7 +49,7 @@ describe("IconRail", () => {
 
     expect(screen.getByText("SpecFlow")).toBeInTheDocument();
     expect(screen.getByText("Search")).toBeInTheDocument();
-    expect(screen.getByText("New Initiative")).toBeInTheDocument();
+    expect(screen.getByText("New project")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByText("Navigator")).toBeInTheDocument();
   });

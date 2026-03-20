@@ -307,7 +307,7 @@ export const deleteInitiative = async (initiativeId: string): Promise<void> => {
       const response = await fetch(`/api/initiatives/${initiativeId}`, { method: "DELETE" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error((body as { message?: string }).message ?? "Failed to delete initiative");
+        throw new Error((body as { message?: string }).message ?? "Failed to delete project");
       }
     }
   );

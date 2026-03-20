@@ -39,6 +39,27 @@ const RunReportCard = ({
   </section>
 );
 
+const getValidationScoreToneClass = (score: number): string =>
+  score >= 80 ? "score-pass-bg" : score >= 50 ? "score-partial-bg" : "score-fail-bg";
+
+const getValidationScoreValueClass = (score: number): string =>
+  score >= 80 ? "score-pass" : score >= 50 ? "score-partial" : "score-fail";
+
+const formatLogTimestamp = (value: string): string =>
+  new Date(value).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+const formatSeverityLabel = (
+  pass: boolean,
+  severity?: string,
+): string => {
+  const value = severity ?? (pass ? "pass" : "fail");
+  return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+};
+
 export const RunView = ({
   initiatives,
   tickets: _tickets,
@@ -303,6 +324,9 @@ export const RunView = ({
   const criteriaPassed = criteriaResults.filter((c) => c.pass).length;
   const criteriaTotal = criteriaResults.length;
   const validationScore = criteriaTotal > 0 ? Math.round((criteriaPassed / criteriaTotal) * 100) : 0;
+  const validationScoreToneClass = getValidationScoreToneClass(validationScore);
+  const validationScoreValueClass = getValidationScoreValueClass(validationScore);
+  const criteriaLogTimestamp = formatLogTimestamp(committedAttemptDetail?.createdAt ?? detail.run.createdAt);
 
   const verificationPass = committedAttemptDetail?.overallPass ?? detail.committed?.attempt?.overallPass ?? null;
   const bundleFiles = [
@@ -344,17 +368,6 @@ export const RunView = ({
             </div>
           ) : null}
 
-          {criteriaTotal > 0 && (
-            <div className="run-validation-score">
-              <span className={`run-validation-score-value ${validationScore >= 80 ? "score-pass" : validationScore >= 50 ? "score-partial" : "score-fail"}`}>
-                {validationScore}%
-              </span>
-              <span className="run-validation-score-label">
-                Validation Score ({criteriaPassed}/{criteriaTotal} criteria passed)
-              </span>
-            </div>
-          )}
-
           <RunReportCard title="Summary" badge={reportVerdict}>
             <div className="button-row">
               <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
@@ -376,6 +389,47 @@ export const RunView = ({
             {attemptError ? <p className="ticket-empty-note">{attemptError}</p> : null}
             <MarkdownView content={committedAttemptDetail?.agentSummary || "(no summary provided)"} />
           </RunReportCard>
+
+          {criteriaTotal > 0 ? (
+            <RunReportCard
+              title="Verification log"
+              badge={`${criteriaPassed}/${criteriaTotal} passed`}
+            >
+              <div className="run-criteria-log">
+                {criteriaResults.map((criterion) => (
+                  <div key={criterion.criterionId} className="run-criteria-log-entry">
+                    <span className="run-criteria-log-time">{criteriaLogTimestamp}</span>
+                    <span
+                      className={`run-criteria-log-icon ${
+                        criterion.pass ? "run-criteria-log-icon-pass" : "run-criteria-log-icon-fail"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {criterion.pass ? "✓" : "×"}
+                    </span>
+                    <span
+                      className={`run-criteria-log-level ${
+                        criterion.pass
+                          ? "run-criteria-log-level-pass"
+                          : `run-criteria-log-level-${criterion.severity ?? "fail"}`
+                      }`}
+                    >
+                      {formatSeverityLabel(criterion.pass, criterion.severity)}
+                    </span>
+                    <div className="run-criteria-log-copy">
+                      <strong>{criterion.criterionId}</strong>
+                      <span>{criterion.evidence}</span>
+                      {!criterion.pass && criterion.remediationHint ? (
+                        <span className="run-criteria-log-remediation">
+                          {criterion.remediationHint}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </RunReportCard>
+          ) : null}
 
           <RunReportCard title="Changes" badge={committedHasPrimaryDiff ? (primaryDiff ? "Loaded" : "Available") : "No changes"}>
             {!committedHasPrimaryDiff ? (
@@ -452,11 +506,24 @@ export const RunView = ({
         </div>
 
         <aside className="run-report-side">
+          {criteriaTotal > 0 ? (
+            <RunReportCard title="Validation score">
+              <div className={`run-validation-score ${validationScoreToneClass}`}>
+                <span className={`run-validation-score-value ${validationScoreValueClass}`}>
+                  {validationScore}%
+                </span>
+                <span className="run-validation-score-label">
+                  Match to ticket criteria
+                </span>
+              </div>
+            </RunReportCard>
+          ) : null}
+
           <RunReportCard title="Context">
             <dl className="run-context-list">
               {initiative ? (
                 <div className="run-context-row">
-                  <dt>Initiative</dt>
+                  <dt>Project</dt>
                   <dd>
                     <Link to={`/initiative/${initiative.id}?step=tickets`}>{initiative.title}</Link>
                   </dd>

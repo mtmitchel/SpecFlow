@@ -72,14 +72,26 @@ export const canOpenInitiativeStep = (
   planningReviews: PlanningReviewArtifact[],
   initiativeId: string,
   step: string | null
-): step is InitiativePlanningStep =>
-  Boolean(step) &&
-  INITIATIVE_WORKFLOW_STEPS.includes(step as InitiativePlanningStep) &&
-  workflow.steps[step as InitiativePlanningStep].status !== "locked" &&
-  getReviewsThatGatePlanningStep(step as InitiativePlanningStep).every((kind) => {
+): step is InitiativePlanningStep => {
+  if (!step || !INITIATIVE_WORKFLOW_STEPS.includes(step as InitiativePlanningStep)) {
+    return false;
+  }
+
+  const planningStep = step as InitiativePlanningStep;
+  if (workflow.steps[planningStep].status === "locked") {
+    return false;
+  }
+
+  const blockedStep = getInitiativeBlockedStep(workflow, planningReviews);
+  if (blockedStep === planningStep) {
+    return true;
+  }
+
+  return getReviewsThatGatePlanningStep(planningStep).every((kind) => {
     const review = planningReviews.find((item) => item.id === `${initiativeId}:${kind}`);
     return !review || isReviewResolved(review.status);
   });
+};
 export const INITIATIVE_WORKFLOW_STATUS_LABELS: Record<
   InitiativeWorkflow["steps"][InitiativePlanningStep]["status"],
   string

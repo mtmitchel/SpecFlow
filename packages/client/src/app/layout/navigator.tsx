@@ -13,6 +13,8 @@ interface NavigatorProps {
   snapshot: ArtifactsSnapshot;
 }
 
+const DEFAULT_EXPANDED_NODE_IDS = new Set(["initiatives-header", "quick-tasks-header"]);
+
 const STATUS_DOT: Record<string, string> = {
   active: "var(--accent)",
   done: "var(--success)",
@@ -62,7 +64,7 @@ const TreeItem = ({
   const dotColor =
     node.ticketStatus
       ? TICKET_DOT[node.ticketStatus] ?? "var(--muted)"
-      : node.status
+      : node.type === "phase" && node.status
         ? STATUS_DOT[node.status] ?? "var(--muted)"
         : null;
 
@@ -80,6 +82,7 @@ const TreeItem = ({
   const isHeader = node.type === "quick-tasks-header" || node.type === "section-header";
   const indentPx = depth * 14;
   const isClickable = !isHeader;
+  const showChevron = false;
 
   return (
     <>
@@ -87,22 +90,20 @@ const TreeItem = ({
         ref={ref}
         role="treeitem"
         aria-selected={isActive}
-        aria-expanded={hasChildren ? isExpanded : undefined}
+        aria-expanded={showChevron ? isExpanded : undefined}
         tabIndex={focusedId === node.id ? 0 : -1}
         className={`nav-tree-item${isActive ? " active" : ""}${isHeader ? " nav-tree-header" : ""}`}
         style={{ paddingLeft: `${0.7 + indentPx / 16}rem` }}
         onClick={() => {
           setFocusedId(node.id);
-          if (hasChildren) onToggle(node.id);
+          if (showChevron) onToggle(node.id);
           if (isClickable) {
             onNavigate(node.path);
           }
         }}
         onKeyDown={handleKeyDown}
       >
-        <span className="nav-tree-chevron" style={{ visibility: hasChildren ? "visible" : "hidden" }}>
-          {isExpanded ? "▾" : "▸"}
-        </span>
+        {showChevron ? <span className="nav-tree-chevron">{isExpanded ? "▾" : "▸"}</span> : null}
         {dotColor ? <span className="nav-tree-dot" style={{ background: dotColor }} aria-hidden="true" /> : null}
         <span className="nav-tree-label" title={node.label}>
           {node.label}
@@ -185,7 +186,6 @@ const getActiveTicketId = (snapshot: ArtifactsSnapshot, pathname: string): strin
 export const Navigator = ({ snapshot }: NavigatorProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const activeRoute = `${location.pathname}${location.search}`;
 
@@ -207,11 +207,12 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
     }
     return expanded;
   }, [activeInitiativeId, activeRoute, contentNodes]);
+  const manualExpanded = DEFAULT_EXPANDED_NODE_IDS;
   const allExpanded = useMemo(() => {
     const combined = new Set(manualExpanded);
     for (const id of autoExpanded) combined.add(id);
     return combined;
-  }, [manualExpanded, autoExpanded]);
+  }, [autoExpanded, manualExpanded]);
   const flatList = useMemo(() => flattenVisible(contentNodes, allExpanded), [contentNodes, allExpanded]);
   const activeNodeId = useMemo(() => {
     const matchedNodeId = findActiveNodeId(contentNodes, activeRoute);
@@ -231,17 +232,7 @@ export const Navigator = ({ snapshot }: NavigatorProps) => {
     return activeInitiativeId ? `initiative-${activeInitiativeId}` : null;
   }, [activeInitiativeId, activeRoute, activeTicketId, contentNodes]);
 
-  const handleToggle = useCallback((id: string) => {
-    setManualExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
+  const handleToggle = useCallback(() => {}, []);
 
   const handleNavigate = useCallback(
     (path: string) => {

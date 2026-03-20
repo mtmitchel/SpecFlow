@@ -38,7 +38,7 @@ const TITLE_SPECIAL_CASES = new Map<string, string>([
 const deriveLegacyInitiativeTitle = (description: string): string => {
   const compact = description.trim().replace(/\s+/g, " ");
   if (!compact) {
-    return "Untitled Initiative";
+    return "Untitled project";
   }
 
   return compact.length > 64 ? `${compact.slice(0, 61)}...` : compact;
@@ -66,7 +66,7 @@ const toTitleCase = (input: string): string => {
 export const deriveReadableInitiativeTitle = (description: string): string => {
   const compact = description.trim().replace(/\s+/g, " ");
   if (!compact) {
-    return "Untitled Initiative";
+    return "Untitled project";
   }
 
   const withoutLeadIn = compact.replace(
