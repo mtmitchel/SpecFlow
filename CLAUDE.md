@@ -77,7 +77,7 @@ Important current rules:
 - The first Tech spec draft requires at least one architecture question.
 - Tech spec hands off into Validation, not directly into Tickets.
 - Validation owns the final planning gate before tickets are committed and should ask in-place follow-up questions when those blockers can be answered without sending the user backward.
-- Tickets is an execution-only phase board. Clicking a ticket opens the ticket workspace directly, and the ticket page now uses a compact anchor plus one dominant current-step card instead of a drawer handoff.
+- Tickets is an execution-only board that keeps ordered phases visible and opens the selected phase as a status-based kanban board. Clicking a ticket opens the ticket workspace directly, and the ticket page now uses a compact anchor plus one dominant current-step card instead of a drawer handoff.
 - Planning transition states should name the active phase directly during entry checks, follow-up checks, and artifact generation.
 - Planning reviews remain important, but they are secondary artifacts rather than hard blockers between Brief, Core flows, PRD, and Tech spec.
 - `ticket-coverage-review` is owned by Validation, not Tickets, and remains the real planning-to-execution gate for initiative-linked tickets.

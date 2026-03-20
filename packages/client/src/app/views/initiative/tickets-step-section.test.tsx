@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Initiative, Ticket } from "../../../types.js";
+import { statusColumns } from "../../constants/status-columns.js";
 import { TicketsStepSection } from "./tickets-step-section.js";
 
 const baseInitiative: Initiative = {
@@ -50,16 +51,30 @@ const baseTicket: Ticket = {
   updatedAt: "2026-03-16T10:50:00.000Z",
 };
 
+const createDataTransfer = () => {
+  const store = new Map<string, string>();
+  return {
+    dropEffect: "move",
+    effectAllowed: "move",
+    getData: (type: string) => store.get(type) ?? "",
+    setData: (type: string, value: string) => {
+      store.set(type, value);
+    },
+  };
+};
+
 const renderSection = ({
   initiative = baseInitiative,
   initiativeTickets = [baseTicket],
   onOpenTicket = vi.fn(),
   onCommitPhaseName = vi.fn(),
+  onMoveTicket = vi.fn(async () => undefined),
 }: {
   initiative?: Initiative;
   initiativeTickets?: Ticket[];
   onOpenTicket?: (ticketId: string) => void;
   onCommitPhaseName?: (phaseId: string, nextName: string) => void;
+  onMoveTicket?: (ticketId: string, status: Ticket["status"]) => Promise<void>;
 } = {}) =>
   render(
     <TicketsStepSection
@@ -67,6 +82,7 @@ const renderSection = ({
       initiativeTickets={initiativeTickets}
       onOpenTicket={onOpenTicket}
       onCommitPhaseName={onCommitPhaseName}
+      onMoveTicket={onMoveTicket}
     />,
   );
 
@@ -83,10 +99,10 @@ describe("TicketsStepSection", () => {
 
     expect(screen.getByText("Tickets aren't ready yet")).toBeInTheDocument();
     expect(screen.getByText("Finish validation before tickets are created.")).toBeInTheDocument();
-    expect(screen.queryByText("Execution phases")).not.toBeInTheDocument();
+    expect(screen.queryByText("Execution board")).not.toBeInTheDocument();
   });
 
-  it("renders the execution phase board as left-to-right columns", () => {
+  it("renders the selected phase board with status columns", () => {
     const secondPhase = {
       id: "phase-2",
       name: "Polish",
@@ -110,13 +126,52 @@ describe("TicketsStepSection", () => {
       initiativeTickets: [baseTicket, secondTicket],
     });
 
-    const board = container.querySelector(".planning-phase-board");
+    const board = container.querySelector(".planning-ticket-board");
 
-    expect(screen.getByRole("heading", { name: "Execution phases" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Execution board" })).toBeInTheDocument();
     expect(screen.getByText("2 phases")).toBeInTheDocument();
-    expect(board?.querySelectorAll(".planning-phase-column")).toHaveLength(2);
-    expect(screen.getByText("Phase 1")).toBeInTheDocument();
-    expect(screen.getByText("Phase 2")).toBeInTheDocument();
+    expect(board?.querySelectorAll(".planning-ticket-status-column")).toHaveLength(
+      statusColumns.length,
+    );
+    expect(screen.getAllByText("Phase 1")).toHaveLength(2);
+    expect(screen.getAllByText("Phase 2")).toHaveLength(1);
+  });
+
+  it("defaults to the first phase with unfinished work", () => {
+    const secondPhase = {
+      id: "phase-2",
+      name: "Polish",
+      order: 2,
+      status: "active" as const,
+    };
+    const doneTicket: Ticket = {
+      ...baseTicket,
+      status: "done",
+    };
+    const secondTicket: Ticket = {
+      ...baseTicket,
+      id: "ticket-87654321",
+      phaseId: secondPhase.id,
+      title: "Tighten verification copy",
+      coverageItemIds: ["coverage-prd-requirements-1"],
+    };
+
+    renderSection({
+      initiative: {
+        ...baseInitiative,
+        phases: [...baseInitiative.phases, secondPhase],
+        ticketIds: [doneTicket.id, secondTicket.id],
+      },
+      initiativeTickets: [doneTicket, secondTicket],
+    });
+
+    expect(screen.getByLabelText("Phase 2 name")).toHaveValue("Polish");
+    const selectedPhaseButton = screen
+      .getAllByRole("button")
+      .find((button) => button.getAttribute("aria-pressed") === "true");
+
+    expect(selectedPhaseButton).toHaveTextContent("Phase 2");
+    expect(selectedPhaseButton).toHaveTextContent("Polish");
   });
 
   it("opens a ticket from the board", () => {
@@ -139,5 +194,47 @@ describe("TicketsStepSection", () => {
     fireEvent.blur(input);
 
     expect(onCommitPhaseName).toHaveBeenCalledWith("phase-1", "Core backend");
+  });
+
+  it("moves a ticket to a valid next status when dropped", async () => {
+    const onMoveTicket = vi.fn(async () => undefined);
+    const dataTransfer = createDataTransfer();
+
+    renderSection({ onMoveTicket });
+
+    const dragHandle = screen.getByRole("button", {
+      name: `Drag ${baseTicket.title}`,
+    });
+    const readyColumn = screen.getByLabelText("Ready tickets");
+
+    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragEnter(readyColumn, { dataTransfer });
+    fireEvent.dragOver(readyColumn, { dataTransfer });
+    fireEvent.drop(readyColumn, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onMoveTicket).toHaveBeenCalledWith(baseTicket.id, "ready");
+    });
+  });
+
+  it("blocks invalid status drops", async () => {
+    const onMoveTicket = vi.fn(async () => undefined);
+    const dataTransfer = createDataTransfer();
+
+    renderSection({ onMoveTicket });
+
+    const dragHandle = screen.getByRole("button", {
+      name: `Drag ${baseTicket.title}`,
+    });
+    const doneColumn = screen.getByLabelText("Done tickets");
+
+    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragEnter(doneColumn, { dataTransfer });
+    fireEvent.dragOver(doneColumn, { dataTransfer });
+    fireEvent.drop(doneColumn, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onMoveTicket).not.toHaveBeenCalled();
+    });
   });
 });

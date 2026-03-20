@@ -1,5 +1,9 @@
 import { useMemo } from "react";
-import type { ArtifactsSnapshot, InitiativePlanningStep } from "../../types.js";
+import type {
+  ArtifactsSnapshot,
+  InitiativePlanningStep,
+  TicketStatus,
+} from "../../types.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { Pipeline } from "../components/pipeline.js";
 import { SideDrawer } from "../components/side-drawer.js";
@@ -26,9 +30,11 @@ import { ValidationSection } from "./initiative/validation-section.js";
 export const InitiativeView = ({
   snapshot,
   onRefresh,
+  onMoveTicket,
 }: {
   snapshot: ArtifactsSnapshot;
   onRefresh: () => Promise<void>;
+  onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
 }) => {
   const workspace = useInitiativePlanningWorkspace(snapshot, onRefresh);
 
@@ -446,7 +452,7 @@ export const InitiativeView = ({
           renderValidationWorkspace()
         ) : (
           <div
-            className={`planning-step-column ${
+            className={`planning-step-column planning-step-column-tickets ${
               hasGeneratedTickets
                 ? "planning-step-column-wide"
                 : "planning-step-column-narrow"
@@ -457,6 +463,7 @@ export const InitiativeView = ({
               initiativeTickets={initiativeTickets}
               onOpenTicket={openTicket}
               onCommitPhaseName={handlePhaseRename}
+              onMoveTicket={onMoveTicket}
             />
           </div>
         )}

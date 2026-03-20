@@ -133,7 +133,7 @@ Use these descriptions wherever the app introduces a phase.
 - `PRD`: Define the user-visible behavior, rules, priorities, scope, compatibility promises, and failure behavior.
 - `Tech spec`: Define how it should be built, integrated, operated, and validated for quality.
 - `Validation`: Validate the draft ticket plan and resolve the last planning blockers before tickets are committed.
-- `Tickets`: Break the work into ordered execution phases and show them as a left-to-right ticket board.
+- `Tickets`: Break the work into ordered execution phases, keep those phases visible, and show the selected phase as a status-based ticket board.
 - `Runs`: Review delivery and verification for a ticket.
 
 ### Ticket page framing

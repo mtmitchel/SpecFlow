@@ -1,0 +1,340 @@
+.planning-step-column-tickets.planning-step-column-wide {
+  width: min(100%, 1380px);
+}
+
+.planning-phase-board-meta {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.planning-ticket-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.planning-ticket-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(8, 12, 20, 0.35);
+}
+
+.planning-ticket-list li a {
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.planning-ticket-list li a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.planning-phase-header {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.planning-phase-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.planning-phase-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid rgba(72, 203, 255, 0.24);
+  border-radius: var(--radius-pill);
+  background: rgba(72, 203, 255, 0.08);
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.planning-phase-count {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.planning-phase-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.planning-phase-selector-button {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 5.2rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(10, 16, 25, 0.38);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.planning-phase-selector-button:hover {
+  border-color: var(--accent-border-subtle);
+  background: rgba(12, 20, 31, 0.62);
+}
+
+.planning-phase-selector-button-selected {
+  border-color: var(--accent-border);
+  background:
+    linear-gradient(180deg, rgba(72, 203, 255, 0.08), rgba(10, 16, 25, 0.72)),
+    rgba(10, 16, 25, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(72, 203, 255, 0.14);
+}
+
+.planning-phase-selector-label {
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.planning-phase-selector-button strong {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.planning-phase-selector-meta {
+  color: var(--muted);
+  font-size: var(--font-caption);
+}
+
+.planning-phase-focus {
+  margin-bottom: 0;
+}
+
+.planning-ticket-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(15rem, 1fr));
+  gap: 1rem;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 0.45rem;
+  scrollbar-gutter: stable;
+}
+
+.planning-ticket-status-column {
+  --planning-ticket-column-bg: rgba(8, 12, 20, 0.48);
+  --planning-ticket-column-border: var(--panel-border);
+  --planning-ticket-column-text: var(--text);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 15rem;
+  min-height: 15rem;
+  padding: 0.95rem;
+  border: 1px solid var(--planning-ticket-column-border);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%),
+    var(--planning-ticket-column-bg);
+  transition: border-color var(--transition-fast), background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.planning-ticket-status-column-backlog {
+  --planning-ticket-column-bg: rgba(18, 24, 34, 0.82);
+  --planning-ticket-column-border: var(--muted-border);
+  --planning-ticket-column-text: var(--muted);
+}
+
+.planning-ticket-status-column-ready {
+  --planning-ticket-column-bg: rgba(12, 25, 34, 0.82);
+  --planning-ticket-column-border: var(--accent-border-subtle);
+  --planning-ticket-column-text: var(--accent-text-light);
+}
+
+.planning-ticket-status-column-in-progress {
+  --planning-ticket-column-bg: rgba(28, 24, 14, 0.82);
+  --planning-ticket-column-border: var(--warning-border-subtle);
+  --planning-ticket-column-text: var(--warning-text);
+}
+
+.planning-ticket-status-column-verify {
+  --planning-ticket-column-bg: rgba(22, 18, 36, 0.82);
+  --planning-ticket-column-border: var(--execution-border);
+  --planning-ticket-column-text: var(--execution-text);
+}
+
+.planning-ticket-status-column-done {
+  --planning-ticket-column-bg: rgba(14, 28, 22, 0.82);
+  --planning-ticket-column-border: var(--success-border);
+  --planning-ticket-column-text: var(--success-text);
+}
+
+.planning-ticket-status-column-active {
+  border-color: var(--accent-border);
+  box-shadow: inset 0 0 0 1px rgba(72, 203, 255, 0.18);
+}
+
+.planning-ticket-status-column-disabled {
+  opacity: 0.56;
+}
+
+.planning-ticket-status-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.planning-ticket-status-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+}
+
+.planning-ticket-status-heading h5 {
+  margin: 0;
+  color: var(--planning-ticket-column-text);
+  font-size: 1rem;
+}
+
+.planning-ticket-status-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.8rem;
+  min-height: 1.8rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--planning-ticket-column-border);
+  border-radius: var(--radius-pill);
+  color: var(--planning-ticket-column-text);
+  font-size: var(--font-caption);
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.planning-ticket-status-body {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-height: 10.5rem;
+}
+
+.planning-ticket-status-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.planning-ticket-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem 0.85rem;
+  border: 1px solid rgba(152, 188, 220, 0.18);
+  border-radius: var(--radius-md);
+  background: rgba(7, 11, 18, 0.48);
+  box-shadow: var(--shadow-md);
+}
+
+.planning-ticket-card-moving {
+  opacity: 0.52;
+}
+
+.planning-ticket-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.planning-ticket-card-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.planning-ticket-card-link:hover {
+  color: var(--accent);
+}
+
+.planning-ticket-card-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--font-caption);
+  line-height: 1.45;
+}
+
+.planning-ticket-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-button);
+  color: var(--muted);
+  cursor: grab;
+  flex: none;
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.planning-ticket-drag-handle:hover {
+  border-color: var(--accent-border-subtle);
+  color: var(--text);
+}
+
+.planning-ticket-drag-handle:active {
+  cursor: grabbing;
+}
+
+.planning-ticket-drag-handle span {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  letter-spacing: -0.08em;
+}
+
+.ticket-empty-note {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .planning-step-column-tickets.planning-step-column-wide {
+    width: min(100%, 960px);
+  }
+}
+
+@media (max-width: 720px) {
+  .planning-phase-meta,
+  .planning-phase-board-header,
+  .planning-ticket-list li,
+  .planning-ticket-status-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .planning-phase-selector {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .planning-ticket-board {
+    grid-template-columns: repeat(5, minmax(13rem, 1fr));
+  }
+}

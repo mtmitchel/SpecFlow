@@ -29,7 +29,16 @@ const RedirectParam = ({ base }: { base: string }) => {
 export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenCommandPalette }: DetailWorkspaceProps) => (
   <Routes>
     {/* Canonical views */}
-    <Route path="/initiative/:id" element={<InitiativeRouteView snapshot={snapshot} onRefresh={onRefresh} />} />
+    <Route
+      path="/initiative/:id"
+      element={
+        <InitiativeRouteView
+          snapshot={snapshot}
+          onRefresh={onRefresh}
+          onMoveTicket={onMoveTicket}
+        />
+      }
+    />
     <Route path="/initiative/:id/spec/:type" element={<SpecView />} />
     <Route
       path="/ticket/:id"

@@ -158,12 +158,12 @@ test("completes the main initiative workflow from Home to a passing run", async 
   await page.getByRole("button", { name: "Validate plan" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "Execution phases" }),
+    page.getByRole("heading", { name: "Execution board" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Persist local note edits" }),
+    page.getByRole("button", { name: "Persist local note edits", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Persist local note edits" }).click();
+  await page.getByRole("button", { name: "Persist local note edits", exact: true }).click();
 
   await expect(
     page.getByRole("heading", { name: "Persist local note edits" }),

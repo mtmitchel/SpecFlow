@@ -81,13 +81,34 @@ const generatedTicket: Ticket = {
   updatedAt: "2026-03-16T11:00:00.000Z",
 };
 
-const renderView = (snapshot: ArtifactsSnapshot) => {
+const createDataTransfer = () => {
+  const store = new Map<string, string>();
+  return {
+    dropEffect: "move",
+    effectAllowed: "move",
+    getData: (type: string) => store.get(type) ?? "",
+    setData: (type: string, value: string) => {
+      store.set(type, value);
+    },
+  };
+};
+
+const renderView = (
+  snapshot: ArtifactsSnapshot,
+  onMoveTicket = vi.fn(async () => undefined),
+) => {
   render(
     <MemoryRouter initialEntries={[`/initiative/${baseInitiative.id}?step=tickets`]}>
       <Routes>
         <Route
           path="/initiative/:id"
-          element={<InitiativeRouteView snapshot={snapshot} onRefresh={vi.fn(async () => undefined)} />}
+          element={
+            <InitiativeRouteView
+              snapshot={snapshot}
+              onRefresh={vi.fn(async () => undefined)}
+              onMoveTicket={onMoveTicket}
+            />
+          }
         />
         <Route path="/ticket/:id" element={<div>Ticket route</div>} />
       </Routes>
@@ -132,9 +153,9 @@ describe("InitiativeView tickets layout", () => {
       ticketCoverageArtifacts: [],
     });
 
-    expect(screen.getByText("Execution phases")).toBeInTheDocument();
+    expect(screen.getByText("Execution board")).toBeInTheDocument();
     expect(
-      screen.getByText("Execution phases").closest(".planning-step-column"),
+      screen.getByText("Execution board").closest(".planning-step-column"),
     ).toHaveClass("planning-step-column-wide");
     expect(screen.queryByText("Review questions")).not.toBeInTheDocument();
     expect(screen.queryByText("Coverage check")).not.toBeInTheDocument();
@@ -162,6 +183,42 @@ describe("InitiativeView tickets layout", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Ticket route")).toBeInTheDocument();
+    });
+  });
+
+  it("threads the shared ticket status handler into the initiative board", async () => {
+    const onMoveTicket = vi.fn(async () => undefined);
+    const dataTransfer = createDataTransfer();
+
+    renderView({
+      config: null,
+      initiatives: [
+        {
+          ...baseInitiative,
+          phases: [{ id: "phase-1", name: "Foundation", order: 1, status: "active" }],
+          ticketIds: [generatedTicket.id],
+        },
+      ],
+      tickets: [generatedTicket],
+      runs: [],
+      runAttempts: [],
+      specs: [],
+      planningReviews: [],
+      ticketCoverageArtifacts: [],
+    }, onMoveTicket);
+
+    const dragHandle = screen.getByRole("button", {
+      name: `Drag ${generatedTicket.title}`,
+    });
+    const readyColumn = screen.getByLabelText("Ready tickets");
+
+    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragEnter(readyColumn, { dataTransfer });
+    fireEvent.dragOver(readyColumn, { dataTransfer });
+    fireEvent.drop(readyColumn, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onMoveTicket).toHaveBeenCalledWith(generatedTicket.id, "ready");
     });
   });
 });
