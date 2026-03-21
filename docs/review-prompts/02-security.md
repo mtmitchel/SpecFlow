@@ -2,34 +2,32 @@
 
 You are reviewing the current repository checkout for SpecFlow.
 
-You are performing a security review of a local-first desktop-first application. SpecFlow now runs primarily through a Tauri shell and a persistent Node sidecar, with a retained Fastify fallback runtime for legacy web mode and compatible CLI delegation. It makes outbound calls to LLM APIs (Anthropic, OpenAI, OpenRouter) and GitHub's API.
+You are performing a security review of a local-first desktop application. SpecFlow now runs through a Tauri shell, a Rust bridge, and a persistent Node sidecar. It makes outbound calls to LLM APIs (Anthropic, OpenAI, OpenRouter) and GitHub's API.
 
 ## Runtime configuration facts
 
-- Fastify with `{ logger: false, bodyLimit: 1_048_576 }` (1 MB)
-- `@fastify/static` serves the client build
-- **No CORS plugin** -- no CORS headers set
-- **No Helmet** -- no security headers (CSP, X-Frame-Options, etc.)
-- **No rate limiting** -- no `@fastify/rate-limit`
-- **No authentication or session management**
-- The legacy Fastify fallback listens on `127.0.0.1:3141` by default (host is configurable)
+- There is no user-facing Fastify or browser fallback runtime in the current desktop app
 - Desktop mode routes UI requests through Tauri IPC to the Node sidecar and does not require an HTTP port for normal usage
-- See `packages/app/src/server/create-server.ts`, `packages/app/src/sidecar.ts`, and `packages/tauri/src-tauri/src/lib.rs`
+- Renderer-callable sidecar methods are validated against the shared method catalog and Rust supervisor allowlist
+- Native path access flows through approved-path tokens and desktop save/open commands in the Tauri bridge
+- Mutating CLI commands run locally against the shared runtime and store; they do not delegate to a localhost server
+- See `packages/app/src/validation.ts`, `packages/app/src/sidecar/dispatcher.ts`, `packages/app/src/runtime/handlers/*.ts`, and `packages/tauri/src-tauri/src/lib.rs`
 
 ## Key files to read from the repo
 
-- `packages/app/src/server/validation.ts` -- all input validators
-- `packages/app/src/server/routes/import-routes.ts` -- GitHub issue import
-- `packages/app/src/server/routes/run-audit-routes.ts` -- audit with diff sources
-- `packages/app/src/server/routes/run-query-routes.ts` -- serves files from disk
-- `packages/app/src/server/routes/ticket-routes.ts` -- ticket CRUD, export, capture
-- `packages/app/src/server/routes/initiative-routes.ts` -- project CRUD
-- `packages/app/src/server/routes/operation-routes.ts` -- operation state
+- `packages/app/src/validation.ts` -- all input validators
+- `packages/app/src/runtime/handlers/import-handlers.ts` -- GitHub issue import
+- `packages/app/src/runtime/handlers/run-audit-handlers.ts` -- audit with diff sources
+- `packages/app/src/runtime/handlers/run-query-handlers.ts` -- serves run details and bundle downloads from disk
+- `packages/app/src/runtime/handlers/ticket-handlers.ts` -- ticket CRUD, export, capture, verify
+- `packages/app/src/runtime/handlers/initiative-handlers.ts` -- project CRUD and planning flow actions
+- `packages/app/src/runtime/handlers/operation-handlers.ts` -- operation state
 - `packages/app/src/llm/client.ts` -- outbound LLM API calls
 - `packages/app/src/llm/sse-parser.ts` -- SSE stream parsing
 - `packages/app/src/verify/diff-engine.ts` -- delegates to git commands
 - `packages/app/src/verify/diff/git-strategy.ts` -- executes git diff
-- `packages/app/src/server/create-server.ts` -- server composition root
+- `packages/app/src/sidecar/dispatcher.ts` -- sidecar method routing and notifications
+- `packages/tauri/src-tauri/src/lib.rs` -- desktop commands and bridge registration
 
 ## Critical code (inline for reference)
 
@@ -58,7 +56,7 @@ export const sanitizeSseEventName = (event: string): string =>
   event.replace(/[^a-zA-Z0-9_-]/g, "_");
 ```
 
-### import-routes.ts -- GitHub issue import
+### import-handlers.ts -- GitHub issue import
 
 ```typescript
 const parseGithubIssueUrl = (
@@ -99,7 +97,7 @@ githubReply = await fetchImpl(
 );
 ```
 
-### run-query-routes.ts -- bundle.zip download (path construction)
+### run-query-handlers.ts -- bundle.zip download (path construction)
 
 ```typescript
 app.get("/api/runs/:runId/attempts/:attemptId/bundle.zip", async (request, reply) => {
@@ -153,19 +151,19 @@ private async requestAnthropic(request: LlmRequest, signal: AbortSignal, onToken
 
 ## Analyze the following specifically
 
-1. **SSRF via GitHub import**: The import route constructs a URL from user-supplied `owner`/`repo`/`number`. Can an attacker craft input that makes the server fetch an internal resource? Consider: what if `owner` contains URL-encoded characters? What if the URL path contains `../`? The route uses both URL parsing and string interpolation paths (the `body.owner`/`body.repo` path skips `parseGithubIssueUrl`).
+1. **SSRF via GitHub import**: The import handler constructs a GitHub API URL from parsed `owner`/`repo`/`number` values. Can an attacker craft input that makes the sidecar fetch an internal resource? Consider: what if `owner` contains URL-encoded characters or path separators? What if the URL path contains `../`? Trace both GitHub issue URL parsing and direct owner/repo/issue inputs.
 
-2. **Path traversal**: `isContainedPath` uses `path.resolve()`. Are there any routes that construct file paths from user input WITHOUT calling `isContainedPath`? Check the bundle.zip route, audit routes, run detail route (which reads `diff-primary.patch` and `diff-drift.patch` from disk using `run.committedAttemptId`), and any path that uses route params to build filesystem paths. Look at ALL route files.
+2. **Path traversal**: `isContainedPath` uses `path.resolve()`. Are there any runtime handlers or desktop commands that construct file paths from user input without calling `isContainedPath` or the approved-path helpers? Check bundle ZIP flows, audit handlers, run detail reads, project-root selection, and desktop save commands.
 
 3. **Command injection via git**: The diff engine delegates to `git-strategy.ts`. Read that file. If `scopePaths` or git refs contain shell metacharacters, could they escape into a command? Note that `isValidGitRef` allows slashes, dots, and hyphens. What about `scopePaths` -- are those validated anywhere before being passed to git?
 
-4. **Missing security headers**: No Helmet, no CSP, no X-Frame-Options on the retained Fastify fallback. Given that legacy web mode still runs on localhost when explicitly used, what is the realistic attack surface? Consider: can a malicious website in the user's browser make requests to `localhost:3141`? (DNS rebinding, CSRF via form POST, `fetch` with `no-cors` mode). Enumerate specific attack scenarios, not generic risks.
+4. **Privileged desktop boundary**: There is no localhost Fastify surface now. Review the Tauri command boundary, sidecar method allowlist, approved-path flows, and external-link handling. Could a malicious renderer payload, compromised notification, or newly added method escape the intended privilege boundary?
 
-5. **Localhost assumption**: The legacy server binds to `127.0.0.1` by default but the host is configurable via `config.yaml`. If a user sets host to `0.0.0.0`, what additional attack surface opens up? Is there anything in the code that assumes localhost-only access?
+5. **Renderer trust assumptions**: The desktop client is still untrusted input at the privilege boundary. Identify any paths that assume renderer-supplied strings, IDs, or file selections are already safe before validation at the sidecar dispatcher or Rust bridge.
 
 6. **API key handling**: The LLM client receives API keys from the server config. Trace the key from `config.yaml` / `.env` through to the outbound request. Are there any code paths where the key could leak into logs, error messages, or client responses? Check `classifyProviderError` -- does it include the raw response text (which might echo the key back)?
 
-7. **findingId parameter**: In `run-audit-routes.ts`, the `findingId` param is used in `report.findings.find()` but is NOT validated with `isValidEntityId()`. Is the `findingId` format different from entity IDs? Could a malicious `findingId` cause issues? Check how finding IDs are generated.
+7. **findingId parameter**: Review the current audit and ticket handlers to confirm `findingId` uses the correct validator and does not fall back to unchecked string matching. Is the `findingId` format different from entity IDs, and is that handled consistently?
 
 ## Output format
 

@@ -4,7 +4,7 @@
 
 SpecFlow is a local-first, desktop-first spec-driven development orchestrator for solo builders and small teams who use AI coding agents. It sits above agents like Claude Code, Codex CLI, and OpenCode -- turning raw intent into structured planning artifacts, ordered task breakdowns, and agent-ready handoff bundles, then verifying that the agent's output actually matches the plan.
 
-The primary interface is a desktop workspace built with Tauri, backed by a persistent Node sidecar. A legacy Fastify + browser runtime remains available as a fallback. The CLI handles desktop launch fallback, bundle export, and verification. An internal LLM-powered Planner/Verifier drives progressive artifact generation, targeted blocker questions, secondary planning reviews, and outcome checking. All artifacts (specs, tickets, plans, decisions, review results) live as Markdown/YAML files under a `specflow/` directory in the repo, making them git-friendly and human-readable without any cloud dependency.
+The primary interface is a desktop workspace built with Tauri and backed by a persistent Node sidecar. The CLI launches the desktop workspace, exports bundles, verifies results, and backs up the local store. An internal LLM-powered Planner/Verifier drives progressive artifact generation, targeted blocker questions, secondary planning reviews, and outcome checking. All artifacts (specs, tickets, plans, decisions, review results) live as Markdown/YAML files under a `specflow/` directory in the repo, making them git-friendly and human-readable without any cloud dependency.
 
 ## Problem
 

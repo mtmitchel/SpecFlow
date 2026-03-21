@@ -4,7 +4,7 @@ You are reviewing the current repository checkout for SpecFlow.
 
 You are reviewing the data layer of SpecFlow. It uses flat YAML/JSON files on disk instead of a database. All data is loaded into in-memory maps and is mutated through staged writes.
 
-The critical invariant is the **staged commit model**: long operations (export bundle, verification, audit writes) stage into temp workspaces first, then commit by updating the authoritative run pointer and reloading the in-memory state. The current desktop migration also introduces a long-lived Node sidecar, so review for concurrency and staged-write invariants across shared runtime handlers, sidecar dispatch, and legacy Fastify adapters.
+The critical invariant is the **staged commit model**: long operations (export bundle, verification, audit writes) stage into temp workspaces first, then commit by updating the authoritative run pointer and reloading the in-memory state. SpecFlow now runs through a long-lived Node sidecar behind the Tauri bridge, so review for concurrency and staged-write invariants across shared runtime handlers, sidecar dispatch, store recovery, and desktop-triggered reloads.
 
 ## Key files to read from the repo
 
