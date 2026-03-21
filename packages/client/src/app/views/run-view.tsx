@@ -91,7 +91,11 @@ export const RunView = ({
   const [showDrift, setShowDrift] = useState(false);
   const committedAttemptIdRef = useRef<string | null>(null);
 
-  const loadCommittedAttempt = useCallback(async (runId: string, attemptId: string): Promise<void> => {
+  const loadCommittedAttempt = useCallback(async (
+    runId: string,
+    attemptId: string,
+    signal?: AbortSignal
+  ): Promise<void> => {
     setAttemptLoading(true);
     setAttemptError(null);
     setPrimaryDiff(null);
@@ -100,9 +104,15 @@ export const RunView = ({
     setShowDrift(false);
 
     try {
-      const attempt = await fetchRunAttemptDetail(runId, attemptId);
+      const attempt = await fetchRunAttemptDetail(runId, attemptId, { signal });
+      if (signal?.aborted) {
+        return;
+      }
       setCommittedAttemptDetail(attempt);
     } catch (loadError) {
+      if (signal?.aborted) {
+        return;
+      }
       setCommittedAttemptDetail(null);
       setAttemptError((loadError as Error).message);
     } finally {
@@ -172,8 +182,9 @@ export const RunView = ({
         }
 
         setDetail(payload);
-        if (payload.committed?.attemptId) {
-          await loadCommittedAttempt(runId, payload.committed.attemptId);
+        setCommittedAttemptDetail(payload.committed?.attemptDetail ?? null);
+        if (payload.committed?.attemptId && !payload.committed.attemptDetail) {
+          await loadCommittedAttempt(runId, payload.committed.attemptId, loadController.signal);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -211,7 +222,11 @@ export const RunView = ({
       return;
     }
 
-    void loadCommittedAttempt(detail.run.id, committedAttemptId);
+    const controller = new AbortController();
+    void loadCommittedAttempt(detail.run.id, committedAttemptId, controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [committedAttemptDetail?.attemptId, committedAttemptId, detail?.run.id, loadCommittedAttempt]);
 
   useEffect(() => {

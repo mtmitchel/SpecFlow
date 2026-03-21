@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { fetchOperationStatus, fetchRunAttemptDetail } from "../../api.js";
 import type {
   Initiative,
+  OperationState,
   PlanningReviewArtifact,
   Run,
   RunAttempt,
@@ -96,7 +97,7 @@ export const TicketView = ({
 }) => {
   const params = useParams<{ id: string }>();
   const { showError } = useToast();
-  const [operationState, setOperationState] = useState<string | null>(null);
+  const [operationState, setOperationState] = useState<OperationState | null>(null);
   const [committedAttemptDetail, setCommittedAttemptDetail] = useState<RunAttemptDetail | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
 

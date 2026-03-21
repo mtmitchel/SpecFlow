@@ -78,15 +78,27 @@ Important:
 The CLI remains available alongside the desktop runtime:
 
 ```bash
+tsx packages/app/src/cli.ts backup-store
 tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli
 tsx packages/app/src/cli.ts verify --ticket <ticket-id>
 ```
 
 Rules:
 
+- `backup-store` writes a ZIP archive of the full local `specflow/` store for disaster recovery
 - `export-bundle` and `verify` remain headless CLI commands
 - They execute locally in-process against the same store, bundle, and verifier services that the sidecar uses
 - `--operation-id` still controls idempotent staged run operations across repeated local invocations
+
+Recovery notes:
+
+- Restore a backup only while the desktop shell and CLI are closed
+- Extract the ZIP at the workspace root so it recreates `specflow/`
+- Keep the failed `specflow/` directory until the restored workspace has been validated
+
+Debug notes:
+
+- Set `SPECFLOW_DEBUG_OBSERVABILITY=1` before launching `npm run tauri dev`, `npm run ui`, or a headless CLI command to emit structured request, reload, and sidecar-restart logs to stderr
 
 ## Transport Summary
 

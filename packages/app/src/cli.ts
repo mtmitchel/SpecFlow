@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { Command } from "commander";
+import { runBackupStoreCommand } from "./cli/commands/backup-store-command.js";
 import { runExportBundleCommand } from "./cli/commands/export-bundle-command.js";
 import { runUiCommand } from "./cli/commands/ui-command.js";
 import { runVerifyCommand } from "./cli/commands/verify-command.js";
@@ -19,6 +20,18 @@ const main = async (): Promise<void> => {
     .action((options) => {
       void runUiCommand(options as {
         desktopBinary?: string;
+      });
+    });
+
+  program
+    .command("backup-store")
+    .description("Create a ZIP backup of the local specflow store")
+    .option("--output <path>", "Destination ZIP path")
+    .option("--format <format>", "Output format (text|json)", parseOutputFormat, "text")
+    .action(async (options) => {
+      await runBackupStoreCommand(options as {
+        output?: string;
+        format: OutputFormat;
       });
     });
 

@@ -2,6 +2,7 @@ import process from "node:process";
 import { BundleGenerator } from "../bundle/bundle-generator.js";
 import { loadEnvironment } from "../config/env.js";
 import { migrateLegacyConfigApiKey } from "../config/legacy-config.js";
+import { logObservabilityEvent } from "../observability.js";
 import { PlannerService } from "../planner/planner-service.js";
 import { ArtifactStore } from "../store/artifact-store.js";
 import { DiffEngine } from "../verify/diff-engine.js";
@@ -25,7 +26,17 @@ export const createSpecFlowRuntime = async (
       : `[SpecFlow] Removed a legacy ${migration.provider} API key from specflow/config.yaml because an environment key already exists. Rotate the legacy key if it was active.\n`;
     process.stderr.write(message);
   }
-  await store.initialize();
+  const storeInitStartedAt = Date.now();
+  await store.initialize({ watch: true, cleanup: true });
+  logObservabilityEvent({
+    layer: "runtime",
+    event: "runtime.store-ready",
+    status: "ok",
+    durationMs: Date.now() - storeInitStartedAt,
+    details: {
+      revision: store.getSnapshotMeta().revision
+    }
+  });
 
   const plannerService = options.plannerService ??
     new PlannerService({

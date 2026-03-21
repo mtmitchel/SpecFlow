@@ -16,6 +16,12 @@ import {
   INITIATIVE_WORKFLOW_LABELS,
   getInitiativeResumeStep,
 } from "./initiative-workflow.js";
+import {
+  getInitiativeReviews,
+  getInitiativeRuns,
+  getInitiativeSpecs,
+  getInitiativeTickets,
+} from "./snapshot-index.js";
 
 export type PipelineNodeKey = InitiativePlanningStep | "execute" | "verify" | "done";
 export type PipelineNodeZone = "planning" | "execution";
@@ -138,7 +144,7 @@ export const getInitiativeResumeHref = (
   return buildInitiativeStepHref(
     initiative.id,
     progress.currentKey,
-    getInitiativePlanningSurface(initiative, snapshot.specs, progress.currentKey),
+    getInitiativePlanningSurface(initiative, getInitiativeSpecs(snapshot, initiative.id), progress.currentKey),
   );
 };
 
@@ -163,7 +169,7 @@ export const getInitiativeShellHref = (
   return buildInitiativeStepHref(
     initiative.id,
     progress.currentKey,
-    getInitiativePlanningSurface(initiative, snapshot.specs, progress.currentKey),
+    getInitiativePlanningSurface(initiative, getInitiativeSpecs(snapshot, initiative.id), progress.currentKey),
   );
 };
 
@@ -283,11 +289,9 @@ export const getInitiativeProgressModel = (
     generatingKey?: PipelineNodeKey | null;
   },
 ): InitiativeProgressModel => {
-  const planningReviews = snapshot.planningReviews.filter((review) => review.initiativeId === initiative.id);
-  const initiativeTickets = sortTickets(snapshot.tickets.filter((ticket) => ticket.initiativeId === initiative.id));
-  const initiativeRuns = snapshot.runs.filter((run) =>
-    run.ticketId ? initiativeTickets.some((ticket) => ticket.id === run.ticketId) : false,
-  );
+  const planningReviews = getInitiativeReviews(snapshot, initiative.id);
+  const initiativeTickets = sortTickets(getInitiativeTickets(snapshot, initiative.id));
+  const initiativeRuns = getInitiativeRuns(snapshot, initiative.id);
   const nextTicket =
     initiativeTickets.find((ticket) => ticket.status === "verify") ??
     initiativeTickets.find((ticket) => ticket.status !== "done") ??

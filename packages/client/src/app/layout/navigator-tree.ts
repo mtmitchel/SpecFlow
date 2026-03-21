@@ -1,6 +1,7 @@
 import type { ArtifactsSnapshot, Initiative, Ticket, TicketStatus } from "../../types.js";
 import { getInitiativeProgressModel, getInitiativeShellHref } from "../utils/initiative-progress.js";
 import { getInitiativeDisplayTitle } from "../utils/initiative-titles.js";
+import { getInitiativeTickets } from "../utils/snapshot-index.js";
 
 export type NavigatorNodeType =
   | "section-header"
@@ -38,9 +39,8 @@ const ticketNode = (ticket: Ticket): NavigatorNode => ({
 const initiativeNode = (
   initiative: Initiative,
   snapshot: ArtifactsSnapshot,
-  tickets: Ticket[],
 ): NavigatorNode => {
-  const initiativeTickets = tickets.filter((ticket) => ticket.initiativeId === initiative.id);
+  const initiativeTickets = getInitiativeTickets(snapshot, initiative.id);
   const initiativeProgress = getInitiativeProgressModel(initiative, snapshot);
   const initiativePath = getInitiativeShellHref(initiative, initiativeProgress, snapshot);
   const children: NavigatorNode[] = [];
@@ -82,7 +82,7 @@ const initiativeNode = (
 export const buildNavigatorTree = (snapshot: ArtifactsSnapshot): NavigatorNode[] => {
   const { initiatives, tickets } = snapshot;
   const nodes: NavigatorNode[] = [];
-  const initiativeNodes = initiatives.map((initiative) => initiativeNode(initiative, snapshot, tickets));
+  const initiativeNodes = initiatives.map((initiative) => initiativeNode(initiative, snapshot));
 
   if (initiativeNodes.length > 0) {
     nodes.push({

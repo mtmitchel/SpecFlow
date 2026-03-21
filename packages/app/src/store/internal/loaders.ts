@@ -20,6 +20,7 @@ import {
   verificationPath
 } from "../../io/paths.js";
 import { readYamlFile } from "../../io/yaml.js";
+import type { StoreReloadIssue } from "../../shared-contracts.js";
 import type {
   ArtifactTraceOutline,
   Initiative,
@@ -43,6 +44,63 @@ import {
 import { extractSpecSummaryTitle } from "./spec-summary-titles.js";
 import { shouldReplaceInitiativeTitle } from "../../planner/internal/initiative-title-sync.js";
 
+type ReloadScope = StoreReloadIssue["scope"];
+
+const describeIssue = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const recordIssue = (
+  issues: StoreReloadIssue[],
+  scope: ReloadScope,
+  filePath: string,
+  error: unknown
+): void => {
+  issues.push({
+    scope,
+    path: filePath,
+    message: describeIssue(error)
+  });
+};
+
+const readYamlFileSafely = async <T>(
+  issues: StoreReloadIssue[],
+  scope: ReloadScope,
+  filePath: string
+): Promise<T | null> => {
+  try {
+    return await readYamlFile<T>(filePath);
+  } catch (error) {
+    recordIssue(issues, scope, filePath, error);
+    return null;
+  }
+};
+
+const readTextFileSafely = async (
+  issues: StoreReloadIssue[],
+  scope: ReloadScope,
+  filePath: string
+): Promise<string | null> => {
+  try {
+    return await readFile(filePath, "utf8");
+  } catch (error) {
+    recordIssue(issues, scope, filePath, error);
+    return null;
+  }
+};
+
+const statSafely = async (
+  issues: StoreReloadIssue[],
+  scope: ReloadScope,
+  filePath: string
+) => {
+  try {
+    return await stat(filePath);
+  } catch (error) {
+    recordIssue(issues, scope, filePath, error);
+    return null;
+  }
+};
+
 export const loadInitiatives = async (input: {
   rootDir: string;
   initiatives: Map<string, Initiative>;
@@ -51,11 +109,13 @@ export const loadInitiatives = async (input: {
   artifactTraces: Map<string, ArtifactTraceOutline>;
   ticketCoverageArtifacts: Map<string, TicketCoverageArtifact>;
   specs: Map<string, SpecDocumentSummary>;
+  issues: StoreReloadIssue[];
 }): Promise<void> => {
   const ids = await listDirectoryNames(initiativesDir(input.rootDir));
 
   for (const id of ids) {
-    const initiative = await readYamlFile<Initiative>(initiativeYamlPath(input.rootDir, id));
+    const initiativeFilePath = initiativeYamlPath(input.rootDir, id);
+    const initiative = await readYamlFileSafely<Initiative>(input.issues, "initiative", initiativeFilePath);
     if (!initiative) {
       continue;
     }
@@ -75,8 +135,11 @@ export const loadInitiatives = async (input: {
         continue;
       }
 
-      const markdown = await readFile(filePath, "utf8");
-      const fileStat = await stat(filePath);
+      const markdown = await readTextFileSafely(input.issues, "initiative", filePath);
+      const fileStat = await statSafely(input.issues, "initiative", filePath);
+      if (markdown === null || !fileStat) {
+        continue;
+      }
       const specId = `${initiative.id}:${doc.type}`;
       const summaryTitle = extractSpecSummaryTitle(doc.type, markdown, doc.title);
 
@@ -117,11 +180,13 @@ export const loadInitiatives = async (input: {
       }
 
       const reviewKind = path.basename(fileName, path.extname(fileName));
-      const review = await readYamlFile<PlanningReviewArtifact>(
-        initiativeReviewPath(input.rootDir, id, reviewKind)
+      const filePath = initiativeReviewPath(input.rootDir, id, reviewKind);
+      const review = await readYamlFileSafely<PlanningReviewArtifact>(
+        input.issues,
+        "initiative",
+        filePath
       );
       if (review) {
-        const filePath = initiativeReviewPath(input.rootDir, id, reviewKind);
         const parsed = parsePlanningReviewArtifact(review, filePath);
         input.planningReviews.set(parsed.id, parsed);
       }
@@ -129,11 +194,13 @@ export const loadInitiatives = async (input: {
 
     const coverageFileNames = await listFileNames(initiativeCoverageDir(input.rootDir, id));
     if (coverageFileNames.some((fileName) => fileName === "tickets.yaml" || fileName === "tickets.yml")) {
-      const coverage = await readYamlFile<TicketCoverageArtifact>(
-        initiativeTicketCoveragePath(input.rootDir, id)
+      const filePath = initiativeTicketCoveragePath(input.rootDir, id);
+      const coverage = await readYamlFileSafely<TicketCoverageArtifact>(
+        input.issues,
+        "initiative",
+        filePath
       );
       if (coverage) {
-        const filePath = initiativeTicketCoveragePath(input.rootDir, id);
         const parsed = parseTicketCoverageArtifact(coverage, filePath);
         input.ticketCoverageArtifacts.set(parsed.id, parsed);
       }
@@ -145,11 +212,13 @@ export const loadInitiatives = async (input: {
         (fileName) => fileName === "pending-ticket-plan.yaml" || fileName === "pending-ticket-plan.yml"
       )
     ) {
-      const pendingPlan = await readYamlFile<PendingTicketPlanArtifact>(
-        initiativePendingTicketPlanPath(input.rootDir, id)
+      const filePath = initiativePendingTicketPlanPath(input.rootDir, id);
+      const pendingPlan = await readYamlFileSafely<PendingTicketPlanArtifact>(
+        input.issues,
+        "initiative",
+        filePath
       );
       if (pendingPlan) {
-        const filePath = initiativePendingTicketPlanPath(input.rootDir, id);
         const parsed = parsePendingTicketPlanArtifact(pendingPlan, filePath);
         input.pendingTicketPlans.set(parsed.id, parsed);
       }
@@ -162,11 +231,13 @@ export const loadInitiatives = async (input: {
       }
 
       const step = path.basename(fileName, path.extname(fileName));
-      const trace = await readYamlFile<ArtifactTraceOutline>(
-        initiativeTracePath(input.rootDir, id, step)
+      const filePath = initiativeTracePath(input.rootDir, id, step);
+      const trace = await readYamlFileSafely<ArtifactTraceOutline>(
+        input.issues,
+        "initiative",
+        filePath
       );
       if (trace) {
-        const filePath = initiativeTracePath(input.rootDir, id, step);
         const parsed = parseArtifactTraceOutline(trace, filePath);
         input.artifactTraces.set(parsed.id, parsed);
       }
@@ -177,6 +248,7 @@ export const loadInitiatives = async (input: {
 export const loadTickets = async (input: {
   rootDir: string;
   tickets: Map<string, Ticket>;
+  issues: StoreReloadIssue[];
 }): Promise<void> => {
   const fileNames = await listFileNames(ticketsDir(input.rootDir));
 
@@ -185,7 +257,8 @@ export const loadTickets = async (input: {
       continue;
     }
 
-    const ticket = await readYamlFile<Ticket>(path.join(ticketsDir(input.rootDir), fileName));
+    const filePath = path.join(ticketsDir(input.rootDir), fileName);
+    const ticket = await readYamlFileSafely<Ticket>(input.issues, "ticket", filePath);
     if (ticket) {
       // Normalize fields that were added after initial schema — absent in older YAML files.
       ticket.coverageItemIds = Array.isArray(ticket.coverageItemIds) ? ticket.coverageItemIds : [];
@@ -201,11 +274,13 @@ export const loadRuns = async (input: {
   runs: Map<string, Run>;
   runAttempts: Map<string, RunAttemptSummary>;
   runAttemptKey: (runId: string, attemptId: string) => string;
+  issues: StoreReloadIssue[];
 }): Promise<void> => {
   const runIds = await listDirectoryNames(runsDir(input.rootDir));
 
   for (const runId of runIds) {
-    const run = await readYamlFile<Run>(runYamlPath(input.rootDir, runId));
+    const runFilePath = runYamlPath(input.rootDir, runId);
+    const run = await readYamlFileSafely<Run>(input.issues, "run", runFilePath);
     if (!run) {
       continue;
     }
@@ -219,15 +294,23 @@ export const loadRuns = async (input: {
         continue;
       }
 
-      const raw = await readFile(verificationFile, "utf8");
-      const attempt = JSON.parse(raw) as RunAttempt;
-      input.runAttempts.set(input.runAttemptKey(run.id, attemptId), {
-        attemptId: attempt.attemptId,
-        overallPass: attempt.overallPass,
-        overrideReason: attempt.overrideReason,
-        overrideAccepted: attempt.overrideAccepted,
-        createdAt: attempt.createdAt
-      });
+      const raw = await readTextFileSafely(input.issues, "run", verificationFile);
+      if (raw === null) {
+        continue;
+      }
+
+      try {
+        const attempt = JSON.parse(raw) as RunAttempt;
+        input.runAttempts.set(input.runAttemptKey(run.id, attemptId), {
+          attemptId: attempt.attemptId,
+          overallPass: attempt.overallPass,
+          overrideReason: attempt.overrideReason,
+          overrideAccepted: attempt.overrideAccepted,
+          createdAt: attempt.createdAt
+        });
+      } catch (error) {
+        recordIssue(input.issues, "run", verificationFile, error);
+      }
     }
   }
 };
@@ -235,6 +318,7 @@ export const loadRuns = async (input: {
 export const loadDecisions = async (input: {
   rootDir: string;
   specs: Map<string, SpecDocumentSummary>;
+  issues: StoreReloadIssue[];
 }): Promise<void> => {
   const fileNames = await listFileNames(decisionsDir(input.rootDir));
 
@@ -244,7 +328,11 @@ export const loadDecisions = async (input: {
     }
 
     const filePath = path.join(decisionsDir(input.rootDir), fileName);
-    const fileStat = await stat(filePath);
+    const fileStat = await statSafely(input.issues, "decision", filePath);
+    if (!fileStat) {
+      continue;
+    }
+
     const decisionId = path.basename(fileName, ".md");
 
     input.specs.set(`decision:${decisionId}`, {

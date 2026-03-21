@@ -1,5 +1,6 @@
 import { configPath } from "../../io/paths.js";
 import { readYamlFile } from "../../io/yaml.js";
+import type { StoreReloadIssue } from "../../shared-contracts.js";
 import type {
   ArtifactTraceOutline,
   Config,
@@ -14,8 +15,12 @@ import type {
 } from "../../types/entities.js";
 import { loadDecisions, loadInitiatives, loadRuns, loadTickets } from "./loaders.js";
 
+const describeIssue = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 export interface StoreReloadSnapshot {
   config: Config | null;
+  issues: StoreReloadIssue[];
   initiatives: Map<string, Initiative>;
   tickets: Map<string, Ticket>;
   runs: Map<string, Run>;
@@ -42,7 +47,18 @@ export const loadStoreSnapshot = async (input: {
     }
   ) => Initiative;
 }): Promise<StoreReloadSnapshot> => {
-  const config = await readYamlFile<Config>(configPath(input.rootDir));
+  const issues: StoreReloadIssue[] = [];
+  let config: Config | null = null;
+
+  try {
+    config = await readYamlFile<Config>(configPath(input.rootDir));
+  } catch (error) {
+    issues.push({
+      scope: "config",
+      path: configPath(input.rootDir),
+      message: describeIssue(error)
+    });
+  }
 
   const initiatives = new Map<string, Initiative>();
   const tickets = new Map<string, Ticket>();
@@ -62,27 +78,53 @@ export const loadStoreSnapshot = async (input: {
       planningReviews,
       ticketCoverageArtifacts,
       artifactTraces,
-      specs
+      specs,
+      issues
     }),
     loadTickets({
       rootDir: input.rootDir,
-      tickets
+      tickets,
+      issues
     }),
     loadRuns({
       rootDir: input.rootDir,
       runs,
       runAttempts,
-      runAttemptKey: input.runAttemptKey
+      runAttemptKey: input.runAttemptKey,
+      issues
     }),
     loadDecisions({
       rootDir: input.rootDir,
-      specs
+      specs,
+      issues
     })
   ]);
 
+  const specsByInitiativeId = new Map<string, SpecDocumentSummary[]>();
+  for (const spec of specs.values()) {
+    if (!spec.initiativeId) {
+      continue;
+    }
+
+    const initiativeSpecs = specsByInitiativeId.get(spec.initiativeId) ?? [];
+    initiativeSpecs.push(spec);
+    specsByInitiativeId.set(spec.initiativeId, initiativeSpecs);
+  }
+
+  const ticketsByInitiativeId = new Map<string, Ticket[]>();
+  for (const ticket of tickets.values()) {
+    if (!ticket.initiativeId) {
+      continue;
+    }
+
+    const initiativeTickets = ticketsByInitiativeId.get(ticket.initiativeId) ?? [];
+    initiativeTickets.push(ticket);
+    ticketsByInitiativeId.set(ticket.initiativeId, initiativeTickets);
+  }
+
   for (const [initiativeId, initiative] of initiatives) {
-    const relatedSpecs = Array.from(specs.values()).filter((spec) => spec.initiativeId === initiativeId);
-    const relatedTickets = Array.from(tickets.values()).filter((ticket) => ticket.initiativeId === initiativeId);
+    const relatedSpecs = specsByInitiativeId.get(initiativeId) ?? [];
+    const relatedTickets = ticketsByInitiativeId.get(initiativeId) ?? [];
     initiatives.set(
       initiativeId,
       input.normalizeInitiative(initiative, {
@@ -102,6 +144,7 @@ export const loadStoreSnapshot = async (input: {
 
   return {
     config,
+    issues,
     initiatives,
     tickets,
     runs,

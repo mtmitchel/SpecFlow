@@ -49,9 +49,10 @@ On server startup, the store scans `specflow/` and loads all artifacts into type
 4. Refresh in-memory maps from committed files.
 
 A file watcher (chokidar) detects external edits and reloads affected artifacts into memory.
-A dedicated reload helper validates planner-owned YAML on load, including planning reviews, trace outlines, and ticket coverage artifacts, before replacing the in-memory maps.
+A dedicated reload helper validates planner-owned YAML on load, including planning reviews, trace outlines, and ticket coverage artifacts, before replacing the in-memory maps. Corrupt config, initiative, ticket, run, or decision files are isolated into reload issues so one bad file does not take down the whole in-memory snapshot.
 
 The sidecar emits `artifacts.changed` notifications after mutating operations. The desktop bridge converts those into Tauri events so the UI can refresh from the latest persisted snapshot instead of relying on long-lived global HTTP streams.
+Each snapshot also carries metadata for `revision`, `generatedAt`, `generationTimeMs`, `payloadBytes`, and `reloadIssues`, so the UI and support tooling can see reload cost and degraded-store warnings without rereading the filesystem directly.
 
 **Failure mode handling:** single-file writes use `.tmp` + atomic rename. Multi-file operations are never considered committed until the final pointer/manifest update succeeds. On startup, orphan temp attempt directories are detected and marked as recoverable leftovers.
 
@@ -64,13 +65,17 @@ Staged-commit edge-case rules:
   - tmp missing but active pointer present -> mark `failed` and clear active pointer
 - Cleanup: abandoned/superseded temp directories are retained for a bounded TTL, then pruned by a background task.
 
+### Store backup and restore
+
+`specflow backup-store` writes a ZIP archive of the entire `specflow/` directory for operator recovery. Restore is intentionally explicit and offline: stop the desktop shell and CLI, move the damaged `specflow/` tree aside, extract the backup ZIP at the workspace root, then relaunch and validate the restored snapshot before deleting the damaged copy.
+
 ---
 
 ## CLI as Thin Wrapper
 
 `specflow ui` is desktop-only. It launches the desktop binary when available and fails closed when the desktop runtime is unavailable.
 
-`specflow verify` and `specflow export-bundle` execute locally in-process against the same store, bundle, and verifier services that the sidecar uses. The CLI still accepts an `operationId` idempotency key so repeated local invocations can reuse the same staged run operation semantics.
+`specflow backup-store`, `specflow verify`, and `specflow export-bundle` execute locally in-process against the same store, bundle, and verifier services that the sidecar uses. `verify` and `export-bundle` still accept an `operationId` idempotency key so repeated local invocations can reuse the same staged run operation semantics.
 
 ---
 
@@ -83,8 +88,11 @@ One transport adapts those handlers:
 - The sidecar JSON-RPC dispatcher for the desktop runtime
 
 The shared sidecar contract uses correlated request/response envelopes plus request-scoped notifications. Mutating methods also trigger global artifact change notifications so the UI can refresh snapshot state after writes.
+Those global notifications now preserve the originating `requestId` and `correlationId`, which lets the client suppress redundant whole-snapshot refreshes after locally applied mutations and gives support logs one stable identifier across client, sidecar, and desktop-bridge events.
 
 The browser never calls provider APIs directly. AI operations stream through request-scoped Tauri channels backed by sidecar notifications. The UI refresh model stays snapshot-based: on disconnect or completion, it fetches the latest committed state rather than attempting event replay.
+
+When `SPECFLOW_DEBUG_OBSERVABILITY=1` is set, the app runtime, Node sidecar, and Rust bridge each emit structured observability events to stderr. These logs cover request start/finish/timeout/cancel paths, sidecar startup and shutdown, store reload timings, and sidecar restarts without printing provider secrets.
 
 ---
 
@@ -440,12 +448,12 @@ graph TD
 
 | Component | Responsibility |
 |---|---|
-| **CLI entry (`src/cli.ts`)** | Parses `ui`, `export-bundle`, and `verify`; launches desktop for `ui` and runs local bundle or verify operations against shared services |
+| **CLI entry (`src/cli.ts`)** | Parses `ui`, `backup-store`, `export-bundle`, and `verify`; launches desktop for `ui` and runs local recovery, bundle, or verify operations against shared services |
 | **Shared runtime factory (`src/runtime/create-runtime.ts`)** | Composes `ArtifactStore`, planner, verifier, bundle generator, diff engine, and config/runtime dependencies once for the sidecar runtime |
 | **Runtime handlers (`src/runtime/handlers/*`)** | Transport-agnostic application operations grouped by domain; return plain typed results or structured handler errors |
 | **Sidecar dispatcher (`src/sidecar/dispatcher.ts`)** | Maps JSON-RPC method names to shared runtime handlers; emits request-scoped progress plus `artifacts.changed` notifications |
 | **Sidecar entrypoint (`src/sidecar.ts`)** | Long-lived line-delimited JSON process that powers desktop mode |
-| **Artifact store (`src/store/*`)** | In-memory read model plus staged-commit persistence layer for `specflow/` |
+| **Artifact store (`src/store/*`)** | In-memory read model plus staged-commit persistence layer for `specflow/`, including watcher-driven reloads and recovery state |
 | **Planner / verifier / bundle / audit modules** | Own planning workflow, verification semantics, bundle rendering, and drift-audit behavior without transport coupling |
 
 ### packages/client - Presentation Layer
@@ -453,7 +461,7 @@ graph TD
 | Component | Responsibility |
 |---|---|
 | **`App.tsx`** | Holds the top-level `ArtifactsSnapshot`, refreshes persisted state, and subscribes to desktop artifact-change events |
-| **Transport adapter (`src/api/transport.ts`)** | Owns desktop transport (`invoke`, `Channel`, native dialogs, Tauri events) and desktop-safe error handling |
+| **Transport adapter (`src/api/transport.ts`)** | Owns desktop transport (`invoke`, `Channel`, native dialogs, Tauri events), local mutation refresh suppression, and desktop-safe error handling |
 | **API modules (`src/api/*`)** | Keep domain-level client APIs stable while routing them through the sidecar transport |
 | **Workspace shell + navigation** | Provide the collapsing/expanding left sidebar, command palette, and route-level workspace structure |
 | **Project / ticket / run views** | Render planning, execution, and verification flows using backend-owned workflow and verification state |

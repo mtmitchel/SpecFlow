@@ -8,7 +8,9 @@ import {
 export const updateTicketStatus = async (ticketId: string, status: TicketStatus): Promise<Ticket> => {
   const payload = await transportJsonRequest<{ ticket: Ticket }>(
     "tickets.update",
-    { id: ticketId, body: { status } }
+    { id: ticketId, body: { status } },
+    undefined,
+    { localMutationApplied: true }
   );
   return payload.ticket;
 };
@@ -81,7 +83,8 @@ export const capturePreview = async (
     scopePaths: string[];
     widenedScopePaths: string[];
     diffSource: { mode: "auto" | "snapshot" };
-  }
+  },
+  options?: { signal?: AbortSignal }
 ): Promise<{
   source: "git" | "snapshot";
   defaultScope: string[];
@@ -91,7 +94,9 @@ export const capturePreview = async (
 }> => {
   return transportJsonRequest(
     "tickets.capturePreview",
-    { id: ticketId, body: payload }
+    { id: ticketId, body: payload },
+    undefined,
+    options
   );
 };
 

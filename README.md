@@ -71,11 +71,29 @@ Direct CLI commands during development:
 
 ```bash
 tsx packages/app/src/cli.ts ui
+tsx packages/app/src/cli.ts backup-store
 tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli
 tsx packages/app/src/cli.ts verify --ticket <ticket-id> --summary "Implemented + tests"
 ```
 
-`specflow ui` is desktop-only. `export-bundle` and `verify` remain headless CLI commands and run locally against the same store, bundle, and verifier services that the sidecar uses.
+`specflow ui` is desktop-only. `backup-store`, `export-bundle`, and `verify` remain headless CLI commands and run locally against the same store, bundle, and verifier services that the sidecar uses.
+
+## Recovery and Support
+
+Use the store backup command before risky local cleanup, large planning sessions, or manual recovery work:
+
+```bash
+tsx packages/app/src/cli.ts backup-store
+```
+
+That writes a ZIP archive containing the full local `specflow/` store. To restore from a backup:
+
+1. Close the desktop app and any `tsx packages/app/src/cli.ts ...` process that is using the workspace.
+2. Move the current `specflow/` directory out of the way if you want to keep the damaged copy for inspection.
+3. Extract the backup ZIP at the workspace root so it recreates `specflow/`.
+4. Relaunch SpecFlow and confirm the expected projects, tickets, runs, and decisions are present.
+
+When you need deep runtime diagnostics, set `SPECFLOW_DEBUG_OBSERVABILITY=1` before launching the desktop app or CLI command. The sidecar and desktop bridge then emit structured request, reload, and restart events to stderr without printing secrets.
 
 ## Local Release Hardening
 

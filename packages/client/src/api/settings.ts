@@ -8,7 +8,9 @@ const isUnsupportedSidecarMethodError = (error: unknown, method: string): boolea
 export const saveConfig = async (config: ConfigSavePayload): Promise<Config> => {
   const payload = await transportJsonRequest<{ config: Config }>(
     "config.save",
-    config
+    config,
+    undefined,
+    { localMutationApplied: true }
   );
   const normalizedConfig = normalizeConfig(payload.config);
   if (!normalizedConfig) {
@@ -22,7 +24,9 @@ export const saveProviderKey = async (input: SaveProviderKeyPayload): Promise<vo
   try {
     await transportJsonRequest<{ provider: SaveProviderKeyPayload["provider"] }>(
       "config.saveProviderKey",
-      input
+      input,
+      undefined,
+      { localMutationApplied: true }
     );
   } catch (error) {
     if (isUnsupportedSidecarMethodError(error, "config.saveProviderKey")) {

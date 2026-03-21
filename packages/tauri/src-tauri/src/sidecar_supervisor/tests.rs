@@ -35,6 +35,7 @@ async fn handle_cancel_clears_pending_request_before_dispatch() {
             tx,
             on_event: Channel::new(|_| Ok(())),
             runtime_generation: None,
+            method: "config.save".into(),
         },
     );
 

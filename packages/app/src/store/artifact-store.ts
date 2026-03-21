@@ -1,6 +1,8 @@
 import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { writeFileAtomic } from "../io/atomic-write.js";
+import { logObservabilityEvent } from "../observability.js";
+import type { ArtifactsSnapshotMeta, StoreReloadIssue } from "../shared-contracts.js";
 import {
   configPath,
   decisionsDir,
@@ -113,6 +115,9 @@ export class ArtifactStore {
   private watcher: SpecflowWatcher | null = null;
   private cleanupTimer: NodeJS.Timeout | null = null;
   private reloadInFlight: Promise<void> | null = null;
+  private revision = 0;
+  private lastReloadDurationMs = 0;
+  private lastReloadIssues: StoreReloadIssue[] = [];
 
   public constructor(options: ArtifactStoreOptions) {
     this.rootDir = options.rootDir;
@@ -122,6 +127,7 @@ export class ArtifactStore {
   }
 
   public async initialize(options: StoreStartupOptions = {}): Promise<void> {
+    const startedAt = Date.now();
     await this.reloadFromDisk();
     await this.recoverOrphanOperations();
     await this.reloadFromDisk();
@@ -133,6 +139,19 @@ export class ArtifactStore {
     if (options.cleanup) {
       this.startCleanupTask();
     }
+
+    logObservabilityEvent({
+      layer: "store",
+      event: "store.initialize",
+      status: "ok",
+      durationMs: Date.now() - startedAt,
+      details: {
+        watchEnabled: Boolean(options.watch),
+        cleanupEnabled: Boolean(options.cleanup),
+        revision: this.revision,
+        reloadIssueCount: this.lastReloadIssues.length
+      }
+    });
   }
 
   public async close(): Promise<void> {
@@ -160,6 +179,7 @@ export class ArtifactStore {
   }
 
   private async doReloadFromDisk(): Promise<void> {
+    const startedAt = Date.now();
     const snapshot = await loadStoreSnapshot({
       rootDir: this.rootDir,
       runAttemptKey,
@@ -177,13 +197,32 @@ export class ArtifactStore {
     replaceMapContents(this.pendingTicketPlans, snapshot.pendingTicketPlans);
     replaceMapContents(this.ticketCoverageArtifacts, snapshot.ticketCoverageArtifacts);
     replaceMapContents(this.artifactTraces, snapshot.artifactTraces);
+    this.lastReloadIssues = snapshot.issues;
+    this.lastReloadDurationMs = Date.now() - startedAt;
+    this.bumpRevision();
 
     rebuildOperationIndex(this.operationIndex, this.runs);
+
+    logObservabilityEvent({
+      layer: "store",
+      event: "store.reload",
+      status: snapshot.issues.length > 0 ? "error" : "ok",
+      durationMs: this.lastReloadDurationMs,
+      details: {
+        revision: this.revision,
+        initiativeCount: this.initiatives.size,
+        ticketCount: this.tickets.size,
+        runCount: this.runs.size,
+        runAttemptCount: this.runAttempts.size,
+        reloadIssueCount: snapshot.issues.length
+      }
+    });
   }
 
   public async upsertConfig(config: Config): Promise<void> {
     await writeYamlFile(configPath(this.rootDir), config);
     this.config = config;
+    this.bumpRevision();
   }
 
   public async upsertInitiative(
@@ -249,6 +288,7 @@ export class ArtifactStore {
       await this.reloadFromDisk();
     } else {
       this.initiatives.set(normalized.id, normalized);
+      this.bumpRevision();
     }
   }
 
@@ -285,17 +325,20 @@ export class ArtifactStore {
     for (const [key, trace] of this.artifactTraces) {
       if (trace.initiativeId === id) this.artifactTraces.delete(key);
     }
+    this.bumpRevision();
   }
 
   public async upsertTicket(ticket: Ticket): Promise<void> {
     await writeYamlFile(ticketPath(this.rootDir, ticket.id), ticket);
     this.tickets.set(ticket.id, ticket);
+    this.bumpRevision();
   }
 
   public async deleteTicket(id: string): Promise<void> {
     const { rm } = await import("node:fs/promises");
     await rm(ticketPath(this.rootDir, id), { force: true });
     this.tickets.delete(id);
+    this.bumpRevision();
   }
 
   public async deleteRun(id: string): Promise<void> {
@@ -307,11 +350,13 @@ export class ArtifactStore {
         this.runAttempts.delete(key);
       }
     }
+    this.bumpRevision();
   }
 
   public async upsertRun(run: Run): Promise<void> {
     await writeYamlFile(runYamlPath(this.rootDir, run.id), run);
     this.runs.set(run.id, run);
+    this.bumpRevision();
   }
 
   private normalizeInitiative(
@@ -342,6 +387,7 @@ export class ArtifactStore {
       overrideAccepted: attempt.overrideAccepted,
       createdAt: attempt.createdAt
     });
+    this.bumpRevision();
   }
 
   public async readRunAttempt(runId: string, attemptId: string): Promise<RunAttempt | null> {
@@ -398,30 +444,35 @@ export class ArtifactStore {
     const filePath = initiativeReviewPath(this.rootDir, review.initiativeId, review.kind);
     await writeYamlFile(filePath, review);
     this.planningReviews.set(review.id, review);
+    this.bumpRevision();
   }
 
   public async upsertPendingTicketPlanArtifact(plan: PendingTicketPlanArtifact): Promise<void> {
     const filePath = initiativePendingTicketPlanPath(this.rootDir, plan.initiativeId);
     await writeYamlFile(filePath, plan);
     this.pendingTicketPlans.set(plan.id, plan);
+    this.bumpRevision();
   }
 
   public async deletePendingTicketPlanArtifact(initiativeId: string): Promise<void> {
     const { rm } = await import("node:fs/promises");
     await rm(initiativePendingTicketPlanPath(this.rootDir, initiativeId), { force: true });
     this.pendingTicketPlans.delete(`${initiativeId}:pending-ticket-plan`);
+    this.bumpRevision();
   }
 
   public async upsertTicketCoverageArtifact(coverage: TicketCoverageArtifact): Promise<void> {
     const filePath = initiativeTicketCoveragePath(this.rootDir, coverage.initiativeId);
     await writeYamlFile(filePath, coverage);
     this.ticketCoverageArtifacts.set(coverage.id, coverage);
+    this.bumpRevision();
   }
 
   public async upsertArtifactTrace(trace: ArtifactTraceOutline): Promise<void> {
     const filePath = initiativeTracePath(this.rootDir, trace.initiativeId, trace.step);
     await writeYamlFile(filePath, trace);
     this.artifactTraces.set(trace.id, trace);
+    this.bumpRevision();
   }
 
   public async prepareRunOperation(input: PrepareOperationInput): Promise<OperationManifest> {
@@ -558,6 +609,7 @@ export class ArtifactStore {
 
   private async clearRunOperationPointer(runId: string): Promise<void> {
     await clearRunOperationPointerInternal(this.rootDir, this.runs, runId);
+    this.bumpRevision();
   }
 
   private suppressWatcher(): void {
@@ -579,5 +631,19 @@ export class ArtifactStore {
       clearRunOperationPointer: (lockedRunId) => this.clearRunOperationPointer(lockedRunId),
       reloadFromDisk: () => this.reloadFromDisk()
     });
+  }
+
+  public getSnapshotMeta(): ArtifactsSnapshotMeta {
+    return {
+      revision: this.revision,
+      generatedAt: this.now().toISOString(),
+      generationTimeMs: this.lastReloadDurationMs,
+      payloadBytes: 0,
+      reloadIssues: this.lastReloadIssues.slice()
+    };
+  }
+
+  private bumpRevision(): void {
+    this.revision += 1;
   }
 }

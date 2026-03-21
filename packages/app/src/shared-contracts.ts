@@ -1,5 +1,6 @@
 import type {
   AgentType,
+  OperationState,
   RedactedConfig,
   RunAttemptSummary,
 } from "./types/entities.js";
@@ -25,6 +26,7 @@ export type {
   PlanningReviewStatus,
   ProviderId,
   ProviderKeyStatus,
+  OperationState,
   Run,
   RunAttemptSummary,
   SaveProviderKeyPayload,
@@ -54,12 +56,36 @@ export {
 export type AgentTarget = AgentType;
 export type Config = RedactedConfig;
 
+export interface StoreReloadIssue {
+  scope: "config" | "initiative" | "ticket" | "run" | "decision" | "reload";
+  path: string;
+  message: string;
+}
+
+export interface ArtifactsSnapshotMeta {
+  revision: number;
+  generatedAt: string;
+  generationTimeMs: number;
+  payloadBytes: number;
+  reloadIssues: StoreReloadIssue[];
+}
+
+export interface OperationStatusRecord {
+  operationId: string;
+  runId: string;
+  targetAttemptId: string;
+  state: OperationState;
+  leaseExpiresAt: string;
+  updatedAt: string;
+}
+
 export interface RunAttemptRecord extends RunAttemptSummary {
   id: string;
 }
 
 export interface ArtifactsSnapshot {
   config: RedactedConfig | null;
+  meta?: ArtifactsSnapshotMeta;
   workspaceRoot?: string;
   initiatives: import("./types/entities.js").Initiative[];
   tickets: import("./types/entities.js").Ticket[];

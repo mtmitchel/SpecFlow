@@ -18,6 +18,8 @@ import type {
   InitiativeRefinementState,
   InitiativeWorkflow,
   InitiativeWorkflowStep,
+  OperationState,
+  OperationStatusRecord,
   PlanningReviewArtifact,
   PlanningReviewFinding,
   PlanningReviewFindingType,
@@ -57,6 +59,8 @@ export type {
   InitiativeRefinementState,
   InitiativeWorkflow,
   InitiativeWorkflowStep,
+  OperationState,
+  OperationStatusRecord,
   PlanningReviewArtifact,
   PlanningReviewFinding,
   PlanningReviewFindingType,
@@ -87,7 +91,7 @@ export interface RunListItem {
   run: Run;
   ticket: Ticket | null;
   attempts: RunListAttempt[];
-  operationState: "prepared" | "committed" | "abandoned" | "superseded" | "failed" | null;
+  operationState: OperationState | null;
 }
 
 export interface VerificationResult {
@@ -148,10 +152,11 @@ export interface RunDetail {
   run: Run;
   ticket: Ticket | null;
   attempts: RunDetailAttemptSummary[];
-  operationState: "prepared" | "committed" | "abandoned" | "superseded" | "failed" | null;
+  operationState: OperationState | null;
   committed: {
     attemptId: string;
     attempt: RunDetailAttemptSummary | null;
+    attemptDetail?: RunAttemptDetail | null;
     bundleManifest: {
       contextFiles: string[];
       requiredFiles: string[];

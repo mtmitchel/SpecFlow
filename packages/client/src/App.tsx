@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { fetchArtifacts, saveConfig, saveProviderKey, updateTicketStatus } from "./api";
 import type { ArtifactsSnapshot, ConfigSavePayload, TicketStatus } from "./types";
@@ -21,8 +21,15 @@ const AppInner = () => {
   const { showError } = useToast();
   const location = useLocation();
   const [snapshot, setSnapshot] = useState<ArtifactsSnapshot>({
-    config: null,
-    workspaceRoot: "",
+      config: null,
+      meta: {
+        revision: 0,
+        generatedAt: new Date(0).toISOString(),
+        generationTimeMs: 0,
+        payloadBytes: 0,
+        reloadIssues: []
+      },
+      workspaceRoot: "",
     initiatives: [],
     tickets: [],
     runs: [],
@@ -34,6 +41,8 @@ const AppInner = () => {
   const [loading, setLoading] = useState(true);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [navigatorOpen, setNavigatorOpen] = useState(false);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshQueuedRef = useRef(false);
 
   const logDesktopRuntime = useCallback(async (reason: string): Promise<void> => {
     if (!import.meta.env.DEV || !isDesktopRuntime()) {
@@ -53,17 +62,55 @@ const AppInner = () => {
   }, []);
 
   const refreshArtifacts = useCallback(async (): Promise<void> => {
-    try {
-      const data = await fetchArtifacts();
-      setSnapshot(data);
-    } catch (err) {
-      showError((err as Error).message ?? "We couldn't load the workspace.");
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      await refreshInFlightRef.current;
+      return;
     }
+
+    const runRefresh = async (): Promise<void> => {
+      do {
+        refreshQueuedRef.current = false;
+
+        try {
+          const data = await fetchArtifacts();
+          setSnapshot(data);
+          if (import.meta.env.DEV) {
+            console.debug("[workspace-snapshot]", {
+              revision: data.meta?.revision ?? 0,
+              payloadBytes: data.meta?.payloadBytes ?? 0,
+              generationTimeMs: data.meta?.generationTimeMs ?? 0,
+              reloadIssueCount: data.meta?.reloadIssues.length ?? 0
+            });
+          }
+        } catch (err) {
+          showError((err as Error).message ?? "We couldn't load the workspace.");
+        }
+      } while (refreshQueuedRef.current);
+    };
+
+    const currentRefresh = runRefresh().finally(() => {
+      if (refreshInFlightRef.current === currentRefresh) {
+        refreshInFlightRef.current = null;
+      }
+    });
+    refreshInFlightRef.current = currentRefresh;
+
+    await currentRefresh;
   }, [showError]);
+
+  const requestArtifactsRefresh = useCallback((): void => {
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+
+    void refreshArtifacts();
+  }, [refreshArtifacts]);
 
   useEffect(() => {
     void refreshArtifacts().finally(() => setLoading(false));
-  }, []);
+  }, [refreshArtifacts]);
 
   useEffect(() => {
     void logDesktopRuntime("app-start");
@@ -73,7 +120,7 @@ const AppInner = () => {
     let cancelled = false;
     let unsubscribe = () => {};
 
-    void subscribeArtifactsChanged(refreshArtifacts, (payload) => {
+    void subscribeArtifactsChanged(requestArtifactsRefresh, (payload) => {
       if (payload.reason === "sidecar-restart") {
         void logDesktopRuntime("sidecar-restart");
       }
@@ -90,7 +137,7 @@ const AppInner = () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [logDesktopRuntime, refreshArtifacts]);
+  }, [logDesktopRuntime, requestArtifactsRefresh]);
 
   // Cmd+K / Ctrl+K opens the command palette
   useEffect(() => {

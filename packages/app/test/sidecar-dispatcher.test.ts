@@ -110,7 +110,12 @@ describe("sidecar dispatcher", () => {
       {
         event: "artifacts.changed",
         requestId: "req-save",
-        payload: { reason: "config.save" }
+        payload: {
+          reason: "config.save",
+          method: "config.save",
+          requestId: "req-save",
+          correlationId: "req-save"
+        }
       }
     ]);
   });
@@ -152,7 +157,12 @@ describe("sidecar dispatcher", () => {
       {
         event: "artifacts.changed",
         requestId: "req-generate",
-        payload: { reason: "initiatives.generate.prd" }
+        payload: {
+          reason: "initiatives.generate.prd",
+          method: "initiatives.generate.prd",
+          requestId: "req-generate",
+          correlationId: "req-generate"
+        }
       }
     ]);
   });

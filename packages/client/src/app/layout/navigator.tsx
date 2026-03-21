@@ -8,6 +8,7 @@ import {
   findActiveNodeId,
   type NavigatorNode,
 } from "./navigator-tree.js";
+import { getSnapshotIndex } from "../utils/snapshot-index.js";
 
 interface NavigatorProps {
   snapshot: ArtifactsSnapshot;
@@ -149,8 +150,9 @@ const flattenVisible = (nodes: NavigatorNode[], expanded: Set<string>): Navigato
 };
 
 const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): string | null => {
+  const snapshotIndex = getSnapshotIndex(snapshot);
   const ticketForPath = (ticketId: string | null | undefined): Ticket | undefined =>
-    snapshot.tickets.find((ticket) => ticket.id === ticketId);
+    ticketId ? snapshotIndex.ticketsById.get(ticketId) : undefined;
 
   if (pathname.startsWith("/initiative/")) {
     return pathname.split("/")[2] ?? null;
@@ -162,7 +164,7 @@ const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): s
 
   if (pathname.startsWith("/run/")) {
     const runId = pathname.split("/")[2];
-    const run = snapshot.runs.find((candidate) => candidate.id === runId);
+    const run = snapshotIndex.runsById.get(runId);
     return ticketForPath(run?.ticketId)?.initiativeId ?? null;
   }
 
@@ -170,13 +172,14 @@ const getActiveInitiativeId = (snapshot: ArtifactsSnapshot, pathname: string): s
 };
 
 const getActiveTicketId = (snapshot: ArtifactsSnapshot, pathname: string): string | null => {
+  const snapshotIndex = getSnapshotIndex(snapshot);
   if (pathname.startsWith("/ticket/")) {
     return pathname.split("/")[2] ?? null;
   }
 
   if (pathname.startsWith("/run/")) {
     const runId = pathname.split("/")[2];
-    const run = snapshot.runs.find((candidate) => candidate.id === runId);
+    const run = snapshotIndex.runsById.get(runId);
     return run?.ticketId ?? null;
   }
 

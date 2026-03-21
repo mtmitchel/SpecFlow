@@ -1,4 +1,4 @@
-import { cp, mkdir, rm } from "node:fs/promises";
+import { mkdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { attemptDir, operationAttemptDir, operationManifestPath, runsDir } from "../../io/paths.js";
 import { readYamlFile, writeYamlFile } from "../../io/yaml.js";
@@ -132,15 +132,15 @@ export const commitRunOperation = async (
     }
 
     const stagedAttempt = operationAttemptDir(store.rootDir, input.runId, input.operationId, manifest.targetAttemptId);
-    const committedAttempt = attemptDir(store.rootDir, input.runId, manifest.targetAttemptId);
+      const committedAttempt = attemptDir(store.rootDir, input.runId, manifest.targetAttemptId);
 
-    store.suppressWatcher();
-    try {
-      await rm(committedAttempt, { recursive: true, force: true });
-      await mkdir(path.dirname(committedAttempt), { recursive: true });
-      await cp(stagedAttempt, committedAttempt, { recursive: true });
+      store.suppressWatcher();
+      try {
+        await rm(committedAttempt, { recursive: true, force: true });
+        await mkdir(path.dirname(committedAttempt), { recursive: true });
+        await rename(stagedAttempt, committedAttempt);
 
-      const nowIso = store.now().toISOString();
+        const nowIso = store.now().toISOString();
       const updatedManifest: OperationManifest = {
         ...manifest,
         state: "committed",

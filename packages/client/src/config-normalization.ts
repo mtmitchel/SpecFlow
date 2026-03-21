@@ -43,5 +43,12 @@ export const normalizeConfig = (config: RawConfig | null): Config | null => {
 
 export const normalizeArtifactsSnapshot = (snapshot: ArtifactsSnapshot): ArtifactsSnapshot => ({
   ...snapshot,
+  meta: snapshot.meta ?? {
+    revision: 0,
+    generatedAt: new Date(0).toISOString(),
+    generationTimeMs: 0,
+    payloadBytes: 0,
+    reloadIssues: []
+  },
   config: normalizeConfig(snapshot.config)
 });

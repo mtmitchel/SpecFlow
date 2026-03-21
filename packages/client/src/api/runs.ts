@@ -1,11 +1,20 @@
-import type { AgentTarget, Run, RunAttemptDetail, RunDetail, RunDiffPayload, RunListItem } from "../types";
+import type {
+  AgentTarget,
+  OperationStatusRecord,
+  Run,
+  RunAttemptDetail,
+  RunDetail,
+  RunDiffPayload,
+  RunListItem
+} from "../types";
 import { ApiError } from "./http";
 import { transportJsonRequest, transportRequest } from "./transport";
 
 export const fetchRunState = async (
-  runId: string
+  runId: string,
+  options?: { signal?: AbortSignal }
 ): Promise<{
-  run: { id: string };
+  run: Run;
   attempts: Array<{
     attemptId: string;
     overallPass: boolean;
@@ -15,7 +24,9 @@ export const fetchRunState = async (
 }> => {
   return transportJsonRequest(
     "runs.state",
-    { id: runId }
+    { id: runId },
+    undefined,
+    options
   );
 };
 
@@ -43,7 +54,7 @@ export const fetchRunProgress = async (
 
 export const fetchOperationStatus = async (
   operationId: string
-): Promise<{ state: "prepared" | "committed" | "abandoned" | "superseded" | "failed" } | null> => {
+): Promise<OperationStatusRecord | null> => {
   try {
     return await transportRequest("operations.status", { id: operationId });
   } catch (error) {

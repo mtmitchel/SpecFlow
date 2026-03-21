@@ -6,10 +6,11 @@ mod runtime;
 mod tests;
 
 use std::collections::HashMap;
+use std::env;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use tauri::ipc::Channel;
@@ -37,6 +38,26 @@ struct PendingRequest {
     tx: oneshot::Sender<Result<Value, SidecarCommandError>>,
     on_event: Channel<Value>,
     runtime_generation: Option<u64>,
+    method: String,
+}
+
+fn observability_enabled() -> bool {
+    env::var("SPECFLOW_DEBUG_OBSERVABILITY")
+        .map(|value| value == "1")
+        .unwrap_or(false)
+}
+
+fn log_observability_event(event: &str, payload: Value) {
+    if observability_enabled() {
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "layer": "desktop-bridge",
+                "event": event,
+                "payload": payload
+            })
+        );
+    }
 }
 
 pub struct SidecarSupervisor {
@@ -89,6 +110,7 @@ impl SidecarSupervisor {
         request: SidecarRequest,
         on_event: Channel<Value>,
     ) -> Result<Value, SidecarCommandError> {
+        let started_at = Instant::now();
         let payload = serialize_request(&request)?;
         let (tx, rx) = oneshot::channel();
 
@@ -98,7 +120,16 @@ impl SidecarSupervisor {
                 tx,
                 on_event,
                 runtime_generation: None,
+                method: request.method.clone(),
             },
+        );
+
+        log_observability_event(
+            "request.start",
+            serde_json::json!({
+                "requestId": request.id,
+                "method": request.method
+            }),
         );
 
         self.spawn_timeout_task(request.id.clone(), request.method.clone());
@@ -115,11 +146,32 @@ impl SidecarSupervisor {
         }
 
         match rx.await {
-            Ok(result) => result,
+            Ok(result) => {
+                let status = if result.is_ok() { "ok" } else { "error" };
+                log_observability_event(
+                    "request.finish",
+                    serde_json::json!({
+                        "requestId": request.id,
+                        "method": request.method,
+                        "status": status,
+                        "durationMs": started_at.elapsed().as_millis()
+                    }),
+                );
+                result
+            }
             Err(_) => {
                 let _ = app.emit(
                     "artifacts-changed",
                     serde_json::json!({ "reason": "sidecar-disconnect" }),
+                );
+                log_observability_event(
+                    "request.finish",
+                    serde_json::json!({
+                        "requestId": request.id,
+                        "method": request.method,
+                        "status": "closed",
+                        "durationMs": started_at.elapsed().as_millis()
+                    }),
                 );
                 Err(closed_error())
             }
@@ -136,6 +188,13 @@ impl SidecarSupervisor {
             return Ok(());
         };
 
+        log_observability_event(
+            "request.cancel",
+            serde_json::json!({
+                "requestId": request_id,
+                "method": pending.method
+            }),
+        );
         let _ = pending.tx.send(Err(cancelled_error()));
         if let Some(generation) = pending.runtime_generation {
             self.finish_runtime_request_by_generation(generation, &request_id)
@@ -242,6 +301,13 @@ impl SidecarSupervisor {
         };
 
         if let Some(pending) = pending {
+            log_observability_event(
+                "request.timeout",
+                serde_json::json!({
+                    "requestId": request_id,
+                    "method": pending.method
+                }),
+            );
             if let Some(generation) = pending.runtime_generation {
                 self.finish_runtime_request_by_generation(generation, request_id)
                     .await;
@@ -468,7 +534,35 @@ impl SidecarSupervisor {
             }
             SidecarMessage::Notification(notification) => {
                 if notification.event == "artifacts.changed" {
-                    let _ = app.emit("artifacts-changed", notification.payload.clone());
+                    let payload = match notification.payload.clone() {
+                        Value::Object(mut object) => {
+                            object.insert(
+                                "requestId".into(),
+                                notification
+                                    .request_id
+                                    .as_ref()
+                                    .map(|value| Value::String(value.clone()))
+                                    .unwrap_or(Value::Null),
+                            );
+                            object.insert(
+                                "correlationId".into(),
+                                notification
+                                    .request_id
+                                    .as_ref()
+                                    .map(|value| Value::String(value.clone()))
+                                    .unwrap_or(Value::Null),
+                            );
+                            Value::Object(object)
+                        }
+                        other => serde_json::json!({
+                            "reason": notification.event,
+                            "payload": other,
+                            "requestId": notification.request_id,
+                            "correlationId": notification.request_id
+                        }),
+                    };
+
+                    let _ = app.emit("artifacts-changed", payload);
                 }
 
                 if let Some(request_id) = notification.request_id {
@@ -524,6 +618,14 @@ impl SidecarSupervisor {
         };
 
         for (request_id, pending) in failed {
+            log_observability_event(
+                "request.fail-runtime",
+                serde_json::json!({
+                    "requestId": request_id,
+                    "method": pending.method,
+                    "code": error.code.clone()
+                }),
+            );
             let _ = pending.tx.send(Err(error.clone()));
             self.finish_runtime_request(runtime, &request_id).await;
         }
@@ -536,6 +638,14 @@ impl SidecarSupervisor {
         };
 
         if let Some(pending) = pending {
+            log_observability_event(
+                "request.fail-dispatch",
+                serde_json::json!({
+                    "requestId": request_id,
+                    "method": pending.method,
+                    "code": error.code.clone()
+                }),
+            );
             if let Some(generation) = pending.runtime_generation {
                 self.finish_runtime_request_by_generation(generation, request_id)
                     .await;

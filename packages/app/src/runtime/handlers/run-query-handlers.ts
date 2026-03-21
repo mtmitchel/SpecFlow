@@ -119,6 +119,9 @@ export const getRunDetail = async (runtime: SpecFlowRuntime, runId: string) => {
     .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
   const committedAttempt = run.committedAttemptId ? runtime.store.runAttempts.get(`${run.id}:${run.committedAttemptId}`) : null;
+  const committedAttemptDetail = run.committedAttemptId
+    ? await runtime.store.readRunAttempt(run.id, run.committedAttemptId)
+    : null;
   const attemptRoot = run.committedAttemptId
     ? path.join(runtime.rootDir, "specflow", "runs", run.id, "attempts", run.committedAttemptId)
     : null;
@@ -140,10 +143,11 @@ export const getRunDetail = async (runtime: SpecFlowRuntime, runId: string) => {
     attempts,
     operationState,
     committed: run.committedAttemptId
-        ? {
-            attemptId: run.committedAttemptId,
-          attempt: committedAttempt ?? null,
-          bundleManifest
+          ? {
+              attemptId: run.committedAttemptId,
+              attempt: committedAttempt ?? null,
+              attemptDetail: committedAttemptDetail,
+              bundleManifest
         }
       : null
   };

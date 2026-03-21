@@ -25,7 +25,7 @@ Agent-facing rule: duplicated or near-duplicated UI meaning is treated as a defe
 
 SpecFlow is now desktop-first. The active runtime under development is:
 
-- `packages/app`: Node business logic, CLI commands (`ui`, `export-bundle`, `verify`), shared runtime handlers, and the persistent sidecar entrypoint
+- `packages/app`: Node business logic, CLI commands (`ui`, `backup-store`, `export-bundle`, `verify`), shared runtime handlers, and the persistent sidecar entrypoint
 - `packages/client`: React UI for projects, tickets, runs, audits, specs, and settings
 - `packages/tauri`: Tauri v2 desktop shell and Rust bridge
 
@@ -54,8 +54,10 @@ Key capabilities in the current version:
 - Fix-forward loop: quick-fix export mode chains failed verification to enriched re-export to re-verify
 - LLM-powered drift audit with Bug/Performance/Security/Clarity finding categories
 - Real streaming progress for LLM operations through Tauri channels backed by sidecar notifications
+- Structured desktop observability with request correlation and store reload metadata behind `SPECFLOW_DEBUG_OBSERVABILITY=1`
 - GitHub Issue import through the backend `import.githubIssue` action
 - Ticket dependencies with automatic inter-phase wiring and enforced status transitions
+- Full-store backup through `specflow backup-store`, with documented restore steps in the root README and runtime docs
 
 ## Repo-local Codex skills
 

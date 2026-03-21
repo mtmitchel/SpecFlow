@@ -36,6 +36,7 @@ import {
   triageQuickTask,
   updateTicket
 } from "../runtime/handlers/ticket-handlers.js";
+import { describeObservabilityError, logObservabilityEvent } from "../observability.js";
 import { isHandlerError } from "../runtime/errors.js";
 import type { SidecarFailure, SidecarNotification, SidecarRequest, SidecarSuccess } from "../runtime/sidecar-contract.js";
 import type { SpecFlowRuntime } from "../runtime/types.js";
@@ -50,7 +51,12 @@ const emitArtifactsChanged = (write: SidecarWriter, requestId: string, method: s
   write({
     event: "artifacts.changed",
     requestId,
-    payload: { reason: method }
+    payload: {
+      reason: method,
+      method,
+      requestId,
+      correlationId: requestId
+    }
   });
 };
 
@@ -60,6 +66,7 @@ export const dispatchSidecarRequest = async (
   write: SidecarWriter,
   signal?: AbortSignal
 ): Promise<void> => {
+  const startedAt = Date.now();
   const notify = (event: string, payload: unknown): void => {
     write({
       event,
@@ -69,6 +76,13 @@ export const dispatchSidecarRequest = async (
   };
 
   try {
+    logObservabilityEvent({
+      layer: "sidecar",
+      event: "request.dispatch",
+      requestId: request.id,
+      method: request.method,
+      status: "start"
+    });
     const result = await routeSidecarMethod(runtime, request, notify, signal);
     write({
       id: request.id,
@@ -79,8 +93,28 @@ export const dispatchSidecarRequest = async (
     if (isMutatingSidecarMethod(request.method)) {
       emitArtifactsChanged(write, request.id, request.method);
     }
+
+    logObservabilityEvent({
+      layer: "sidecar",
+      event: "request.dispatch",
+      requestId: request.id,
+      method: request.method,
+      status: "ok",
+      durationMs: Date.now() - startedAt
+    });
   } catch (error) {
     if (error instanceof RequestCancelledError) {
+      logObservabilityEvent({
+        layer: "sidecar",
+        event: "request.dispatch",
+        requestId: request.id,
+        method: request.method,
+        status: error.message === "Request timed out" ? "timeout" : "cancelled",
+        durationMs: Date.now() - startedAt,
+        details: {
+          message: error.message
+        }
+      });
       write({
         id: request.id,
         ok: false,
@@ -94,6 +128,18 @@ export const dispatchSidecarRequest = async (
     }
 
     if (isHandlerError(error)) {
+      logObservabilityEvent({
+        layer: "sidecar",
+        event: "request.dispatch",
+        requestId: request.id,
+        method: request.method,
+        status: "error",
+        durationMs: Date.now() - startedAt,
+        details: {
+          code: error.shape.code,
+          message: error.shape.message
+        }
+      });
       write({
         id: request.id,
         ok: false,
@@ -107,6 +153,17 @@ export const dispatchSidecarRequest = async (
       return;
     }
 
+    logObservabilityEvent({
+      layer: "sidecar",
+      event: "request.dispatch",
+      requestId: request.id,
+      method: request.method,
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      details: {
+        message: describeObservabilityError(error)
+      }
+    });
     write({
       id: request.id,
       ok: false,

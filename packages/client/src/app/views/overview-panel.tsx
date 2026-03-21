@@ -7,6 +7,7 @@ import {
   getInitiativeResumeHref,
   getInitiativeShellHref,
 } from "../utils/initiative-progress.js";
+import { getSnapshotIndex } from "../utils/snapshot-index.js";
 import { getInitiativeQueueActionLabel, getStandaloneTicketActionLabel } from "../utils/ui-language.js";
 import { NewChooser } from "./new-chooser.js";
 
@@ -49,14 +50,7 @@ export const OverviewPanel = ({
   snapshot: ArtifactsSnapshot;
   onOpenCommandPalette: () => void;
 }) => {
-  const ticketMap = useMemo(
-    () => new Map(snapshot.tickets.map((ticket) => [ticket.id, ticket])),
-    [snapshot.tickets],
-  );
-  const initiativeMap = useMemo(
-    () => new Map(snapshot.initiatives.map((initiative) => [initiative.id, initiative])),
-    [snapshot.initiatives],
-  );
+  const snapshotIndex = useMemo(() => getSnapshotIndex(snapshot), [snapshot]);
   const initiativeCards = useMemo(
     () =>
       snapshot.initiatives
@@ -141,13 +135,13 @@ export const OverviewPanel = ({
   }, [initiativeCards, snapshot]);
   const recentRuns = useMemo(
     () =>
-      [...snapshot.runs]
-        .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-        .slice(0, 4)
-        .map<RecentRunLink>((run) => {
-          const ticket = run.ticketId ? ticketMap.get(run.ticketId) ?? null : null;
-          const initiative =
-            ticket?.initiativeId ? initiativeMap.get(ticket.initiativeId) ?? null : null;
+          [...snapshot.runs]
+            .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+            .slice(0, 4)
+            .map<RecentRunLink>((run) => {
+              const ticket = run.ticketId ? snapshotIndex.ticketsById.get(run.ticketId) ?? null : null;
+              const initiative =
+            ticket?.initiativeId ? snapshotIndex.initiativesById.get(ticket.initiativeId) ?? null : null;
 
           return {
             id: run.id,
@@ -158,7 +152,7 @@ export const OverviewPanel = ({
             tone: run.type === "audit" ? "audit" : "execution",
           };
         }),
-    [initiativeMap, snapshot.runs, ticketMap],
+    [snapshot.runs, snapshotIndex],
   );
   const primaryAction = upNext[0] ?? null;
   const secondaryActions = primaryAction ? upNext.slice(1) : [];

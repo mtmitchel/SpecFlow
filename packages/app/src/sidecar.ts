@@ -3,6 +3,7 @@ import process from "node:process";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 import { RequestCancelledError } from "./cancellation.js";
+import { describeObservabilityError, logObservabilityEvent } from "./observability.js";
 import { createSpecFlowRuntime } from "./runtime/create-runtime.js";
 import type { SidecarFailure, SidecarRequest } from "./runtime/sidecar-contract.js";
 import type { SpecFlowRuntime } from "./runtime/types.js";
@@ -125,7 +126,23 @@ const main = async (): Promise<void> => {
   });
   const state = createSidecarLoopState();
 
+  logObservabilityEvent({
+    layer: "sidecar",
+    event: "process.startup",
+    status: "ok"
+  });
+
   const shutdown = async (signal: string): Promise<void> => {
+    logObservabilityEvent({
+      layer: "sidecar",
+      event: "process.shutdown",
+      status: "ok",
+      details: {
+        signal: signal || "stdin-close",
+        pendingCount: state.pending.size,
+        inflightCount: state.inflight.size
+      }
+    });
     rl.close();
     await Promise.allSettled(Array.from(state.pending));
     await runtime.close();
@@ -137,6 +154,32 @@ const main = async (): Promise<void> => {
 
   process.once("SIGINT", () => { void shutdown("SIGINT"); });
   process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
+  process.once("uncaughtException", (error) => {
+    logObservabilityEvent({
+      layer: "sidecar",
+      event: "process.crash",
+      status: "error",
+      details: {
+        kind: "uncaughtException",
+        message: describeObservabilityError(error)
+      }
+    });
+    process.stderr.write(`Sidecar uncaught exception: ${describeObservabilityError(error)}\n`);
+    process.exit(1);
+  });
+  process.once("unhandledRejection", (error) => {
+    logObservabilityEvent({
+      layer: "sidecar",
+      event: "process.crash",
+      status: "error",
+      details: {
+        kind: "unhandledRejection",
+        message: describeObservabilityError(error)
+      }
+    });
+    process.stderr.write(`Sidecar unhandled rejection: ${describeObservabilityError(error)}\n`);
+    process.exit(1);
+  });
 
   rl.on("line", (line) => {
     handleSidecarLine(line, runtime, state, writeMessage);
@@ -154,6 +197,14 @@ const isDirectExecution = (): boolean => {
 
 if (isDirectExecution()) {
   void main().catch((error) => {
+    logObservabilityEvent({
+      layer: "sidecar",
+      event: "process.startup",
+      status: "error",
+      details: {
+        message: describeObservabilityError(error)
+      }
+    });
     writeMessage({
       id: "startup",
       ok: false,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { capturePreview } from "../../api.js";
 import { useToast } from "../context/toast.js";
 import { parseScopeCsv } from "../utils/scope-paths.js";
@@ -27,6 +27,7 @@ export const useCapturePreview = (
   scopeRef.current = captureScopeInput;
   const widenedRef = useRef(widenedInput);
   widenedRef.current = widenedInput;
+  const activePreviewControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setCapturePreviewData(null);
@@ -34,9 +35,9 @@ export const useCapturePreview = (
     setCaptureSummary("");
     setWidenedInput("");
     setCaptureScopeInput(initialFileTargets.length > 0 ? initialFileTargets.join(", ") : "");
-  }, [ticketId]);
+  }, [initialFileTargets, ticketId]);
 
-  const fetchPreview = (
+  const fetchPreview = useCallback((
     tid: string,
     scope: string,
     widened: string,
@@ -46,7 +47,7 @@ export const useCapturePreview = (
       scopePaths: parseScopeCsv(scope),
       widenedScopePaths: parseScopeCsv(widened),
       diffSource: { mode: "auto" }
-    }).then((preview) => {
+    }, { signal }).then((preview) => {
       if (signal.aborted) return;
 
       setCapturePreviewData(preview);
@@ -58,34 +59,50 @@ export const useCapturePreview = (
       if (signal.aborted) return;
       showError((err as Error).message ?? "We couldn't load the change preview.");
     });
-  };
+  }, [showError]);
+
+  const replaceActivePreviewController = useCallback((controller: AbortController): void => {
+    activePreviewControllerRef.current?.abort();
+    activePreviewControllerRef.current = controller;
+  }, []);
 
   useEffect(() => {
     if (!ticketId || !runId) return;
 
     const controller = new AbortController();
+    replaceActivePreviewController(controller);
     fetchPreview(ticketId, scopeRef.current, widenedRef.current, controller.signal);
 
-    return () => { controller.abort(); };
-  }, [ticketId, runId]);
+    return () => {
+      if (activePreviewControllerRef.current === controller) {
+        activePreviewControllerRef.current = null;
+      }
+      controller.abort();
+    };
+  }, [fetchPreview, replaceActivePreviewController, runId, ticketId]);
 
   useEffect(() => {
     if (!ticketId || !runId) return;
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
+      replaceActivePreviewController(controller);
       fetchPreview(ticketId, captureScopeInput, widenedInput, controller.signal);
     }, 300);
 
     return () => {
       clearTimeout(timer);
+      if (activePreviewControllerRef.current === controller) {
+        activePreviewControllerRef.current = null;
+      }
       controller.abort();
     };
-  }, [captureScopeInput, widenedInput, ticketId, runId]);
+  }, [captureScopeInput, fetchPreview, replaceActivePreviewController, runId, ticketId, widenedInput]);
 
   const refreshCapturePreview = (): void => {
     if (!ticketId) return;
     const controller = new AbortController();
+    replaceActivePreviewController(controller);
     fetchPreview(ticketId, scopeRef.current, widenedRef.current, controller.signal);
   };
 

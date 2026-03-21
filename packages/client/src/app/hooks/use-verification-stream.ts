@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { fetchRunState } from "../../api.js";
 import type { VerificationResult } from "../../types.js";
 
@@ -30,7 +30,7 @@ const syncVerificationFromRunState = (
 export const useVerificationStream = (
   ticketId: string | undefined,
   runId: string | undefined,
-  _onRefresh: () => Promise<void>
+  onRefresh: () => Promise<void>
 ): {
   verifyStreamEvents: string[];
   verificationResult: VerificationResult | null;
@@ -42,23 +42,66 @@ export const useVerificationStream = (
   const [verifyStreamEvents, setVerifyStreamEvents] = useState<string[]>([]);
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const [verifyState, setVerifyState] = useState<"idle" | "running" | "reconnecting">("idle");
+  const latestRunIdRef = useRef<string | undefined>(runId);
+  const onRefreshRef = useRef(onRefresh);
+  latestRunIdRef.current = runId;
+  onRefreshRef.current = onRefresh;
 
   useEffect(() => {
     setVerificationResult(null);
+    setVerifyStreamEvents([]);
+    setVerifyState(runId ? "running" : "idle");
 
     if (!runId) return;
 
     let cancelled = false;
-    void fetchRunState(runId)
-      .then((snapshot) => {
-        if (!cancelled) {
-          syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
-        }
-      })
-      .catch(() => {});
+    let activeController: AbortController | null = null;
+    let timeoutId: number | null = null;
 
-    return () => { cancelled = true; };
-  }, [ticketId, runId]);
+    const poll = async (): Promise<void> => {
+      activeController?.abort();
+      activeController = new AbortController();
+
+      try {
+        const snapshot = await fetchRunState(runId, { signal: activeController.signal });
+        if (cancelled) {
+          return;
+        }
+
+        syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
+        setVerifyState(snapshot.run.status === "pending" ? "running" : "idle");
+
+        if (snapshot.run.status === "pending") {
+          timeoutId = window.setTimeout(() => {
+            void poll();
+          }, 2500);
+        }
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setVerifyState("reconnecting");
+        await onRefreshRef.current();
+
+        if (!cancelled && latestRunIdRef.current === runId) {
+          timeoutId = window.setTimeout(() => {
+            void poll();
+          }, 2500);
+        }
+      }
+    };
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+      activeController?.abort();
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [runId, ticketId]);
 
   return {
     verifyStreamEvents,

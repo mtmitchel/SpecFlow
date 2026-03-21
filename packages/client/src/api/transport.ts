@@ -13,6 +13,7 @@ export interface TransportRequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   timeoutMessage?: string;
+  localMutationApplied?: boolean;
 }
 
 export class RequestTimeoutError extends Error {
@@ -38,10 +39,49 @@ export interface ApprovedPathSelection {
 
 export interface ArtifactsChangedPayload {
   reason?: string;
+  requestId?: string;
+  correlationId?: string;
   [key: string]: unknown;
 }
 
 let requestCounter = 0;
+const LOCALLY_APPLIED_REQUEST_TTL_MS = 30_000;
+const locallyAppliedMutationRequestIds = new Map<string, number>();
+
+const logTransportEvent = (
+  event: string,
+  details: Record<string, unknown>
+): void => {
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
+  console.debug("[desktop-transport]", event, details);
+};
+
+const pruneLocallyAppliedMutationRequestIds = (): void => {
+  const now = Date.now();
+  for (const [requestId, expiresAt] of locallyAppliedMutationRequestIds) {
+    if (expiresAt <= now) {
+      locallyAppliedMutationRequestIds.delete(requestId);
+    }
+  }
+};
+
+const markLocallyAppliedMutationRequest = (requestId: string): void => {
+  pruneLocallyAppliedMutationRequestIds();
+  locallyAppliedMutationRequestIds.set(requestId, Date.now() + LOCALLY_APPLIED_REQUEST_TTL_MS);
+};
+
+const consumeLocallyAppliedMutationRequest = (requestId: string): boolean => {
+  pruneLocallyAppliedMutationRequestIds();
+  if (!locallyAppliedMutationRequestIds.has(requestId)) {
+    return false;
+  }
+
+  locallyAppliedMutationRequestIds.delete(requestId);
+  return true;
+};
 
 const resolveAbortError = (signal: AbortSignal | undefined, fallbackMessage: string): Error => {
   const reason = signal?.reason;
@@ -120,11 +160,17 @@ export const invokeDesktop = async <T>(
     throw resolveAbortError(options.signal, "Request cancelled");
   }
 
+  const requestId = nextRequestId();
+  const startedAt = Date.now();
   const request = {
-    id: nextRequestId(),
+    id: requestId,
     method,
     params
   };
+  logTransportEvent("request:start", {
+    requestId,
+    method
+  });
 
   const channel = new Channel<TransportEvent>();
   channel.onmessage = (message) => {
@@ -151,9 +197,26 @@ export const invokeDesktop = async <T>(
     : null;
 
   try {
-    return await (abortPromise ? Promise.race([invokePromise, abortPromise]) : invokePromise);
+    const result = await (abortPromise ? Promise.race([invokePromise, abortPromise]) : invokePromise);
+    if (options?.localMutationApplied) {
+      markLocallyAppliedMutationRequest(requestId);
+    }
+    logTransportEvent("request:ok", {
+      requestId,
+      method,
+      durationMs: Date.now() - startedAt,
+      localMutationApplied: Boolean(options?.localMutationApplied)
+    });
+    return result;
   } catch (error) {
-    throw normalizeDesktopError(error);
+    const normalizedError = normalizeDesktopError(error);
+    logTransportEvent("request:error", {
+      requestId,
+      method,
+      durationMs: Date.now() - startedAt,
+      message: normalizedError.message
+    });
+    throw normalizedError;
   } finally {
     removeAbortListener();
   }
@@ -215,7 +278,16 @@ export const subscribeArtifactsChanged = async (
   }
 
   const unlisten = await listen<ArtifactsChangedPayload>("artifacts-changed", async (event) => {
-    onEvent?.(event.payload ?? {});
+    const payload = event.payload ?? {};
+    onEvent?.(payload);
+    if (payload.requestId && consumeLocallyAppliedMutationRequest(payload.requestId)) {
+      logTransportEvent("artifacts:skip-refresh", {
+        reason: payload.reason ?? "unknown",
+        requestId: payload.requestId
+      });
+      return;
+    }
+
     await onRefresh();
   });
 
