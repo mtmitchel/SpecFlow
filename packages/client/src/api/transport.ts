@@ -229,7 +229,7 @@ export const transportRequest = async <T>(
   options?: TransportRequestOptions
 ): Promise<T> => {
   return runWithTransportSignal(
-    (signal) => invokeDesktop<T>(method, params, onEvent, { signal }),
+    (signal) => invokeDesktop<T>(method, params, onEvent, { ...options, signal }),
     options
   );
 };

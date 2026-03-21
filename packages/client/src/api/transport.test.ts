@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { ApiError } from "./http";
-import { transportRequest } from "./transport";
+import { subscribeArtifactsChanged, transportRequest } from "./transport";
 
 vi.mock("@tauri-apps/api/core", () => ({
   Channel: class MockChannel<T> {
@@ -25,6 +26,7 @@ describe("transportRequest", () => {
     vi.useRealTimers();
     vi.mocked(isTauri).mockReturnValue(true);
     vi.mocked(invoke).mockReset();
+    vi.mocked(listen).mockReset();
   });
 
   it("times out desktop requests and cancels the sidecar call", async () => {
@@ -95,5 +97,75 @@ describe("transportRequest", () => {
         }),
       }),
     );
+  });
+
+  it("skips snapshot refresh for locally applied mutation notifications", async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+
+    const artifactsChangedListeners: Array<
+      (event: { payload?: { requestId?: string; reason?: string } }) => Promise<void>
+    > = [];
+
+    vi.mocked(listen).mockImplementation(async (_event, handler) => {
+      artifactsChangedListeners.push(handler as (event: { payload?: { requestId?: string; reason?: string } }) => Promise<void>);
+      return () => undefined;
+    });
+
+    vi.mocked(invoke).mockImplementation(async (command) => {
+      if (command === "sidecar_request") {
+        return {
+          ticket: {
+            id: "ticket-1",
+            status: "ready"
+          }
+        };
+      }
+
+      if (command === "sidecar_cancel") {
+        return undefined;
+      }
+
+      return undefined;
+    });
+
+    const onRefresh = vi.fn(async () => undefined);
+    const unsubscribe = await subscribeArtifactsChanged(onRefresh);
+
+    await transportRequest(
+      "tickets.update",
+      { id: "ticket-1", body: { status: "ready" } },
+      undefined,
+      { localMutationApplied: true }
+    );
+
+    const sidecarRequestCall = vi.mocked(invoke).mock.calls.find(([command]) => command === "sidecar_request");
+    const requestId = (sidecarRequestCall?.[1] as { request?: { id?: string } } | undefined)?.request?.id;
+
+    expect(requestId).toMatch(/^req-/);
+    const notifyArtifactsChanged = artifactsChangedListeners[0];
+    expect(notifyArtifactsChanged).toBeDefined();
+    if (!notifyArtifactsChanged) {
+      throw new Error("Expected artifacts changed listener to be registered");
+    }
+
+    await notifyArtifactsChanged({
+      payload: {
+        requestId,
+        reason: "tickets.update"
+      }
+    });
+
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    await notifyArtifactsChanged({
+      payload: {
+        requestId: "req-unrelated",
+        reason: "tickets.update"
+      }
+    });
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
   });
 });
