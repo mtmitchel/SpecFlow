@@ -902,8 +902,8 @@ describe("InitiativeView", () => {
       expect(checkInitiativePhaseMock).toHaveBeenCalledTimes(2);
     });
 
-    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
-    expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).not.toHaveProperty("timeoutMs");
+    expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
       expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
@@ -948,8 +948,8 @@ describe("InitiativeView", () => {
       expect(checkInitiativePhaseMock).toHaveBeenCalledTimes(2);
     });
 
-    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
-    expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).not.toHaveProperty("timeoutMs");
+    expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
       expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
@@ -980,7 +980,7 @@ describe("InitiativeView", () => {
       expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "brief", expect.anything());
     });
 
-    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
       expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
@@ -1007,7 +1007,7 @@ describe("InitiativeView", () => {
       expect(checkInitiativePhaseMock).toHaveBeenCalledWith(initiative.id, "brief", expect.anything());
     });
 
-    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).toMatchObject({ timeoutMs: 3_000 });
+    expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();

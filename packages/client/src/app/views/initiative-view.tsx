@@ -86,7 +86,6 @@ export const InitiativeView = ({
     validationReview,
     initiativeTickets,
     hasActiveContent,
-    hasRefinementQuestions,
     hasPhaseSpecificRefinementDecisions,
     unresolvedQuestionCount,
     nextStep,
@@ -301,7 +300,6 @@ export const InitiativeView = ({
         isBusy={isBusy}
         isDeletingInitiative={isDeletingInitiative}
         hasActiveContent={hasActiveContent}
-        hasRefinementQuestions={hasRefinementQuestions}
         hasPhaseSpecificRefinementDecisions={
           hasPhaseSpecificRefinementDecisions
         }

@@ -24,7 +24,6 @@ import type { BusyActionResult } from "./use-cancellable-busy-action.js";
 import { usePhaseAutoAdvance } from "./use-phase-auto-advance.js";
 
 const ENTRY_LOADING_STALL_MS = 3_000;
-const INITIAL_BRIEF_CHECK_TIMEOUT_MS = 3_000;
 
 interface PlanningSpecSectionProps {
   initiativeId: string;
@@ -37,7 +36,6 @@ interface PlanningSpecSectionProps {
   isBusy: boolean;
   isDeletingInitiative: boolean;
   hasActiveContent: boolean;
-  hasRefinementQuestions: boolean;
   hasPhaseSpecificRefinementDecisions: boolean;
   unresolvedQuestionCount: number;
   nextStep: InitiativePlanningStep | null;
@@ -86,7 +84,6 @@ export const PlanningSpecSection = ({
   isBusy,
   isDeletingInitiative,
   hasActiveContent,
-  hasRefinementQuestions,
   hasPhaseSpecificRefinementDecisions,
   unresolvedQuestionCount,
   nextStep,
@@ -157,13 +154,13 @@ export const PlanningSpecSection = ({
   const shouldAutoStartBrief =
     activeSpecStep === "brief" &&
     !hasActiveContent &&
-    !hasRefinementQuestions &&
+    !hasRevisableQuestions &&
     !hasPhaseSpecificRefinementDecisions &&
     !refinementCheckedAt;
   const shouldAutoGenerateAfterEntryCheck =
     activeSpecStep !== "brief" &&
     !hasActiveContent &&
-    !hasRefinementQuestions &&
+    !hasRevisableQuestions &&
     !hasPhaseSpecificRefinementDecisions &&
     Boolean(refinementCheckedAt);
 
@@ -192,7 +189,6 @@ export const PlanningSpecSection = ({
 
     void beginAutoAdvance("brief", {
       navigateOnSuccess: false,
-      phaseCheckTimeoutMs: INITIAL_BRIEF_CHECK_TIMEOUT_MS,
     });
   }, [
     autoAdvanceFailedStep,
@@ -289,7 +285,7 @@ export const PlanningSpecSection = ({
     !hasActiveContent;
   const showEntryLoadingFallback =
     !hasActiveContent &&
-    !hasRefinementQuestions &&
+    !hasRevisableQuestions &&
     !loadingQuestions &&
     !generatingStep &&
     !questionLoadFailed &&
@@ -357,7 +353,49 @@ export const PlanningSpecSection = ({
   }
 
   if (!hasActiveContent) {
-    if (activeRefinement && hasRefinementQuestions) {
+    if (loadingQuestions || showingTransientEntryLoading) {
+      return (
+        <div className="planning-step-column planning-step-column-narrow">
+          {renderSurveyCard(
+            <div
+              className="status-loading-card planning-intake-loading"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="status-loading-spinner" aria-hidden="true" />
+              <div className="status-loading-copy">
+                <strong>{loadingStateLabel ?? entryLoadingCopy.title}</strong>
+                <span>{loadingStateBody ?? entryLoadingCopy.body}</span>
+              </div>
+            </div>,
+            { compact: true, transient: true },
+          )}
+        </div>
+      );
+    }
+
+    if (generatingStep) {
+      return (
+        <div className="planning-step-column planning-step-column-narrow">
+          {renderSurveyCard(
+            <div
+              className="status-loading-card planning-intake-loading planning-intake-loading-hero"
+              role="status"
+              aria-live="polite"
+            >
+              <span className="status-loading-spinner" aria-hidden="true" />
+              <div className="status-loading-copy">
+                <strong>{generationStateCopy.title}</strong>
+                <span>{generationStateCopy.body}</span>
+              </div>
+            </div>,
+            { compact: true, transient: true },
+          )}
+        </div>
+      );
+    }
+
+    if (activeRefinement && hasRevisableQuestions) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
           {renderSurveyCard(
@@ -410,48 +448,6 @@ export const PlanningSpecSection = ({
       );
     }
 
-    if (loadingQuestions || showingTransientEntryLoading) {
-      return (
-        <div className="planning-step-column planning-step-column-narrow">
-          {renderSurveyCard(
-            <div
-              className="status-loading-card planning-intake-loading"
-              role="status"
-              aria-live="polite"
-            >
-              <span className="status-loading-spinner" aria-hidden="true" />
-              <div className="status-loading-copy">
-                <strong>{loadingStateLabel ?? entryLoadingCopy.title}</strong>
-                <span>{loadingStateBody ?? entryLoadingCopy.body}</span>
-              </div>
-            </div>,
-            { compact: true, transient: true },
-          )}
-        </div>
-      );
-    }
-
-    if (generatingStep) {
-      return (
-        <div className="planning-step-column planning-step-column-narrow">
-          {renderSurveyCard(
-            <div
-              className="status-loading-card planning-intake-loading planning-intake-loading-hero"
-              role="status"
-              aria-live="polite"
-            >
-              <span className="status-loading-spinner" aria-hidden="true" />
-              <div className="status-loading-copy">
-                <strong>{generationStateCopy.title}</strong>
-                <span>{generationStateCopy.body}</span>
-              </div>
-            </div>,
-            { compact: true, transient: true },
-          )}
-        </div>
-      );
-    }
-
     if (questionLoadFailed || generationFailed || entryLoadingStalled) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
@@ -465,9 +461,6 @@ export const PlanningSpecSection = ({
                     void beginAutoAdvance("brief", {
                       navigateOnSuccess: false,
                       skipCheck: generationFailed,
-                      phaseCheckTimeoutMs: generationFailed
-                        ? undefined
-                        : INITIAL_BRIEF_CHECK_TIMEOUT_MS,
                     });
                     return;
                   }

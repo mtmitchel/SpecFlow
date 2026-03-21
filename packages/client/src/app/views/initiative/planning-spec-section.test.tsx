@@ -103,7 +103,6 @@ describe("PlanningSpecSection", () => {
           isBusy={false}
           isDeletingInitiative={false}
           hasActiveContent
-          hasRefinementQuestions
           hasPhaseSpecificRefinementDecisions
           unresolvedQuestionCount={0}
           nextStep="validation"
@@ -167,7 +166,6 @@ describe("PlanningSpecSection", () => {
           isBusy={false}
           isDeletingInitiative={false}
           hasActiveContent={false}
-          hasRefinementQuestions={false}
           hasPhaseSpecificRefinementDecisions={false}
           unresolvedQuestionCount={0}
           nextStep="prd"
@@ -228,7 +226,6 @@ describe("PlanningSpecSection", () => {
           isBusy={false}
           isDeletingInitiative={false}
           hasActiveContent={false}
-          hasRefinementQuestions={false}
           hasPhaseSpecificRefinementDecisions={false}
           unresolvedQuestionCount={0}
           nextStep="prd"
@@ -317,7 +314,6 @@ describe("PlanningSpecSection", () => {
           isBusy={false}
           isDeletingInitiative={false}
           hasActiveContent
-          hasRefinementQuestions={false}
           hasPhaseSpecificRefinementDecisions
           unresolvedQuestionCount={0}
           nextStep="prd"
@@ -360,6 +356,90 @@ describe("PlanningSpecSection", () => {
     expect(setActiveSurface).toHaveBeenCalledWith("questions");
   });
 
+  it("shows persisted question history before retrying when the active question set is empty", () => {
+    render(
+      <ToastProvider>
+        <PlanningSpecSection
+          initiativeId="initiative-1"
+          initiativeTitle="Simple desktop notes"
+          activeSpecStep="brief"
+          activeSurface="questions"
+          activeRefinement={{
+            questions: [],
+            history: [
+              {
+                id: "brief-problem",
+                label: "What primary problem should v1 solve?",
+                type: "select",
+                whyThisBlocks: "The brief needs one clear problem before it can define the right scope.",
+                affectedArtifact: "brief",
+                decisionType: "problem",
+                assumptionIfUnanswered:
+                  "Assume the first release focuses on the most urgent problem implied by the project description.",
+                options: [
+                  "Automate or speed up a repetitive process",
+                  "Replace or improve an existing tool or workflow",
+                ],
+                optionHelp: {
+                  "Automate or speed up a repetitive process":
+                    "Treat speed or reduced manual effort as the main outcome.",
+                  "Replace or improve an existing tool or workflow":
+                    "Compare against the current workflow and define what has to improve or stay compatible.",
+                },
+                recommendedOption: null,
+                allowCustomAnswer: true,
+              },
+            ],
+            answers: {},
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-19T09:00:00.000Z",
+          }}
+          busyAction={null}
+          isBusy={false}
+          isDeletingInitiative={false}
+          hasActiveContent={false}
+          hasPhaseSpecificRefinementDecisions={false}
+          unresolvedQuestionCount={1}
+          nextStep="core-flows"
+          nextStepActionLabel="Continue"
+          handlePhaseCheckResult={vi.fn()}
+          flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
+          refinementAnswers={{}}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="saved"
+          guidanceQuestionId={null}
+          guidanceText={null}
+          savedDrafts={{
+            brief: "",
+            "core-flows": "",
+            prd: "",
+            "tech-spec": "",
+          }}
+          autoQuestionLoadStep={null}
+          autoQuestionLoadFailedStep={null}
+          onRefresh={vi.fn().mockResolvedValue(undefined)}
+          navigateToStep={vi.fn()}
+          setActiveSurface={vi.fn()}
+          handleCheckAndAdvance={vi.fn().mockResolvedValue("completed")}
+          onAdvanceToNextStep={vi.fn()}
+          handleRequestGuidance={vi.fn()}
+          updateRefinementAnswer={vi.fn()}
+          deferRefinementQuestion={vi.fn()}
+          openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
+          renderSaveState={() => <span>Saved</span>}
+        />
+      </ToastProvider>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "What primary problem should v1 solve?" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
   it("keeps a revise action available when saved decisions exist without reopenable question history", () => {
     const openRefinementDrawer = vi.fn();
     const handleCheckAndAdvance = vi.fn().mockResolvedValue("completed");
@@ -385,7 +465,6 @@ describe("PlanningSpecSection", () => {
           isBusy={false}
           isDeletingInitiative={false}
           hasActiveContent
-          hasRefinementQuestions={false}
           hasPhaseSpecificRefinementDecisions
           unresolvedQuestionCount={0}
           nextStep="tech-spec"
@@ -450,7 +529,6 @@ describe("PlanningSpecSection", () => {
           isBusy={false}
           isDeletingInitiative={false}
           hasActiveContent
-          hasRefinementQuestions={false}
           hasPhaseSpecificRefinementDecisions={false}
           unresolvedQuestionCount={0}
           nextStep="tech-spec"
@@ -543,7 +621,6 @@ describe("PlanningSpecSection", () => {
           isBusy={false}
           isDeletingInitiative={false}
           hasActiveContent
-          hasRefinementQuestions={false}
           hasPhaseSpecificRefinementDecisions
           unresolvedQuestionCount={0}
           nextStep="prd"

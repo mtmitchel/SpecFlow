@@ -24,6 +24,7 @@ import { type BusyActionResult, useCancellableBusyAction } from "./use-cancellab
 import { useInitiativePlanningRoute } from "./use-initiative-planning-route.js";
 import { useInitiativeAutoQuestionLoading } from "./use-initiative-auto-question-loading.js";
 import { useInitiativeReviewActions } from "./use-initiative-review-actions.js";
+import { getVisibleRefinementQuestions } from "./refinement-history.js";
 import {
   type PlanningDrawerState,
   TICKET_COVERAGE_REVIEW_KIND,
@@ -196,7 +197,7 @@ export const useInitiativePlanningWorkspace = (
   }, [activeRefinement?.questions.length, activeStep]);
   const headerTitle = initiative ? getInitiativeDisplayTitle(initiative.title, initiative.description) : "";
   const hasActiveContent = activeSpecStep ? savedDrafts[activeSpecStep].trim().length > 0 : false;
-  const hasRefinementQuestions = Boolean(activeRefinement && activeRefinement.questions.length > 0);
+  const hasRefinementQuestions = getVisibleRefinementQuestions(activeRefinement).length > 0;
   const hasPhaseSpecificRefinementDecisions = Boolean(activeRefinement && (
     Object.keys(activeRefinement.answers).length > 0 || activeRefinement.defaultAnswerQuestionIds.length > 0
   ));
