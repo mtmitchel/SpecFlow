@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { DriftFlag, Ticket } from "../../types/entities.js";
+import type { DriftFlag, Ticket } from "../types/entities.js";
 import type { AuditFinding, DiffChange } from "./types.js";
 
 export const extractDiffChanges = (diffText: string): DiffChange[] => {
@@ -139,5 +139,4 @@ export const readAgentsConventions = async (rootDir: string): Promise<string> =>
   }
 };
 
-// Re-export from canonical source for backwards compatibility
-export { normalizeScopePaths } from "../../verify/diff/path-utils.js";
+export { normalizeScopePaths } from "../verify/diff/path-utils.js";

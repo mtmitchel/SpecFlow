@@ -36,7 +36,7 @@ export type {
   TicketStatus,
   VerificationSeverity,
 } from "./types/entities.js";
-export type { AuditCategory, AuditFinding, AuditReport } from "./server/audit/types.js";
+export type { AuditCategory, AuditFinding, AuditReport } from "./audit/types.js";
 export {
   ARTIFACT_STEPS,
   PLANNING_STEPS,

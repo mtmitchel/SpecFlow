@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createInitiative } from "../../api/initiatives.js";
-import { chooseDirectory, isDesktopRuntime } from "../../api/transport.js";
+import { pickProjectRoot } from "../../api/transport.js";
 import { useToast } from "../context/toast.js";
 import { Pipeline } from "../components/pipeline.js";
 import {
@@ -31,6 +31,7 @@ export const InitiativeCreator = ({
   const { showError } = useToast();
   const [description, setDescription] = useState("");
   const [projectRoot, setProjectRoot] = useState("");
+  const [projectRootToken, setProjectRootToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pickingProjectRoot, setPickingProjectRoot] = useState(false);
 
@@ -45,15 +46,16 @@ export const InitiativeCreator = ({
   );
 
   const handleChooseProjectRoot = async () => {
-    if (!isDesktopRuntime() || busy || pickingProjectRoot) {
+    if (busy || pickingProjectRoot) {
       return;
     }
 
     setPickingProjectRoot(true);
     try {
-      const selection = await chooseDirectory(defaultBrowseRoot.trim() || undefined);
+      const selection = await pickProjectRoot(defaultBrowseRoot.trim() || undefined);
       if (selection) {
-        setProjectRoot(selection);
+        setProjectRoot(selection.displayPath);
+        setProjectRootToken(selection.token);
       }
     } catch (err) {
       showError((err as Error).message ?? "We couldn't open the folder picker.");
@@ -67,9 +69,13 @@ export const InitiativeCreator = ({
       return;
     }
 
+    if (!projectRootToken) {
+      return;
+    }
+
     setBusy(true);
     try {
-      const result = await createInitiative(description.trim(), projectRoot.trim());
+      const result = await createInitiative(description.trim(), projectRootToken);
       await onRefresh();
       navigate(`/initiative/${result.initiativeId}?step=brief`);
     } catch (err) {
@@ -106,26 +112,25 @@ export const InitiativeCreator = ({
                 <strong>Project folder</strong>
                 <span className="text-muted-caption">Choose the repo or folder this project should target.</span>
               </div>
-              {isDesktopRuntime() ? (
-                <button
-                  type="button"
-                  className="inline-action"
-                  onClick={() => void handleChooseProjectRoot()}
-                  disabled={busy || pickingProjectRoot}
-                >
-                  {pickingProjectRoot ? "Choosing..." : "Choose folder"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="inline-action"
+                onClick={() => void handleChooseProjectRoot()}
+                disabled={busy || pickingProjectRoot}
+              >
+                {pickingProjectRoot ? "Choosing..." : "Choose folder"}
+              </button>
             </div>
             <input
               className="phase-name-input planning-entry-root-input"
               value={projectRoot}
-              onChange={(event) => setProjectRoot(event.target.value)}
-              placeholder="/path/to/project"
+              onChange={() => undefined}
+              placeholder="Choose the project folder"
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
               aria-label="Project folder"
+              readOnly
             />
           </div>
           <textarea
@@ -140,7 +145,12 @@ export const InitiativeCreator = ({
               type="button"
               className="btn-primary"
               onClick={() => void handleCreate()}
-              disabled={busy || description.trim().length === 0 || projectRoot.trim().length === 0}
+              disabled={
+                busy ||
+                description.trim().length === 0 ||
+                projectRoot.trim().length === 0 ||
+                !projectRootToken
+              }
             >
               {busy ? "Starting..." : "Start brief intake"}
             </button>

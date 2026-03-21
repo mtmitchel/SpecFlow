@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { exportBundle, fetchBundleText, saveBundleZip } from "../../api.js";
 import type { AgentTarget, VerificationResult } from "../../types.js";
 import { useToast } from "../context/toast.js";
-import { isDesktopRuntime } from "../../api/transport.js";
 
 interface ExportResult {
   runId: string;
@@ -253,7 +252,6 @@ export const useExportWorkflow = (
     handleCopyBundle,
     handleToggleBundlePreview,
     handleDownloadBundle,
-    handleSaveZipBundle,
-    desktopRuntime: isDesktopRuntime()
+    handleSaveZipBundle
   };
 };

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { isContainedPath } from "../server/validation.js";
+import { isContainedPath } from "../validation.js";
 import { normalizeRelativePath } from "../verify/diff/path-utils.js";
 import { specflowDir } from "./paths.js";
 

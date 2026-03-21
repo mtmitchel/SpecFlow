@@ -1,8 +1,7 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { ApiError, parse } from "./http";
-import { parseSseResult } from "./sse";
+import { ApiError } from "./http";
+import { sanitizeVisibleErrorMessage } from "../app/utils/safe-error";
 
 export interface TransportEvent {
   event: string;
@@ -14,13 +13,6 @@ export interface TransportRequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   timeoutMessage?: string;
-}
-
-interface LegacyWebRequest {
-  url: string;
-  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-  body?: unknown;
-  headers?: HeadersInit;
 }
 
 export class RequestTimeoutError extends Error {
@@ -35,9 +27,13 @@ export interface DesktopRuntimeStatus {
   sidecarPid: number | null;
   runtimeGeneration: number;
   buildFingerprint: string | null;
-  latestBuildPath: string | null;
   restartCount: number;
   restartPending: boolean;
+}
+
+export interface ApprovedPathSelection {
+  token: string;
+  displayPath: string;
 }
 
 export interface ArtifactsChangedPayload {
@@ -166,77 +162,30 @@ export const invokeDesktop = async <T>(
 export const transportRequest = async <T>(
   method: string,
   params: unknown,
-  webFallback: (signal?: AbortSignal) => Promise<T>,
   onEvent?: (event: TransportEvent) => void,
   options?: TransportRequestOptions
 ): Promise<T> => {
-  if (!isDesktopRuntime()) {
-    return runWithTransportSignal(webFallback, options);
-  }
-
   return runWithTransportSignal(
     (signal) => invokeDesktop<T>(method, params, onEvent, { signal }),
     options
   );
 };
 
-const createLegacyWebRequestInit = (
-  request: LegacyWebRequest,
-  signal?: AbortSignal
-): RequestInit => {
-  const init: RequestInit = {
-    method: request.method,
-    signal
-  };
-
-  if (request.body !== undefined) {
-    init.body = JSON.stringify(request.body);
-    init.headers = {
-      "Content-Type": "application/json",
-      ...(request.headers ?? {})
-    };
-  } else if (request.headers) {
-    init.headers = request.headers;
-  }
-
-  return init;
-};
-
 export const transportJsonRequest = async <T>(
   method: string,
   params: unknown,
-  request: LegacyWebRequest,
   onEvent?: (event: TransportEvent) => void,
   options?: TransportRequestOptions
 ): Promise<T> =>
-  transportRequest(
-    method,
-    params,
-    async (signal) => {
-      const response = await fetch(request.url, createLegacyWebRequestInit(request, signal));
-      return parse<T>(response);
-    },
-    onEvent,
-    options
-  );
+  transportRequest(method, params, onEvent, options);
 
 export const transportSseRequest = async <T>(
   method: string,
   params: unknown,
-  request: LegacyWebRequest,
   onEvent?: (event: TransportEvent) => void,
   options?: TransportRequestOptions
 ): Promise<T> =>
-  transportRequest(
-    method,
-    params,
-    async (signal) => {
-      const response = await fetch(request.url, createLegacyWebRequestInit(request, signal));
-      return parseSseResult<T>(response);
-    },
-    onEvent,
-    options
-  );
+  transportRequest(method, params, onEvent, options);
 
 export const isRequestCancelledError = (error: unknown): boolean => {
   if (error instanceof DOMException && error.name === "AbortError") {
@@ -275,27 +224,52 @@ export const subscribeArtifactsChanged = async (
   };
 };
 
-export const chooseSavePath = async (defaultPath: string): Promise<string | null> => {
+export const pickProjectRoot = async (
+  defaultPath?: string
+): Promise<ApprovedPathSelection | null> => {
   if (!isDesktopRuntime()) {
     return null;
   }
 
-  const selection = await save({ defaultPath });
-  return typeof selection === "string" ? selection : null;
+  try {
+    return await invoke<ApprovedPathSelection | null>("desktop_pick_project_root", { defaultPath });
+  } catch (error) {
+    throw normalizeDesktopError(error);
+  }
 };
 
-export const chooseDirectory = async (defaultPath?: string): Promise<string | null> => {
+export const saveDesktopBundleZip = async (
+  runId: string,
+  attemptId: string,
+  defaultFilename: string
+): Promise<string | null> => {
   if (!isDesktopRuntime()) {
     return null;
   }
 
-  const selection = await open({
-    defaultPath,
-    directory: true,
-    multiple: false,
-  });
+  try {
+    const result = await invoke<{ path: string } | null>("desktop_save_bundle_zip", {
+      runId,
+      attemptId,
+      defaultFilename
+    });
+    return result?.path ?? null;
+  } catch (error) {
+    throw normalizeDesktopError(error);
+  }
+};
 
-  return typeof selection === "string" ? selection : null;
+export const openExternalUrl = async (url: string): Promise<void> => {
+  if (!isDesktopRuntime()) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  try {
+    await invoke("open_external_url", { url });
+  } catch (error) {
+    throw normalizeDesktopError(error);
+  }
 };
 
 export const getDesktopRuntimeStatus = async (): Promise<DesktopRuntimeStatus | null> => {
@@ -324,7 +298,7 @@ const normalizeDesktopError = (error: unknown): Error => {
       typeof desktopError.statusCode === "number"
         ? desktopError.statusCode
         : 500,
-      desktopError.message,
+      sanitizeVisibleErrorMessage(desktopError.message, "The desktop runtime reported an error."),
       typeof desktopError.code === "string"
         ? desktopError.code
         : undefined,

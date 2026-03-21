@@ -8,8 +8,7 @@ const isUnsupportedSidecarMethodError = (error: unknown, method: string): boolea
 export const saveConfig = async (config: ConfigSavePayload): Promise<Config> => {
   const payload = await transportJsonRequest<{ config: Config }>(
     "config.save",
-    config,
-    { url: "/api/config", method: "PUT", body: config }
+    config
   );
   const normalizedConfig = normalizeConfig(payload.config);
   if (!normalizedConfig) {
@@ -23,8 +22,7 @@ export const saveProviderKey = async (input: SaveProviderKeyPayload): Promise<vo
   try {
     await transportJsonRequest<{ provider: SaveProviderKeyPayload["provider"] }>(
       "config.saveProviderKey",
-      input,
-      { url: "/api/config/provider-key", method: "PUT", body: input }
+      input
     );
   } catch (error) {
     if (isUnsupportedSidecarMethodError(error, "config.saveProviderKey")) {
@@ -41,21 +39,11 @@ export const fetchProviderModels = async (
   provider: "anthropic" | "openai" | "openrouter",
   query?: string
 ): Promise<ProviderModel[]> => {
-  const params = new URLSearchParams();
-  if (query?.trim()) {
-    params.set("q", query.trim());
-  }
-
   const payload = await transportJsonRequest<{
     models: ProviderModel[];
   }>(
     "providers.models",
-    { provider, q: query },
-    {
-      url: params.toString()
-        ? `/api/providers/${provider}/models?${params.toString()}`
-        : `/api/providers/${provider}/models`
-    }
+    { provider, q: query }
   );
 
   return payload.models;

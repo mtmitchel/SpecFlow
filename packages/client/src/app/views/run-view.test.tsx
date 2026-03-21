@@ -71,7 +71,7 @@ const ticket: Ticket = {
   status: "verify",
   acceptanceCriteria: [{ id: "criterion-1", text: "Coverage review blocks execution." }],
   implementationPlan: "Add one shared gate helper.",
-  fileTargets: ["packages/app/src/server/routes/ticket-routes.ts"],
+  fileTargets: ["packages/app/src/runtime/handlers/ticket-handlers.ts"],
   coverageItemIds: ["coverage-brief-goals-1"],
   blockedBy: [],
   blocks: [],
@@ -119,8 +119,8 @@ const detail: RunDetail = {
       createdAt: "2026-03-16T10:35:00.000Z",
     },
     bundleManifest: {
-      requiredFiles: ["packages/app/src/server/routes/ticket-routes.ts"],
-      contextFiles: ["packages/app/test/server/ticket-routes.test.ts"],
+      requiredFiles: ["packages/app/src/runtime/handlers/ticket-handlers.ts"],
+      contextFiles: ["packages/app/test/sidecar-dispatcher.test.ts"],
     },
   },
 };
@@ -130,7 +130,7 @@ const committedAttempt: RunAttemptDetail = {
   attemptId: "attempt-1",
   agentSummary: "Implemented the execution gate and updated tests.",
   diffSource: "git",
-  initialScopePaths: ["packages/app/src/server/routes/ticket-routes.ts"],
+  initialScopePaths: ["packages/app/src/runtime/handlers/ticket-handlers.ts"],
   widenedScopePaths: [],
   primaryDiffPath: "primary.diff",
   driftDiffPath: null,

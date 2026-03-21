@@ -72,7 +72,7 @@ const generatedTicket: Ticket = {
   status: "backlog",
   acceptanceCriteria: [{ id: "criterion-1", text: "Notes save locally." }],
   implementationPlan: "Persist note edits to disk.",
-  fileTargets: ["packages/app/src/server/routes/ticket-routes.ts"],
+  fileTargets: ["packages/app/src/runtime/handlers/ticket-handlers.ts"],
   coverageItemIds: [],
   blockedBy: [],
   blocks: [],

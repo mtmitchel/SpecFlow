@@ -19,7 +19,6 @@ describe("ExportSection", () => {
         handleToggleBundlePreview={vi.fn(async () => undefined)}
         handleDownloadBundle={vi.fn(async () => undefined)}
         handleSaveZipBundle={vi.fn(async () => undefined)}
-        desktopRuntime={false}
         chrome="plain"
         showCreateControls={false}
         collapseUtilities={false}
@@ -29,7 +28,7 @@ describe("ExportSection", () => {
     expect(screen.getAllByRole("button", { name: "Copy bundle" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Show bundle" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Download Markdown bundle" })).toHaveLength(1);
-    expect(screen.getAllByRole("link", { name: "Download ZIP bundle" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Save ZIP bundle" })).toHaveLength(1);
     expect(screen.queryByText("Bundle details")).not.toBeInTheDocument();
   });
 });

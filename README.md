@@ -2,7 +2,7 @@
 
 Local-first, spec-driven development orchestrator for planning, executing, and verifying AI-agent work.
 
-SpecFlow now runs desktop-first through a Tauri v2 shell backed by a persistent Node sidecar. The existing React/Vite UI stays in `packages/client`, the business logic stays in `packages/app`, and the desktop runtime avoids binding an HTTP port during normal use.
+SpecFlow runs through a Tauri v2 shell backed by a persistent Node sidecar. The existing React/Vite UI stays in `packages/client`, the business logic stays in `packages/app`, and the desktop runtime avoids binding an HTTP port during normal use.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ npm run tauri dev
 
 `npm run setup:git-hooks` configures the repo's versioned `pre-commit` and `pre-push` hooks for this clone. The hooks enforce `git diff --cached --check`, block committed build outputs, and run the repo `check`/`test` gates before commits and pushes. They intentionally do not run desktop packaging; packaging stays a separate explicit step outside normal development.
 
-`npm run tauri dev` is the primary desktop development loop. It starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. During startup the desktop bridge waits for a fresh settled backend build under `packages/app/dist` before it spawns the Node sidecar, and later backend rebuilds are picked up by a bridge-owned sidecar restart before the next desktop request is sent. The dev stack now runs in raw terminal mode so closing the desktop window cleanly tears down the watched processes without the old spinner-heavy shutdown noise. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through Fastify.
+`npm run tauri dev` is the primary desktop development loop. It starts the watched app build plus the Vite client dev server, and then launches the Tauri desktop shell. During startup the desktop bridge waits for a fresh settled backend build under `packages/app/dist` before it spawns the Node sidecar, and later backend rebuilds are picked up by a bridge-owned sidecar restart before the next desktop request is sent. The dev stack now runs in raw terminal mode so closing the desktop window cleanly tears down the watched processes without the old spinner-heavy shutdown noise. In desktop mode the UI talks to the bundled runtime through the Tauri bridge, not through a local HTTP server.
 
 `npm run dev` is an alias for `npm run tauri dev`.
 
@@ -42,18 +42,9 @@ For a local source launch outside the Tauri dev loop:
 npm run ui
 ```
 
-That runs the CLI from source. If a packaged desktop binary already exists, it launches it. If not, it falls back to the legacy Fastify + browser runtime.
+That runs the CLI from source and launches an existing packaged desktop binary. If no desktop binary is available, it fails closed. Use `npm run tauri dev` for source development or `npm run package:desktop` to produce a local desktop binary.
 
 If you have changed sidecar methods or desktop-only transport behavior in source, prefer `npm run tauri dev` until you rebuild the desktop app. `npm run ui` will still prefer an older packaged binary if one exists, which can leave the UI and sidecar on different revisions.
-
-Legacy Fastify + browser mode is still available when needed:
-
-```bash
-npm run dev:web
-npm run ui:web
-```
-
-In legacy web mode, the Vite client proxies `/api` requests to the watched app server on `http://127.0.0.1:3142`, and `ui:web` runs the Fastify + browser runtime from source on `http://127.0.0.1:3141`.
 
 ## Workspace Commands
 
@@ -61,20 +52,16 @@ In legacy web mode, the Vite client proxies `/api` requests to the watched app s
 npm run dev
 npm run tauri dev
 npm run tauri:dev
-npm run dev:web
 npm run lint
 npm run check
 npm test
-npm run test:e2e
 npm run package:desktop
 npm run package:web
 npm run package:sidecar
 npm run ui
-npm run ui:web
 ```
 
 `npm test` runs both the backend and client Vitest suites.
-`npm run test:e2e` runs the browser end-to-end workflow suite against the legacy web runtime with a deterministic fake planner/verifier backend. It currently covers the main project workflow through Validation into Tickets plus the core-flows review-back/update path.
 `npm run lint` runs the shared ESLint baseline for TypeScript, React Hooks, and general correctness issues.
 `npm run check` now runs lint, both TypeScript checks, and the UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
 `npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.
@@ -83,13 +70,32 @@ npm run ui:web
 Direct CLI commands during development:
 
 ```bash
-tsx packages/app/src/cli.ts ui --no-open
-tsx packages/app/src/cli.ts ui --legacy-web --no-open
+tsx packages/app/src/cli.ts ui
 tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli
 tsx packages/app/src/cli.ts verify --ticket <ticket-id> --summary "Implemented + tests"
 ```
 
-`specflow ui` is desktop-first. If the desktop binary is unavailable, it falls back to the legacy Fastify + browser runtime with a deprecation warning. `export-bundle` and `verify` remain headless CLI commands and preserve the existing prefer-server delegation behavior when a compatible server is already running.
+`specflow ui` is desktop-only. `export-bundle` and `verify` remain headless CLI commands and run locally against the same store, bundle, and verifier services that the sidecar uses.
+
+## Local Release Hardening
+
+Run this checklist before shipping a local desktop build:
+
+```bash
+npm ci
+npm run check
+npm test
+cargo check --manifest-path packages/tauri/src-tauri/Cargo.toml --locked
+cargo test --manifest-path packages/tauri/src-tauri/Cargo.toml --locked
+npm run -w @specflow/tauri build -- --locked
+```
+
+Release posture:
+
+- Desktop packaging is unsigned.
+- There is no built-in updater configured in `tauri.conf.json`.
+- Lockfiles are required for release validation.
+- The supported product runtime is desktop only.
 
 ## Configuration and Security
 
@@ -105,6 +111,15 @@ tsx packages/app/src/cli.ts verify --ticket <ticket-id> --summary "Implemented +
 The Settings modal (open via Cmd+K or the rail settings button) lets you change provider, model, and API key at runtime. API keys are written through the backend into repo-root `.env`, not into `specflow/config.yaml`. For OpenRouter, a searchable model picker loads all available models. The server never returns your API key in API responses; the UI only receives redacted per-provider key status.
 
 If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup migrates it into `.env`, scrubs the YAML, and logs a rotation warning.
+
+## Privacy
+
+SpecFlow is local-first by default:
+
+- Runtime data stays on disk under `specflow/`, including project artifacts, tickets, runs, and decisions.
+- Provider API keys stay in repo-root `.env` and are not returned to the UI.
+- Data leaves the device only when you invoke a provider-backed planner, verifier, or audit action, or when you run GitHub issue import.
+- The app does not include analytics or telemetry.
 
 ## Key Features
 
@@ -128,18 +143,18 @@ If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup mig
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
 - **Fix-forward loop**: failed verification auto-enriches the re-export bundle with failure context; one-click re-export and re-verify.
 - **Drift audit**: diff-based audit with LLM-powered finding categorisation (Bug/Performance/Security/Clarity) and finding-to-ticket creation.
-- **GitHub Issue import**: `POST /api/import/github-issue` fetches a GitHub Issue and feeds it through the triage pipeline (requires `GITHUB_PERSONAL_ACCESS_TOKEN`).
+- **GitHub Issue import**: the backend `import.githubIssue` action fetches a GitHub Issue and feeds it through the triage pipeline (requires `GITHUB_PERSONAL_ACCESS_TOKEN`).
 - **Ticket dependencies**: tickets declare `blockedBy`/`blocks`; inter-phase ordering is wired automatically by the planner and enforced on status transitions.
 
 ## Project Layout
 
-- `packages/app`: Fastify legacy web runtime, CLI, sidecar, bundle/export/verify services
-- `packages/client`: React board UI with desktop and legacy-web transport adapters
+- `packages/app`: CLI, sidecar, bundle/export/verify services, and shared runtime handlers
+- `packages/client`: React board UI with desktop transport
 - `packages/tauri`: Tauri v2 desktop shell and Rust bridge to the Node sidecar
 - `docs/`: product docs, workflow docs, technical architecture, and review prompts
 - `specflow/`: runtime artifacts (`config.yaml`, projects, reviews, traces, tickets, runs, decisions)
 
-For desktop versus legacy web runtime details, see [`docs/runtime-modes.md`](docs/runtime-modes.md).
+For desktop runtime details, see [`docs/runtime-modes.md`](docs/runtime-modes.md).
 For the full docs index, see [`docs/README.md`](docs/README.md).
 For backend/runtime structure, see [`docs/architecture.md`](docs/architecture.md).
 For user workflow behavior, see [`docs/workflows.md`](docs/workflows.md).

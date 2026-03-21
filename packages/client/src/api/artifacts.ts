@@ -11,7 +11,6 @@ export const fetchArtifacts = async (
   const snapshot = await transportJsonRequest<ArtifactsSnapshot>(
     "artifacts.snapshot",
     {},
-    { url: "/api/artifacts" },
     undefined,
     {
       ...options,
@@ -31,7 +30,6 @@ export const fetchSpecDetail = async (
   const payload = await transportJsonRequest<{ spec: SpecDocument }>(
     "specs.detail",
     { id: specId },
-    { url: `/api/specs/${specId}` },
     undefined,
     {
       ...options,

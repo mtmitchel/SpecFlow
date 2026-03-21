@@ -57,15 +57,14 @@ Assume a doc is out of scope unless requested if it:
 
 SpecFlow is a local-first, spec-driven development orchestrator for planning, executing, and verifying AI-agent work.
 
-The repo is desktop-first:
+The repo is desktop-only:
 
-- Primary runtime: Tauri v2 desktop shell plus persistent Node sidecar
-- Fallback runtime: legacy Fastify plus browser mode for compatibility and browser-focused testing
+- Runtime: Tauri v2 desktop shell plus persistent Node sidecar
 
 Workspace packages:
 
-- `packages/app`: Node business logic, shared runtime handlers, CLI, sidecar, planner, verifier, bundle logic, legacy Fastify runtime
-- `packages/client`: React plus Vite UI with desktop and legacy-web transport adapters
+- `packages/app`: Node business logic, shared runtime handlers, CLI, sidecar, planner, verifier, and bundle logic
+- `packages/client`: React plus Vite UI with desktop transport adapters
 - `packages/tauri`: Tauri v2 shell and Rust bridge
 
 Runtime data lives under `specflow/`. There is no database.
@@ -79,12 +78,9 @@ npm install
 npm run setup:git-hooks
 npm run check
 npm test
-npm run test:e2e
 npm run dev
 npm run tauri dev
-npm run dev:web
 npm run ui
-npm run ui:web
 npm run package:desktop
 git status -sb
 ```
@@ -93,7 +89,6 @@ Direct CLI examples during development:
 
 ```bash
 tsx packages/app/src/cli.ts ui --no-open
-tsx packages/app/src/cli.ts ui --legacy-web --no-open
 tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli
 tsx packages/app/src/cli.ts verify --ticket <ticket-id>
 ```
@@ -101,10 +96,9 @@ tsx packages/app/src/cli.ts verify --ticket <ticket-id>
 Command notes:
 
 - `npm run tauri dev` is the primary development loop. `npm run dev` is an alias.
-- `npm run ui` launches from source, prefers an existing packaged desktop binary, and falls back to legacy web only when no desktop binary exists.
+- `npm run ui` launches from source and requires an existing desktop binary.
 - `npm run check` is the required pre-finish gate for normal development. It currently runs ESLint, both TypeScript checks, and the UI dedupe gate.
 - `npm test` runs the backend and client Vitest suites.
-- `npm run test:e2e` runs the Playwright browser workflow suite against the deterministic legacy-web harness.
 - `npm run package:desktop` is explicit packaging only. It is not part of the normal development loop.
 - Do not report success without real command output.
 
@@ -137,12 +131,11 @@ If the refactor would touch more than 3 files, wait for confirmation before exec
 
 ## Architecture invariants
 
-- Keep desktop-first as the default mental model. Legacy web is explicit fallback and compatibility mode only.
+- Keep desktop-only as the default mental model.
 - Keep the browser away from provider APIs and raw provider secrets. LLM access stays in backend-owned handlers.
 - Keep the artifact store staged. Mutations to `specflow/` must prepare output in a temp attempt directory, validate, atomically commit, and then refresh in-memory maps.
-- Keep CLI mutating commands on the prefer-server path. If `/api/runtime/status` is reachable but the capability or protocol check fails, mutating commands fail closed.
 - Keep workflow rules centralized in `packages/app/src/planner/workflow-contract.ts` and execution gating centralized in `packages/app/src/planner/execution-gates.ts`.
-- Keep desktop streaming request-scoped through the Tauri bridge and legacy web streaming through SSE where supported.
+- Keep desktop streaming request-scoped through the Tauri bridge.
 - Keep reconnection snapshot-based. Do not implement event replay buffers.
 
 ## TypeScript and shared-contract rules
@@ -192,7 +185,7 @@ Copy and naming rules:
 
 ## Validation, security, and secrets
 
-All server-side validation lives in `packages/app/src/server/validation.ts`. Reuse the shared helpers:
+All server-side validation lives in `packages/app/src/validation.ts`. Reuse the shared helpers:
 
 - `isValidEntityId(id)`
 - `isContainedPath(root, target)`
@@ -211,9 +204,7 @@ Security rules:
 
 - Backend tests live in `packages/app/test`.
 - Client tests live under `packages/client/src/**/*.test.tsx`.
-- Browser end-to-end coverage lives in `e2e/workflow.spec.ts`.
 - Before finishing normal development work, run `npm run check && npm test`.
-- Run `npm run test:e2e` when a change affects project workflow handoffs, review-back flows, or other multi-step browser journeys.
 - Add or adjust tests when behavior changes in routes, planner or verifier logic, diff behavior, bundle generation, artifact-store semantics, or meaningful client UI state.
 - Do not mock behavior that can be tested directly.
 - Do not write tests that only assert that a mock was called.

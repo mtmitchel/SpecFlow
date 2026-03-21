@@ -1,6 +1,7 @@
 import type { ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { openExternalUrl } from "../../api/transport";
 
 function slugify(text: string): string {
   return text
@@ -30,6 +31,35 @@ function HeadingWithId(
 const headingComponents = {
   h2: (props: ComponentPropsWithoutRef<"h2">) => HeadingWithId("h2", props),
   h3: (props: ComponentPropsWithoutRef<"h3">) => HeadingWithId("h3", props),
+  a: ({
+    href,
+    children,
+    ...props
+  }: ComponentPropsWithoutRef<"a">) => {
+    if (!isSafeMarkdownHref(href)) {
+      return <span {...props}>{children}</span>;
+    }
+
+    const external = isExternalMarkdownHref(href);
+    return (
+      <a
+        {...props}
+        href={href}
+        rel={external ? "noreferrer noopener" : undefined}
+        target={external ? "_blank" : undefined}
+        onClick={(event) => {
+          if (!external || !href) {
+            return;
+          }
+
+          event.preventDefault();
+          void openExternalUrl(href);
+        }}
+      >
+        {children}
+      </a>
+    );
+  },
 };
 
 export const MarkdownView = ({ content }: { content: string }) => (
@@ -41,3 +71,27 @@ export const MarkdownView = ({ content }: { content: string }) => (
 );
 
 export { slugify as slugifyHeading };
+
+const isSafeMarkdownHref = (href?: string): href is string => {
+  if (typeof href !== "string") {
+    return false;
+  }
+
+  const normalized = href.trim();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.startsWith("#") ||
+    normalized.startsWith("/") ||
+    normalized.startsWith("./") ||
+    normalized.startsWith("../") ||
+    normalized.startsWith("https://") ||
+    normalized.startsWith("http://") ||
+    normalized.startsWith("mailto:")
+  );
+};
+
+const isExternalMarkdownHref = (href: string): boolean =>
+  href.startsWith("https://") || href.startsWith("http://") || href.startsWith("mailto:");

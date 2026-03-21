@@ -1,4 +1,4 @@
-import { isValidGitHubOwner, isValidGitHubRepo } from "../../server/validation.js";
+import { isValidGitHubOwner, isValidGitHubRepo } from "../../validation.js";
 import type { SpecFlowRuntime } from "../types.js";
 import { badRequest, notFound, upstreamFailure } from "../errors.js";
 import { structuredPlannerError } from "./shared.js";

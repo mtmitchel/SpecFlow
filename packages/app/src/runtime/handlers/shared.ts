@@ -1,4 +1,3 @@
-import type { FastifyReply } from "fastify";
 import type { Initiative, PlanningReviewKind, Ticket } from "../../types/entities.js";
 import type { SpecFlowRuntime } from "../types.js";
 import {
@@ -10,7 +9,7 @@ import {
 import { getTicketExecutionGate } from "../../planner/execution-gates.js";
 import type { InitiativePlanningStep } from "../../types/entities.js";
 import { PLANNING_STEP_LABELS, REVIEW_KINDS } from "../../planner/workflow-contract.js";
-import { isValidEntityId } from "../../server/validation.js";
+import { isValidEntityId } from "../../validation.js";
 
 export const stepLabel = (step: InitiativePlanningStep): string => PLANNING_STEP_LABELS[step];
 
@@ -95,8 +94,4 @@ export const structuredVerifierError = (
     statusCode: structured.statusCode,
     response: structured
   });
-};
-
-export const sendHandlerError = async (reply: FastifyReply, error: HandlerError): Promise<void> => {
-  await reply.code(error.shape.statusCode).send(error.shape.response);
 };

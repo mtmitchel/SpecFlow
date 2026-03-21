@@ -2,14 +2,8 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import process from "node:process";
-import { createSpecFlowServer } from "../../server/create-server.js";
-import { openBrowser } from "../../server/open-browser.js";
 
 interface UiCommandOptions {
-  host: string;
-  port: number;
-  noOpen: boolean;
-  legacyWeb: boolean;
   desktopBinary?: string;
 }
 
@@ -63,46 +57,13 @@ const launchDesktop = async (rootDir: string, explicit?: string): Promise<boolea
 
 export const runUiCommand = async (options: UiCommandOptions): Promise<void> => {
   const rootDir = process.cwd();
-
-  if (!options.legacyWeb) {
-    const launched = await launchDesktop(rootDir, options.desktopBinary);
-    if (launched) {
-      return;
-    }
-
-    process.stderr.write(
-      "SpecFlow desktop binary was not found. Falling back to the legacy Fastify + browser runtime.\n"
-    );
+  const launched = await launchDesktop(rootDir, options.desktopBinary);
+  if (launched) {
+    return;
   }
 
-  const server = await createSpecFlowServer({
-    rootDir,
-    host: options.host,
-    port: options.port
-  });
-
-  const url = await server.start();
-  process.stdout.write(`SpecFlow UI running at ${url}\n`);
-
-  if (!options.noOpen) {
-    try {
-      await openBrowser(url);
-    } catch (error) {
-      process.stderr.write(`Failed to open browser automatically: ${(error as Error).message}\n`);
-    }
-  }
-
-  const shutdown = async (signal: string): Promise<void> => {
-    process.stdout.write(`Received ${signal}, shutting down...\n`);
-    await server.close();
-    process.exit(0);
-  };
-
-  process.once("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-
-  process.once("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
+  throw new Error(
+    "SpecFlow desktop binary was not found. " +
+    "Run the desktop app through `npm run tauri dev` or build it with `npm run package:desktop`."
+  );
 };

@@ -1,5 +1,5 @@
 import type { AgentTarget, Run, RunAttemptDetail, RunDetail, RunDiffPayload, RunListItem } from "../types";
-import { parse } from "./http";
+import { ApiError } from "./http";
 import { transportJsonRequest, transportRequest } from "./transport";
 
 export const fetchRunState = async (
@@ -15,8 +15,7 @@ export const fetchRunState = async (
 }> => {
   return transportJsonRequest(
     "runs.state",
-    { id: runId },
-    { url: `/api/runs/${runId}/state` }
+    { id: runId }
   );
 };
 
@@ -37,7 +36,6 @@ export const fetchRunProgress = async (
   return transportJsonRequest(
     "runs.progress",
     { id: runId },
-    { url: `/api/runs/${runId}/progress` },
     undefined,
     options
   );
@@ -46,18 +44,15 @@ export const fetchRunProgress = async (
 export const fetchOperationStatus = async (
   operationId: string
 ): Promise<{ state: "prepared" | "committed" | "abandoned" | "superseded" | "failed" } | null> => {
-  return transportRequest(
-    "operations.status",
-    { id: operationId },
-    async () => {
-      const response = await fetch(`/api/operations/${operationId}`);
-      if (response.status === 404) {
-        return null;
-      }
-
-      return parse<{ state: "prepared" | "committed" | "abandoned" | "superseded" | "failed" }>(response);
+  try {
+    return await transportRequest("operations.status", { id: operationId });
+  } catch (error) {
+    if (error instanceof ApiError && error.statusCode === 404) {
+      return null;
     }
-  );
+
+    throw error;
+  }
 };
 
 export const fetchRuns = async (filters: {
@@ -67,32 +62,9 @@ export const fetchRuns = async (filters: {
   dateFrom?: string;
   dateTo?: string;
 } = {}): Promise<RunListItem[]> => {
-  const params = new URLSearchParams();
-  if (filters.ticketId) {
-    params.set("ticketId", filters.ticketId);
-  }
-
-  if (filters.agent) {
-    params.set("agent", filters.agent);
-  }
-
-  if (filters.status) {
-    params.set("status", filters.status);
-  }
-
-  if (filters.dateFrom) {
-    params.set("dateFrom", filters.dateFrom);
-  }
-
-  if (filters.dateTo) {
-    params.set("dateTo", filters.dateTo);
-  }
-
-  const query = params.toString();
   const payload = await transportJsonRequest<{ runs: RunListItem[] }>(
     "runs.list",
-    filters,
-    { url: query ? `/api/runs?${query}` : "/api/runs" }
+    filters
   );
   return payload.runs;
 };
@@ -101,7 +73,6 @@ export const fetchRunDetail = async (runId: string, options?: { signal?: AbortSi
   return transportJsonRequest(
     "runs.detail",
     { id: runId },
-    { url: `/api/runs/${runId}` },
     undefined,
     options
   );
@@ -115,7 +86,6 @@ export const fetchRunAttemptDetail = async (
   const payload = await transportJsonRequest<{ attempt: RunAttemptDetail }>(
     "runs.attemptDetail",
     { runId, attemptId },
-    { url: `/api/runs/${runId}/attempts/${attemptId}` },
     undefined,
     options
   );
@@ -131,7 +101,6 @@ export const fetchRunDiff = async (
   return transportJsonRequest(
     "runs.diff",
     { runId, attemptId, kind },
-    { url: `/api/runs/${runId}/attempts/${attemptId}/diff?kind=${kind}` },
     undefined,
     options
   );
@@ -140,8 +109,7 @@ export const fetchRunDiff = async (
 export const fetchBundleText = async (runId: string, attemptId: string): Promise<string> => {
   const payload = await transportJsonRequest<{ content: string }>(
     "runs.bundleText",
-    { runId, attemptId },
-    { url: `/api/runs/${runId}/attempts/${attemptId}/bundle-text` }
+    { runId, attemptId }
   );
   return payload.content;
 };

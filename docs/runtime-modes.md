@@ -1,9 +1,8 @@
 # Runtime Modes - SpecFlow
 
-SpecFlow now has two runtime modes:
+SpecFlow now has one supported app runtime:
 
 - `desktop-first`: the active development and normal usage path
-- `legacy web`: the retained fallback path for compatibility and browser-based testing
 
 Related docs:
 
@@ -66,7 +65,7 @@ For a local launch outside the Tauri dev loop:
 npm run ui
 ```
 
-`specflow ui` runs the CLI from source. It looks for an existing packaged desktop binary and launches it. If no desktop binary is available, it falls back to legacy web mode with a deprecation warning.
+`specflow ui` runs the CLI from source and looks for an existing packaged desktop binary to launch. If no desktop binary is available, it fails closed instead of switching runtimes under the same command.
 
 Important:
 
@@ -74,25 +73,9 @@ Important:
 - If you have changed sidecar JSON-RPC methods or desktop transport behavior in source, use `npm run tauri dev` or rebuild the desktop app first.
 - Otherwise you can end up with a newer UI talking to an older packaged sidecar, which surfaces as unsupported sidecar-method errors.
 
-## Legacy Web Mode
-
-Use this only when you explicitly need the old Fastify + browser runtime:
-
-```bash
-npm run dev:web
-npm run ui:web
-```
-
-Behavior:
-
-- `npm run dev:web` starts the watched app server plus the Vite dev server
-- `npm run ui:web` runs the legacy Fastify + browser runtime from source without an upfront package build
-- Legacy web mode still uses `/api` HTTP routes and SSE
-- This mode is retained for fallback behavior, compatibility, and browser-focused testing
-
 ## CLI Behavior
 
-The CLI remains available in both runtime modes:
+The CLI remains available alongside the desktop runtime:
 
 ```bash
 tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli
@@ -102,13 +85,31 @@ tsx packages/app/src/cli.ts verify --ticket <ticket-id>
 Rules:
 
 - `export-bundle` and `verify` remain headless CLI commands
-- They preserve the prefer-server delegation model when a compatible Fastify runtime is already running
-- If no compatible server is reachable, they execute locally in-process
+- They execute locally in-process against the same store, bundle, and verifier services that the sidecar uses
+- `--operation-id` still controls idempotent staged run operations across repeated local invocations
 
 ## Transport Summary
 
-- Desktop mode: React -> Tauri bridge -> Node sidecar
-- Legacy web mode: React -> Fastify HTTP/SSE -> shared runtime handlers
-- Both modes use the same planner, verifier, bundle, store, config, and import logic in `packages/app`
+- React -> Tauri bridge -> Node sidecar
+- The runtime uses the same planner, verifier, bundle, store, config, and import logic in `packages/app`
+
+## Local release hardening
+
+Before shipping a local desktop build, run:
+
+```bash
+npm ci
+npm run check
+npm test
+cargo check --manifest-path packages/tauri/src-tauri/Cargo.toml --locked
+cargo test --manifest-path packages/tauri/src-tauri/Cargo.toml --locked
+npm run -w @specflow/tauri build -- --locked
+```
+
+Current release posture:
+
+- desktop builds are unsigned
+- there is no built-in updater configured
+- lockfiles are required for local release validation
 
 For deeper implementation details, continue with [`architecture.md`](architecture.md).

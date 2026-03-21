@@ -5,7 +5,7 @@ SpecFlow has four named workflows. Each is a distinct user journey with a clear 
 Related docs:
 
 - For setup and command entry points, see [`../README.md`](../README.md)
-- For desktop-first versus legacy web runtime behavior, see [`runtime-modes.md`](runtime-modes.md)
+- For desktop runtime behavior, see [`runtime-modes.md`](runtime-modes.md)
 - For implementation architecture behind these flows, see [`architecture.md`](architecture.md)
 - For canonical product and UI wording, see [`product-language-spec.md`](product-language-spec.md)
 
@@ -54,7 +54,7 @@ Related docs:
 1. User opens a ticket from a project, the Home queue, or the expanded left sidebar. From the project Tickets board, clicking a ticket opens the ticket workspace directly. The ticket view should read as one guided task workspace: a persistent ticket-context panel on the left, one dominant workbench stage on the right, and deeper technical detail behind secondary disclosure.
 2. Manual ticket status is available both on the project Tickets board and in the ticket context panel. Users can change status at any time as a management action. Status changes do not bypass export or verification gating; unresolved blockers and Validation issues still block bundle export.
 3. In the ticket workspace, the first dominant stage is **Handoff**. The user chooses which agent should receive the handoff bundle: Claude Code, Codex CLI, OpenCode, or Generic, then clicks **Create bundle**. For project-linked tickets, unresolved Validation blockers still block export until the user resolves or overrides them in the project view.
-4. The bundle is generated and the ticket moves to **In progress**. The user can copy the bundle immediately. Desktop mode also offers a native **Save ZIP bundle** action, while legacy web mode keeps the ZIP download path. Raw bundle preview and Markdown download stay behind **Bundle tools**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
+4. The bundle is generated and the ticket moves to **In progress**. The user can copy the bundle immediately. The desktop app also offers a native **Save ZIP bundle** action. Raw bundle preview and Markdown download stay behind **Bundle tools**. If no git repo is detected, the export step captures an initial file snapshot at the selected scope as the baseline.
 5. User runs the agent manually in their terminal (outside SpecFlow). SpecFlow waits in a minimal handoff-complete state.
 6. When returned work is detected, SpecFlow moves into **Verification** automatically and runs the ticket check without a separate manual review step.
 7. The default **Verification** surface stays verdict-first. It shows the overall verdict, changed-file count, unexpected-change count, and one primary decision. Detailed file inspection lives behind **Review changes** instead of on the main ticket page.

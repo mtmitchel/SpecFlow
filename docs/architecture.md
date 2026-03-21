@@ -3,7 +3,7 @@
 Related docs:
 
 - For setup and top-level command entry points, see [`../README.md`](../README.md)
-- For desktop-first versus legacy web runtime behavior, see [`runtime-modes.md`](runtime-modes.md)
+- For desktop runtime behavior, see [`runtime-modes.md`](runtime-modes.md)
 - For user workflow expectations and state transitions, see [`workflows.md`](workflows.md)
 - For canonical UI terminology, see [`product-language-spec.md`](product-language-spec.md)
 
@@ -13,13 +13,11 @@ Three packages share a single npm workspace root:
 
 | Package | Contents | Runtime |
 |---|---|---|
-| `packages/app` | Node business logic, CLI entry points, Fastify fallback server, sidecar runtime | Node.js |
+| `packages/app` | Node business logic, CLI entry points, shared runtime handlers, and the persistent sidecar runtime | Node.js |
 | `packages/client` | React + Vite SPA | Browser / Tauri webview |
 | `packages/tauri` | Tauri v2 desktop shell and Rust bridge | Rust + Tauri |
 
-Desktop is the primary runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell without a separate upfront build step; the desktop bridge waits for a fresh settled backend build under `packages/app/dist` before spawning the sidecar and hot-swaps to a fresh sidecar generation before the next request after a backend rebuild. In desktop mode, the UI does not talk to Fastify and normal usage does not bind an HTTP port.
-
-Legacy Fastify + browser mode is still supported for fallback and compatibility. `npm run dev:web` starts the watched app server on `127.0.0.1:3142` plus the Vite client with `/api` proxying, and `specflow ui --legacy-web` runs the Fastify + browser runtime from source.
+Desktop is the only supported runtime. `npm run tauri dev` is the explicit desktop development command, and `npm run dev` is an alias for it. The Tauri dev stack runs the app watcher, the Vite client dev server on `127.0.0.1:5173`, and the Tauri shell without a separate upfront build step; the desktop bridge waits for a fresh settled backend build under `packages/app/dist` before spawning the sidecar and hot-swaps to a fresh sidecar generation before the next request after a backend rebuild. Normal usage does not bind an HTTP port.
 
 Shared TypeScript types (entity schemas, API contracts) live in `packages/app/src/types/` and are imported by both packages during development via path aliases.
 
@@ -33,11 +31,9 @@ The desktop runtime is split into three layers:
 2. The Tauri bridge in `packages/tauri`
 3. A persistent Node sidecar in `packages/app/src/sidecar.ts`
 
-The UI talks to Tauri through `invoke`, `Channel`, native dialog APIs, and Tauri events. Tauri spawns and manages the Node sidecar, keeps desktop dev attached to the freshest backend `dist` generation, forwards request/response traffic over line-delimited JSON, and forwards streamed sidecar notifications back to the webview.
+The UI talks to Tauri through `invoke`, `Channel`, and Tauri events. Native path approval and desktop save flows stay inside Rust commands instead of exposing raw filesystem paths through the webview. Tauri spawns and manages the Node sidecar, keeps desktop dev attached to the freshest backend `dist` generation, forwards request/response traffic over line-delimited JSON, and forwards streamed sidecar notifications back to the webview.
 
 The sidecar owns planning, verification, bundle export, store access, config updates, and GitHub issue import. Planner, verifier, bundle, store, and config logic remain in Node; Rust only owns desktop process management and transport bridging.
-
-Fastify remains as a fallback adapter over the same shared runtime handlers. Route modules are intentionally thin adapters that translate HTTP requests and SSE streams into transport-agnostic handler calls.
 
 The runtime owns one active **SpecFlow storage root**. The sidecar is launched with that root and the artifact store persists under that root's `specflow/` directory. Project records also persist a separate `projectRoot`, which points at the repo or folder that planning, bundle export, verification, and audit should inspect. Initiative-linked repo scans and diffs use that per-project root, while quick tasks still default to the active storage root when no project root is bound.
 
@@ -72,14 +68,9 @@ Staged-commit edge-case rules:
 
 ## CLI as Thin Wrapper
 
-`specflow ui` is desktop-first. It launches the desktop binary when available and only falls back to the legacy Fastify + browser runtime with a deprecation warning when the desktop runtime is unavailable or explicitly bypassed with `--legacy-web`.
+`specflow ui` is desktop-only. It launches the desktop binary when available and fails closed when the desktop runtime is unavailable.
 
-`specflow verify` and `specflow export-bundle` keep the existing **prefer-server** execution strategy:
-
-- If the server is running, the CLI delegates mutating operations to server APIs.
-- If the server is not running, the CLI executes locally in-process using the same service layer.
-
-The CLI probes `/api/runtime/status` and checks capability + protocol version before delegating. If the server is reachable but the check fails, mutating commands **fail closed** (no local fallback) to avoid split-brain writes. Delegated requests include an `operationId` idempotency key; if the CLI times out, it queries operation state before retrying.
+`specflow verify` and `specflow export-bundle` execute locally in-process against the same store, bundle, and verifier services that the sidecar uses. The CLI still accepts an `operationId` idempotency key so repeated local invocations can reuse the same staged run operation semantics.
 
 ---
 
@@ -87,14 +78,13 @@ The CLI probes `/api/runtime/status` and checks capability + protocol version be
 
 Core backend behavior is extracted into transport-agnostic runtime handlers under `packages/app/src/runtime/handlers/`. These handlers accept validated typed input plus optional progress and notification sinks, and they return plain typed results or structured handler errors.
 
-Two transports adapt those handlers:
+One transport adapts those handlers:
 
-- Fastify route modules for the legacy web runtime
 - The sidecar JSON-RPC dispatcher for the desktop runtime
 
 The shared sidecar contract uses correlated request/response envelopes plus request-scoped notifications. Mutating methods also trigger global artifact change notifications so the UI can refresh snapshot state after writes.
 
-The browser never calls provider APIs directly. In legacy web mode, AI operations stream through Fastify SSE adapters. In desktop mode, AI operations stream through request-scoped Tauri channels backed by sidecar notifications. The UI refresh model stays snapshot-based: on disconnect or completion, it fetches the latest committed state rather than attempting event replay.
+The browser never calls provider APIs directly. AI operations stream through request-scoped Tauri channels backed by sidecar notifications. The UI refresh model stays snapshot-based: on disconnect or completion, it fetches the latest committed state rather than attempting event replay.
 
 ---
 
@@ -112,7 +102,7 @@ For the user-facing version of these workflow rules, see [`workflows.md`](workfl
 
 `specflow export-bundle` writes a **directory bundle** to `specflow/runs/<run-id>/attempts/<attempt-id>/bundle/`. The board's Export Bundle panel calls an API endpoint that returns the same content as a **flattened clipboard string**. Both are generated by the same Bundle Generator service.
 
-Desktop mode replaces the legacy HTTP ZIP download anchor with a native save flow. The client asks the user for a destination path through the Tauri dialog plugin, then Tauri forwards a `runs.saveBundleZip` sidecar request that writes the ZIP to the chosen filesystem path without exposing a temporary HTTP download endpoint.
+Desktop mode replaces the legacy HTTP ZIP download anchor with a native save flow. The client asks Rust to open the save dialog, and Rust forwards a trusted `runs.saveBundleZip` sidecar request with the selected destination path without exposing that absolute path as a renderer-supplied parameter.
 
 Bundle contracts are versioned: every bundle includes a manifest with `bundleSchemaVersion`, `agentTarget`, and `exportMode` (standard vs quick-fix). Quick-fix exports include source linkage metadata (`sourceRunId`, `sourceFindingId`) for audit traceability. For project-linked tickets, `PROMPT.md` also surfaces the ticket's covered spec items before the acceptance criteria so the agent sees the originating requirement and flow context, not only the ticket summary. Coverage-gated project tickets cannot export until the shared execution-gate helper reports that the project's coverage review is resolved. Agent renderers are validated by golden tests against fixed fixtures.
 
@@ -450,13 +440,11 @@ graph TD
 
 | Component | Responsibility |
 |---|---|
-| **CLI entry (`src/cli.ts`)** | Parses `ui`, `export-bundle`, and `verify`; keeps `export-bundle` and `verify` on the prefer-server delegation path; launches desktop first for `ui` and falls back to legacy web only when needed |
-| **Shared runtime factory (`src/runtime/create-runtime.ts`)** | Composes `ArtifactStore`, planner, verifier, bundle generator, diff engine, and config/runtime dependencies once for sidecar or Fastify usage |
+| **CLI entry (`src/cli.ts`)** | Parses `ui`, `export-bundle`, and `verify`; launches desktop for `ui` and runs local bundle or verify operations against shared services |
+| **Shared runtime factory (`src/runtime/create-runtime.ts`)** | Composes `ArtifactStore`, planner, verifier, bundle generator, diff engine, and config/runtime dependencies once for the sidecar runtime |
 | **Runtime handlers (`src/runtime/handlers/*`)** | Transport-agnostic application operations grouped by domain; return plain typed results or structured handler errors |
 | **Sidecar dispatcher (`src/sidecar/dispatcher.ts`)** | Maps JSON-RPC method names to shared runtime handlers; emits request-scoped progress plus `artifacts.changed` notifications |
 | **Sidecar entrypoint (`src/sidecar.ts`)** | Long-lived line-delimited JSON process that powers desktop mode |
-| **Fastify server (`src/server/create-server.ts`)** | Legacy web composition root; mounts HTTP and SSE adapters over the shared runtime handlers |
-| **Route adapters (`src/server/routes/*`)** | Parse HTTP input, validate IDs/paths, set up legacy SSE where needed, and shape HTTP responses |
 | **Artifact store (`src/store/*`)** | In-memory read model plus staged-commit persistence layer for `specflow/` |
 | **Planner / verifier / bundle / audit modules** | Own planning workflow, verification semantics, bundle rendering, and drift-audit behavior without transport coupling |
 
@@ -465,8 +453,8 @@ graph TD
 | Component | Responsibility |
 |---|---|
 | **`App.tsx`** | Holds the top-level `ArtifactsSnapshot`, refreshes persisted state, and subscribes to desktop artifact-change events |
-| **Transport adapter (`src/api/transport.ts`)** | Switches between desktop transport (`invoke`, `Channel`, native dialogs, Tauri events) and legacy web transport (`fetch`, SSE, HTTP downloads) |
-| **API modules (`src/api/*`)** | Keep domain-level client APIs stable while routing them through the active transport |
+| **Transport adapter (`src/api/transport.ts`)** | Owns desktop transport (`invoke`, `Channel`, native dialogs, Tauri events) and desktop-safe error handling |
+| **API modules (`src/api/*`)** | Keep domain-level client APIs stable while routing them through the sidecar transport |
 | **Workspace shell + navigation** | Provide the collapsing/expanding left sidebar, command palette, and route-level workspace structure |
 | **Project / ticket / run views** | Render planning, execution, and verification flows using backend-owned workflow and verification state |
 | **Execution hooks** | Manage local UI concerns such as verification log display, capture preview debouncing, export workflow state, and error toasts |
@@ -499,19 +487,6 @@ The desktop runtime uses correlated JSON-RPC requests over stdin/stdout between 
 | `audit.*` | Drift audit execution and finding actions |
 | `import.*` | GitHub Issue import |
 
-### Legacy HTTP surface
-
-Legacy web mode retains the corresponding `/api/...` routes as adapters over the same runtime handlers. HTTP remains supported for:
-
-- browser fallback
-- jsdom/browser-oriented tests
-- existing CLI server delegation
-- explicit compatibility workflows such as legacy ZIP download
-
-Only legacy web mode uses Fastify-bound HTTP and SSE during normal interaction.
-
----
-
 ## End-to-End Request Trace: Desktop Verification
 
 ```mermaid
@@ -533,31 +508,12 @@ sequenceDiagram
     UI->>UI: refresh snapshot and render verification results
 ```
 
-## End-to-End Request Trace: Legacy Web Verification
-
-```mermaid
-sequenceDiagram
-    participant UI as React UI
-    participant Fastify as Fastify Route Adapter
-    participant Runtime as Shared Runtime Handler
-    participant Verify as Verifier Service
-    participant Store as Artifact Store
-
-    UI->>Fastify: POST /api/tickets/:id/capture-results
-    Fastify->>Runtime: tickets.captureResults handler
-    Runtime->>Verify: captureAndVerify(...)
-    Verify-->>Fastify: progress chunks + final result
-    Runtime->>Store: staged write of attempt artifacts
-    Fastify-->>UI: HTTP response
-    UI->>UI: optional SSE fallback refresh / snapshot refresh
-```
-
 ## End-to-End Request Trace: Bundle Export
 
 ```mermaid
 sequenceDiagram
     participant UI as React UI
-    participant Bridge as Tauri or Fastify Adapter
+    participant Bridge as Tauri Bridge
     participant Runtime as Shared Runtime Handler
     participant Bundle as Bundle Generator
     participant Store as Artifact Store
@@ -569,5 +525,5 @@ sequenceDiagram
     Bundle->>Store: staged write of bundle artifacts and manifests
     Runtime-->>Bridge: flatString + run/attempt metadata
     Bridge-->>UI: export result
-    UI->>UI: show flat bundle, copy action, and ZIP save/download action
+    UI->>UI: show flat bundle, copy action, and ZIP save action
 ```

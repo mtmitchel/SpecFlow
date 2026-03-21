@@ -4,7 +4,7 @@ import { Command } from "commander";
 import { runExportBundleCommand } from "./cli/commands/export-bundle-command.js";
 import { runUiCommand } from "./cli/commands/ui-command.js";
 import { runVerifyCommand } from "./cli/commands/verify-command.js";
-import { parseAgent, parseInteger, parseOutputFormat } from "./cli/parse.js";
+import { parseAgent, parseOutputFormat } from "./cli/parse.js";
 import type { AgentTarget, OutputFormat } from "./cli/types.js";
 
 const main = async (): Promise<void> => {
@@ -14,18 +14,10 @@ const main = async (): Promise<void> => {
 
   program
     .command("ui")
-    .description("Launch the SpecFlow desktop app, or fall back to the legacy web UI")
-    .option("--host <host>", "Host binding", "127.0.0.1")
-    .option("--port <port>", "Port binding", parseInteger, 3141)
-    .option("--no-open", "Do not open browser", false)
-    .option("--legacy-web", "Skip desktop launch and force the legacy Fastify + browser runtime", false)
+    .description("Launch the SpecFlow desktop app")
     .option("--desktop-binary <path>", "Explicit desktop binary override")
     .action((options) => {
       void runUiCommand(options as {
-        host: string;
-        port: number;
-        noOpen: boolean;
-        legacyWeb: boolean;
         desktopBinary?: string;
       });
     });
@@ -36,16 +28,12 @@ const main = async (): Promise<void> => {
     .requiredOption("--ticket <ticket>", "Ticket ID")
     .option("--agent <agent>", "Target agent", parseAgent, "codex-cli")
     .option("--format <format>", "Output format (text|json)", parseOutputFormat, "text")
-    .option("--server-url <serverUrl>", "Explicit server URL override")
-    .option("--timeout-ms <timeoutMs>", "Delegated request timeout in milliseconds", parseInteger, 10_000)
     .option("--operation-id <operationId>", "Idempotency key override")
     .action(async (options) => {
       await runExportBundleCommand(options as {
         ticket: string;
         agent: AgentTarget;
         format: OutputFormat;
-        serverUrl?: string;
-        timeoutMs: number;
         operationId?: string;
       });
     });
@@ -57,8 +45,6 @@ const main = async (): Promise<void> => {
     .option("--summary <summary>", "Agent summary text")
     .option("--widen <path...>", "Additional widened scope paths")
     .option("--format <format>", "Output format (text|json)", parseOutputFormat, "text")
-    .option("--server-url <serverUrl>", "Explicit server URL override")
-    .option("--timeout-ms <timeoutMs>", "Delegated request timeout in milliseconds", parseInteger, 10_000)
     .option("--operation-id <operationId>", "Idempotency key override")
     .action(async (options) => {
       await runVerifyCommand(options as {
@@ -66,8 +52,6 @@ const main = async (): Promise<void> => {
         summary?: string;
         widen?: string[];
         format: OutputFormat;
-        serverUrl?: string;
-        timeoutMs: number;
         operationId?: string;
       });
     });

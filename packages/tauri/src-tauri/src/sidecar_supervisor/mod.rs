@@ -23,8 +23,13 @@ use self::build::{
     available_dev_build_info, resolve_dev_build_root, resolve_dev_sidecar_path,
     wait_for_dev_build_info, DevBuildInfo,
 };
-use self::contract::{cancelled_error, closed_error, timeout_error, to_command_error};
-pub use self::contract::{DesktopRuntimeStatus, SidecarCommandError, SidecarRequest};
+use self::contract::{cancelled_error, closed_error, timeout_error};
+pub(crate) use self::contract::{bad_request, to_command_error};
+pub use self::contract::{
+    ApprovedPathSelection, DesktopRuntimeStatus, SavedBundleZip, SidecarCommandError,
+    SidecarRequest,
+};
+pub(crate) use self::methods::is_allowed_renderer_method;
 use self::methods::pending_request_ttl;
 use self::runtime::{RuntimeCloseReason, RuntimeGeneration, SidecarMessage};
 
@@ -38,9 +43,11 @@ pub struct SidecarSupervisor {
     workspace_root: PathBuf,
     active_runtime: Mutex<Option<Arc<RuntimeGeneration>>>,
     pending_requests: Mutex<HashMap<String, PendingRequest>>,
+    approved_project_roots: Mutex<HashMap<String, PathBuf>>,
     lifecycle_lock: Mutex<()>,
     idle_notify: Notify,
     next_generation: AtomicU64,
+    next_nonce: AtomicU64,
     restart_count: AtomicU64,
     restart_pending: AtomicBool,
 }
@@ -52,9 +59,11 @@ impl SidecarSupervisor {
             workspace_root,
             active_runtime: Mutex::new(None),
             pending_requests: Mutex::new(HashMap::new()),
+            approved_project_roots: Mutex::new(HashMap::new()),
             lifecycle_lock: Mutex::new(()),
             idle_notify: Notify::new(),
             next_generation: AtomicU64::new(1),
+            next_nonce: AtomicU64::new(1),
             restart_count: AtomicU64::new(0),
             restart_pending: AtomicBool::new(false),
         });
@@ -152,7 +161,7 @@ impl SidecarSupervisor {
         &self,
     ) -> Result<DesktopRuntimeStatus, SidecarCommandError> {
         let runtime = self.get_active_runtime().await;
-        let latest_build_info = self.latest_available_dev_build_info()?;
+        let _latest_build_info = self.latest_available_dev_build_info()?;
 
         Ok(DesktopRuntimeStatus {
             transport: "desktop",
@@ -167,10 +176,55 @@ impl SidecarSupervisor {
                     .as_ref()
                     .map(|info| info.fingerprint.clone())
             }),
-            latest_build_path: latest_build_info.map(|info| info.latest_path),
             restart_count: self.restart_count.load(Ordering::SeqCst),
             restart_pending: self.restart_pending.load(Ordering::SeqCst),
         })
+    }
+
+    pub async fn perform_trusted_request(
+        self: &Arc<Self>,
+        app: AppHandle,
+        request: SidecarRequest,
+    ) -> Result<Value, SidecarCommandError> {
+        self.handle_request(app, request, Channel::new(|_| Ok(()))).await
+    }
+
+    pub async fn approve_project_root(&self, path: PathBuf) -> ApprovedPathSelection {
+        let token = format!(
+            "project-root-{:016x}",
+            self.next_nonce.fetch_add(1, Ordering::SeqCst)
+        );
+        let display_path = path.display().to_string();
+        self.approved_project_roots
+            .lock()
+            .await
+            .insert(token.clone(), path);
+
+        ApprovedPathSelection {
+            token,
+            display_path,
+        }
+    }
+
+    pub async fn resolve_approved_project_root(
+        &self,
+        token: &str,
+    ) -> Result<String, SidecarCommandError> {
+        let approved_roots = self.approved_project_roots.lock().await;
+        let Some(path) = approved_roots.get(token) else {
+            return Err(bad_request(
+                "Choose the project folder again before starting the project.",
+            ));
+        };
+
+        Ok(path.display().to_string())
+    }
+
+    pub fn next_internal_request_id(&self, prefix: &str) -> String {
+        format!(
+            "{prefix}-{:016x}",
+            self.next_nonce.fetch_add(1, Ordering::SeqCst)
+        )
     }
 
     fn spawn_timeout_task(self: &Arc<Self>, request_id: String, method: String) {

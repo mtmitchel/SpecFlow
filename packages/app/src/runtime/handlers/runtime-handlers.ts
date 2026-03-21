@@ -1,6 +1,6 @@
 import type { SpecFlowRuntime } from "../types.js";
 import { redactConfig } from "../default-config.js";
-import { PROTOCOL_VERSION, SERVER_VERSION, runtimeCapabilities } from "../../server/runtime-status.js";
+import { PROTOCOL_VERSION, SERVER_VERSION, runtimeCapabilities } from "../../runtime-status.js";
 import { notFound } from "../errors.js";
 
 export const getRuntimeStatus = () => ({

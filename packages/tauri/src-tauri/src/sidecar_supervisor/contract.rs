@@ -17,6 +17,13 @@ pub struct SidecarCommandError {
     pub details: Option<Value>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApprovedPathSelection {
+    pub(crate) token: String,
+    pub(crate) display_path: String,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopRuntimeStatus {
@@ -24,9 +31,13 @@ pub struct DesktopRuntimeStatus {
     pub(crate) sidecar_pid: Option<u32>,
     pub(crate) runtime_generation: u64,
     pub(crate) build_fingerprint: Option<String>,
-    pub(crate) latest_build_path: Option<String>,
     pub(crate) restart_count: u64,
     pub(crate) restart_pending: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SavedBundleZip {
+    pub(crate) path: String,
 }
 
 pub(crate) fn closed_error() -> SidecarCommandError {
@@ -61,6 +72,15 @@ pub(crate) fn to_command_error(error: impl ToString) -> SidecarCommandError {
         code: "Desktop Bridge Error".into(),
         message: error.to_string(),
         status_code: 500,
+        details: None,
+    }
+}
+
+pub(crate) fn bad_request(message: impl Into<String>) -> SidecarCommandError {
+    SidecarCommandError {
+        code: "Bad Request".into(),
+        message: message.into(),
+        status_code: 400,
         details: None,
     }
 }

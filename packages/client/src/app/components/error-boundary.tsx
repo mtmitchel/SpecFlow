@@ -1,5 +1,6 @@
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
+import { sanitizeVisibleErrorMessage } from "../utils/safe-error";
 
 interface Props {
   children: ReactNode;
@@ -20,7 +21,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("[ErrorBoundary]", error, info.componentStack);
+    if (import.meta.env.DEV) {
+      console.error("[ErrorBoundary]", sanitizeVisibleErrorMessage(error.message), info.componentStack);
+    }
   }
 
   render(): ReactNode {
@@ -28,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="error-boundary">
           <h2>Something went wrong</h2>
-          <pre>{this.state.error.message}</pre>
+          <pre>{sanitizeVisibleErrorMessage(this.state.error.message)}</pre>
           <p className="error-boundary-hint">
             Try reloading the page. If the problem persists, check the terminal where SpecFlow is running.
           </p>

@@ -3,7 +3,7 @@ import {
   isValidFindingId,
   isValidGitHubOwner,
   isValidGitHubRepo,
-} from "../src/server/validation.js";
+} from "../src/validation.js";
 import { operationDir } from "../src/io/paths.js";
 
 describe("validation helpers", () => {

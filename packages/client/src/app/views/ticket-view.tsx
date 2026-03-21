@@ -460,7 +460,6 @@ export const TicketView = ({
                     handleToggleBundlePreview={exportWf.handleToggleBundlePreview}
                     handleDownloadBundle={exportWf.handleDownloadBundle}
                     handleSaveZipBundle={exportWf.handleSaveZipBundle}
-                    desktopRuntime={exportWf.desktopRuntime}
                     chrome="plain"
                     showIntro={false}
                     showCreateControls={false}
@@ -482,7 +481,6 @@ export const TicketView = ({
                     handleToggleBundlePreview={exportWf.handleToggleBundlePreview}
                     handleDownloadBundle={exportWf.handleDownloadBundle}
                     handleSaveZipBundle={exportWf.handleSaveZipBundle}
-                    desktopRuntime={exportWf.desktopRuntime}
                     chrome="plain"
                     showIntro={false}
                   />

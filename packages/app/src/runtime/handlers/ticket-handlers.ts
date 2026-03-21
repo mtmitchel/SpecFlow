@@ -1,7 +1,7 @@
 import type { AgentType } from "../../types/entities.js";
 import type { NotificationSink, SpecFlowRuntime } from "../types.js";
 import { badRequest } from "../errors.js";
-import { isValidFindingId } from "../../server/validation.js";
+import { isValidFindingId } from "../../validation.js";
 import { readTicket, requireCoverageReviewResolved, requireValidEntityId, structuredPlannerError, structuredVerifierError } from "./shared.js";
 import { resolveTicketProjectRoot } from "../../project-roots.js";
 

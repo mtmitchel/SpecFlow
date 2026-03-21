@@ -14,16 +14,14 @@ export const runAudit = async (
 ): Promise<AuditReport> => {
   return transportJsonRequest(
     "audit.run",
-    { runId, body: payload },
-    { url: `/api/runs/${runId}/audit`, method: "POST", body: payload }
+    { runId, body: payload }
   );
 };
 
 export const createTicketFromAuditFinding = async (runId: string, findingId: string): Promise<Ticket> => {
   const payload = await transportJsonRequest<{ ticket: Ticket }>(
     "audit.createTicket",
-    { runId, findingId },
-    { url: `/api/runs/${runId}/findings/${findingId}/create-ticket`, method: "POST" }
+    { runId, findingId }
   );
   return payload.ticket;
 };
@@ -31,8 +29,7 @@ export const createTicketFromAuditFinding = async (runId: string, findingId: str
 export const dismissAuditFinding = async (runId: string, findingId: string, note: string): Promise<void> => {
   await transportJsonRequest(
     "audit.dismiss",
-    { runId, findingId, note },
-    { url: `/api/runs/${runId}/findings/${findingId}/dismiss`, method: "POST", body: { note } }
+    { runId, findingId, note }
   );
 };
 
@@ -43,7 +40,6 @@ export const exportFixBundle = async (
 ): Promise<{ runId: string; attemptId: string; bundlePath: string }> => {
   return transportJsonRequest(
     "tickets.exportFixBundle",
-    { runId, findingId, body: { agent } },
-    { url: `/api/runs/${runId}/findings/${findingId}/export-fix-bundle`, method: "POST", body: { agent } }
+    { runId, findingId, body: { agent } }
   );
 };

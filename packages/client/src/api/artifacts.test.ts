@@ -28,7 +28,6 @@ describe("artifacts api", () => {
     expect(transportJsonRequestMock).toHaveBeenCalledWith(
       "artifacts.snapshot",
       {},
-      { url: "/api/artifacts" },
       undefined,
       {
         timeoutMs: 20_000,
@@ -53,7 +52,6 @@ describe("artifacts api", () => {
     expect(transportJsonRequestMock).toHaveBeenCalledWith(
       "specs.detail",
       { id: "spec-1" },
-      { url: "/api/specs/spec-1" },
       undefined,
       {
         timeoutMs: 20_000,

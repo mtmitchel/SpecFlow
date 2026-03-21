@@ -14,9 +14,11 @@ fn test_supervisor() -> Arc<SidecarSupervisor> {
         workspace_root: PathBuf::from("/tmp"),
         active_runtime: Mutex::new(None),
         pending_requests: Mutex::new(HashMap::new()),
+        approved_project_roots: Mutex::new(HashMap::new()),
         lifecycle_lock: Mutex::new(()),
         idle_notify: Notify::new(),
         next_generation: AtomicU64::new(1),
+        next_nonce: AtomicU64::new(1),
         restart_count: AtomicU64::new(0),
         restart_pending: AtomicBool::new(false),
     })
@@ -74,4 +76,20 @@ async fn wait_for_runtime_drain_returns_after_notify() {
         .wait_for_runtime_drain(&runtime, Duration::from_secs(1))
         .await
         .expect("runtime should drain");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn approved_project_roots_round_trip_through_tokens() {
+    let supervisor = test_supervisor();
+    let selection = supervisor
+        .approve_project_root(PathBuf::from("/tmp/specflow-project"))
+        .await;
+
+    let resolved = supervisor
+        .resolve_approved_project_root(&selection.token)
+        .await
+        .expect("approved path should resolve");
+
+    assert_eq!(resolved, "/tmp/specflow-project");
+    assert_eq!(selection.display_path, "/tmp/specflow-project");
 }

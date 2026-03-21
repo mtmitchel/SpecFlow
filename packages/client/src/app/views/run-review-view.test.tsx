@@ -17,7 +17,7 @@ const ticket: Ticket = {
   status: "verify",
   acceptanceCriteria: [{ id: "criterion-1", text: "Coverage review blocks execution." }],
   implementationPlan: "Add one shared gate helper.",
-  fileTargets: ["packages/app/src/server/routes/ticket-routes.ts"],
+  fileTargets: ["packages/app/src/runtime/handlers/ticket-handlers.ts"],
   coverageItemIds: ["coverage-brief-goals-1"],
   blockedBy: [],
   blocks: [],

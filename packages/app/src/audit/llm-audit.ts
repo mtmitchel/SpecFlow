@@ -1,6 +1,6 @@
-import type { LlmClient } from "../../llm/client.js";
-import { parseJsonEnvelope } from "../../planner/json-parser.js";
-import type { Ticket } from "../../types/entities.js";
+import type { LlmClient } from "../llm/client.js";
+import { parseJsonEnvelope } from "../planner/json-parser.js";
+import type { Ticket } from "../types/entities.js";
 import type { AuditCategory, AuditFinding } from "./types.js";
 
 interface LlmFinding {

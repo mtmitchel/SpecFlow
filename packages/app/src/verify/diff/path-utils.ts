@@ -1,5 +1,5 @@
 import path from "node:path";
-import { isValidGitRef } from "../../server/validation.js";
+import { isValidGitRef } from "../../validation.js";
 import type { DiffSourceSelection } from "./types.js";
 
 export const normalizeRelativePath = (rawPath: string): string | null => {

@@ -31,15 +31,6 @@ describe("initiatives api", () => {
           preferredSurface: null
         }
       },
-      {
-        url: "/api/initiatives/initiative-1/refinement/core-flows",
-        method: "PATCH",
-        body: {
-          answers: { scope: "notes" },
-          defaultAnswerQuestionIds: [],
-          preferredSurface: null
-        }
-      },
       undefined,
       {
         timeoutMs: 20_000,
@@ -58,11 +49,6 @@ describe("initiatives api", () => {
       {
         id: "initiative-1",
         type: "tech-spec",
-        body: { content: "# Tech spec" }
-      },
-      {
-        url: "/api/initiatives/initiative-1/specs/tech-spec",
-        method: "PUT",
         body: { content: "# Tech spec" }
       },
       undefined,

@@ -3,11 +3,5 @@
   "identifier": "default",
   "description": "Default desktop capability set for SpecFlow",
   "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "dialog:default",
-    "shell:allow-execute",
-    "shell:allow-spawn",
-    "shell:allow-stdin-write"
-  ]
+  "permissions": ["core:default"]
 }

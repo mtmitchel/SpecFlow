@@ -124,7 +124,7 @@ const ticket: Ticket = {
   status: "backlog",
   acceptanceCriteria: [{ id: "criterion-1", text: "Execution blocks until review passes." }],
   implementationPlan: "Add a shared execution-gate helper.",
-  fileTargets: ["packages/app/src/server/routes/ticket-routes.ts"],
+  fileTargets: ["packages/app/src/runtime/handlers/ticket-handlers.ts"],
   coverageItemIds: ["coverage-brief-goals-1", "coverage-prd-requirements-1"],
   blockedBy: [],
   blocks: [],

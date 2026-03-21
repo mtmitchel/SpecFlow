@@ -14,14 +14,14 @@ When in doubt, choose the smallest change that fully resolves the root cause and
 
 SpecFlow is a local-first, spec-driven development orchestrator for solo builders and small teams using AI coding agents. It turns raw intent into planning artifacts, ordered ticket breakdowns, and agent-ready bundles, then verifies that the agent's output satisfies the original plan.
 
-SpecFlow is now desktop-first. The primary runtime is a Tauri v2 desktop shell backed by a persistent Node sidecar. A legacy Fastify + browser runtime remains available only as an explicit fallback and compatibility path.
+SpecFlow is desktop-only. The primary runtime is a Tauri v2 desktop shell backed by a persistent Node sidecar.
 
 The repository is an npm workspace with three packages:
 
 | Package | Contents | Runtime |
 | --- | --- | --- |
-| `packages/app` | Node business logic, shared runtime handlers, CLI, sidecar, and legacy Fastify runtime | Node.js |
-| `packages/client` | React + Vite UI with desktop and legacy-web transport adapters | Browser / Tauri webview |
+| `packages/app` | Node business logic, shared runtime handlers, CLI, and sidecar runtime | Node.js |
+| `packages/client` | React + Vite UI with desktop transport adapters | Browser / Tauri webview |
 | `packages/tauri` | Tauri v2 desktop shell and Rust bridge | Rust + Tauri |
 
 Core runtime and docs live together in the workspace:
@@ -35,8 +35,8 @@ Core runtime and docs live together in the workspace:
 Before making changes, read the docs that match the area you are about to touch. The minimum startup order is:
 
 1. [`README.md`](README.md) for setup, commands, and runtime expectations
-2. [`docs/runtime-modes.md`](docs/runtime-modes.md) for desktop-first versus legacy web behavior
-3. [`docs/architecture.md`](docs/architecture.md) before changing sidecar, transport, CLI, Fastify, store, planner, verifier, or bundle behavior
+2. [`docs/runtime-modes.md`](docs/runtime-modes.md) for desktop runtime behavior
+3. [`docs/architecture.md`](docs/architecture.md) before changing sidecar, transport, CLI, store, planner, verifier, or bundle behavior
 4. [`docs/workflows.md`](docs/workflows.md) before changing planning, execution, verification, or audit UX/flow behavior
 
 Use [`docs/README.md`](docs/README.md) as the index for additional domain docs. If a change touches product language or review expectations, read the relevant file under `docs/` before editing code.
@@ -87,12 +87,8 @@ src/
     internal/       helpers: context, error-shaping, plan-job, review-job, spec-artifacts, ticket-factory, validators
   runtime/          transport-agnostic runtime factory, handler layer, shared sidecar contract
     handlers/       one file per domain: runtime, providers, initiatives, tickets, runs, audit, operations, import
-  server/           Fastify legacy web runtime
-    audit/          drift audit logic (findings, report-store, types)
-    routes/         one file per domain: import, initiative, operation, provider, run-query, run-audit, runtime, ticket
-    sse/            legacy SSE session management
-    validation.ts   security validators
-    zip/            legacy HTTP ZIP streaming
+  audit/            drift audit logic (findings, report-store, types)
+  validation.ts     security validators
   sidecar/          sidecar JSON-RPC dispatcher and runtime helpers
   store/            in-memory artifact store with staged commits
     internal/       helpers: artifact-writer, cleanup, fs-utils, loaders, operations, planning-artifact-validation, recovery, reload, spec-utils, watcher
@@ -107,7 +103,7 @@ src/
 
 ```text
 src/
-  api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, sse, tickets, transport
+  api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, tickets, transport
   styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, planning-shell, pipeline, planning-intake, planning-reviews, overview, ticket-execution, run-report)
   app/
     components/     shared UI: audit-panel, checkpoint-gate-banner, diff-viewer, markdown-view, model-combobox, phase-transition-banner, pipeline, workflow-section
@@ -145,12 +141,9 @@ npm install          # install all workspaces
 npm run setup:git-hooks
 npm run check        # type-check both packages (tsc --noEmit) and run the UI dedupe gate
 npm test             # run all Vitest suites (backend + client)
-npm run test:e2e     # run the Playwright browser workflow suite against the deterministic legacy-web harness
 npm run dev          # alias for the desktop-first Tauri dev loop
 npm run tauri dev    # explicit desktop-first dev loop
-npm run dev:web      # legacy Fastify + browser dev path
-npm run ui           # launch from source; uses an existing desktop binary if present, otherwise falls back to legacy web
-npm run ui:web       # start the legacy Fastify/browser runtime from source
+npm run ui           # launch from source; uses an existing desktop binary when present and otherwise fails closed
 npm run package:desktop  # explicit desktop packaging only; not part of development
 git status -sb       # quick working tree check
 ```
@@ -158,7 +151,6 @@ git status -sb       # quick working tree check
 Direct CLI examples during development:
 
 - `tsx packages/app/src/cli.ts ui --no-open`
-- `tsx packages/app/src/cli.ts ui --legacy-web --no-open`
 - `tsx packages/app/src/cli.ts export-bundle --ticket <ticket-id> --agent codex-cli`
 - `tsx packages/app/src/cli.ts verify --ticket <ticket-id>`
 
@@ -269,11 +261,7 @@ Never write directly to committed artifact paths. Never skip the temp-rename pat
 
 ### LLM calls go through the backend runtime
 
-The UI never calls provider APIs directly. Planner, Verifier, and Audit operations go through backend-owned handlers, reached either through the Tauri sidecar bridge in desktop mode or Fastify adapters in legacy web mode. Provider keys are read from `.env`. Do not pass API keys through client payloads.
-
-### CLI prefers server delegation
-
-The CLI probes `/api/runtime/status` before executing mutating commands. If the server is running, the CLI delegates to server APIs. If the server is reachable but the protocol check fails, mutating commands fail closed. Do not implement local fallback for protocol mismatches.
+The UI never calls provider APIs directly. Planner, Verifier, and Audit operations go through backend-owned handlers reached through the Tauri sidecar bridge. Provider keys are read from `.env`. Do not pass API keys through client payloads.
 
 ### Workflow contract and execution gates
 
@@ -281,13 +269,13 @@ Step order, review kinds, labels, and prerequisite review rules are defined in `
 
 ### Streaming and reconnection
 
-Desktop mode uses request-scoped sidecar notifications routed through the Tauri bridge. Legacy web mode still uses SSE where explicitly supported. Reconnection remains non-resumable with snapshot refresh: on disconnect, the client reconnects and fetches the latest persisted state instead of replaying buffered events. Do not implement event replay buffers.
+Desktop mode uses request-scoped sidecar notifications routed through the Tauri bridge. Reconnection remains non-resumable with snapshot refresh: on disconnect, the client refreshes persisted state instead of replaying buffered events. Do not implement event replay buffers.
 
 ## 10. Input Validation, Security, and Data Contracts
 
 ### Input validation
 
-All server-side input validation lives in `packages/app/src/server/validation.ts`. Use these helpers instead of ad-hoc checks:
+All server-side input validation lives in `packages/app/src/validation.ts`. Use these helpers instead of ad-hoc checks:
 
 - `isValidEntityId(id)` validates entity ID format (`prefix-{8 hex chars}`)
 - `isContainedPath(root, target)` prevents directory traversal
@@ -310,7 +298,7 @@ Never commit secrets or provider API keys.
 
 ### GitHub issue import
 
-`POST /api/import/github-issue` fetches a GitHub issue and feeds it through the triage pipeline. It reads `GITHUB_PERSONAL_ACCESS_TOKEN` or `GITHUB_TOKEN` from the environment at request time. No GitHub credentials are stored in the artifact store or returned in API responses.
+The `import.githubIssue` runtime action fetches a GitHub issue and feeds it through the triage pipeline. It reads `GITHUB_PERSONAL_ACCESS_TOKEN` or `GITHUB_TOKEN` from the environment at request time. No GitHub credentials are stored in the artifact store or returned in API responses.
 
 ### Ticket dependency fields
 
@@ -327,12 +315,9 @@ Backend tests use Vitest under `packages/app/test` and are split by domain:
 - `planner.test.ts`: spec generation, JSON parsing, job orchestration
 - `validation.test.ts`: input validation helpers, including entity IDs, path containment, git refs, and SSE event names
 - `verifier.test.ts`: verification pass/fail logic and drift flags
-- `server/audit-routes.test.ts`: drift audit endpoints
-- `server/initiative-routes.test.ts`: initiative CRUD and spec generation
-- `server/provider-routes.test.ts`: model discovery and provider configuration
-- `server/run-routes.test.ts`: run detail and bundle ZIP download
-- `server/runtime-status.test.ts`: server health and capability probes
-- `server/ticket-routes.test.ts`: ticket CRUD, export, capture, and SSE
+- `runtime-handler-shared.test.ts`: shared runtime validation and handler guardrails
+- `sidecar-dispatcher.test.ts`: sidecar request routing and notification behavior
+- `ui-command.test.ts`: desktop launch gating for the CLI
 
 Client tests use Vitest and React Testing Library under `packages/client/src/**/*.test.tsx`. Current high-value coverage includes:
 
@@ -342,8 +327,6 @@ Client tests use Vitest and React Testing Library under `packages/client/src/**/
 - `app/views/initiative/tickets-step-section.test.tsx`
 - `app/views/ticket-view.test.tsx`
 - `app/views/run-view.test.tsx`
-
-Browser end-to-end workflow coverage lives in `e2e/workflow.spec.ts` and runs through Playwright with a deterministic fake planner/verifier backend. Use `npm run test:e2e` when a change affects initiative workflow handoffs, planning review-back flows, or other multi-step browser journeys that unit tests do not cover well.
 
 Add or adjust tests when modifying server routes, verifier or diff logic, bundle generation, artifact store semantics, or client behavior with meaningful UI state. If behavior changes and tests do not exist, add them.
 

@@ -1,18 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { InitiativeCreator } from "./initiative-creator.js";
 
 const createInitiativeMock = vi.fn();
-const isDesktopRuntimeMock = vi.fn(() => false);
+const pickProjectRootMock = vi.fn();
 
 vi.mock("../../api/initiatives.js", () => ({
   createInitiative: (...args: unknown[]) => createInitiativeMock(...args)
 }));
 
 vi.mock("../../api/transport.js", () => ({
-  chooseDirectory: vi.fn(),
-  isDesktopRuntime: () => isDesktopRuntimeMock(),
+  pickProjectRoot: (...args: unknown[]) => pickProjectRootMock(...args),
 }));
 
 vi.mock("../context/toast.js", () => ({
@@ -25,7 +24,59 @@ const LocationEcho = () => {
 };
 
 describe("InitiativeCreator", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("uses the approved desktop project-root flow before starting the brief", async () => {
+    pickProjectRootMock.mockResolvedValueOnce({
+      token: "project-root-0000000000000001",
+      displayPath: "/home/mason/projects/desktop-app"
+    });
+    createInitiativeMock.mockResolvedValueOnce({ initiativeId: "initiative-12345678" });
+
+    render(
+      <MemoryRouter initialEntries={["/new-initiative"]}>
+        <Routes>
+          <Route
+            path="/new-initiative"
+            element={
+              <InitiativeCreator
+                onRefresh={vi.fn(async () => undefined)}
+                defaultBrowseRoot="/home/mason/projects"
+              />
+            }
+          />
+          <Route path="/initiative/:id" element={<LocationEcho />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose folder" }));
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Project folder" })).toHaveValue(
+        "/home/mason/projects/desktop-app"
+      );
+    });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Project idea" }), {
+      target: { value: "Plan a desktop app with local-first workflows and strict security." }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start brief intake" }));
+
+    await waitFor(() => {
+      expect(createInitiativeMock).toHaveBeenCalledWith(
+        "Plan a desktop app with local-first workflows and strict security.",
+        "project-root-0000000000000001"
+      );
+    });
+  });
+
   it("keeps creation inside the same planning spectrum and hands off to brief intake", async () => {
+    pickProjectRootMock.mockResolvedValueOnce({
+      token: "project-root-0000000000000002",
+      displayPath: "/home/mason/projects/note-app"
+    });
     createInitiativeMock.mockResolvedValueOnce({ initiativeId: "initiative-12345678" });
 
     render(
@@ -51,8 +102,11 @@ describe("InitiativeCreator", () => {
     expect(screen.getByText("Project folder")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start brief intake" })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Project folder" }), {
-      target: { value: "/home/mason/projects/note-app" }
+    fireEvent.click(screen.getByRole("button", { name: "Choose folder" }));
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Project folder" })).toHaveValue(
+        "/home/mason/projects/note-app"
+      );
     });
     fireEvent.change(screen.getByRole("textbox", { name: "Project idea" }), {
       target: { value: "Plan a Linux note app with fast capture and richer note editing." }
@@ -62,7 +116,7 @@ describe("InitiativeCreator", () => {
     await waitFor(() => {
       expect(createInitiativeMock).toHaveBeenCalledWith(
         "Plan a Linux note app with fast capture and richer note editing.",
-        "/home/mason/projects/note-app"
+        "project-root-0000000000000002"
       );
       expect(screen.getByText("?step=brief")).toBeInTheDocument();
     });

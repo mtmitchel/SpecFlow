@@ -1,11 +1,14 @@
 import type { AgentTarget, Ticket, TicketStatus } from "../types";
-import { chooseSavePath, isDesktopRuntime, transportJsonRequest, transportRequest, type TransportEvent } from "./transport";
+import {
+  saveDesktopBundleZip,
+  transportJsonRequest,
+  type TransportEvent
+} from "./transport";
 
 export const updateTicketStatus = async (ticketId: string, status: TicketStatus): Promise<Ticket> => {
   const payload = await transportJsonRequest<{ ticket: Ticket }>(
     "tickets.update",
-    { id: ticketId, body: { status } },
-    { url: `/api/tickets/${ticketId}`, method: "PATCH", body: { status } }
+    { id: ticketId, body: { status } }
   );
   return payload.ticket;
 };
@@ -26,8 +29,7 @@ export const triageQuickTask = async (
 > => {
   return transportJsonRequest(
     "tickets.create",
-    { body: { description } },
-    { url: "/api/tickets", method: "POST", body: { description } }
+    { body: { description } }
   );
 };
 
@@ -38,8 +40,7 @@ export const exportBundle = async (
 ): Promise<{ runId: string; attemptId: string; bundlePath: string }> => {
   return transportJsonRequest(
     "tickets.exportBundle",
-    { id: ticketId, body: { agent, exportMode } },
-    { url: `/api/tickets/${ticketId}/export-bundle`, method: "POST", body: { agent, exportMode } }
+    { id: ticketId, body: { agent, exportMode } }
   );
 };
 
@@ -70,15 +71,6 @@ export const captureResults = async (
         widenedScopePaths
       }
     },
-    {
-      url: `/api/tickets/${ticketId}/capture-results`,
-      method: "POST",
-      body: {
-        agentSummary,
-        scopePaths,
-        widenedScopePaths
-      }
-    },
     onEvent
   );
 };
@@ -99,8 +91,7 @@ export const capturePreview = async (
 }> => {
   return transportJsonRequest(
     "tickets.capturePreview",
-    { id: ticketId, body: payload },
-    { url: `/api/tickets/${ticketId}/capture-preview`, method: "POST", body: payload }
+    { id: ticketId, body: payload }
   );
 };
 
@@ -111,8 +102,7 @@ export const overrideDone = async (
 ): Promise<{ runId: string; attemptId: string }> => {
   return transportJsonRequest(
     "tickets.overrideDone",
-    { id: ticketId, body: { reason, overrideAccepted } },
-    { url: `/api/tickets/${ticketId}/override-done`, method: "POST", body: { reason, overrideAccepted } }
+    { id: ticketId, body: { reason, overrideAccepted } }
   );
 };
 
@@ -121,20 +111,5 @@ export const saveBundleZip = async (
   attemptId: string,
   defaultFilename: string
 ): Promise<string | null> => {
-  if (!isDesktopRuntime()) {
-    return null;
-  }
-
-  const destinationPath = await chooseSavePath(defaultFilename);
-  if (!destinationPath) {
-    return null;
-  }
-
-  const payload = await transportRequest<{ path: string }>(
-    "runs.saveBundleZip",
-    { runId, attemptId, destinationPath },
-    async () => ({ path: destinationPath })
-  );
-
-  return payload.path;
+  return saveDesktopBundleZip(runId, attemptId, defaultFilename);
 };

@@ -28,7 +28,6 @@ interface ExportSectionProps {
   handleToggleBundlePreview: () => Promise<void>;
   handleDownloadBundle: () => Promise<void>;
   handleSaveZipBundle: () => Promise<void>;
-  desktopRuntime: boolean;
   chrome?: "section" | "plain";
   showIntro?: boolean;
   showCreateControls?: boolean;
@@ -50,7 +49,6 @@ export const ExportSection = ({
   handleToggleBundlePreview,
   handleDownloadBundle,
   handleSaveZipBundle,
-  desktopRuntime,
   chrome = "section",
   showIntro = true,
   showCreateControls = true,
@@ -66,18 +64,9 @@ export const ExportSection = ({
       >
         {copyFeedback ? "Copied" : "Copy bundle"}
       </button>
-      {desktopRuntime ? (
-        <button type="button" className="inline-action" onClick={() => void handleSaveZipBundle()}>
-          Save ZIP bundle
-        </button>
-      ) : (
-        <a
-          href={`/api/runs/${exportResult.runId}/attempts/${exportResult.attemptId}/bundle.zip`}
-          className="inline-action"
-        >
-          Download ZIP bundle
-        </a>
-      )}
+      <button type="button" className="inline-action" onClick={() => void handleSaveZipBundle()}>
+        Save ZIP bundle
+      </button>
       <button type="button" className="inline-action" onClick={() => void handleToggleBundlePreview()}>
         {bundlePreviewOpen
           ? "Hide bundle"

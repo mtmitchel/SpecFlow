@@ -23,41 +23,12 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 describe("transportRequest", () => {
   afterEach(() => {
     vi.useRealTimers();
-    vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(isTauri).mockReturnValue(true);
     vi.mocked(invoke).mockReset();
-  });
-
-  it("times out web fallback requests with the configured error message", async () => {
-    vi.useFakeTimers();
-
-    const request = transportRequest(
-      "initiatives.phaseCheck",
-      { id: "initiative-1", step: "brief" },
-      (signal) =>
-        new Promise<never>((_, reject) => {
-          signal?.addEventListener(
-            "abort",
-            () => {
-              reject(signal.reason ?? new Error("Request cancelled"));
-            },
-            { once: true }
-          );
-        }),
-      undefined,
-      {
-        timeoutMs: 12_000,
-        timeoutMessage: "Checking the brief questions took too long. Try again."
-      }
-    );
-
-    const expectation = expect(request).rejects.toThrow("Checking the brief questions took too long. Try again.");
-    await vi.advanceTimersByTimeAsync(12_000);
-    await expectation;
   });
 
   it("times out desktop requests and cancels the sidecar call", async () => {
     vi.useFakeTimers();
-    vi.mocked(isTauri).mockReturnValue(true);
     vi.mocked(invoke).mockImplementation((command) => {
       if (command === "sidecar_cancel") {
         return Promise.resolve(undefined);
@@ -69,7 +40,6 @@ describe("transportRequest", () => {
     const request = transportRequest(
       "initiatives.phaseCheck",
       { id: "initiative-1", step: "brief" },
-      () => Promise.resolve({ decision: "ask" }),
       undefined,
       {
         timeoutMs: 12_000,
@@ -109,7 +79,6 @@ describe("transportRequest", () => {
       transportRequest(
         "initiatives.generatePlan",
         { id: "initiative-1" },
-        () => Promise.resolve({ phases: [], uncoveredCoverageItemIds: [] }),
       ),
     ).rejects.toEqual(
       expect.objectContaining<ApiError>({
