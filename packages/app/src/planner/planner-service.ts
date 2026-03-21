@@ -56,6 +56,7 @@ import {
   requireTicketCoverageArtifact
 } from "./internal/spec-artifacts.js";
 import { createTicketFromDraft, deriveInitiativeTitle } from "./internal/ticket-factory.js";
+import { normalizeInitiativeTitle } from "./internal/title-style.js";
 import {
   validateClarifyHelpResult,
   validatePhaseMarkdownResult,
@@ -79,6 +80,7 @@ import type {
   TriageInput,
   TriageResult
 } from "./types.js";
+import { resolveInitiativeProjectRoot } from "../project-roots.js";
 
 export interface PlannerServiceOptions {
   rootDir: string;
@@ -154,12 +156,13 @@ export class PlannerService {
     this.idGenerator = options.idGenerator ?? (() => randomUUID().slice(0, 8));
   }
 
-  public async createDraftInitiative(input: { description: string }): Promise<Initiative> {
+  public async createDraftInitiative(input: { description: string; projectRoot?: string }): Promise<Initiative> {
     const nowIso = this.now().toISOString();
     const initiative: Initiative = {
       id: `initiative-${this.idGenerator()}`,
       title: deriveInitiativeTitle(input.description),
       description: input.description,
+      projectRoot: input.projectRoot ?? this.rootDir,
       status: "draft",
       phases: [],
       specIds: [],
@@ -183,6 +186,7 @@ export class PlannerService {
     signal?: AbortSignal
   ): Promise<PhaseCheckResult> {
     const initiative = this.requireInitiative(input.initiativeId);
+    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
     const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
     const savedContext = getSavedContext(initiative, input.step);
     const repoContext =
@@ -195,7 +199,7 @@ export class PlannerService {
           savedContext
         })
       )
-        ? await scanRepo(this.rootDir).catch(() => undefined)
+        ? await scanRepo(projectRoot).catch(() => undefined)
         : undefined;
     const phaseCheckInput = buildPhaseCheckInput(
       initiative,
@@ -226,7 +230,8 @@ export class PlannerService {
                 REFINEMENT_JOB_BY_STEP[input.step],
                 nextPhaseCheckInput,
                 onToken,
-                signal
+                signal,
+                projectRoot
               )
           });
 
@@ -252,6 +257,7 @@ export class PlannerService {
     signal?: AbortSignal
   ): Promise<ClarifyHelpResult> {
     const initiative = this.requireInitiative(input.initiativeId);
+    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
     const question = Object.values(initiative.workflow.refinements)
       .flatMap((refinement) => refinement.questions)
       .find((item) => item.id === input.questionId);
@@ -268,7 +274,8 @@ export class PlannerService {
         note: input.note
       } satisfies ClarifyHelpInput,
       onToken,
-      signal
+      signal,
+      projectRoot
     );
 
     validateClarifyHelpResult(result);
@@ -367,6 +374,7 @@ export class PlannerService {
     signal?: AbortSignal
   ): Promise<PlanResult> {
     const initiative = this.requireInitiative(input.initiativeId);
+    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
     const brief = await requireSpecMarkdown(initiative.id, "brief", (specId) => this.store.readSpecMarkdown(specId));
     const coreFlows = await requireSpecMarkdown(initiative.id, "core-flows", (specId) => this.store.readSpecMarkdown(specId));
     const prd = await requireSpecMarkdown(initiative.id, "prd", (specId) => this.store.readSpecMarkdown(specId));
@@ -377,7 +385,7 @@ export class PlannerService {
         requireSpecUpdatedAt(currentInitiativeId, step, this.store.specs),
       ensureArtifactTrace: (currentInitiative, step) => this.ensureArtifactTrace(currentInitiative, step, signal)
     });
-    const repoContext = await scanRepo(this.rootDir).catch(() => undefined);
+    const repoContext = await scanRepo(projectRoot).catch(() => undefined);
 
     const planInput = {
       initiativeDescription: initiative.description,
@@ -391,9 +399,10 @@ export class PlannerService {
 
     const result = await resolveValidatedPlanResult({
       planInput,
-      executePlan: (nextPlanInput) => this.executePlannerJob<PlanResult>("plan", nextPlanInput, onToken, signal),
+      executePlan: (nextPlanInput) =>
+        this.executePlannerJob<PlanResult>("plan", nextPlanInput, onToken, signal, projectRoot),
       executePlanRepair: (nextPlanInput) =>
-        this.executePlannerJob<PlanResult>("plan-repair", nextPlanInput, onToken, signal),
+        this.executePlannerJob<PlanResult>("plan-repair", nextPlanInput, onToken, signal, projectRoot),
       validateResult: (nextResult) => {
         validatePlanResult(nextResult);
         validateCoverageMappings(nextResult, coverageInput.items);
@@ -501,8 +510,8 @@ export class PlannerService {
     if (normalizedDecision === "too-large") {
       const initiative = await this.createDraftInitiative({ description: input.description });
       const titledInitiative =
-        result.initiativeTitle?.trim() && result.initiativeTitle.trim() !== initiative.title
-          ? { ...initiative, title: result.initiativeTitle.trim(), updatedAt: nowIso }
+        result.initiativeTitle?.trim() && normalizeInitiativeTitle(result.initiativeTitle) !== initiative.title
+          ? { ...initiative, title: normalizeInitiativeTitle(result.initiativeTitle), updatedAt: nowIso }
           : initiative;
       if (titledInitiative !== initiative) {
         await this.store.upsertInitiative(titledInitiative);
@@ -549,10 +558,11 @@ export class PlannerService {
     signal?: AbortSignal
   ): Promise<GeneratedPhaseResult> {
     const initiative = this.requireInitiative(initiativeId);
+    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
     const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
     const repoContext =
       step === "tech-spec"
-        ? await scanRepo(this.rootDir).catch(() => undefined)
+        ? await scanRepo(projectRoot).catch(() => undefined)
         : undefined;
     const isInitialBriefDraft = step === "brief" && markdownByStep.brief.trim().length === 0;
     if (
@@ -569,10 +579,11 @@ export class PlannerService {
       job,
       buildSpecGenerationInput(initiative, step, markdownByStep, repoContext),
       onToken,
-      signal
+      signal,
+      projectRoot
     );
 
-    validatePhaseMarkdownResult(result);
+    validatePhaseMarkdownResult(result, { requireInitiativeTitle: step === "brief" });
     await persistPhaseMarkdownInternal({
       initiative,
       step,
@@ -638,6 +649,7 @@ export class PlannerService {
     onToken?: LlmTokenHandler,
     signal?: AbortSignal
   ): Promise<PlanningReviewArtifact> {
+    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
     const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
     const traceOutlines: ReviewRunInput["traceOutlines"] = {};
 
@@ -665,7 +677,8 @@ export class PlannerService {
         tickets: pendingPlan.phases.flatMap((phase) => phase.tickets)
       },
       onToken,
-      signal
+      signal,
+      projectRoot
     );
 
     validateReviewRunResult(result);
@@ -694,6 +707,7 @@ export class PlannerService {
     onToken?: LlmTokenHandler,
     signal?: AbortSignal
   ): Promise<PlanningReviewArtifact> {
+    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
     if (kind === "ticket-coverage-review") {
       const pendingPlan = this.store.pendingTicketPlans.get(`${initiative.id}:pending-ticket-plan`);
       if (pendingPlan) {
@@ -706,7 +720,8 @@ export class PlannerService {
       kind,
       nowIso: this.now().toISOString(),
       validateReviewRunResult,
-      executePlannerJob: (job, payload, reviewOnToken) => this.executePlannerJob(job, payload, reviewOnToken, signal),
+      executePlannerJob: (job, payload, reviewOnToken) =>
+        this.executePlannerJob(job, payload, reviewOnToken, signal, projectRoot),
       getArtifactMarkdownMap: (initiativeId) => getArtifactMarkdownMap(initiativeId, (specId) => this.store.readSpecMarkdown(specId)),
       ensureArtifactTrace: (currentInitiative, step) => this.ensureArtifactTrace(currentInitiative, step, signal),
       requireSpecUpdatedAt: (initiativeId, step) => requireSpecUpdatedAt(initiativeId, step, this.store.specs),
@@ -731,6 +746,7 @@ export class PlannerService {
     step: InitiativeArtifactStep,
     signal?: AbortSignal
   ) {
+    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
     return ensureArtifactTraceInternal({
       initiative,
       step,
@@ -742,11 +758,12 @@ export class PlannerService {
       buildSpecGenerationInput: (currentInitiative, refinementStep) =>
         Promise.all([
           getArtifactMarkdownMap(currentInitiative.id, (specId) => this.store.readSpecMarkdown(specId)),
-          refinementStep === "tech-spec" ? scanRepo(this.rootDir).catch(() => undefined) : Promise.resolve(undefined)
+          refinementStep === "tech-spec" ? scanRepo(projectRoot).catch(() => undefined) : Promise.resolve(undefined)
         ]).then(([markdownByStep, repoContext]) =>
           buildSpecGenerationInput(currentInitiative, refinementStep, markdownByStep, repoContext)
         ),
-      executePlannerJob: (job, payload, plannerOnToken) => this.executePlannerJob(job, payload, plannerOnToken, signal),
+      executePlannerJob: (job, payload, plannerOnToken) =>
+        this.executePlannerJob(job, payload, plannerOnToken, signal, projectRoot),
       upsertArtifactTrace: (trace) => this.store.upsertArtifactTrace(trace)
     });
   }
@@ -755,10 +772,11 @@ export class PlannerService {
     job: PlannerJob,
     input: ClarifyHelpInput | PhaseCheckInput | ReviewRunInput | SpecGenInput | PlanInput | TriageInput,
     onToken?: LlmTokenHandler,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    projectRoot = this.rootDir
   ): Promise<T> {
     const config = await getResolvedPlannerConfig(this.store, this.fetchImpl);
-    const agentsMd = await loadPlannerAgentsMd(this.rootDir, config.repoInstructionFile);
+    const agentsMd = await loadPlannerAgentsMd(projectRoot, config.repoInstructionFile);
 
     return executePlannerJobInternal<T>({
       llmClient: this.llmClient,

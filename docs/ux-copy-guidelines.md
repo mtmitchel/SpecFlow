@@ -41,13 +41,20 @@ Good UX copy should:
 ## SpecFlow-specific alignment
 
 - Keep the dominant mental model as `guided planning workspace`.
-- Follow [`product-language-spec.md`](product-language-spec.md) for canonical terms such as `Project`, `Brief intake`, `Validation`, `Verify work`, `Run`, `Up next`, and `Needs review`.
+- Follow [`product-language-spec.md`](product-language-spec.md) for canonical terms such as `Project`, `Brief intake`, `Validation`, `Verification`, `Run`, `Up next`, and `Needs attention`.
 - Do not leak implementation language like `workflow state`, `operation`, `bundle manifest`, or `phase check` into default UI copy unless technical precision is necessary.
 - Keep planning copy grounded in the user’s current step. Do not make the UI sound like a planner console or document archive.
 
 ## Style rules
 
 - Use sentence case for headers, section titles, list titles, modal titles, table headers, buttons, labels, badges, status labels, menu and group headings, and toasts.
+- Sentence case means: capitalize the first word, proper nouns, approved acronyms, and the first word after a colon. Lowercase the rest.
+- Examples:
+  - `Local notes`
+  - `Project setup`
+  - `Import GitHub issues`
+  - `PRD review: Failure paths`
+- Avoid title case such as `Local Notes` or `Project Setup`.
 - Do not use all caps in UI text.
 - Do not force uppercase through CSS or code.
 - Keep abbreviations and canonical terms in their approved form, such as `PRD`, instead of inventing title-case or faux-sentence-case variants.
@@ -89,6 +96,7 @@ Good UX copy should:
 - Prefer labels like `Save changes`, `Create project`, or `Delete file`.
 - In the project planning shell, use `Back` and `Continue` for stage-navigation buttons above review and handoff cards. The pipeline already shows the step context, so labels like `Back to PRD` or `Continue to tech spec` are redundant there.
 - Keep explicit labels for non-navigation actions and for surfaces outside the planning shell, such as Home, empty states, queue actions, exports, and destructive actions.
+- Keep labels short and front-loaded. Prefer 2 to 4 words when the action remains clear.
 
 ### Empty states
 

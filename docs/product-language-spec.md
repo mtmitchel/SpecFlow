@@ -142,9 +142,11 @@ The ticket page should feel like a guided task workspace, not a system console.
 
 Rules:
 
-- Keep a compact hybrid anchor at the top: project context plus a local execution strip.
+- Keep a compact ticket header: project context and the return path to tickets.
+- Keep the ticket-context panel beside the active workbench stage on desktop.
 - Use one dominant current-step card at a time.
-- Keep the collapsed ticket brief human-first.
+- Use a simple progress strip for `Handoff` and `Verification`.
+- Keep the collapsed ticket brief human-first, with `Goal`, `Done means`, and `Main files` visible before any deeper detail.
 - Push raw implementation detail behind a secondary disclosure.
 
 ## Vocabulary
@@ -154,6 +156,7 @@ Rules:
 Use these terms consistently.
 
 - `Project`
+- `Project folder`
 - `Brief`
 - `PRD`
 - `Core flows`
@@ -164,11 +167,11 @@ Use these terms consistently.
 - `Review`
 - `Brief intake`
 - `Covered spec items`
+- `Handoff`
 - `Verification`
-- `Needs review`
+- `Needs attention`
 - `Up next`
 - `Done`
-- `Close ticket`
 
 ### Terms to avoid in default UI copy
 
@@ -201,7 +204,7 @@ Avoid these unless the context is explicitly technical or advanced.
 - `Ticket coverage review` -> `Validation`
 - `Regenerate` -> `Refresh`
 - `Run Audit` -> `Review changes`
-- `Capture Results` -> `Review changes` or `Verify work`
+- `Capture Results` -> `Review changes` or `Verification`
 - `Create fix bundle` -> `Export fix bundle`
 - `Context Bundle Contents` -> `Included files`
 
@@ -235,9 +238,9 @@ Do not expose raw workflow-state terms by default.
 Keep existing statuses where needed, but frame them around user meaning.
 
 - `Backlog`: Not started
-- `Ready`: Ready to work
+- `Up next`: Ready to work
 - `In progress`: Work in progress
-- `Verify`: Needs verification
+- `Needs attention`: Waiting for a verification outcome or final decision
 - `Done`: Complete
 
 For runs:
@@ -359,10 +362,10 @@ Avoid empty states that only state absence.
 
 #### Home
 
-- Title: `No work is in motion yet`
-- Body: `Start planning for multi-step work, use a quick task for something small, or import an issue.`
-- Primary action: `Start new project`
-- Secondary action: `Quick task`
+- First-run empty Home should use the same new-work chooser as `/new`, not a passive absence message.
+- Title: `Start something new`
+- Primary choices: `Project`, `Quick task`
+- Supporting copy should explain the difference between the two entry points instead of narrating that nothing exists yet.
 
 #### Project without a brief
 
@@ -574,7 +577,7 @@ Home queue items should use short status labels that point toward action, for ex
 
 - `Review brief`
 - `Generating tech spec`
-- `Verify ticket`
+- `Open ticket`
 - `Ready to run`
 
 Project cards should read like stable entry points into the project shell rather than like a second resume queue.
@@ -598,6 +601,15 @@ Examples:
 - concise, front-loaded phrasing
 - explicit action labels
 - no blame
+
+### Naming rules
+
+- Generated project names must be 2 to 3 words, descriptive, and written in sentence case.
+- Phase names must be short scan labels, ideally 1 to 4 words, and written in sentence case.
+- Ticket titles must be short task labels, ideally 2 to 6 words, and written in sentence case.
+- Section titles should stay short and literal. Prefer `Main files` over `Files included in this execution bundle`.
+- Capitalize only the first word, approved acronyms, proper nouns, and the first word after a colon.
+- Do not use title case such as `Project Setup` or `Import Github Issues`.
 
 ### Avoid
 

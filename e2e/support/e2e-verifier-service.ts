@@ -95,7 +95,7 @@ export class E2eVerifierService extends VerifierService {
     await this.storeRef.commitRunOperation({ runId: run.id, operationId });
     await this.storeRef.upsertTicket({
       ...ticket,
-      status: "done",
+      status: "verify",
       updatedAt: nowIso,
     });
 

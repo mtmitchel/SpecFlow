@@ -1,4 +1,4 @@
-# Prompt 4: Product Value & Spec Quality Review
+# Prompt 4: Product value and spec quality review
 
 You are reviewing the current repository checkout for SpecFlow.
 
@@ -209,7 +209,7 @@ The verifier checks a code diff against acceptance criteria. But the user is a n
 ### 6. Decision memory
 The product brief mentions "context collapse" as a core problem. But where are decisions stored? If the user decides "use SQLite, not Postgres" during a blocker-question phase, does that decision persist into later artifacts, reviews, and future ticket bundles for the same project? Or is it lost after one artifact is generated? Trace how saved refinement answers, assumptions, reviews, and trace outlines flow through the system.
 
-### 7. Onboarding & first experience
+### 7. Onboarding and first experience
 The user arrives at the board for the first time. Read `overview-panel.tsx`. Does the empty state guide them effectively? Is the Cmd+K palette discoverable enough for a non-technical user? Is the Groundwork flow self-explanatory, or does it assume the user already knows what "Brief", "Core flows", "PRD", and "Tech spec" mean?
 
 ### 8. Error recovery for non-developers

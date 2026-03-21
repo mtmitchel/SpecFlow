@@ -181,7 +181,7 @@ export const getPlanningReviewActionLabel = (
 
 const getInitiativeTicketActionLabel = (ticket: Ticket): string => {
   if (ticket.status === "verify") {
-    return "Verify ticket";
+    return "Open ticket";
   }
 
   if (ticket.status === "in-progress") {
@@ -212,7 +212,7 @@ export const getInitiativeQueueActionLabel = (
   }
 
   if (progress.currentKey === "verify") {
-    return "Verify ticket";
+    return "Open ticket";
   }
 
   if (progress.currentNodeState === "checkpoint") {

@@ -1,8 +1,6 @@
-import type { RunAttempt, VerificationResult } from "../../../types.js";
-import { captureResults } from "../../../api.js";
+import { Link } from "react-router-dom";
+import type { RunAttempt, TicketStatus, VerificationResult } from "../../../types.js";
 import { WorkflowSection } from "../../components/workflow-section.js";
-import { parseScopeCsv } from "../../utils/scope-paths.js";
-import { useToast } from "../../context/toast.js";
 import { OverridePanel } from "./override-panel.js";
 
 const HelpTip = ({ text }: { text: string }) => (
@@ -19,134 +17,190 @@ const formatSeverityLabel = (value?: string): string => {
 
 interface VerificationResultsSectionProps {
   ticketId: string;
+  runId: string | null;
+  ticketStatus: TicketStatus;
   verificationResult: VerificationResult;
   attempts: RunAttempt[];
-  fixForwardReady: boolean;
-  setFixForwardReady: (ready: boolean) => void;
   handleReExportWithFindings: (criteriaResults: VerificationResult["criteriaResults"]) => Promise<void>;
-  captureScopeInput: string;
-  widenedInput: string;
-  captureSummary: string;
-  setVerifyState: (state: "idle" | "running" | "reconnecting") => void;
-  setVerifyStreamEvents: (fn: (prev: string[]) => string[]) => void;
-  setVerificationResult: (result: VerificationResult | null) => void;
+  handleAccept: () => Promise<void>;
+  acceptPending: boolean;
   onRefresh: () => Promise<void>;
+  nextTicketId?: string | null;
   chrome?: "section" | "plain";
 }
 
 export const VerificationResultsSection = ({
   ticketId,
+  runId,
+  ticketStatus,
   verificationResult,
   attempts,
-  fixForwardReady,
-  setFixForwardReady,
   handleReExportWithFindings,
-  captureScopeInput,
-  widenedInput,
-  captureSummary,
-  setVerifyState,
-  setVerifyStreamEvents,
-  setVerificationResult,
+  handleAccept,
+  acceptPending,
   onRefresh,
+  nextTicketId = null,
   chrome = "section"
 }: VerificationResultsSectionProps) => {
-  const { showError } = useToast();
-
+  const failedCriteria = verificationResult.criteriaResults.filter((criterion) => !criterion.pass);
+  const passedCriteria = verificationResult.criteriaResults.filter((criterion) => criterion.pass);
   const primaryDrift = verificationResult.driftFlags.filter((flag) => flag.type !== "widened-scope-drift");
   const widenedDrift = verificationResult.driftFlags.filter((flag) => flag.type === "widened-scope-drift");
-
-  const handleReVerify = async () => {
-    setVerifyState("running");
-    setVerifyStreamEvents(() => []);
-    setFixForwardReady(false);
-    try {
-      const scopePaths = parseScopeCsv(captureScopeInput);
-      const widenedScopePaths = parseScopeCsv(widenedInput);
-      const result = await captureResults(ticketId, captureSummary, scopePaths, widenedScopePaths);
-      setVerificationResult(result);
-      await onRefresh();
-    } catch (err) {
-      showError((err as Error).message ?? "We couldn't verify the ticket again.");
-    } finally {
-      setVerifyState("idle");
-    }
-  };
+  const runHref = runId ? `/run/${runId}` : null;
+  const reviewHref = runId ? `/run/${runId}/review` : null;
+  const ticketAccepted = verificationResult.overallPass && ticketStatus === "done";
 
   const content = (
     <>
-      <p>
-        Result: {verificationResult.overallPass ? "Passed" : "Needs work"}
-        {attempts.length > 0 ? ` · Attempt ${attempts.length}` : ""}
-      </p>
-      <ul>
-        {verificationResult.criteriaResults.map((criterion) => (
-          <li key={criterion.criterionId}>
-            <span className={`severity-badge severity-${criterion.severity ?? "minor"}`}>
-              {formatSeverityLabel(criterion.severity)}
-            </span>
-            {" "}{criterion.criterionId} · {criterion.pass ? "passed" : "needs work"} · {criterion.evidence}
-            {!criterion.pass && criterion.remediationHint ? (
-              <div className="remediation-hint">{criterion.remediationHint}</div>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+      {verificationResult.overallPass ? (
+        <>
+          <div className="ticket-outcome-summary ticket-outcome-summary-pass">
+            <strong>{ticketAccepted ? "Ticket marked done." : "This run matches the plan."}</strong>
+            <p>
+              {ticketAccepted
+                ? `SpecFlow marked this ticket done after attempt ${attempts.length || 1}.`
+                : "SpecFlow found no blocking issues. Accept this run to close the ticket."}
+            </p>
+          </div>
+          <div className="button-row">
+            {ticketAccepted ? (
+              nextTicketId ? (
+                <Link to={`/ticket/${nextTicketId}`} className="btn-primary">
+                  Open next ticket
+                </Link>
+              ) : null
+            ) : (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => void handleAccept()}
+                disabled={acceptPending}
+              >
+                {acceptPending ? "Accepting..." : "Accept"}
+              </button>
+            )}
+            {runHref ? <Link to={runHref}>View run report</Link> : null}
+            {reviewHref ? <Link to={reviewHref}>Review changes</Link> : null}
+          </div>
+          <details className="ticket-secondary-disclosure">
+            <summary>Details</summary>
+            <div className="ticket-secondary-content">
+              <ul className="ticket-plan-list">
+                {verificationResult.criteriaResults.map((criterion) => (
+                  <li key={criterion.criterionId}>
+                    <span className={`severity-badge severity-${criterion.severity ?? "minor"}`}>
+                      {formatSeverityLabel(criterion.severity)}
+                    </span>
+                    {" "}{criterion.criterionId} · {criterion.evidence}
+                  </li>
+                ))}
+              </ul>
+              <h4>Other changes in the main files</h4>
+              <ul className="ticket-plan-list">
+                {primaryDrift.length === 0
+                  ? <li style={{ color: "var(--muted)" }}>None</li>
+                  : primaryDrift.map((flag) => (
+                    <li key={`${flag.type}-${flag.file}`}>
+                      {flag.severity ? (
+                        <span className={`severity-badge severity-${flag.severity}`}>{formatSeverityLabel(flag.severity)}</span>
+                      ) : null}
+                      {" "}{flag.type} · {flag.file} · {flag.description}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </details>
+        </>
+      ) : (
+        <>
+          <div className="ticket-outcome-summary ticket-outcome-summary-warn">
+            <strong>Verification found issues.</strong>
+            <p>
+              SpecFlow found must-have failures or unexpected changes. Export a fix bundle and rerun the agent.
+            </p>
+          </div>
 
-      <h4>Other changes in the main files</h4>
-      <ul>
-        {primaryDrift.length === 0
-          ? <li style={{ color: "var(--muted)" }}>None</li>
-          : primaryDrift.map((flag) => (
-            <li key={`${flag.type}-${flag.file}`}>
-              {flag.severity ? (
-                <span className={`severity-badge severity-${flag.severity}`}>{formatSeverityLabel(flag.severity)}</span>
-              ) : null}
-              {" "}{flag.type} · {flag.file} · {flag.description}
-            </li>
-          ))}
-      </ul>
-
-      <h4>
-        Also changed outside the main files
-        <HelpTip text="Files outside the main scope are checked for unexpected changes, but they are not scored against the acceptance criteria." />
-      </h4>
-      <ul>
-        {widenedDrift.length === 0
-          ? <li style={{ color: "var(--muted)" }}>None</li>
-          : widenedDrift.map((flag) => <li key={`${flag.type}-${flag.file}`}>{flag.file} · {flag.description}</li>)}
-      </ul>
-
-      {!verificationResult.overallPass ? (
-        <div>
-          <h4>Next pass</h4>
-          <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
-            Export a fix bundle with the failed criteria, then verify the ticket again after the next pass lands.
-          </p>
           <div className="button-row">
             <button
               type="button"
+              className="btn-primary"
               onClick={() => void handleReExportWithFindings(verificationResult.criteriaResults)}
             >
               Export fix bundle
             </button>
-            <button
-              type="button"
-              className={fixForwardReady ? "btn-primary" : ""}
-              disabled={!fixForwardReady}
-              onClick={() => void handleReVerify()}
-            >
-              Verify again
-            </button>
+            {runHref ? <Link to={runHref}>View run report</Link> : null}
+            {reviewHref ? <Link to={reviewHref}>Review changes</Link> : null}
           </div>
-          {!fixForwardReady && (
-            <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginTop: "0.3rem" }}>
-              Verify again after the fix bundle is ready.
-            </p>
-          )}
-        </div>
-      ) : null}
 
-      <OverridePanel ticketId={ticketId} onRefresh={onRefresh} />
+          <details className="ticket-secondary-disclosure">
+            <summary>Details</summary>
+            <div className="ticket-secondary-content">
+              <div className="ticket-outcome-group">
+                <h4>Must-haves to fix</h4>
+                <ul className="ticket-plan-list">
+                  {failedCriteria.map((criterion) => (
+                    <li key={criterion.criterionId}>
+                      <span className={`severity-badge severity-${criterion.severity ?? "minor"}`}>
+                        {formatSeverityLabel(criterion.severity)}
+                      </span>
+                      {" "}{criterion.criterionId} · {criterion.evidence}
+                      {criterion.remediationHint ? (
+                        <div className="remediation-hint">{criterion.remediationHint}</div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="ticket-outcome-group">
+                <h4>Other changes in the main files</h4>
+                <ul className="ticket-plan-list">
+                  {primaryDrift.length === 0
+                    ? <li style={{ color: "var(--muted)" }}>None</li>
+                    : primaryDrift.map((flag) => (
+                      <li key={`${flag.type}-${flag.file}`}>
+                        {flag.severity ? (
+                          <span className={`severity-badge severity-${flag.severity}`}>{formatSeverityLabel(flag.severity)}</span>
+                        ) : null}
+                        {" "}{flag.type} · {flag.file} · {flag.description}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+
+              <div className="ticket-outcome-group">
+                <h4>
+                  Also changed outside the main files
+                  <HelpTip text="Files outside the main scope are checked for unexpected changes, but they are not scored against the acceptance criteria." />
+                </h4>
+                <ul className="ticket-plan-list">
+                  {widenedDrift.length === 0
+                    ? <li style={{ color: "var(--muted)" }}>None</li>
+                    : widenedDrift.map((flag) => <li key={`${flag.type}-${flag.file}`}>{flag.file} · {flag.description}</li>)}
+                </ul>
+              </div>
+
+              {passedCriteria.length > 0 ? (
+                <div className="ticket-outcome-group">
+                  <h4>Passed checks</h4>
+                  <ul className="ticket-plan-list">
+                    {passedCriteria.map((criterion) => (
+                      <li key={criterion.criterionId}>
+                        <span className={`severity-badge severity-${criterion.severity ?? "minor"}`}>
+                          {formatSeverityLabel(criterion.severity)}
+                        </span>
+                        {" "}{criterion.criterionId} · {criterion.evidence}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </details>
+
+          <OverridePanel ticketId={ticketId} onRefresh={onRefresh} />
+        </>
+      )}
     </>
   );
 

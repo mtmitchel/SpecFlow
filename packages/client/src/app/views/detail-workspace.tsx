@@ -7,6 +7,7 @@ import { InitiativeRouteView } from "./initiative-route-view.js";
 import { SpecView } from "./spec-view.js";
 import { TicketView } from "./ticket-view.js";
 import { RunView } from "./run-view.js";
+import { RunReviewView } from "./run-review-view.js";
 import { TicketsListView } from "./tickets-list-view.js";
 import { RunsListView } from "./runs-list-view.js";
 import { SpecsListView } from "./specs-list-view.js";
@@ -68,8 +69,20 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
         />
       }
     />
+    <Route
+      path="/run/:id/review"
+      element={
+        <RunReviewView
+          runs={snapshot.runs}
+          tickets={snapshot.tickets}
+        />
+      }
+    />
     <Route path="/new" element={<NewChooser />} />
-    <Route path="/new-initiative" element={<InitiativeCreator onRefresh={onRefresh} />} />
+    <Route
+      path="/new-initiative"
+      element={<InitiativeCreator onRefresh={onRefresh} defaultBrowseRoot={snapshot.workspaceRoot ?? ""} />}
+    />
     <Route path="/new-quick-task" element={<QuickTaskPage onRefresh={onRefresh} />} />
 
     {/* Aggregate views */}

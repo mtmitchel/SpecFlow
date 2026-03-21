@@ -170,7 +170,12 @@ export const registerInitiativeRoutes = (
 
   app.post("/api/initiatives", async (request, reply) => {
     try {
-      await reply.code(201).send(await createDraftInitiative(runtime, (request.body ?? {}) as { description?: string }));
+      await reply.code(201).send(
+        await createDraftInitiative(
+          runtime,
+          (request.body ?? {}) as { description?: string; projectRoot?: string }
+        )
+      );
     } catch (error) {
       if (isHandlerError(error)) {
         await sendHandlerError(reply, error);

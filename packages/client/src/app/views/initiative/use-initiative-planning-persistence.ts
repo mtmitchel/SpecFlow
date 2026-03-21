@@ -57,6 +57,9 @@ export const useInitiativePlanningPersistence = ({
   showError,
 }: InitiativePlanningPersistenceConfig): InitiativePlanningPersistenceResult => {
   const refinementTimerRef = useRef<number | null>(null);
+  const persistRefinementRef = useRef<() => Promise<boolean>>(async () => true);
+  const refinementPersistInFlightRef = useRef<Promise<boolean> | null>(null);
+  const refinementPersistQueuedRef = useRef(false);
 
   useEffect(() => {
     if (!initiative || !activeSpecStep || editingStep !== activeSpecStep) {
@@ -121,14 +124,29 @@ export const useInitiativePlanningPersistence = ({
           preferredSurface: activeRefinement.preferredSurface ?? null,
         })
     : "";
+  const hasLocalRefinementState =
+    Object.keys(refinementAnswers).length > 0 || defaultAnswerQuestionIds.length > 0;
+  const hasPersistedRefinementContext = activeRefinement
+    ? (
+        activeRefinement.checkedAt !== null ||
+        activeRefinement.questions.length > 0 ||
+        (activeRefinement.history?.length ?? 0) > 0 ||
+        activeRefinement.preferredSurface === "questions" ||
+        activeRefinement.preferredSurface === "review"
+      )
+    : false;
+  const shouldPersistRefinementState =
+    activeStep === "validation"
+      ? Boolean(initiative && activeRefinement)
+      : Boolean(initiative && activeSpecStep && activeRefinement && (hasLocalRefinementState || hasPersistedRefinementContext));
   const localRefinementSignature = JSON.stringify({
     answers: refinementAnswers,
     defaultAnswerQuestionIds,
     preferredSurface: activeStep === "validation" ? null : activeSurface ?? null,
   });
 
-  const persistRefinement = useCallback(async (): Promise<boolean> => {
-    if (!initiative || !activeRefinement || localRefinementSignature === serverRefinementSignature) {
+  const persistRefinementNow = useCallback(async (): Promise<boolean> => {
+    if (!shouldPersistRefinementState || !initiative || !activeRefinement || localRefinementSignature === serverRefinementSignature) {
       return true;
     }
 
@@ -193,11 +211,49 @@ export const useInitiativePlanningPersistence = ({
     serverRefinementSignature,
     setRefinementAssumptions,
     setRefinementSaveState,
+    shouldPersistRefinementState,
     showError,
   ]);
 
   useEffect(() => {
-    if (!initiative || !activeSpecStep || !activeRefinement || localRefinementSignature === serverRefinementSignature) {
+    persistRefinementRef.current = persistRefinementNow;
+  }, [persistRefinementNow]);
+
+  const persistRefinement = useCallback(async (): Promise<boolean> => {
+    if (refinementPersistInFlightRef.current) {
+      refinementPersistQueuedRef.current = true;
+      return refinementPersistInFlightRef.current;
+    }
+
+    const runPersistLoop = async (): Promise<boolean> => {
+      let lastResult = true;
+
+      do {
+        refinementPersistQueuedRef.current = false;
+        lastResult = await persistRefinementRef.current();
+      } while (refinementPersistQueuedRef.current);
+
+      return lastResult;
+    };
+
+    const request = runPersistLoop().finally(() => {
+      if (refinementPersistInFlightRef.current === request) {
+        refinementPersistInFlightRef.current = null;
+      }
+    });
+
+    refinementPersistInFlightRef.current = request;
+    return request;
+  }, []);
+
+  useEffect(() => {
+    if (
+      !shouldPersistRefinementState ||
+      !initiative ||
+      !activeSpecStep ||
+      !activeRefinement ||
+      localRefinementSignature === serverRefinementSignature
+    ) {
       if (refinementTimerRef.current !== null) {
         window.clearTimeout(refinementTimerRef.current);
         refinementTimerRef.current = null;
@@ -223,6 +279,7 @@ export const useInitiativePlanningPersistence = ({
     localRefinementSignature,
     persistRefinement,
     serverRefinementSignature,
+    shouldPersistRefinementState,
   ]);
 
   const flushRefinementPersistence = useCallback(async (): Promise<boolean> => {

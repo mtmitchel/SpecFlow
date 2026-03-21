@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+
+import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { InitiativeRefinementState } from "../../../types.js";
@@ -450,5 +453,148 @@ describe("RefinementSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
     expect(onBackToPreviousStep).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips already answered questions when continuing through the survey deck", () => {
+    const multiQuestionRefinement: InitiativeRefinementState = {
+      ...activeRefinement,
+      questions: [
+        {
+          id: "core-launch-view",
+          label: "On launch, should the app open ready to write or show the notes browser first?",
+          type: "select",
+          whyThisBlocks: "Launch posture changes the primary user flow.",
+          affectedArtifact: "core-flows",
+          decisionType: "journey",
+          assumptionIfUnanswered: "Open ready to write.",
+          options: ["Open ready to write", "Show notes browser first"],
+        },
+        {
+          id: "core-inline-editing",
+          label: "Should cards support inline editing in the grid?",
+          type: "boolean",
+          whyThisBlocks: "Inline editing changes how the grid and editor relate.",
+          affectedArtifact: "core-flows",
+          decisionType: "behavior",
+          assumptionIfUnanswered: "Keep editing in the full editor.",
+          allowCustomAnswer: false,
+        },
+        {
+          id: "core-delete-timing",
+          label: "When should notes move to trash?",
+          type: "select",
+          whyThisBlocks: "Delete timing changes recovery and cleanup behavior.",
+          affectedArtifact: "core-flows",
+          decisionType: "journey",
+          assumptionIfUnanswered: "Move them on explicit delete only.",
+          options: ["Move on explicit delete", "Auto-trash empty drafts"],
+        },
+      ],
+      answers: {},
+      checkedAt: null,
+    };
+    const SurveyHarness = () => {
+      const [answers, setAnswers] = useState<Record<string, string | string[] | boolean>>({
+        "core-inline-editing": true,
+      });
+
+      return (
+        <RefinementSection
+          activeSpecStep="core-flows"
+          activeRefinement={multiQuestionRefinement}
+          refinementAnswers={answers}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="saved"
+          unresolvedQuestionCount={2}
+          guidanceQuestionId={null}
+          guidanceText={null}
+          busyAction={null}
+          isBusy={false}
+          saveStateIndicator={null}
+          variant="survey"
+          onRequestGuidance={vi.fn()}
+          onAnswerChange={(questionId, nextValue) => {
+            setAnswers((current) => ({
+              ...current,
+              [questionId]: nextValue,
+            }));
+          }}
+          onAnswerLater={vi.fn()}
+        />
+      );
+    };
+
+    render(<SurveyHarness />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "On launch, should the app open ready to write or show the notes browser first?",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Open ready to write\b/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.getByRole("heading", { name: "When should notes move to trash?" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Should cards support inline editing in the grid?" })).not.toBeInTheDocument();
+  });
+
+  it("shows completion instead of reopening the same question when local answers are ahead of the unresolved count", () => {
+    const singleQuestionRefinement: InitiativeRefinementState = {
+      ...activeRefinement,
+      questions: [
+        {
+          id: "core-inline-editing",
+          label: "Should cards support inline editing in the grid?",
+          type: "boolean",
+          whyThisBlocks: "Inline editing changes how the grid and editor relate.",
+          affectedArtifact: "core-flows",
+          decisionType: "behavior",
+          assumptionIfUnanswered: "Keep editing in the full editor.",
+          allowCustomAnswer: false,
+        },
+      ],
+      answers: {},
+      checkedAt: null,
+    };
+
+    const SurveyHarness = () => {
+      const [answers, setAnswers] = useState<Record<string, string | string[] | boolean>>({});
+
+      return (
+        <RefinementSection
+          activeSpecStep="core-flows"
+          activeRefinement={singleQuestionRefinement}
+          refinementAnswers={answers}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="saved"
+          unresolvedQuestionCount={1}
+          guidanceQuestionId={null}
+          guidanceText={null}
+          busyAction={null}
+          isBusy={false}
+          saveStateIndicator={null}
+          variant="survey"
+          onRequestGuidance={vi.fn()}
+          onAnswerChange={(questionId, nextValue) => {
+            setAnswers((current) => ({
+              ...current,
+              [questionId]: nextValue,
+            }));
+          }}
+          onAnswerLater={vi.fn()}
+        />
+      );
+    };
+
+    render(<SurveyHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Yes\b/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.getByRole("heading", { name: "All questions are answered" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Should cards support inline editing in the grid?" })).not.toBeInTheDocument();
   });
 });

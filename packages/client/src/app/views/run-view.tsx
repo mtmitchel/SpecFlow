@@ -17,7 +17,6 @@ import type {
 } from "../../types.js";
 import { DiffViewer } from "../components/diff-viewer.js";
 import { MarkdownView } from "../components/markdown-view.js";
-import { AuditPanel } from "../components/audit-panel.js";
 import { useToast } from "../context/toast.js";
 import { usePersistInitiativeResumeTicket } from "./use-persist-initiative-resume-ticket.js";
 
@@ -89,7 +88,6 @@ export const RunView = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDrift, setShowDrift] = useState(false);
-  const [showAuditPanel, setShowAuditPanel] = useState(false);
   const committedAttemptIdRef = useRef<string | null>(null);
 
   const loadCommittedAttempt = useCallback(async (runId: string, attemptId: string): Promise<void> => {
@@ -370,12 +368,8 @@ export const RunView = ({
 
           <RunReportCard title="Summary" badge={reportVerdict}>
             <div className="button-row">
-              <button type="button" onClick={() => setShowAuditPanel((current) => !current)}>
-                {showAuditPanel ? "Hide review" : "Review changes"}
-              </button>
+              <Link to={`/run/${detail.run.id}/review`}>Review changes</Link>
             </div>
-
-            {showAuditPanel ? <AuditPanel runId={detail.run.id} defaultScopePaths={detail.ticket?.fileTargets ?? []} /> : null}
 
             {attemptLoading ? (
               <div className="status-loading-card" role="status" aria-live="polite">

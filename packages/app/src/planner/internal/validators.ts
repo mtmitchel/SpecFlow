@@ -12,6 +12,14 @@ import type {
 import type { InitiativePlanningQuestion } from "../../types/entities.js";
 import { getDecisionTypeFamily, normalizeDecisionType } from "../decision-types.js";
 import { getQuestionPolicy } from "../refinement-check-policy.js";
+import {
+  validateInitiativeTitle,
+  validateMarkdownNoAmpersands,
+  validateMarkdownHeadingsSentenceCase,
+  validateNoAmpersands,
+  validatePhaseName,
+  validateTicketTitle,
+} from "./title-style.js";
 
 const normalizeQuestionText = (question: PhaseCheckResult["questions"][number]): string =>
   [
@@ -341,8 +349,8 @@ const validateQuestions = (
       throw new Error(`Refinement question ${question.id} must not include "Other" in options`);
     }
 
+    const optionHelp = question.optionHelp ?? {};
     if (normalizedOptions.length > 0) {
-      const optionHelp = question.optionHelp ?? {};
       const missingOptionHelp = normalizedOptions.filter((option) => !optionHelp[option]?.trim());
       if (missingOptionHelp.length > 0) {
         throw new Error(
@@ -368,6 +376,16 @@ const validateQuestions = (
 
     if (question.reopensQuestionIds != null && !Array.isArray(question.reopensQuestionIds)) {
       throw new Error(`Refinement question ${question.id} has invalid reopensQuestionIds`);
+    }
+
+    validateNoAmpersands(question.label, `Refinement question ${question.id} label`);
+    validateNoAmpersands(question.whyThisBlocks, `Refinement question ${question.id} whyThisBlocks`);
+    validateNoAmpersands(question.assumptionIfUnanswered, `Refinement question ${question.id} assumptionIfUnanswered`);
+    for (const option of normalizedOptions) {
+      validateNoAmpersands(option, `Refinement question ${question.id} option`);
+    }
+    for (const helpText of Object.values(optionHelp)) {
+      validateNoAmpersands(helpText, `Refinement question ${question.id} optionHelp`);
     }
 
     const reopensQuestionIds = Array.isArray(question.reopensQuestionIds)
@@ -490,15 +508,36 @@ export const validateClarifyHelpResult = (result: ClarifyHelpResult): void => {
   if (!result.guidance?.trim()) {
     throw new Error("Clarify-help result must include guidance");
   }
+
+  validateNoAmpersands(result.guidance, "Clarify-help guidance");
 };
 
-export const validatePhaseMarkdownResult = (result: PhaseMarkdownResult): void => {
+export const validatePhaseMarkdownResult = (
+  result: PhaseMarkdownResult,
+  options: { requireInitiativeTitle?: boolean } = {}
+): void => {
   if (!result.markdown?.trim()) {
     throw new Error("Phase generation result must include markdown");
   }
 
   if (!result.traceOutline || !Array.isArray(result.traceOutline.sections)) {
     throw new Error("Phase generation result must include traceOutline.sections");
+  }
+
+  validateMarkdownNoAmpersands(result.markdown);
+  validateMarkdownHeadingsSentenceCase(result.markdown);
+
+  if (options.requireInitiativeTitle) {
+    if (!result.initiativeTitle?.trim()) {
+      throw new Error("Phase generation result must include initiativeTitle");
+    }
+
+    validateInitiativeTitle(result.initiativeTitle);
+    const headingMatch = result.markdown.trim().match(/^#\s+(.+?)\s*(?:\r?\n|$)/);
+    const heading = headingMatch?.[1]?.trim() ?? "";
+    if (heading !== result.initiativeTitle.trim()) {
+      throw new Error("Brief markdown heading must exactly match initiativeTitle");
+    }
   }
 };
 
@@ -528,14 +567,21 @@ export const validatePlanResult = (result: PlanResult): void => {
   validateStringArray(result.uncoveredCoverageItemIds, "Plan uncoveredCoverageItemIds");
 
   for (const phase of result.phases) {
+    validatePhaseName(phase.name);
+
     if (!Array.isArray(phase.tickets)) {
       throw new Error(`Plan phase "${phase.name}" is missing tickets array`);
     }
 
     for (const ticket of phase.tickets) {
+      validateTicketTitle(ticket.title);
+      validateNoAmpersands(ticket.description, `Plan ticket "${ticket.title}" description`);
       validateStringArray(ticket.acceptanceCriteria, `Plan ticket "${ticket.title}" acceptanceCriteria`);
       validateStringArray(ticket.fileTargets, `Plan ticket "${ticket.title}" fileTargets`);
       validateStringArray(ticket.coverageItemIds, `Plan ticket "${ticket.title}" coverageItemIds`);
+      for (const criterion of ticket.acceptanceCriteria) {
+        validateNoAmpersands(criterion, `Plan ticket "${ticket.title}" acceptance criterion`);
+      }
     }
   }
 };
@@ -546,7 +592,23 @@ export const validateTriageResult = (result: TriageResult): void => {
     throw new Error(`Triage result decision must be 'ok' or 'too-large', received '${result.decision}'`);
   }
 
-  if (decision === "ok" && !result.ticketDraft) {
-    throw new Error("Triage result for decision 'ok' must include ticketDraft");
+  if (decision === "ok") {
+    if (!result.ticketDraft) {
+      throw new Error("Triage result for decision 'ok' must include ticketDraft");
+    }
+
+    validateTicketTitle(result.ticketDraft.title);
+    validateNoAmpersands(result.ticketDraft.description, `Quick task "${result.ticketDraft.title}" description`);
+    for (const criterion of result.ticketDraft.acceptanceCriteria) {
+      validateNoAmpersands(criterion, `Quick task "${result.ticketDraft.title}" acceptance criterion`);
+    }
+  }
+
+  if (decision === "too-large") {
+    if (!result.initiativeTitle?.trim()) {
+      throw new Error("Triage result for decision 'too-large' must include initiativeTitle");
+    }
+
+    validateInitiativeTitle(result.initiativeTitle);
   }
 };

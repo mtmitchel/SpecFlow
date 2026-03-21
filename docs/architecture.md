@@ -39,6 +39,8 @@ The sidecar owns planning, verification, bundle export, store access, config upd
 
 Fastify remains as a fallback adapter over the same shared runtime handlers. Route modules are intentionally thin adapters that translate HTTP requests and SSE streams into transport-agnostic handler calls.
 
+The runtime owns one active **SpecFlow storage root**. The sidecar is launched with that root and the artifact store persists under that root's `specflow/` directory. Project records also persist a separate `projectRoot`, which points at the repo or folder that planning, bundle export, verification, and audit should inspect. Initiative-linked repo scans and diffs use that per-project root, while quick tasks still default to the active storage root when no project root is bound.
+
 ---
 
 ## Artifact Store
@@ -119,6 +121,8 @@ Bundle contracts are versioned: every bundle includes a manifest with `bundleSch
 ## Verification Strategy
 
 The Diff Engine checks for a git repo first. If found, uses `git diff`. If not, uses the file snapshot captured at Export Bundle time.
+
+Verification is always local-project based. The verifier reads the bound project root on disk, computes diffs from that local filesystem boundary, and only then asks the LLM to judge the returned work against the ticket criteria. Without that local filesystem boundary, verification degrades into text review instead of real change checking.
 
 No-git verification uses a **two-stage scope + dual-diff model**:
 - **Initial scope** is selected and baselined at export.

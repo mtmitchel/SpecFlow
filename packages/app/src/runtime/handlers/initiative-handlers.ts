@@ -24,6 +24,7 @@ import {
   stepLabel,
   structuredPlannerError
 } from "./shared.js";
+import { assertProjectRootDirectory, resolveRequestedProjectRoot } from "../../project-roots.js";
 
 type ArtifactStep = InitiativeArtifactStep;
 
@@ -227,12 +228,30 @@ export const saveInitiativeSpec = async (
   };
 };
 
-export const createDraftInitiative = async (runtime: SpecFlowRuntime, body: { description?: string }) => {
+export const createDraftInitiative = async (
+  runtime: SpecFlowRuntime,
+  body: { description?: string; projectRoot?: string }
+) => {
   if (!body.description?.trim()) {
     throw badRequest("description is required");
   }
 
-  const initiative = await runtime.plannerService.createDraftInitiative({ description: body.description.trim() });
+  const requestedProjectRoot = body.projectRoot?.trim();
+  if (!requestedProjectRoot) {
+    throw badRequest("projectRoot is required");
+  }
+
+  const normalizedProjectRoot = resolveRequestedProjectRoot(runtime.rootDir, requestedProjectRoot);
+  try {
+    await assertProjectRootDirectory(normalizedProjectRoot);
+  } catch (error) {
+    throw badRequest((error as Error).message);
+  }
+
+  const initiative = await runtime.plannerService.createDraftInitiative({
+    description: body.description.trim(),
+    projectRoot: normalizedProjectRoot
+  });
   return {
     initiativeId: initiative.id
   };

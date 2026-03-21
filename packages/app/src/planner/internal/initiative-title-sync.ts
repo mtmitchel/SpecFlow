@@ -1,17 +1,17 @@
-import { deriveInitiativeTitle } from "./ticket-factory.js";
+import {
+  deriveInitiativeTitle,
+  normalizeInitiativeTitle,
+} from "./title-style.js";
 
 const stripWrappingQuotes = (value: string): string => value.replace(/^["“”'`]+|["“”'`]+$/g, "").trim();
+const normalizeWhitespace = (value: string): string => value.trim().replace(/\s+/g, " ");
+const stripTrailingEllipsis = (value: string): string => value.replace(/\.\.\.$/, "").trim();
 
-const startCaseHeading = (value: string): string =>
-  value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
+const looksLikeDescriptionSnippet = (title: string, description: string): boolean => {
+  const normalizedTitle = normalizeWhitespace(stripTrailingEllipsis(title)).toLowerCase();
+  const normalizedDescription = normalizeWhitespace(description).toLowerCase();
 
-const deriveLegacyInitiativeTitle = (description: string): string => {
-  const compact = description.trim().replace(/\s+/g, " ");
-  if (!compact) {
-    return "Untitled Project";
-  }
-
-  return compact.length > 64 ? `${compact.slice(0, 61)}...` : compact;
+  return normalizedTitle.length >= 12 && normalizedDescription.startsWith(normalizedTitle);
 };
 
 const normalizeBriefHeading = (rawHeading: string): string | null => {
@@ -25,7 +25,7 @@ const normalizeBriefHeading = (rawHeading: string): string | null => {
     return null;
   }
 
-  return startCaseHeading(title);
+  return normalizeInitiativeTitle(title);
 };
 
 export const extractInitiativeTitleFromBriefMarkdown = (markdown: string): string | null => {
@@ -47,6 +47,7 @@ export const shouldReplaceInitiativeTitle = (currentTitle: string, description: 
   return (
     normalizedCurrentTitle === description.trim() ||
     normalizedCurrentTitle === deriveInitiativeTitle(description) ||
-    normalizedCurrentTitle === deriveLegacyInitiativeTitle(description)
+    looksLikeDescriptionSnippet(normalizedCurrentTitle, description) ||
+    normalizedCurrentTitle === "Untitled project"
   );
 };

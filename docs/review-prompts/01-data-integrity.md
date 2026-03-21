@@ -1,4 +1,4 @@
-# Prompt 1: Data Integrity & Concurrency Review
+# Prompt 1: Data integrity and concurrency review
 
 You are reviewing the current repository checkout for SpecFlow.
 

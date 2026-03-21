@@ -78,7 +78,7 @@ export const RefinementSection = ({
   refinementAnswers,
   defaultAnswerQuestionIds,
   refinementAssumptions,
-  unresolvedQuestionCount,
+  unresolvedQuestionCount: _unresolvedQuestionCount,
   guidanceQuestionId,
   guidanceText,
   busyAction,
@@ -100,6 +100,16 @@ export const RefinementSection = ({
     () => buildVisibleQuestions(activeRefinement),
     [activeRefinement],
   );
+  const locallyUnresolvedQuestionIds = useMemo(() => new Set(
+    visibleQuestions
+      .filter(
+        (question) =>
+          !isQuestionAnswered(refinementAnswers[question.id]) &&
+          !defaultAnswerQuestionIds.includes(question.id),
+      )
+      .map((question) => question.id),
+  ), [defaultAnswerQuestionIds, refinementAnswers, visibleQuestions]);
+  const locallyUnresolvedQuestionCount = locallyUnresolvedQuestionIds.size;
   const visibleRefinement = useMemo<InitiativeRefinementState>(
     () => ({
       ...activeRefinement,
@@ -115,7 +125,7 @@ export const RefinementSection = ({
   const survey = variant === "survey";
   const showSurveyLoading = questionDeck && Boolean(loadingStateLabel);
 
-  const resolvedQuestionCount = visibleQuestions.length - unresolvedQuestionCount;
+  const resolvedQuestionCount = visibleQuestions.length - locallyUnresolvedQuestionCount;
   const completionPercent =
     visibleQuestions.length === 0
       ? 0
@@ -123,7 +133,7 @@ export const RefinementSection = ({
 
   useEffect(() => {
     if (openQuestionId === null) {
-      if (questionDeck && unresolvedQuestionCount > 0) {
+      if (questionDeck && locallyUnresolvedQuestionCount > 0) {
         setOpenQuestionId(getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
       }
       return;
@@ -135,7 +145,7 @@ export const RefinementSection = ({
     }
 
     setOpenQuestionId(getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
-  }, [defaultAnswerQuestionIds, openQuestionId, questionDeck, refinementAnswers, unresolvedQuestionCount, visibleQuestions, visibleRefinement]);
+  }, [defaultAnswerQuestionIds, locallyUnresolvedQuestionCount, openQuestionId, questionDeck, refinementAnswers, visibleQuestions, visibleRefinement]);
 
   useEffect(() => {
     if (!survey || surveyResumeKey === 0) {
@@ -156,10 +166,12 @@ export const RefinementSection = ({
     : null;
   const currentQuestionIndex = currentQuestion ? questionIds.indexOf(currentQuestion.id) : -1;
   const previousQuestionId = currentQuestionIndex > 0 ? questionIds[currentQuestionIndex - 1] ?? null : null;
-  const nextQuestionId =
-    currentQuestionIndex >= 0 && currentQuestionIndex < questionIds.length - 1
-      ? questionIds[currentQuestionIndex + 1] ?? null
-      : null;
+  const nextQuestionId = currentQuestionIndex >= 0
+    ? visibleQuestions
+        .slice(currentQuestionIndex + 1)
+        .find((question) => locallyUnresolvedQuestionIds.has(question.id))
+        ?.id ?? null
+    : null;
   const surveyStepLabel =
     questionDeck && currentQuestionIndex >= 0
       ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + visibleQuestions.length}`
@@ -263,10 +275,10 @@ export const RefinementSection = ({
         </div>
       ) : null}
 
-      {!compact && !survey && unresolvedQuestionCount > 0 ? (
+      {!compact && !survey && locallyUnresolvedQuestionCount > 0 ? (
         <div className="planning-inline-note planning-inline-note-warn">
           <span>
-            Answer {unresolvedQuestionCount} more question{unresolvedQuestionCount === 1 ? "" : "s"} or use a default assumption before generation.
+            Answer {locallyUnresolvedQuestionCount} more question{locallyUnresolvedQuestionCount === 1 ? "" : "s"} or use a default assumption before generation.
           </span>
         </div>
       ) : null}
@@ -442,7 +454,7 @@ export const RefinementSection = ({
             </button>
           </div>
         </div>
-      ) : questionDeck && !showSurveyLoading && unresolvedQuestionCount === 0 && visibleQuestions.length > 0 ? (
+      ) : questionDeck && !showSurveyLoading && locallyUnresolvedQuestionCount === 0 && visibleQuestions.length > 0 ? (
         <div className="planning-survey-question">
           <h3 className="planning-survey-question-title">All questions are answered</h3>
           <p className="planning-survey-question-copy">

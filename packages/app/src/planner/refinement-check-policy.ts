@@ -50,9 +50,11 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "- Keep Brief questions at the framing level: primary problem, primary user, success outcomes, and hard boundaries.",
       "- Keep success outcomes distinct from hard boundaries. Do not ask the user to encode the same fact twice.",
       "- Keep hard boundaries focused on non-negotiable limits such as supported environments, offline or unreliable-network behavior, portability or interoperability, performance or scale bars, and existing-system obligations.",
+      "- Make success outcomes and hard boundaries concrete enough to guide later information-architecture and product-design decisions, but do not solve those later-stage concerns in the Brief.",
       "- Do not ask for detailed journeys, screen states, acceptance criteria, architecture, libraries, runtime choices, package targets, or implementation tactics in the Brief."
     ],
     generationRules: [
+      "Make the problem, quality bars, and hard boundaries concrete enough to guide later information-architecture and product-design decisions.",
       "Do not include detailed journey maps, acceptance criteria lists, architecture choices, runtime/package decisions, or implementation mechanics."
     ]
   },
@@ -102,12 +104,17 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       '- Treat decisionType "state" as a flow condition, mode, or lifecycle rule that changes what path the user can take.',
       '- Use decisionType "branch" for alternate or destructive paths and "failure-mode" for degraded-path or recovery questions. Either one can satisfy the edge-path starter requirement.',
       "- It is valid to ask whether a remembered view, mode, or return state changes the next path. Do not ask how that state is stored or implemented.",
+      "- Treat flow clarity as product design work. Ask about what the actor needs to know, decide, and see at each step when those details are still unclear.",
+      "- Capture empty, loading, error, recovery, or destructive states when they materially change the flow. Distinguish primary versus secondary actions or progressive disclosure only when that difference changes the path.",
       "- Platform targets, supported device classes, packaging, and distribution strategy belong to Brief or PRD scope boundaries, not Core flows.",
       "- Do not ask about architecture, storage format, libraries, runtime/package targets, indexing strategy, or low-level timing/tuning unless the answer changes a user-visible state or branch."
     ],
     generationRules: [
+      "Treat information architecture and product design as first-class flow requirements, not polish.",
       "Focus on the primary flow, flow conditions, branches, failure or degraded paths, and state transitions.",
       "The flow may be user-facing, operator-facing, or system/process-facing; do not assume a screen-based UI.",
+      "Show what the actor is trying to do, what they need to know, the decisions they make, and the feedback or state changes they see across the major path and branches.",
+      "Include empty, loading, error, recovery, or destructive states when they materially affect the flow. Distinguish primary versus secondary actions when it changes the experience.",
       "A remembered view, mode, or return state may belong here when it changes the next path seen by the user.",
       "Do not specify architecture, storage internals, runtime/package choices, or low-level timing/tuning unless they change a visible branch, flow condition, or outcome."
     ]
@@ -157,11 +164,15 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "- The first PRD consultation must lock at least one explicit scope boundary before the first draft.",
       "- Do not reopen a Brief constraint unless the missing detail materially changes the user-visible contract or v1 scope.",
       "- User-visible remembered behavior is valid here when it changes the product contract. Do not ask how that behavior is stored or implemented.",
+      "- User-visible structure belongs here when it changes the product contract: navigation, information hierarchy, primary versus secondary actions, permissions or roles, and empty, loading, error, or recovery behavior.",
+      "- Treat information architecture and product design as first-class product requirements, not later polish.",
       "- Do not ask about architecture, data model internals, libraries, runtime/package choices, deployment, or implementation mechanics.",
       "- Prefer proceed when the missing detail would not change the product contract seen by the user."
     ],
     generationRules: [
+      "Treat information architecture and product design as part of the product contract, not polish.",
       "Treat the PRD as the user-visible product contract for behavior, rules, scope boundaries, v1 priorities, and non-goals.",
+      "Define the navigation model, information hierarchy, key objects, statuses or feedback, primary versus secondary actions, and important empty, loading, error, or recovery behavior when they shape the user-visible contract.",
       "User-visible remembered behavior can belong in the PRD when it changes the product contract.",
       "Do not specify architecture, libraries, runtime/package choices, storage internals, or low-level implementation mechanics."
     ]
@@ -201,11 +212,13 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
       "- Ask only about implementation tradeoffs, architecture, components, data flow, persistence, integration boundaries, performance constraints, operations and release concerns, compatibility or migration constraints, existing-system constraints, failure handling, and quality strategy.",
       "- The first Tech spec consultation must lock at least one architecture decision before the first draft.",
       "- Do not re-ask primary user journeys, high-level product goals, or user-visible behavior already settled in the Brief, Core flows, or PRD unless those artifacts are contradictory or missing a critical implementation constraint.",
+      "- Preserve approved information-architecture and product-design decisions from earlier artifacts as implementation inputs. Reopen them only when implementation constraints make the product contract impossible or unsafe.",
       "- Prefer proceed when earlier artifacts already define the product contract and the implementation path is clear enough to draft."
     ],
     generationRules: [
       "Treat the Tech spec as the implementation contract.",
       "Reference earlier artifacts as inputs, then focus on architecture, components, data flow, persistence, integration boundaries, existing-system constraints, compatibility or migration, failure handling, performance, operations, risks, and quality strategy.",
+      "Carry forward earlier information-architecture and product-design requirements as implementation constraints. Explain how the architecture supports them without renegotiating the product contract.",
       "Do not restate the full Brief, Core flows, or PRD except where a user-visible requirement constrains the implementation."
     ]
   }

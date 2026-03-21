@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
-import { E2E_BASE_URL, E2E_NOTE_FILE_PATH } from "./support/constants.ts";
+import { E2E_BASE_URL, E2E_NOTE_FILE_PATH, E2E_ROOT_DIR } from "./support/constants.ts";
 
 const escapeRegex = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -45,12 +45,13 @@ const createInitiativeThroughCoreFlowsReview = async (
 ): Promise<void> => {
   if (options.startFromHome) {
     await page.goto(E2E_BASE_URL);
-    await expect(page.getByText("No work is in motion yet.")).toBeVisible();
-    await page.getByRole("link", { name: "Start new project" }).click();
+    await expect(page.getByRole("heading", { name: "Start something new" })).toBeVisible();
+    await page.getByRole("link", { name: /Project/i }).click();
   } else {
     await page.goto(`${E2E_BASE_URL}/new-initiative`);
   }
 
+  await page.getByRole("textbox", { name: "Project folder" }).fill(E2E_ROOT_DIR);
   await page.locator("textarea").fill(description);
   await page.getByRole("button", { name: "Start brief intake" }).click();
 
@@ -159,9 +160,10 @@ test("completes the main project workflow from Home to a passing verification", 
   await expect(
     page.getByRole("heading", { name: "Persist local note edits" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Start work" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Handoff" })).toBeVisible();
   await page.getByRole("button", { name: "Create bundle" }).click();
 
+  await page.getByText("Bundle tools").click();
   await expect(page.getByRole("button", { name: "Copy bundle" })).toBeVisible();
 
   await writeFile(
@@ -179,19 +181,10 @@ test("completes the main project workflow from Home to a passing verification", 
     "utf8",
   );
 
-  await page.getByRole("button", { name: "Refresh changes" }).click();
-  await expect(page.getByText("normalizeNote")).toBeVisible();
-
-  await page
-    .locator("textarea.multiline")
-    .last()
-    .fill(
-      "Added note normalization before saving and kept the note store local.",
-    );
-  await page.getByRole("button", { name: "Verify work" }).click();
-
-  await expect(page.getByText("Result: Passed")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Close ticket" })).toBeVisible();
+  await page.getByRole("button", { name: "Check for return" }).click();
+  await expect(page.getByText("This run matches the plan.")).toBeVisible();
+  await page.getByRole("button", { name: "Accept" }).click();
+  await expect(page.getByText("Ticket marked done.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to tickets" })).toBeVisible();
 });
 

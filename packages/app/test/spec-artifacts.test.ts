@@ -35,7 +35,8 @@ describe("persistPhaseMarkdown", () => {
       initiative: baseInitiative,
       step: "brief",
       result: {
-        markdown: "# Local Notes\n\n## Summary\n\nBody copy.",
+        initiativeTitle: "Local notes",
+        markdown: "# Local notes\n\n## Summary\n\nBody copy.",
         traceOutline: { sections: [] }
       },
       nowIso: "2026-03-17T19:05:00.000Z",
@@ -47,7 +48,7 @@ describe("persistPhaseMarkdown", () => {
       markPlanningArtifactsStale: async () => undefined
     });
 
-    expect(savedInitiative?.title).toBe("Local Notes");
+    expect(savedInitiative?.title).toBe("Local notes");
   });
 
   it("does not overwrite a custom initiative title when persisting a brief", async () => {
@@ -62,7 +63,8 @@ describe("persistPhaseMarkdown", () => {
       initiative,
       step: "brief",
       result: {
-        markdown: "# Local Notes\n\n## Summary\n\nBody copy.",
+        initiativeTitle: "Local notes",
+        markdown: "# Local notes\n\n## Summary\n\nBody copy.",
         traceOutline: { sections: [] }
       },
       nowIso: "2026-03-17T19:05:00.000Z",

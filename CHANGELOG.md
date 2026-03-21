@@ -22,9 +22,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Tickets is now execution-only: it keeps ordered phases visible, opens the selected phase as a status-based kanban board, opens the ticket workspace directly, and no longer owns planning review dumps or question loops
 
 **Ticket execution workspace**
-- Rebuilt the ticket page around a compact hybrid anchor, one dominant current-step card, and a human-first ticket brief
-- Renamed the local execution flow to `Start work`, `Verify work`, and `Close ticket`
-- Moved raw implementation detail behind a secondary disclosure so the default ticket surface reads like guided task work instead of an operator console
+- Rebuilt the ticket page around a compact ticket header, a persistent ticket-context panel, and one dominant workbench stage
+- Simplified execution to a two-stage `Handoff` and `Verification` model, with automatic verification after returned work is detected
+- Verification now stays explicit until the user clicks `Accept`; pass results no longer auto-close tickets
+- Moved file-by-file inspection and raw diff detail out of the main ticket surface and into `Review changes` or secondary disclosure
+
+**Project roots and verification**
+- Split the SpecFlow storage root from each project's bound `Project folder`, so one workspace can plan and verify many different repos or folders
+- Bound planner repo scans, bundle export, diffing, verification, and audit to the project's selected folder instead of the app workspace root
+
+**Planning survey reliability**
+- Coalesced refinement autosaves so rapid answer changes no longer race each other through the desktop mutation queue
+- Stopped fresh downstream phases from timing out on a bogus save before the first question check completes
+- Fixed the inline survey deck so it advances only through unresolved questions instead of looping back to already answered blockers
+
+**Naming and copy guardrails**
+- Added a shared design and language charter to planner prompts, ticket generation, quick-task triage, and bundle handoff
+- Enforced sentence case for generated project names, phase names, ticket titles, and section headings
+- Required generated project names to stay short and descriptive, and banned ampersands from generated and authored prose
 
 **Planning and Validation UX**
 - `Back` now consistently means "go to the previous stage" across planning surveys and review surfaces; question-level movement uses explicit actions such as `Previous question` and `Revise answers`

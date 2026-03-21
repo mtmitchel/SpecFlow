@@ -12,6 +12,7 @@ import { renderBundleForAgent } from "./renderers.js";
 import type { ExportBundleRequest, ExportBundleResult } from "./types.js";
 import { getTicketCoverageArtifactId } from "../planner/ticket-coverage.js";
 import { throwIfAborted } from "../cancellation.js";
+import { resolveTicketProjectRoot } from "../project-roots.js";
 
 const rendererVersion = "0.1.0";
 
@@ -68,8 +69,9 @@ export class BundleGenerator {
 
     const attemptId = `attempt-${this.idGenerator()}`;
     const operationId = input.operationId ?? `op-${this.idGenerator()}`;
+    const projectRoot = resolveTicketProjectRoot(this.rootDir, this.store, ticket);
 
-    const agentsMd = await readAgentsMd(this.rootDir, this.store.config?.repoInstructionFile);
+    const agentsMd = await readAgentsMd(projectRoot, this.store.config?.repoInstructionFile);
     throwIfAborted(signal);
     const contextFiles = await collectContextFiles({
       initiativeId: ticket.initiativeId,
@@ -109,7 +111,7 @@ export class BundleGenerator {
       generatedAt: this.now().toISOString()
     });
 
-    const snapshotFiles = await captureSnapshotFiles(this.rootDir, ticket.fileTargets);
+    const snapshotFiles = await captureSnapshotFiles(projectRoot, ticket.fileTargets);
     throwIfAborted(signal);
 
     const stagedFiles: Array<{ relativePath: string; content: string }> = [

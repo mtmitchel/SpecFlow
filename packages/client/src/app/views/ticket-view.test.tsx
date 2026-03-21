@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -13,10 +13,12 @@ import type {
 import { TicketView } from "./ticket-view.js";
 
 const fetchOperationStatusMock = vi.fn().mockResolvedValue(null);
+const fetchRunAttemptDetailMock = vi.fn().mockResolvedValue(null);
 const updateInitiativeMock = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../../api.js", () => ({
   fetchOperationStatus: (...args: unknown[]) => fetchOperationStatusMock(...args),
+  fetchRunAttemptDetail: (...args: unknown[]) => fetchRunAttemptDetailMock(...args),
   updateInitiative: (...args: unknown[]) => updateInitiativeMock(...args),
 }));
 
@@ -41,7 +43,8 @@ vi.mock("../hooks/use-capture-preview.js", () => ({
 
 vi.mock("../hooks/use-export-workflow.js", () => ({
   useExportWorkflow: () => ({
-    exportResult: null
+    exportResult: null,
+    activeExportResult: null,
   })
 }));
 
@@ -164,11 +167,13 @@ const coverageArtifact: TicketCoverageArtifact = {
 const renderView = ({
   planningReviews,
   runs = [],
-  runAttempts = []
+  runAttempts = [],
+  onMoveTicket = vi.fn(async () => undefined),
 }: {
   planningReviews: PlanningReviewArtifact[];
   runs?: Run[];
   runAttempts?: RunAttempt[];
+  onMoveTicket?: (ticketId: string, status: Ticket["status"]) => Promise<void>;
 }) => {
   render(
     <MemoryRouter initialEntries={[`/ticket/${ticket.id}`]}>
@@ -184,7 +189,7 @@ const renderView = ({
               planningReviews={planningReviews}
               ticketCoverageArtifacts={[coverageArtifact]}
               onRefresh={vi.fn(async () => undefined)}
-              onMoveTicket={vi.fn(async () => undefined)}
+              onMoveTicket={onMoveTicket}
             />
           }
         />
@@ -217,7 +222,7 @@ describe("TicketView", () => {
     });
   });
 
-  it("shows flat ticket content with brief, requirements and resources visible by default", () => {
+  it("shows the workbench header with stage strip and status control", () => {
     renderView({
       planningReviews: [
         {
@@ -244,15 +249,42 @@ describe("TicketView", () => {
       "href",
       `/initiative/${initiative.id}?step=tickets`
     );
-    expect(screen.getByRole("tablist", { name: "Ticket execution path" })).toBeInTheDocument();
-    expect(screen.getByText("Verify work")).toBeInTheDocument();
-    expect(screen.getByText("Close ticket")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ticket stages")).toBeInTheDocument();
+    expect(screen.getByText("Handoff")).toBeInTheDocument();
+    expect(screen.getAllByText("Verification").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Ticket status" })).toBeInTheDocument();
 
-    // Brief content is flat and visible by default (no accordion)
-    expect(screen.getByText("Brief")).toBeInTheDocument();
-    expect(screen.getByText("Why this matters")).toBeInTheDocument();
-    expect(screen.getByText("Requirements")).toBeInTheDocument();
-    expect(screen.getByText("Resources")).toBeInTheDocument();
+    expect(screen.getByText("Done means")).toBeInTheDocument();
+    expect(screen.getByText("Main files")).toBeInTheDocument();
+  });
+
+  it("updates the ticket status from the header control", async () => {
+    const onMoveTicket = vi.fn(async () => undefined);
+
+    renderView({
+      planningReviews: [
+        {
+          id: `${initiative.id}:ticket-coverage-review`,
+          initiativeId: initiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage is clear.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:30:00.000Z",
+          updatedAt: "2026-03-16T10:30:00.000Z"
+        }
+      ],
+      onMoveTicket,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ticket status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Done" }));
+
+    await waitFor(() => {
+      expect(onMoveTicket).toHaveBeenCalledWith(ticket.id, "done");
+    });
   });
 
   it("hides the coverage gate banner once the review is overridden", () => {
@@ -278,6 +310,53 @@ describe("TicketView", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("reopens handoff when a backlog ticket still has earlier run history", () => {
+    const run: Run = {
+      id: "run-12345678",
+      ticketId: ticket.id,
+      type: "execution",
+      agentType: "codex-cli",
+      status: "complete",
+      attempts: ["attempt-12345678"],
+      committedAttemptId: "attempt-12345678",
+      activeOperationId: null,
+      operationLeaseExpiresAt: null,
+      lastCommittedAt: "2026-03-16T10:40:00.000Z",
+      createdAt: "2026-03-16T10:35:00.000Z"
+    };
+    const runAttempt: RunAttempt = {
+      id: "attempt-record-12345678",
+      attemptId: "attempt-12345678",
+      overallPass: false,
+      overrideReason: null,
+      overrideAccepted: false,
+      createdAt: "2026-03-16T10:40:00.000Z"
+    };
+
+    renderView({
+      planningReviews: [
+        {
+          id: `${initiative.id}:ticket-coverage-review`,
+          initiativeId: initiative.id,
+          kind: "ticket-coverage-review",
+          status: "passed",
+          summary: "Coverage is clear.",
+          findings: [],
+          sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+          overrideReason: null,
+          reviewedAt: "2026-03-16T10:30:00.000Z",
+          updatedAt: "2026-03-16T10:30:00.000Z"
+        }
+      ],
+      runs: [run],
+      runAttempts: [runAttempt]
+    });
+
+    expect(screen.getByText("Choose an agent, create the bundle, and run the work outside SpecFlow.")).toBeInTheDocument();
+    expect(screen.getByText("ExportSection")).toBeInTheDocument();
+    expect(screen.queryByText("CaptureVerifySection")).not.toBeInTheDocument();
+  });
+
   it("shows the active step content while later steps remain hidden", () => {
     renderView({
       planningReviews: [
@@ -296,8 +375,8 @@ describe("TicketView", () => {
       ]
     });
 
-    expect(screen.getAllByText("Start work").length).toBeGreaterThan(0);
-    expect(screen.getByRole("tablist", { name: "Ticket execution path" })).toBeInTheDocument();
+    expect(screen.getAllByText("Handoff").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Ticket stages")).toBeInTheDocument();
     expect(screen.getByText("ExportSection")).toBeInTheDocument();
     expect(screen.queryByText("CaptureVerifySection")).not.toBeInTheDocument();
     expect(screen.queryByText("VerificationResultsSection")).not.toBeInTheDocument();

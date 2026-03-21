@@ -1,8 +1,9 @@
 import type { AgentType } from "../../types/entities.js";
 import type { NotificationSink, SpecFlowRuntime } from "../types.js";
-import { badRequest, conflict } from "../errors.js";
+import { badRequest } from "../errors.js";
 import { isValidFindingId } from "../../server/validation.js";
 import { readTicket, requireCoverageReviewResolved, requireValidEntityId, structuredPlannerError, structuredVerifierError } from "./shared.js";
+import { resolveTicketProjectRoot } from "../../project-roots.js";
 
 export const listTickets = (runtime: SpecFlowRuntime) => ({
   tickets: Array.from(runtime.store.tickets.values())
@@ -19,24 +20,6 @@ export const updateTicket = async (
 ) => {
   const ticket = readTicket(runtime, ticketId);
   const nextStatus = body.status ?? ticket.status;
-
-  if (nextStatus === "in-progress" && nextStatus !== ticket.status) {
-    const blockedBy = ticket.blockedBy ?? [];
-    const unfinished = blockedBy.filter((blockerId) => {
-      const blocker = runtime.store.tickets.get(blockerId);
-      return blocker && blocker.status !== "done";
-    });
-
-    if (unfinished.length > 0) {
-      throw conflict(`Cannot start: ${unfinished.length} blocking ticket(s) must be completed first`, {
-        error: "Blocked",
-        message: `Cannot start: ${unfinished.length} blocking ticket(s) must be completed first`,
-        blockers: unfinished
-      });
-    }
-
-    requireCoverageReviewResolved(runtime, ticket);
-  }
 
   const updated = {
     ...ticket,
@@ -253,10 +236,12 @@ export const capturePreview = async (
     });
   }
 
+  const projectRoot = resolveTicketProjectRoot(runtime.rootDir, runtime.store, ticket);
   const diffResult = await runtime.diffEngine.computeDiff({
     ticket,
     runId: run.id,
     baselineAttemptId: run.committedAttemptId,
+    rootDir: projectRoot,
     scopePaths: body.scopePaths ?? [],
     widenedScopePaths: body.widenedScopePaths ?? [],
     diffSource: body.diffSource ?? { mode: "auto" }

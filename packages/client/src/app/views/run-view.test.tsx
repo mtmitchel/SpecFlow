@@ -29,10 +29,6 @@ vi.mock("../components/diff-viewer.js", () => ({
   DiffViewer: ({ title }: { title: string }) => <div>{title}</div>,
 }));
 
-vi.mock("../components/audit-panel.js", () => ({
-  AuditPanel: () => <div>AuditPanel</div>,
-}));
-
 vi.mock("../context/toast.js", () => ({
   useToast: () => ({ showError: vi.fn() }),
 }));
@@ -190,6 +186,7 @@ describe("RunView", () => {
     expect(screen.getAllByText("Pass").length).toBeGreaterThan(0);
     expect(screen.getByText("Implemented the execution gate and updated tests.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open ticket" })).toHaveAttribute("href", `/ticket/${ticket.id}`);
+    expect(screen.getByRole("link", { name: "Review changes" })).toHaveAttribute("href", `/run/${run.id}/review`);
     expect(screen.getByRole("link", { name: initiative.title })).toHaveAttribute(
       "href",
       `/initiative/${initiative.id}?step=tickets`,

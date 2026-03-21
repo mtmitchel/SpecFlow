@@ -23,11 +23,12 @@ export class DiffEngine {
   public async computeDiff(input: DiffComputationInput): Promise<DiffComputationResult> {
     const initialScopePaths = normalizeScopePaths(input.scopePaths ?? input.ticket.fileTargets);
     const diffSource = input.diffSource ?? { mode: "auto" };
-    const inGitRepo = await isGitRepository(this.rootDir);
+    const rootDir = input.rootDir ?? this.rootDir;
+    const inGitRepo = await isGitRepository(rootDir);
 
     if (inGitRepo && diffSource.mode !== "snapshot") {
       return computeGitDiff({
-        rootDir: this.rootDir,
+        rootDir,
         initialScopePaths,
         widenedScopePaths: input.widenedScopePaths,
         diffSource
@@ -35,7 +36,7 @@ export class DiffEngine {
     }
 
     return computeSnapshotDiff({
-      rootDir: this.rootDir,
+      rootDir,
       runId: input.runId,
       baselineAttemptId: input.baselineAttemptId,
       initialScopePaths,

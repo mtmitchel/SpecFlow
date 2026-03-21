@@ -5,7 +5,11 @@ import {
   validateCoverageMappings,
 } from "../src/planner/internal/plan-validation.js";
 import type { PlanInput, PlanResult } from "../src/planner/types.js";
-import { validatePlanResult } from "../src/planner/internal/validators.js";
+import {
+  validatePhaseMarkdownResult,
+  validatePlanResult,
+  validateTriageResult,
+} from "../src/planner/internal/validators.js";
 
 const basePlanInput: PlanInput = {
   initiativeDescription: "Build a lightweight offline-first note-taking app",
@@ -212,5 +216,72 @@ describe("resolveValidatedPlanResult", () => {
         previousInvalidResult: invalidPlanResult,
       }),
     );
+  });
+
+  it("rejects phase and ticket titles that do not follow the short sentence-case contract", () => {
+    const invalidPlanResult: PlanResult = {
+      phases: [
+        {
+          name: "Project Setup",
+          order: 1,
+          tickets: [
+            {
+              title: "Fix Typo",
+              description: "Create the repo scaffolding.",
+              acceptanceCriteria: ["The repo scaffolding exists."],
+              fileTargets: ["README.md"],
+              coverageItemIds: [],
+            },
+          ],
+        },
+      ],
+      uncoveredCoverageItemIds: [],
+    };
+
+    expect(() => validatePlanResult(invalidPlanResult)).toThrow(
+      'Phase name must use sentence case. Use "Project setup" instead of "Project Setup".',
+    );
+  });
+
+  it("requires a compact initiativeTitle and sentence-case headings for brief generation", () => {
+    expect(() =>
+      validatePhaseMarkdownResult(
+        {
+          initiativeTitle: "Local Notes Workspace",
+          markdown: "# Local notes workspace\n\n## Success criteria\n\nBody copy.",
+          traceOutline: { sections: [] },
+        },
+        { requireInitiativeTitle: true },
+      )
+    ).toThrow('Project title must use sentence case. Use "Local notes workspace" instead of "Local Notes Workspace".');
+  });
+
+  it("rejects ampersands in generated markdown", () => {
+    expect(() =>
+      validatePhaseMarkdownResult(
+        {
+          initiativeTitle: "Local notes",
+          markdown: "# Local notes\n\n## Goals and constraints\n\nCapture notes & sync changes.",
+          traceOutline: { sections: [] },
+        },
+        { requireInitiativeTitle: true },
+      )
+    ).toThrow('Markdown must not use ampersands. Write "and" instead.');
+  });
+
+  it("rejects triage results with title-case task titles", () => {
+    expect(() =>
+      validateTriageResult({
+        decision: "ok",
+        reason: "Small task",
+        ticketDraft: {
+          title: "Fix Typo",
+          description: "Fix the typo in docs.",
+          acceptanceCriteria: ["Docs are updated."],
+          implementationPlan: "Edit one file.",
+          fileTargets: ["README.md"],
+        },
+      })
+    ).toThrow('Ticket title must use sentence case. Use "Fix typo" instead of "Fix Typo".');
   });
 });

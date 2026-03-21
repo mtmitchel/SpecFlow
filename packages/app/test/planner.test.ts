@@ -861,7 +861,8 @@ describe("PlannerService", () => {
 
       const mockClient = new MockLlmClient([
         JSON.stringify({
-          markdown: "# Brief",
+          initiativeTitle: "Local notes",
+          markdown: "# Local notes",
           traceOutline: traceOutline("Brief")
         }),
         JSON.stringify({
@@ -934,7 +935,7 @@ describe("PlannerService", () => {
           assumptions: []
         }),
         JSON.stringify({
-          markdown: "# Core Flows",
+          markdown: "# Core flows",
           traceOutline: traceOutline("Core flows")
         }),
         JSON.stringify(reviewResult("Core flows review")),
@@ -1001,7 +1002,7 @@ describe("PlannerService", () => {
           assumptions: []
         }),
         JSON.stringify({
-          markdown: "# Tech Spec",
+          markdown: "# Tech spec",
           traceOutline: traceOutline("Tech spec")
         }),
         JSON.stringify(reviewResult("Tech spec review")),
@@ -1014,8 +1015,8 @@ describe("PlannerService", () => {
               order: 1,
               tickets: [
                 {
-                  title: "T1",
-                  description: "Implement",
+                  title: "Implement auth flow",
+                  description: "Implement the auth flow.",
                   acceptanceCriteria: ["Done"],
                   fileTargets: ["src/a.ts"],
                   coverageItemIds: [
@@ -1035,8 +1036,8 @@ describe("PlannerService", () => {
           decision: "ok",
           reason: "Scoped",
           ticketDraft: {
-            title: "Quick Task",
-            description: "Do thing",
+            title: "Fix quick task",
+            description: "Do the quick task.",
             acceptanceCriteria: ["Works"],
             implementationPlan: "Plan",
             fileTargets: ["src/quick.ts"]
@@ -1175,7 +1176,7 @@ describe("PlannerService", () => {
           JSON.stringify({
             decision: "too-large",
             reason: "Multiple epics",
-            initiativeTitle: "Platform Rewrite"
+            initiativeTitle: "Platform rewrite"
           }),
           JSON.stringify({
             decision: "ok",
@@ -1232,7 +1233,8 @@ describe("PlannerService", () => {
 
       const mockClient = new MockLlmClient([
         JSON.stringify({
-          markdown: "# Brief",
+          initiativeTitle: "Auth setup",
+          markdown: "# Auth setup",
           traceOutline: {
             sections: [
               { key: "goals", label: "Goals", items: ["Support email login"] },
@@ -1241,7 +1243,7 @@ describe("PlannerService", () => {
           }
         }),
         JSON.stringify({
-          markdown: "# Core Flows",
+          markdown: "# Core flows",
           traceOutline: {
             sections: [
               { key: "flows", label: "Flows", items: ["User signs in"] }
@@ -1261,7 +1263,7 @@ describe("PlannerService", () => {
         JSON.stringify(reviewResult("PRD review")),
         JSON.stringify(reviewResult("Core flows/PRD cross-check")),
         JSON.stringify({
-          markdown: "# Tech Spec",
+          markdown: "# Tech spec",
           traceOutline: {
             sections: [
               { key: "verification-hooks", label: "Verification hooks", items: ["Add auth route tests"] }
@@ -1376,11 +1378,12 @@ describe("PlannerService", () => {
         store,
         llmClient: new MockLlmClient([
           JSON.stringify({
-            markdown: "# Brief",
+            initiativeTitle: "Auth setup",
+            markdown: "# Auth setup",
             traceOutline: { sections: [{ key: "goals", label: "Goals", items: ["Support email login"] }] }
           }),
           JSON.stringify({
-            markdown: "# Core Flows",
+            markdown: "# Core flows",
             traceOutline: { sections: [{ key: "flows", label: "Flows", items: ["User signs in"] }] }
           }),
           JSON.stringify(reviewResult("Core flows review")),
@@ -1392,7 +1395,7 @@ describe("PlannerService", () => {
           JSON.stringify(reviewResult("PRD review")),
           JSON.stringify(reviewResult("Core flows/PRD cross-check")),
           JSON.stringify({
-            markdown: "# Tech Spec",
+            markdown: "# Tech spec",
             traceOutline: { sections: [{ key: "verification-hooks", label: "Verification hooks", items: ["Add auth route tests"] }] }
           }),
           JSON.stringify(reviewResult("Tech spec review")),
@@ -1471,7 +1474,8 @@ describe("PlannerService", () => {
 
       const mockClient = new MockLlmClient([
         JSON.stringify({
-          markdown: "# Brief",
+          initiativeTitle: "Auth setup",
+          markdown: "# Auth setup",
           traceOutline: traceOutline("Brief")
         })
       ]);
@@ -1504,7 +1508,7 @@ describe("PlannerService", () => {
       );
 
       await expect(planner.runBriefJob({ initiativeId: initiative.id })).resolves.toMatchObject({
-        markdown: "# Brief"
+        markdown: "# Auth setup"
       });
       expect(store.planningReviews.get(`${initiative.id}:brief-review`)).toMatchObject({
         status: "passed",

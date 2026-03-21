@@ -10,6 +10,12 @@ import type {
   SpecGenInput,
   TriageInput
 } from "./types.js";
+import {
+  PLANNER_PRODUCT_DESIGN_CHARTER_SECTION,
+  PLANNER_REVIEW_PRODUCT_DESIGN_SECTION,
+  PLANNER_TITLE_STYLE_SECTION,
+  TICKET_PLAN_PRODUCT_DESIGN_SECTION
+} from "../prompt-guidance.js";
 import { getQuestionPolicy, getPromptPolicy } from "./refinement-check-policy.js";
 import { normalizeDecisionType, SUPPORTED_DECISION_TYPES } from "./decision-types.js";
 
@@ -167,6 +173,18 @@ const outputContract = (job: PlannerJob): string => {
     case "clarify-help":
       return ['Respond ONLY as JSON:\n{\n  "guidance": "string"\n}'].join("\n");
     case "brief-gen":
+      return [
+        "Respond ONLY as JSON:",
+        "{",
+        '  "initiativeTitle": "string",',
+        '  "markdown": "string",',
+        '  "traceOutline": {',
+        '    "sections": [',
+        '      { "key": "string", "label": "string", "items": ["string"] }',
+        "    ]",
+        "  }",
+        "}"
+      ].join("\n");
     case "core-flows-gen":
     case "prd-gen":
     case "tech-spec-gen":
@@ -334,6 +352,8 @@ const buildGenerationPrompt = (
   userPrompt: [
     `Generate the ${artifactDescription} markdown document for this project.`,
     "Return both polished markdown and a structured traceOutline with concise fact lists. The traceOutline must only include facts grounded in the markdown you generated.",
+    PLANNER_PRODUCT_DESIGN_CHARTER_SECTION,
+    PLANNER_TITLE_STYLE_SECTION,
     ...extraRules,
     `Assumptions:\n${JSON.stringify(input.assumptions, null, 2)}`,
     ...getArtifactSections(input)
@@ -354,6 +374,7 @@ const buildReviewPrompt = (systemPrompt: string, input: ReviewRunInput): PromptB
   userPrompt: [
     `Review this project artifact set for ${input.kind}.`,
     "Rules:",
+    PLANNER_REVIEW_PRODUCT_DESIGN_SECTION,
     "- Identify only material blockers and meaningful warnings.",
     "- Use traceabilityGaps for missing or inconsistent links between artifacts.",
     "- Use assumptions for important implicit decisions the team should make explicit.",
@@ -434,7 +455,8 @@ export const buildPlannerPrompt = (
   if (job === "brief-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Brief", [
       "Capture the problem, target user, goals, success criteria, scope, constraints, and explicit assumptions.",
-      'Use a neutral top-level heading. If the project does not explicitly provide a product name, the heading must be exactly "# Brief". Never invent or assign a product, app, or code name.',
+      'Return initiativeTitle as a short descriptive project name. It must be 2 to 3 words, sentence case, no trailing punctuation, and clear enough to identify the project without sounding like marketing copy.',
+      'The first markdown heading must exactly match initiativeTitle. Do not use "# Brief" as the H1.',
       ...getPromptPolicy("brief").generationRules,
       'The traceOutline should include sections for "users", "goals", "constraints", "assumptions", and "success-criteria".'
     ]);
@@ -509,7 +531,12 @@ export const buildPlannerPrompt = (
       isRepair
         ? "- Every missing coverage item must appear in some ticket.coverageItemIds or in uncoveredCoverageItemIds."
         : null,
+      TICKET_PLAN_PRODUCT_DESIGN_SECTION,
+      PLANNER_TITLE_STYLE_SECTION,
       "Every coverage item must be accounted for. Assign each one to one or more tickets through coverageItemIds, or list it in uncoveredCoverageItemIds when the current plan intentionally leaves it out.",
+      "Keep phase names short and scannable. Use 1 to 4 words in sentence case.",
+      "Keep ticket titles short and scannable. Use 2 to 6 words in sentence case.",
+      'Write ticket descriptions as one concrete sentence of plain product language. State what the ticket changes or delivers. Do not use filler rationale headings or phrasing such as "Why this matters", "This enables", "used by backend services", or "create or verify presence of".',
       "Write acceptance criteria as specific, observable outcomes that can be judged from a code diff. Avoid vague criteria like 'works well' or 'is intuitive'.",
       "Each ticket must have at least one coverageItemId unless the plan is invalid.",
       `Project description:\n${normalizePromptText(planInput.initiativeDescription)}`,
@@ -539,6 +566,10 @@ export const buildPlannerPrompt = (
     systemPrompt,
     userPrompt: [
       "Assess whether the task is focused enough for Quick Build or should become a larger project.",
+      "Treat information architecture and product design as first-class requirements when the task affects a user-facing, operator-facing, or workflow-facing surface. Reflect that in the ticketDraft description and acceptanceCriteria instead of treating it as later polish.",
+      PLANNER_TITLE_STYLE_SECTION,
+      'If decision is "too-large", initiativeTitle must be a 2 to 3 word project name in sentence case.',
+      'If decision is "ok", ticketDraft.title must be a 2 to 6 word task title in sentence case.',
       `Task description:\n${triageInput.description}`
     ].join("\n\n")
   };

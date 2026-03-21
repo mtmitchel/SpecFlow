@@ -79,6 +79,7 @@ export interface Initiative {
   id: string;
   title: string;
   description: string;
+  projectRoot?: string | null;
   status: InitiativeStatus;
   phases: InitiativePhase[];
   specIds: string[];

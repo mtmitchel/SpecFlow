@@ -36,6 +36,43 @@ export const findDiffRowsForFinding = (diff: string, file: string, line: number 
   return rows;
 };
 
+export const extractDiffForFile = (diff: string, file: string): string | null => {
+  const sections: string[] = [];
+  let currentLines: string[] = [];
+  let currentFile: string | null = null;
+
+  const flush = (): void => {
+    if (currentFile === file && currentLines.length > 0) {
+      sections.push(currentLines.join("\n"));
+    }
+
+    currentLines = [];
+    currentFile = null;
+  };
+
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      flush();
+      currentLines = [line];
+      const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
+      currentFile = match?.[2] ?? match?.[1] ?? null;
+      continue;
+    }
+
+    if (currentLines.length > 0) {
+      currentLines.push(line);
+    }
+  }
+
+  flush();
+
+  if (sections.length === 0) {
+    return null;
+  }
+
+  return sections.join("\n");
+};
+
 export const DiffViewer = ({
   title,
   diff,

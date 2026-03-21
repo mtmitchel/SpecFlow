@@ -22,6 +22,7 @@ const AppInner = () => {
   const location = useLocation();
   const [snapshot, setSnapshot] = useState<ArtifactsSnapshot>({
     config: null,
+    workspaceRoot: "",
     initiatives: [],
     tickets: [],
     runs: [],

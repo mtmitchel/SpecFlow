@@ -42,18 +42,19 @@ export interface InitiativePhaseCheckResult {
 }
 
 export const createInitiative = async (
-  description: string
+  description: string,
+  projectRoot: string
 ): Promise<{ initiativeId: string }> =>
   transportRequest(
     "initiatives.create",
-    { body: { description } },
+    { body: { description, projectRoot } },
     () =>
       requestJson("/api/initiatives", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ description })
+        body: JSON.stringify({ description, projectRoot })
       })
   );
 

@@ -11,6 +11,7 @@ import { getResolvedVerifierConfig } from "./internal/config.js";
 import { readAttemptArtifact, resolveExistingVerificationOperation } from "./internal/operations.js";
 import { runVerifierPrompt } from "./internal/prompt.js";
 import { throwIfAborted } from "../cancellation.js";
+import { resolveTicketProjectRoot } from "../project-roots.js";
 
 export interface VerifierServiceOptions {
   rootDir: string;
@@ -85,17 +86,19 @@ export class VerifierService {
       throw new Error(`Run ${ticket.runId} not found`);
     }
 
+    const projectRoot = resolveTicketProjectRoot(this.rootDir, this.store, ticket);
     const diffResult = await this.diffEngine.computeDiff({
       ticket,
       runId: run.id,
       baselineAttemptId: run.committedAttemptId,
+      rootDir: projectRoot,
       scopePaths: input.scopePaths,
       widenedScopePaths: input.widenedScopePaths ?? []
     });
     throwIfAborted(signal);
 
     const config = await getResolvedVerifierConfig(this.store, this.fetchImpl);
-    const agentsMd = await readVerifierAgentsMd(this.rootDir, config.repoInstructionFile);
+    const agentsMd = await readVerifierAgentsMd(projectRoot, config.repoInstructionFile);
     const parsed = await runVerifierPrompt({
       llmClient: this.llmClient,
       config,
@@ -154,7 +157,7 @@ export class VerifierService {
 
     await this.store.upsertTicket({
       ...ticket,
-      status: overallPass ? "done" : "verify",
+      status: "verify",
       updatedAt: this.now().toISOString()
     });
 

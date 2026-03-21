@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { verificationPath } from "../src/io/paths.js";
 import type { LlmClient, LlmRequest, LlmTokenHandler } from "../src/llm/client.js";
 import { ArtifactStore } from "../src/store/artifact-store.js";
-import type { Run, Ticket } from "../src/types/entities.js";
+import type { Initiative, Run, Ticket } from "../src/types/entities.js";
 import { DiffEngine } from "../src/verify/diff-engine.js";
 import { VerifierService } from "../src/verify/verifier-service.js";
 
@@ -277,6 +277,226 @@ describe("VerifierService", () => {
       operationId: "op-repeat"
     });
     expect(retried.attempt.attemptId).toBe(result.attempt.attemptId);
+
+    await store.close();
+    await rm(rootDir, { recursive: true, force: true });
+  });
+
+  it("verifies initiative tickets against the initiative project root", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-verify-storage-"));
+    const projectRoot = await mkdtemp(path.join(os.tmpdir(), "specflow-verify-project-"));
+    await createSpecflowLayout(rootDir);
+    await mkdir(path.join(projectRoot, "src"), { recursive: true });
+    await writeFile(path.join(projectRoot, "AGENTS.md"), "Verify the selected project root.\n", "utf8");
+    await writeFile(path.join(projectRoot, "src", "a.ts"), "export const a = 'project-root';\n", "utf8");
+
+    const initiative: Initiative = {
+      id: "initiative-root",
+      title: "External project",
+      description: "Verify elsewhere",
+      projectRoot,
+      status: "active",
+      phases: [],
+      specIds: [],
+      ticketIds: ["ticket-root"],
+      workflow: {
+        activeStep: "tickets",
+        steps: {
+          brief: { status: "complete", updatedAt: now },
+          "core-flows": { status: "complete", updatedAt: now },
+          prd: { status: "complete", updatedAt: now },
+          "tech-spec": { status: "complete", updatedAt: now },
+          validation: { status: "complete", updatedAt: now },
+          tickets: { status: "complete", updatedAt: now },
+        },
+        refinements: {
+          brief: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+          "core-flows": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+          prd: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+          "tech-spec": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+        },
+      },
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const run: Run = {
+      id: "run-root",
+      ticketId: "ticket-root",
+      type: "execution",
+      agentType: "codex-cli",
+      status: "pending",
+      attempts: ["attempt-base"],
+      committedAttemptId: "attempt-base",
+      activeOperationId: null,
+      operationLeaseExpiresAt: null,
+      lastCommittedAt: now,
+      createdAt: now
+    };
+
+    const ticket: Ticket = {
+      id: "ticket-root",
+      initiativeId: initiative.id,
+      phaseId: null,
+      title: "Verify",
+      description: "Verify ticket",
+      status: "in-progress",
+      acceptanceCriteria: [{ id: "c1", text: "A" }],
+      implementationPlan: "",
+      fileTargets: ["src/a.ts"],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
+      runId: run.id,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await mkdir(path.join(rootDir, "specflow", "runs", run.id, "attempts", "attempt-base", "snapshot-before", "src"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(rootDir, "specflow", "runs", run.id, "attempts", "attempt-base", "snapshot-before", "src", "a.ts"),
+      "export const a = 'baseline';\n",
+      "utf8"
+    );
+
+    const store = new ArtifactStore({ rootDir, now: () => new Date(now) });
+    await store.initialize();
+    await store.upsertConfig({
+      provider: "openrouter",
+      model: "openrouter/model",
+      port: 3141,
+      host: "127.0.0.1",
+      repoInstructionFile: "AGENTS.md"
+    });
+    process.env.OPENROUTER_API_KEY = "test-key";
+    await store.upsertInitiative(initiative);
+    await store.upsertRun(run);
+    await store.upsertTicket(ticket);
+
+    const verifier = new VerifierService({
+      rootDir,
+      store,
+      llmClient: new MockLlmClient([
+        JSON.stringify({
+          criteriaResults: [{ criterionId: "c1", pass: true, evidence: "present" }],
+          driftFlags: [],
+          overallPass: true
+        })
+      ]),
+      fetchImpl: mockProviderRegistryFetch,
+      now: () => new Date(now),
+      idGenerator: (() => {
+        const ids = ["attemptroot", "oproot"];
+        let index = 0;
+        return () => ids[index++] ?? `id${index}`;
+      })()
+    });
+
+    const result = await verifier.captureAndVerify({ ticketId: ticket.id });
+    const diff = await readFile(
+      path.join(rootDir, "specflow", "runs", run.id, "attempts", result.attempt.attemptId, "diff-primary.patch"),
+      "utf8"
+    );
+
+    expect(result.overallPass).toBe(true);
+    expect(diff).toContain("project-root");
+
+    await store.close();
+    await rm(rootDir, { recursive: true, force: true });
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  it("keeps a passing verification in verify status until the user accepts it", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-verify-pass-"));
+    await createSpecflowLayout(rootDir);
+    await mkdir(path.join(rootDir, "src"), { recursive: true });
+    await writeFile(path.join(rootDir, "src", "a.ts"), "export const a = 2;\n", "utf8");
+
+    const run: Run = {
+      id: "run-pass-1",
+      ticketId: "ticket-pass-1",
+      type: "execution",
+      agentType: "codex-cli",
+      status: "pending",
+      attempts: ["attempt-base"],
+      committedAttemptId: "attempt-base",
+      activeOperationId: null,
+      operationLeaseExpiresAt: null,
+      lastCommittedAt: now,
+      createdAt: now
+    };
+
+    const ticket: Ticket = {
+      id: "ticket-pass-1",
+      initiativeId: null,
+      phaseId: null,
+      title: "Verify pass",
+      description: "Verify passing ticket",
+      status: "in-progress",
+      acceptanceCriteria: [{ id: "c1", text: "A" }],
+      implementationPlan: "",
+      fileTargets: ["src/a.ts"],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
+      runId: run.id,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await mkdir(path.join(rootDir, "specflow", "runs", run.id, "attempts", "attempt-base", "snapshot-before", "src"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(rootDir, "specflow", "runs", run.id, "attempts", "attempt-base", "snapshot-before", "src", "a.ts"),
+      "export const a = 1;\n",
+      "utf8"
+    );
+
+    const store = new ArtifactStore({ rootDir, now: () => new Date(now) });
+    await store.initialize();
+    await store.upsertConfig({
+      provider: "openrouter",
+      model: "openrouter/model",
+      port: 3141,
+      host: "127.0.0.1",
+      repoInstructionFile: "specflow/AGENTS.md"
+    });
+    process.env.OPENROUTER_API_KEY = "test-key";
+    await store.upsertRun(run);
+    await store.upsertTicket(ticket);
+
+    const verifier = new VerifierService({
+      rootDir,
+      store,
+      llmClient: new MockLlmClient([
+        JSON.stringify({
+          criteriaResults: [
+            { criterionId: "c1", pass: true, evidence: "present" }
+          ],
+          driftFlags: [],
+          overallPass: true
+        })
+      ]),
+      fetchImpl: mockProviderRegistryFetch,
+      now: () => new Date(now),
+      idGenerator: (() => {
+        const ids = ["att-pass", "op-pass"];
+        let index = 0;
+        return () => ids[index++] ?? `id${index}`;
+      })()
+    });
+
+    const result = await verifier.captureAndVerify({
+      ticketId: ticket.id,
+      agentSummary: "summary",
+      operationId: "op-pass-repeat"
+    });
+
+    expect(result.overallPass).toBe(true);
+    expect(store.tickets.get(ticket.id)?.status).toBe("verify");
 
     await store.close();
     await rm(rootDir, { recursive: true, force: true });

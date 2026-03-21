@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createInitiative } from "../../api/initiatives.js";
+import { chooseDirectory, isDesktopRuntime } from "../../api/transport.js";
 import { useToast } from "../context/toast.js";
 import { Pipeline } from "../components/pipeline.js";
 import {
@@ -19,11 +20,19 @@ const ENTRY_PIPELINE: PipelineNodeModel[] = PIPELINE_NODE_ORDER.map((key) => ({
   state: "future",
 }));
 
-export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void> }) => {
+export const InitiativeCreator = ({
+  onRefresh,
+  defaultBrowseRoot
+}: {
+  onRefresh: () => Promise<void>;
+  defaultBrowseRoot: string;
+}) => {
   const navigate = useNavigate();
   const { showError } = useToast();
   const [description, setDescription] = useState("");
+  const [projectRoot, setProjectRoot] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pickingProjectRoot, setPickingProjectRoot] = useState(false);
 
   const entryNodes = useMemo<PipelineNodeModel[]>(
     () =>
@@ -35,14 +44,32 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
     [description]
   );
 
+  const handleChooseProjectRoot = async () => {
+    if (!isDesktopRuntime() || busy || pickingProjectRoot) {
+      return;
+    }
+
+    setPickingProjectRoot(true);
+    try {
+      const selection = await chooseDirectory(defaultBrowseRoot.trim() || undefined);
+      if (selection) {
+        setProjectRoot(selection);
+      }
+    } catch (err) {
+      showError((err as Error).message ?? "We couldn't open the folder picker.");
+    } finally {
+      setPickingProjectRoot(false);
+    }
+  };
+
   const handleCreate = async () => {
-    if (!description.trim() || busy) {
+    if (!description.trim() || !projectRoot.trim() || busy) {
       return;
     }
 
     setBusy(true);
     try {
-      const result = await createInitiative(description.trim());
+      const result = await createInitiative(description.trim(), projectRoot.trim());
       await onRefresh();
       navigate(`/initiative/${result.initiativeId}?step=brief`);
     } catch (err) {
@@ -73,18 +100,47 @@ export const InitiativeCreator = ({ onRefresh }: { onRefresh: () => Promise<void
           <p className="text-muted-sm" style={{ margin: "0 0 0.75rem" }}>
             Start with the outcome, who it is for, and any limits that matter.
           </p>
+          <div className="planning-entry-root-card">
+            <div className="planning-entry-root-header">
+              <div className="planning-entry-root-copy">
+                <strong>Project folder</strong>
+                <span className="text-muted-caption">Choose the repo or folder this project should target.</span>
+              </div>
+              {isDesktopRuntime() ? (
+                <button
+                  type="button"
+                  className="inline-action"
+                  onClick={() => void handleChooseProjectRoot()}
+                  disabled={busy || pickingProjectRoot}
+                >
+                  {pickingProjectRoot ? "Choosing..." : "Choose folder"}
+                </button>
+              ) : null}
+            </div>
+            <input
+              className="phase-name-input planning-entry-root-input"
+              value={projectRoot}
+              onChange={(event) => setProjectRoot(event.target.value)}
+              placeholder="/path/to/project"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              aria-label="Project folder"
+            />
+          </div>
           <textarea
             className="multiline"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             autoFocus
+            aria-label="Project idea"
           />
           <div className="planning-entry-card-footer">
             <button
               type="button"
               className="btn-primary"
               onClick={() => void handleCreate()}
-              disabled={busy || description.trim().length === 0}
+              disabled={busy || description.trim().length === 0 || projectRoot.trim().length === 0}
             >
               {busy ? "Starting..." : "Start brief intake"}
             </button>

@@ -11,6 +11,7 @@ export const getRuntimeStatus = () => ({
 
 export const getArtifactsSnapshot = (runtime: SpecFlowRuntime) => ({
   config: redactConfig(runtime.store.config),
+  workspaceRoot: runtime.rootDir,
   initiatives: Array.from(runtime.store.initiatives.values()),
   tickets: Array.from(runtime.store.tickets.values()),
   runs: Array.from(runtime.store.runs.values()),

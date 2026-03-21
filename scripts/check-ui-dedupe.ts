@@ -7,7 +7,12 @@ const TARGET_DIRECTORIES = [
   path.join(ROOT, "packages/client/src"),
   path.join(ROOT, "packages/app/src/planner"),
 ];
+const MARKDOWN_ROOTS = [
+  path.join(ROOT, "README.md"),
+  path.join(ROOT, "docs"),
+];
 const TARGET_FILE_EXTENSIONS = new Set([".ts", ".tsx"]);
+const MARKDOWN_FILE_EXTENSIONS = new Set([".md"]);
 const INTERACTIVE_TAGS = new Set(["button", "summary", "h1", "h2", "h3", "h4", "h5", "h6", "label", "span", "p"]);
 const LABEL_PROPERTY_NAMES = new Set([
   "label",
@@ -80,6 +85,30 @@ const walk = (dir: string): string[] => {
   return files;
 };
 
+const walkMarkdownFiles = (entryPath: string): string[] => {
+  const stats = statSync(entryPath);
+  if (stats.isFile()) {
+    return MARKDOWN_FILE_EXTENSIONS.has(path.extname(entryPath)) ? [entryPath] : [];
+  }
+
+  const entries = readdirSync(entryPath, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(entryPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkMarkdownFiles(fullPath));
+      continue;
+    }
+
+    if (MARKDOWN_FILE_EXTENSIONS.has(path.extname(entry.name))) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+};
+
 const normalizeToken = (token: string): string => {
   if (token === "answer" || token === "answers" || token === "question" || token === "questions" || token === "input" || token === "inputs") {
     return "input";
@@ -120,6 +149,30 @@ const getSimilarity = (left: string, right: string): number => {
 
 const getLine = (sourceFile: ts.SourceFile, position: number): number =>
   sourceFile.getLineAndCharacterOfPosition(position).line + 1;
+
+const hasForbiddenAmpersand = (value: string): boolean => {
+  if (!value.includes("&")) {
+    return false;
+  }
+
+  if (/\?[^"\s]*&[^"\s]*=/.test(value)) {
+    return false;
+  }
+
+  if (/https?:\/\/\S*&\S*/.test(value)) {
+    return false;
+  }
+
+  if (/&(?:[a-z]+|#\d+);/i.test(value)) {
+    return false;
+  }
+
+  if (value.includes("\\$&")) {
+    return false;
+  }
+
+  return /\s&\s/.test(value);
+};
 
 const getPropertyName = (node: ts.ObjectLiteralElementLike): string | null => {
   if (!ts.isPropertyAssignment(node) && !ts.isShorthandPropertyAssignment(node)) {
@@ -301,6 +354,13 @@ for (const directory of TARGET_DIRECTORIES) {
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
         const directText = collectDirectText(node, sourceFile);
         if (directText) {
+          if (hasForbiddenAmpersand(directText)) {
+            violations.push({
+              file,
+              line: getLine(sourceFile, node.getStart(sourceFile)),
+              message: `Ampersands are forbidden in copy. Write "and" instead of "${directText}".`,
+            });
+          }
           renderCopyEntries.push({
             component: getNearestComponentName(node),
             file,
@@ -330,6 +390,16 @@ for (const directory of TARGET_DIRECTORIES) {
               normalized: expressionText,
             });
           }
+        }
+      }
+
+      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+        if (hasForbiddenAmpersand(node.text)) {
+          violations.push({
+            file,
+            line: getLine(sourceFile, node.getStart(sourceFile)),
+            message: `Ampersands are forbidden in string copy. Write "and" instead of "${node.text}".`,
+          });
         }
       }
 
@@ -365,6 +435,35 @@ for (const directory of TARGET_DIRECTORIES) {
             message: `Duplicate UI copy or expression "${right.sourceText}" rendered near line ${left.line}.`,
           });
         }
+      }
+    }
+  }
+}
+
+for (const markdownRoot of MARKDOWN_ROOTS) {
+  for (const file of walkMarkdownFiles(markdownRoot)) {
+    const lines = readFileSync(file, "utf8").split(/\r?\n/);
+    let inCodeFence = false;
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+
+      if (/^\s*```/.test(line)) {
+        inCodeFence = !inCodeFence;
+        continue;
+      }
+
+      if (inCodeFence) {
+        continue;
+      }
+
+      const withoutInlineCode = line.replace(/`[^`]*`/g, "");
+      if (hasForbiddenAmpersand(withoutInlineCode)) {
+        violations.push({
+          file,
+          line: index + 1,
+          message: `Ampersands are forbidden in markdown prose. Write "and" instead.`,
+        });
       }
     }
   }

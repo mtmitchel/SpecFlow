@@ -212,7 +212,7 @@ describe("InitiativeView tickets layout", () => {
     }, onMoveTicket);
 
     const ticketCard = screen.getByText(generatedTicket.title).closest("li");
-    const readyColumn = screen.getByLabelText("Ready tickets");
+    const readyColumn = screen.getByLabelText("Up next tickets");
 
     fireEvent.dragStart(ticketCard!, { dataTransfer });
     fireEvent.dragEnter(readyColumn, { dataTransfer });

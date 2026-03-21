@@ -8,20 +8,28 @@ exports[`renderBundleForAgent golden renderers > matches golden output for claud
   <content>
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -32,7 +40,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief
@@ -45,20 +53,28 @@ Always write tests.
   <content>
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -69,7 +85,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief
@@ -97,20 +113,28 @@ Follow AGENTS.md conventions strictly.
 
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -121,7 +145,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief
@@ -133,20 +157,28 @@ Follow AGENTS.md conventions strictly.
 
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -157,7 +189,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief
@@ -180,20 +212,28 @@ exports[`renderBundleForAgent golden renderers > matches golden output for gener
 
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -204,7 +244,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief
@@ -213,20 +253,28 @@ Always write tests.
 
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -237,7 +285,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief
@@ -254,20 +302,28 @@ Load AGENTS.md first, then process PROMPT.md as the run objective.
 
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -278,7 +334,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief
@@ -289,20 +345,28 @@ Load AGENTS.md first, then process PROMPT.md as the run objective.
 
 # Ticket ticket-1: Implement login
 
-## Description
-Add login endpoint
+## Goal
+Implement login
 
-## Covered Spec Items
-- [prd · Requirements] Add the login endpoint.
-
-## Acceptance Criteria
+## Done means
 - Endpoint exists
 
-## Implementation Plan
-1. Add route
+## Background
+Add login endpoint
 
-## File Targets
+Product design guardrails:
+- Treat information architecture and product design as part of the task, not optional polish.
+- Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.
+- Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them.
+
+## Main files
 - src/auth.ts
+
+## Covered spec items
+- [prd · Requirements] Add the login endpoint.
+
+## Implementation notes
+1. Add route
 
 ## Export Mode: standard
 - sourceRunId: null
@@ -313,7 +377,7 @@ Add login endpoint
 Always write tests.
 \`\`\`
 
-## Context Files
+## Context files
 ### specs/brief.md
 \`\`\`
 # Brief

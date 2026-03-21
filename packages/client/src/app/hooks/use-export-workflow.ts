@@ -14,13 +14,13 @@ interface ExportResult {
 
 export const useExportWorkflow = (
   ticketId: string | undefined,
-  onRefresh: () => Promise<void>
+  onRefresh: () => Promise<void>,
+  existingBundleAttempt?: { runId: string; attemptId: string } | null
 ) => {
   const { showError, showSuccess } = useToast();
   const [agentTarget, setAgentTarget] = useState<AgentTarget>("codex-cli");
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
-  const [fixForwardReady, setFixForwardReady] = useState(false);
   const [bundlePreviewOpen, setBundlePreviewOpen] = useState(false);
   const [bundleTextLoading, setBundleTextLoading] = useState(false);
   const copyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -28,10 +28,21 @@ export const useExportWorkflow = (
   const applyBundlePrefix = (content: string, prefix: string | null): string =>
     prefix ? `${prefix}\n\n${content}` : content;
 
+  const getActiveExportResult = (): ExportResult | null =>
+    exportResult ??
+    (existingBundleAttempt
+      ? {
+          runId: existingBundleAttempt.runId,
+          attemptId: existingBundleAttempt.attemptId,
+          bundlePath: "",
+          bundleText: null,
+          bundleTextPrefix: null
+        }
+      : null);
+
   useEffect(() => {
     setExportResult(null);
     setCopyFeedback(false);
-    setFixForwardReady(false);
     setBundlePreviewOpen(false);
     setBundleTextLoading(false);
 
@@ -44,7 +55,7 @@ export const useExportWorkflow = (
   }, [ticketId]);
 
   const ensureBundleText = async (
-    current = exportResult
+    current = getActiveExportResult()
   ): Promise<{ content: string; rawContent: string } | null> => {
     if (!current) {
       return null;
@@ -61,7 +72,14 @@ export const useExportWorkflow = (
     try {
       const rawContent = await fetchBundleText(current.runId, current.attemptId);
       setExportResult((previous) => {
-        if (!previous || previous.runId !== current.runId || previous.attemptId !== current.attemptId) {
+        if (!previous) {
+          return {
+            ...current,
+            bundleText: rawContent
+          };
+        }
+
+        if (previous.runId !== current.runId || previous.attemptId !== current.attemptId) {
           return previous;
         }
 
@@ -112,7 +130,6 @@ export const useExportWorkflow = (
 
   const handleReExportWithFindings = async (criteriaResults: VerificationResult["criteriaResults"]) => {
     if (!ticketId) return;
-    setFixForwardReady(false);
     try {
       const exported = await exportBundle(ticketId, agentTarget, "quick-fix");
       const failureLines = criteriaResults
@@ -131,7 +148,6 @@ export const useExportWorkflow = (
           failureLines.length > 0 ? `# Verification Failure Context\n${failureLines.join("\n")}` : null
       });
       setBundlePreviewOpen(false);
-      setFixForwardReady(true);
       showSuccess("Fix bundle created.");
       await onRefresh();
     } catch (err) {
@@ -157,7 +173,8 @@ export const useExportWorkflow = (
   };
 
   const handleToggleBundlePreview = async () => {
-    if (!exportResult) {
+    const currentResult = getActiveExportResult();
+    if (!currentResult) {
       return;
     }
 
@@ -167,7 +184,7 @@ export const useExportWorkflow = (
     }
 
     try {
-      const payload = await ensureBundleText(exportResult);
+      const payload = await ensureBundleText(currentResult);
       if (!payload) {
         return;
       }
@@ -179,12 +196,13 @@ export const useExportWorkflow = (
   };
 
   const handleDownloadBundle = async () => {
-    if (!exportResult || !ticketId) {
+    const currentResult = getActiveExportResult();
+    if (!currentResult || !ticketId) {
       return;
     }
 
     try {
-      const payload = await ensureBundleText(exportResult);
+      const payload = await ensureBundleText(currentResult);
       if (!payload) {
         return;
       }
@@ -197,15 +215,16 @@ export const useExportWorkflow = (
   };
 
   const handleSaveZipBundle = async () => {
-    if (!exportResult) {
+    const currentResult = getActiveExportResult();
+    if (!currentResult) {
       return;
     }
 
     try {
       const savedPath = await saveBundleZip(
-        exportResult.runId,
-        exportResult.attemptId,
-        `${exportResult.runId}-${exportResult.attemptId}-bundle.zip`
+        currentResult.runId,
+        currentResult.attemptId,
+        `${currentResult.runId}-${currentResult.attemptId}-bundle.zip`
       );
       if (savedPath) {
         showSuccess("ZIP bundle saved.");
@@ -215,19 +234,20 @@ export const useExportWorkflow = (
     }
   };
 
+  const activeExportResult = getActiveExportResult();
+
   return {
     agentTarget,
     setAgentTarget,
     exportResult,
+    activeExportResult,
     bundlePreview:
-      exportResult && exportResult.bundleText !== null
-        ? applyBundlePrefix(exportResult.bundleText, exportResult.bundleTextPrefix)
+      activeExportResult && activeExportResult.bundleText !== null
+        ? applyBundlePrefix(activeExportResult.bundleText, activeExportResult.bundleTextPrefix)
         : null,
     bundlePreviewOpen,
     bundleTextLoading,
     copyFeedback,
-    fixForwardReady,
-    setFixForwardReady,
     handleExport,
     handleReExportWithFindings,
     handleCopyBundle,

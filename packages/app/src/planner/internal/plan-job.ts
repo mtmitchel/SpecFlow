@@ -7,6 +7,7 @@ import type {
 import { createTicketFromDraft } from "./ticket-factory.js";
 import { completeWorkflowStep } from "../workflow-state.js";
 import type { PlanResult } from "../types.js";
+import { normalizePhaseName } from "./title-style.js";
 
 const uniqueIds = (values: string[]): string[] => Array.from(new Set(values));
 
@@ -85,7 +86,7 @@ export const commitPendingTicketPlanArtifact = async (input: {
     const phaseId = `phase-${phaseIndex + 1}-${input.idGenerator()}`;
     phaseIds.push({
       id: phaseId,
-      name: phase.name,
+      name: normalizePhaseName(phase.name),
       order: phase.order,
       status: "active"
     });

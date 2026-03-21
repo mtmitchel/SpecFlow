@@ -24,4 +24,15 @@ describe("extractDocumentHeading", () => {
 
     expect(result.title).toBe("Lightweight offline-first note-taking app");
   });
+
+  it("normalizes non-brief document headings to sentence case while preserving acronyms", () => {
+    const result = extractDocumentHeading(
+      "# IMPORT GITHUB ISSUES\n\nBody copy.",
+      "prd",
+      "PRD",
+      "Local notes"
+    );
+
+    expect(result.title).toBe("Import GitHub issues");
+  });
 });

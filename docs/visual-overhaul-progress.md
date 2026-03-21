@@ -82,7 +82,7 @@ All new tokens added to `base.css`:
 
 ### Settings modal -- DONE
 - Widened to 880px
-- Title: "Providers & Agents" with subtitle
+- Title: "Providers and agents" with subtitle
 - Provider picker: 3-card horizontal grid replacing dropdown
 - AI Agents: single disabled label instead of per-row "Coming soon"
 - Tests updated
@@ -252,5 +252,5 @@ All new tokens added to `base.css`:
 
 ### Verification needed
 7. Full visual walkthrough of every view after all TSX wiring
-8. `npm run check && npm test` -- currently passing (0 errors, 112 tests)
+8. `npm run check`, then `npm test` -- currently passing (0 errors, 112 tests)
 9. `npm run test:e2e` -- not yet run

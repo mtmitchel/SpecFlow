@@ -109,18 +109,20 @@ If an older `specflow/config.yaml` still contains a legacy `apiKey`, startup mig
 ## Key Features
 
 - **Pipeline-centered planning workflow**: start with a raw idea, stay in one planning shell, and move through Brief, Core flows, PRD, Tech spec, Validation, and Tickets with project-local pipeline chrome across creation and planning surfaces, while Home, ticket, and run pages each keep their own clearer job.
+- **Design-aware planning and tickets**: artifact generation, ticket planning, and quick-task drafts treat information architecture, workflow clarity, progressive disclosure, states, and system feedback as first-class requirements instead of later polish.
 - **Mandatory brief intake**: fresh projects always begin with a short consultation before the first brief is generated, so the product does not hallucinate scope, users, or success criteria from a single paragraph.
 - **Planning reviews and cross-checks**: every major artifact can still be reviewed for gaps and cross-checked against adjacent artifacts, but those reviews are secondary artifacts instead of primary blockers between Brief, Core flows, PRD, and Tech spec.
 - **Validation-owned ticket readiness**: Validation now owns the last planning gate before tickets are committed. It drafts the ticket plan, reroutes actionable blockers into in-place follow-up questions, and only commits tickets once the plan is clear or explicitly overridden.
 - **Traceability-backed planning**: generated artifacts persist lightweight trace outlines, and ticket planning now builds an explicit coverage ledger from those traces so gaps are visible before execution starts.
 - **Phase-based ticket board**: Tickets now keeps phase context visible while opening the selected phase as a status-based kanban board, so board work leads straight into execution.
 - **Execution gating**: project-backed tickets carry covered spec items, and unresolved Validation blockers still block export and execution until the user reruns or overrides the check.
-- **Action-oriented home**: the landing view is an Up next queue, Recent runs, and project cards with inline progress, so the first screen answers what needs attention now without turning history into the primary workflow.
+- **Action-oriented home**: the landing view shows a new-work chooser on an empty workspace, then shifts to an Up next queue, Recent runs, and project cards with inline progress once work exists.
 - **Durable re-entry**: Home's resume actions reopen the last meaningful planning surface or active project ticket, while project cards and the sidebar stay stable object entry points and run detail stays explicit history.
 - **Report-first runs and guided review**: run detail stays focused on what happened and what changed, while **Review changes** opens a guided audit flow with follow-up actions and keeps advanced compare controls behind secondary disclosure.
 - **Expandable sidebar workspace**: the left rail collapses to icon-only shortcuts and expands in place into a wider sidebar that reveals app actions plus the full project and quick-task hierarchy as a stable object navigator.
 - **Command palette (Cmd+K)**: quick access to Quick task, New project, GitHub Import, Settings, and fuzzy entity search.
 - **Direct planning entry**: the project entry route `/new-initiative` flows directly into the shared Brief survey instead of bouncing through a separate handoff mode.
+- **Per-project roots**: each new project binds to the repo or folder the user selects, so SpecFlow can plan and verify many different apps from one storage workspace instead of assuming one repeated project root.
 - **Phase-specific planning transitions**: planning entry, follow-up checks, and artifact generation now name the active phase directly and explain the next step instead of falling back to generic waiting copy.
 - **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents. Desktop mode saves ZIP bundles through the native file picker instead of an HTTP download anchor.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.

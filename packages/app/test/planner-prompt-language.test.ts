@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildPlannerPrompt } from "../src/planner/prompt-builder.js";
 
 describe("planner prompt language", () => {
-  it("forbids invented product names in brief generation prompts", () => {
+  it("requires a compact project title in brief generation prompts", () => {
     const prompt = buildPlannerPrompt(
       "brief-gen",
       {
@@ -14,8 +14,12 @@ describe("planner prompt language", () => {
       "team-rules: always include tests"
     );
 
-    expect(prompt.userPrompt).toContain('the heading must be exactly "# Brief"');
-    expect(prompt.userPrompt).toContain("Never invent or assign a product, app, or code name");
+    expect(prompt.systemPrompt).toContain('"initiativeTitle": "string"');
+    expect(prompt.userPrompt).toContain("Return initiativeTitle as a short descriptive project name");
+    expect(prompt.userPrompt).toContain("It must be 2 to 3 words, sentence case");
+    expect(prompt.userPrompt).toContain('Do not use ampersands anywhere in generated names, headings, or body copy. Write "and" instead.');
+    expect(prompt.userPrompt).toContain('The first markdown heading must exactly match initiativeTitle');
+    expect(prompt.userPrompt).not.toContain('the heading must be exactly "# Brief"');
   });
 
   it("keeps the core-flows check aligned to the expanded budget and flow-only framing", () => {
@@ -240,6 +244,40 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain("Resolve every validation issue listed below.");
     expect(prompt.userPrompt).toContain("Previous invalid ticket plan");
     expect(prompt.userPrompt).not.toContain("Repository context (use this to generate accurate file paths");
+  });
+
+  it("requires short sentence-case phase and ticket titles in planning prompts", () => {
+    const prompt = buildPlannerPrompt(
+      "plan",
+      {
+        initiativeDescription: "Build a lightweight offline-first note-taking app",
+        briefMarkdown: "# Local notes",
+        coreFlowsMarkdown: "# Core flows",
+        prdMarkdown: "# PRD",
+        techSpecMarkdown: "# Tech spec",
+        coverageItems: [],
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain("Title and heading style rules:");
+    expect(prompt.userPrompt).toContain('"Local notes", "Project setup", "Import GitHub issues"');
+    expect(prompt.userPrompt).toContain("Phase names must be 1 to 4 words");
+    expect(prompt.userPrompt).toContain("Ticket titles must be 2 to 6 words");
+  });
+
+  it("requires short sentence-case titles in triage prompts", () => {
+    const prompt = buildPlannerPrompt(
+      "triage",
+      {
+        description: "Add a first-run setup flow for local project import."
+      },
+      "team-rules: always include tests"
+    );
+
+    expect(prompt.userPrompt).toContain("Title and heading style rules:");
+    expect(prompt.userPrompt).toContain('If decision is "too-large", initiativeTitle must be a 2 to 3 word project name in sentence case.');
+    expect(prompt.userPrompt).toContain('If decision is "ok", ticketDraft.title must be a 2 to 6 word task title in sentence case.');
   });
 
   it("sanitizes and truncates raw plan-repair payload text before it reaches the provider prompt", () => {

@@ -320,16 +320,17 @@ export const TicketsStepSection = ({
                             {ticket.title}
                           </button>
                           <div className="planning-ticket-card-stats">
-                            <span className="planning-ticket-card-stat">
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z" />
-                                <path d="M10 6H6M10 10H6" />
-                              </svg>
-                              {ticket.fileTargets.length} file{ticket.fileTargets.length === 1 ? "" : "s"} in scope
-                            </span>
-                            <span className="planning-ticket-card-stat-right">
-                              {ticket.coverageItemIds.length}
-                            </span>
+                            {ticket.fileTargets.length > 0 ? (
+                              <span className="planning-ticket-card-stat">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z" />
+                                  <path d="M10 6H6M10 10H6" />
+                                </svg>
+                                {ticket.fileTargets.length} main file{ticket.fileTargets.length === 1 ? "" : "s"}
+                              </span>
+                            ) : (
+                              <span className="planning-ticket-card-stat">No main files listed yet</span>
+                            )}
                           </div>
                           {unfinishedBlockerCount > 0 ? (
                             <span className="planning-ticket-card-blocker">

@@ -80,6 +80,7 @@ export interface Initiative {
   id: string;
   title: string;
   description: string;
+  projectRoot?: string | null;
   status: "draft" | "active" | "done";
   phases: InitiativePhase[];
   specIds: string[];
@@ -358,6 +359,7 @@ export interface ProviderModel {
 
 export interface ArtifactsSnapshot {
   config: Config | null;
+  workspaceRoot?: string;
   initiatives: Initiative[];
   tickets: Ticket[];
   runs: Run[];

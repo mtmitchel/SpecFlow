@@ -218,7 +218,10 @@ describe("ArtifactStore", () => {
     await reloaded.initialize();
 
     expect(reloaded.config).toEqual(config);
-    expect(reloaded.initiatives.get(initiative.id)).toEqual(initiative);
+    expect(reloaded.initiatives.get(initiative.id)).toEqual({
+      ...initiative,
+      projectRoot: rootDir
+    });
     expect(reloaded.planningReviews.get(review.id)).toEqual(review);
     expect(reloaded.ticketCoverageArtifacts.get(coverage.id)).toEqual(coverage);
     expect(reloaded.artifactTraces.get(trace.id)).toEqual(trace);

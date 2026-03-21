@@ -10,6 +10,7 @@ import { isValidFindingId, isValidGitRef } from "../../server/validation.js";
 import type { SpecFlowRuntime } from "../types.js";
 import { badRequest, notFound } from "../errors.js";
 import { requireValidEntityId } from "./shared.js";
+import { resolveTicketProjectRoot } from "../../project-roots.js";
 
 export const runAudit = async (
   runtime: SpecFlowRuntime,
@@ -47,11 +48,13 @@ export const runAudit = async (
   const widenedScopePaths = normalizeScopePaths(body.widenedScopePaths ?? []);
   const requestedScope = normalizeScopePaths(body.scopePaths ?? []);
   const requestedDiffSource = body.diffSource ?? { mode: "branch", branch: "main" };
+  const projectRoot = resolveTicketProjectRoot(runtime.rootDir, runtime.store, ticket);
 
   const initialDiff = await runtime.diffEngine.computeDiff({
     ticket,
     runId,
     baselineAttemptId: run.committedAttemptId,
+    rootDir: projectRoot,
     scopePaths: requestedScope.length > 0 ? requestedScope : ticket.fileTargets,
     widenedScopePaths,
     diffSource: requestedDiffSource
@@ -64,12 +67,13 @@ export const runAudit = async (
     ticket,
     runId,
     baselineAttemptId: run.committedAttemptId,
+    rootDir: projectRoot,
     scopePaths: finalScope,
     widenedScopePaths,
     diffSource: requestedDiffSource
   });
 
-  const agentsConventions = await readAgentsConventions(runtime.rootDir);
+  const agentsConventions = await readAgentsConventions(projectRoot);
   const llmConfig = await getResolvedVerifierConfig(runtime.store, runtime.fetchImpl);
   const useLlm = llmConfig.apiKey.trim().length > 0;
 

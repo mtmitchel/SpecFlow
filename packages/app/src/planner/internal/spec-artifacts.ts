@@ -17,6 +17,7 @@ import {
   extractInitiativeTitleFromBriefMarkdown,
   shouldReplaceInitiativeTitle
 } from "./initiative-title-sync.js";
+import { normalizeInitiativeTitle } from "./title-style.js";
 import { completeWorkflowStep } from "../workflow-state.js";
 import type {
   PhaseMarkdownResult,
@@ -142,7 +143,11 @@ export const persistPhaseMarkdown = async (input: {
   const nextInitiativeTitle =
     input.step === "brief" &&
     shouldReplaceInitiativeTitle(input.initiative.title, input.initiative.description)
-      ? extractInitiativeTitleFromBriefMarkdown(input.result.markdown) ?? input.initiative.title
+      ? normalizeInitiativeTitle(
+          input.result.initiativeTitle?.trim()
+            || extractInitiativeTitleFromBriefMarkdown(input.result.markdown)
+            || input.initiative.title
+        )
       : input.initiative.title;
 
   const updatedInitiative: Initiative = {

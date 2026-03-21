@@ -60,14 +60,14 @@ describe("spec summary titles", () => {
     await writeInitiativeFixture(
       rootDir,
       initiative,
-      "# Lightweight PWA Notes (List + Card Views)\n\n## Summary\n\nBody copy.",
+      "# Lightweight PWA notes\n\n## Summary\n\nBody copy.",
     );
 
     const store = createStore(rootDir);
     await store.reloadFromDisk();
 
-    expect(store.initiatives.get(initiative.id)?.title).toBe("Lightweight PWA Notes (List + Card Views)");
-    expect(store.specs.get(`${initiative.id}:brief`)?.title).toBe("Lightweight PWA Notes (List + Card Views)");
+    expect(store.initiatives.get(initiative.id)?.title).toBe("Lightweight PWA notes");
+    expect(store.specs.get(`${initiative.id}:brief`)?.title).toBe("Lightweight PWA notes");
   });
 
   it("keeps a custom initiative title while still exposing the brief title on the spec summary", async () => {
@@ -91,13 +91,13 @@ describe("spec summary titles", () => {
     await writeInitiativeFixture(
       rootDir,
       initiative,
-      "# Lightweight PWA Notes (List + Card Views)\n\n## Summary\n\nBody copy.",
+      "# Lightweight PWA notes\n\n## Summary\n\nBody copy.",
     );
 
     const store = createStore(rootDir);
     await store.reloadFromDisk();
 
     expect(store.initiatives.get(initiative.id)?.title).toBe("Sidecar Notebook");
-    expect(store.specs.get(`${initiative.id}:brief`)?.title).toBe("Lightweight PWA Notes (List + Card Views)");
+    expect(store.specs.get(`${initiative.id}:brief`)?.title).toBe("Lightweight PWA notes");
   });
 });

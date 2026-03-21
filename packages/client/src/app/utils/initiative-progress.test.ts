@@ -608,7 +608,7 @@ describe("getInitiativeProgressModel", () => {
     expect(executeProgress.currentNodeState).toBe("active");
     expect(verifyProgress.currentNodeState).toBe("active");
     expect(getInitiativeQueueActionLabel(initiative, executeProgress)).toBe("Resume ticket");
-    expect(getInitiativeQueueActionLabel(initiative, verifyProgress)).toBe("Verify ticket");
+    expect(getInitiativeQueueActionLabel(initiative, verifyProgress)).toBe("Open ticket");
   });
 
   it("routes back to validation when coverage is blocked even if tickets already exist", () => {

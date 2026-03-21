@@ -4,6 +4,7 @@ export interface DiffComputationInput {
   ticket: Ticket;
   runId: string;
   baselineAttemptId: string | null;
+  rootDir?: string;
   scopePaths?: string[];
   widenedScopePaths: string[];
   diffSource?: DiffSourceSelection;

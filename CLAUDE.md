@@ -168,7 +168,8 @@ Keep SpecFlow language aligned with the canonical product model:
 
 - dominant mental model: `guided planning workspace`
 - canonical workflow nouns: `Brief`, `Core flows`, `PRD`, `Tech spec`, `Validation`, `Tickets`, `Runs`
-- canonical phrases: `Brief intake`, `Review changes`, `Verify work`, `Up next`, `Needs review`
+- canonical execution nouns: `Handoff`, `Verification`
+- canonical phrases: `Brief intake`, `Review changes`, `Project folder`, `Up next`, `Needs attention`
 - canonical planning term: `quality strategy`
 - legacy internal alias only when technically necessary: `verification`
 
@@ -178,6 +179,16 @@ Do not let UI or docs drift toward:
 - document archive
 - internal agent control panel
 - raw workflow-state jargon in default user copy
+- ampersands in authored prose or UI copy
+
+Copy and naming rules:
+
+- Use sentence case for headings, section titles, buttons, labels, badges, statuses, project names, phase names, and ticket titles.
+- Sentence case means: capitalize the first word, proper nouns, approved acronyms, and the first word after a colon. Lowercase the rest.
+- Keep generated project names short: 2 to 3 words.
+- Keep phase names short: ideally 1 to 4 words.
+- Keep ticket titles short: ideally 2 to 6 words.
+- Do not use ampersands. Write `and`.
 
 ## Validation, security, and secrets
 

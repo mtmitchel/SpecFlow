@@ -1,4 +1,4 @@
-# Prompt 2: Security & Input Validation Review
+# Prompt 2: Security and input validation review
 
 You are reviewing the current repository checkout for SpecFlow.
 

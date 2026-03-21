@@ -48,6 +48,7 @@ export interface ClarifyHelpResult {
 }
 
 export interface PhaseMarkdownResult {
+  initiativeTitle?: string;
   markdown: string;
   traceOutline: {
     sections: ArtifactTraceOutlineSection[];

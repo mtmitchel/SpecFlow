@@ -1,6 +1,6 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { ApiError } from "./http";
 
 export interface TransportEvent {
@@ -215,6 +215,20 @@ export const chooseSavePath = async (defaultPath: string): Promise<string | null
   }
 
   const selection = await save({ defaultPath });
+  return typeof selection === "string" ? selection : null;
+};
+
+export const chooseDirectory = async (defaultPath?: string): Promise<string | null> => {
+  if (!isDesktopRuntime()) {
+    return null;
+  }
+
+  const selection = await open({
+    defaultPath,
+    directory: true,
+    multiple: false,
+  });
+
   return typeof selection === "string" ? selection : null;
 };
 

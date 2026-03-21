@@ -195,6 +195,7 @@ describe("BundleGenerator", () => {
     const snapshotPath = path.join(rootDir, "specflow", "runs", result.runId, "attempts", result.attemptId, "snapshot-before", "src", "auth.ts");
 
     await expect(readFile(promptPath, "utf8")).resolves.toContain("Codex Task Bundle");
+    await expect(readFile(promptPath, "utf8")).resolves.toContain("Product design guardrails");
     await expect(readFile(agentsPath, "utf8")).resolves.toContain("Always write tests");
     await expect(readFile(briefPath, "utf8")).resolves.toContain("# Brief");
     await expect(readFile(snapshotPath, "utf8")).resolves.toContain("export const auth = true;");
@@ -213,6 +214,96 @@ describe("BundleGenerator", () => {
 
     await store.close();
     await rm(rootDir, { recursive: true, force: true });
+  });
+
+  it("exports initiative bundles against the initiative project root", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-bundle-storage-"));
+    const projectRoot = await mkdtemp(path.join(os.tmpdir(), "specflow-project-root-"));
+    await createSpecflowLayout(rootDir);
+    await mkdir(path.join(projectRoot, "src"), { recursive: true });
+    await writeFile(path.join(projectRoot, "AGENTS.md"), "Work in the selected project.\n", "utf8");
+    await writeFile(path.join(projectRoot, "src", "auth.ts"), "export const auth = 'project-root';\n", "utf8");
+
+    const store = new ArtifactStore({ rootDir, now: () => new Date(now) });
+    await store.initialize();
+
+    const initiative: Initiative = {
+      id: "initiative-root",
+      title: "External project",
+      description: "Build auth elsewhere",
+      projectRoot,
+      status: "active",
+      phases: [],
+      specIds: [],
+      ticketIds: ["ticket-root"],
+      workflow: createInitiativeWorkflow(),
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const ticket: Ticket = {
+      id: "ticket-root",
+      initiativeId: initiative.id,
+      phaseId: null,
+      title: "Implement login",
+      description: "Add login endpoint",
+      status: "ready",
+      acceptanceCriteria: [{ id: "c1", text: "Endpoint exists" }],
+      implementationPlan: "1. Add route",
+      fileTargets: ["src/auth.ts"],
+      coverageItemIds: [],
+      blockedBy: [],
+      blocks: [],
+      runId: null,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await store.upsertInitiative(initiative);
+    await store.upsertPlanningReview({
+      id: `${initiative.id}:ticket-coverage-review`,
+      initiativeId: initiative.id,
+      kind: "ticket-coverage-review",
+      status: "passed",
+      summary: "Coverage check passes.",
+      findings: [],
+      sourceUpdatedAts: { tickets: now },
+      overrideReason: null,
+      reviewedAt: now,
+      updatedAt: now
+    });
+    await store.upsertTicket(ticket);
+
+    const generator = new BundleGenerator({
+      rootDir,
+      store,
+      now: () => new Date(now),
+      idGenerator: (() => {
+        const ids = ["runroot", "attemptroot", "oproot"];
+        let index = 0;
+        return () => ids[index++] ?? `id${index}`;
+      })()
+    });
+
+    const result = await generator.exportBundle({
+      ticketId: ticket.id,
+      agentTarget: "codex-cli",
+      exportMode: "standard"
+    });
+
+    await expect(readFile(path.join(result.bundlePath, "AGENTS.md"), "utf8")).resolves.toContain(
+      "Work in the selected project."
+    );
+    await expect(
+      readFile(
+        path.join(rootDir, "specflow", "runs", result.runId, "attempts", result.attemptId, "snapshot-before", "src", "auth.ts"),
+        "utf8"
+      )
+    ).resolves.toContain("project-root");
+
+    await store.close();
+    await rm(rootDir, { recursive: true, force: true });
+    await rm(projectRoot, { recursive: true, force: true });
   });
 
   it("writes quick-fix linkage metadata in manifest", async () => {

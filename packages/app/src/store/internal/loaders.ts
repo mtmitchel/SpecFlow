@@ -100,9 +100,13 @@ export const loadInitiatives = async (input: {
       shouldReplaceInitiativeTitle(initiative.title, initiative.description)
         ? {
             ...initiative,
+            projectRoot: initiative.projectRoot ?? input.rootDir,
             title: briefSummaryTitle,
           }
-        : initiative;
+        : {
+            ...initiative,
+            projectRoot: initiative.projectRoot ?? input.rootDir
+          };
 
     input.initiatives.set(normalizedInitiative.id, normalizedInitiative);
 

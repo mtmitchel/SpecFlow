@@ -214,14 +214,14 @@ describe("TicketsStepSection", () => {
     expect(screen.getByText("Tighten verification copy")).toBeInTheDocument();
   });
 
-  it("moves a ticket to a valid next status when dropped", async () => {
+  it("moves a ticket to another status when dropped", async () => {
     const onMoveTicket = vi.fn(async () => undefined);
     const dataTransfer = createDataTransfer();
 
     renderSection({ onMoveTicket });
 
     const ticketCard = screen.getByText(baseTicket.title).closest("li");
-    const readyColumn = screen.getByLabelText("Ready tickets");
+    const readyColumn = screen.getByLabelText("Up next tickets");
 
     fireEvent.dragStart(ticketCard!, { dataTransfer });
     fireEvent.dragEnter(readyColumn, { dataTransfer });
@@ -233,19 +233,19 @@ describe("TicketsStepSection", () => {
     });
   });
 
-  it("blocks invalid status drops", async () => {
+  it("ignores drops into the same status column", async () => {
     const onMoveTicket = vi.fn(async () => undefined);
     const dataTransfer = createDataTransfer();
 
     renderSection({ onMoveTicket });
 
     const ticketCard = screen.getByText(baseTicket.title).closest("li");
-    const doneColumn = screen.getByLabelText("Done tickets");
+    const backlogColumn = screen.getByLabelText("Backlog tickets");
 
     fireEvent.dragStart(ticketCard!, { dataTransfer });
-    fireEvent.dragEnter(doneColumn, { dataTransfer });
-    fireEvent.dragOver(doneColumn, { dataTransfer });
-    fireEvent.drop(doneColumn, { dataTransfer });
+    fireEvent.dragEnter(backlogColumn, { dataTransfer });
+    fireEvent.dragOver(backlogColumn, { dataTransfer });
+    fireEvent.drop(backlogColumn, { dataTransfer });
 
     await waitFor(() => {
       expect(onMoveTicket).not.toHaveBeenCalled();

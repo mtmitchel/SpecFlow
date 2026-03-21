@@ -1,4 +1,5 @@
 import type { RenderBundleInput, RenderBundleOutput } from "./types.js";
+import { BUNDLE_PRODUCT_DESIGN_SECTION } from "../prompt-guidance.js";
 
 const renderContextSection = (contextFiles: RenderBundleInput["contextFiles"]): string => {
   if (contextFiles.length === 0) {
@@ -19,6 +20,7 @@ const renderContextSection = (contextFiles: RenderBundleInput["contextFiles"]): 
 };
 
 const renderTicketCore = (input: RenderBundleInput): string => {
+  const hasBackground = input.ticket.description.trim() && input.ticket.description.trim() !== input.ticket.title.trim();
   const coveredItems = input.coveredItems.length
     ? input.coveredItems.map((item) => `- [${item.sourceStep} · ${item.sectionLabel}] ${item.text}`).join("\n")
     : "- (none)";
@@ -34,20 +36,25 @@ const renderTicketCore = (input: RenderBundleInput): string => {
   return [
     `# Ticket ${input.ticket.id}: ${input.ticket.title}`,
     "",
-    "## Description",
-    input.ticket.description,
+    "## Goal",
+    input.ticket.title,
     "",
-    "## Covered Spec Items",
-    coveredItems,
-    "",
-    "## Acceptance Criteria",
+    "## Done means",
     criteria,
     "",
-    "## Implementation Plan",
-    input.ticket.implementationPlan || "(not provided)",
+    hasBackground ? "## Background" : null,
+    hasBackground ? input.ticket.description : null,
+    hasBackground ? "" : null,
+    BUNDLE_PRODUCT_DESIGN_SECTION,
     "",
-    "## File Targets",
+    "## Main files",
     targets,
+    "",
+    "## Covered spec items",
+    coveredItems,
+    "",
+    "## Implementation notes",
+    input.ticket.implementationPlan || "(not provided)",
     "",
     `## Export Mode: ${input.exportMode}`,
     input.sourceRunId ? `- sourceRunId: ${input.sourceRunId}` : "- sourceRunId: null",
@@ -58,9 +65,9 @@ const renderTicketCore = (input: RenderBundleInput): string => {
     input.agentsMd.trimEnd() || "(empty)",
     "```",
     "",
-    "## Context Files",
+    "## Context files",
     renderContextSection(input.contextFiles)
-  ].join("\n");
+  ].filter((section): section is string => section !== null).join("\n");
 };
 
 const renderClaudeCode = (input: RenderBundleInput): RenderBundleOutput => {

@@ -8,6 +8,7 @@ import {
   getInitiativeShellHref,
 } from "../utils/initiative-progress.js";
 import { getInitiativeQueueActionLabel, getStandaloneTicketActionLabel } from "../utils/ui-language.js";
+import { NewChooser } from "./new-chooser.js";
 
 const modKey =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
@@ -161,6 +162,15 @@ export const OverviewPanel = ({
   );
   const primaryAction = upNext[0] ?? null;
   const secondaryActions = primaryAction ? upNext.slice(1) : [];
+  const showNewChooser = initiativeCards.length === 0 && upNext.length === 0 && recentRuns.length === 0;
+
+  if (showNewChooser) {
+    return (
+      <section className="journey-home-shell">
+        <NewChooser />
+      </section>
+    );
+  }
 
   return (
     <section className="journey-home-shell">

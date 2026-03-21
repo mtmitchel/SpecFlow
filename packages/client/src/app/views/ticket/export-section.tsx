@@ -32,6 +32,8 @@ interface ExportSectionProps {
   chrome?: "section" | "plain";
   showIntro?: boolean;
   showCreateControls?: boolean;
+  collapseUtilities?: boolean;
+  utilityMenuLabel?: string;
 }
 
 export const ExportSection = ({
@@ -52,12 +54,48 @@ export const ExportSection = ({
   chrome = "section",
   showIntro = true,
   showCreateControls = true,
+  collapseUtilities = false,
+  utilityMenuLabel = "Bundle details",
 }: ExportSectionProps) => {
+  const utilityActions = exportResult ? (
+    <>
+      <button
+        type="button"
+        className={copyFeedback ? "btn-copied" : ""}
+        onClick={() => void handleCopyBundle()}
+      >
+        {copyFeedback ? "Copied" : "Copy bundle"}
+      </button>
+      {desktopRuntime ? (
+        <button type="button" className="inline-action" onClick={() => void handleSaveZipBundle()}>
+          Save ZIP bundle
+        </button>
+      ) : (
+        <a
+          href={`/api/runs/${exportResult.runId}/attempts/${exportResult.attemptId}/bundle.zip`}
+          className="inline-action"
+        >
+          Download ZIP bundle
+        </a>
+      )}
+      <button type="button" className="inline-action" onClick={() => void handleToggleBundlePreview()}>
+        {bundlePreviewOpen
+          ? "Hide bundle"
+          : bundleTextLoading
+            ? "Loading bundle..."
+            : "Show bundle"}
+      </button>
+      <button type="button" className="inline-action" onClick={() => void handleDownloadBundle()}>
+        Download Markdown bundle
+      </button>
+    </>
+  ) : null;
+
   const content = (
     <>
       {showIntro ? (
         <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
-          Create the handoff bundle, run your coding agent, then come back here to verify the result.
+          Create the handoff bundle, run your coding agent outside SpecFlow, and come back when the work lands.
           <HelpTip text="Creates a bundle with the ticket plan and the codebase context your coding agent needs." />
         </p>
       ) : null}
@@ -79,41 +117,37 @@ export const ExportSection = ({
             </button>
           </>
         ) : null}
-        {exportResult ? (
-          <button
-            type="button"
-            className={copyFeedback ? "btn-copied" : ""}
-            onClick={() => void handleCopyBundle()}
-          >
-            {copyFeedback ? "Copied" : "Copy bundle"}
-          </button>
-        ) : null}
-        {exportResult ? (
-          <button type="button" className="inline-action" onClick={() => void handleToggleBundlePreview()}>
-            {bundlePreviewOpen ? "Hide bundle" : bundleTextLoading ? "Loading bundle..." : "Show bundle"}
-          </button>
-        ) : null}
-        {exportResult ? (
-          <button type="button" className="inline-action" onClick={() => void handleDownloadBundle()}>
-            Download Markdown bundle
-          </button>
-        ) : null}
-        {exportResult ? (
-          desktopRuntime ? (
-            <button type="button" className="inline-action" onClick={() => void handleSaveZipBundle()}>
-              Save ZIP bundle
-            </button>
-          ) : (
-            <a
-              href={`/api/runs/${exportResult.runId}/attempts/${exportResult.attemptId}/bundle.zip`}
-              className="inline-action"
-            >
-              Download ZIP bundle
-            </a>
-          )
-        ) : null}
+        {exportResult && !collapseUtilities ? utilityActions : null}
       </div>
-      {bundlePreviewOpen && bundlePreview ? <pre>{bundlePreview}</pre> : null}
+      {exportResult && collapseUtilities ? (
+        <details className="ticket-secondary-disclosure">
+          <summary>{utilityMenuLabel}</summary>
+          <div className="ticket-secondary-content">
+            <div className="button-row">{utilityActions}</div>
+            {bundlePreviewOpen && bundlePreview ? <pre>{bundlePreview}</pre> : null}
+          </div>
+        </details>
+      ) : null}
+      {exportResult && !collapseUtilities ? (
+        <details className="ticket-secondary-disclosure">
+          <summary>Bundle details</summary>
+          <div className="ticket-secondary-content">
+            <div className="button-row">
+              <button type="button" className="inline-action" onClick={() => void handleToggleBundlePreview()}>
+                {bundlePreviewOpen
+                  ? "Hide bundle"
+                  : bundleTextLoading
+                    ? "Loading bundle..."
+                    : "Show bundle"}
+              </button>
+              <button type="button" className="inline-action" onClick={() => void handleDownloadBundle()}>
+                Download Markdown bundle
+              </button>
+            </div>
+            {bundlePreviewOpen && bundlePreview ? <pre>{bundlePreview}</pre> : null}
+          </div>
+        </details>
+      ) : null}
     </>
   );
 
@@ -123,7 +157,7 @@ export const ExportSection = ({
 
   return (
     <WorkflowSection
-      title="Start work"
+      title="Handoff"
       badge={exportResult ? "ready" : undefined}
       defaultOpen={workflowPhase === "export"}
     >

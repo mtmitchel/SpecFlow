@@ -143,6 +143,33 @@
   line-height: 1.2;
 }
 
+.planning-entry-root-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.planning-entry-root-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.planning-entry-root-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.planning-entry-root-input {
+  margin-bottom: 0;
+  font-family: "IBM Plex Mono", monospace;
+}
+
 .planning-entry-card-header {
   display: flex;
   justify-content: space-between;

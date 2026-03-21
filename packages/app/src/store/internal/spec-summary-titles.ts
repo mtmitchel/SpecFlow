@@ -1,9 +1,7 @@
 import type { SpecDocument } from "../../types/entities.js";
+import { normalizeInitiativeTitle, toSentenceCaseLabel } from "../../planner/internal/title-style.js";
 
 const stripWrappingQuotes = (value: string): string => value.replace(/^["“”'`]+|["“”'`]+$/g, "").trim();
-
-const startCaseHeading = (value: string): string =>
-  value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
 
 const normalizeBriefHeading = (rawHeading: string, fallbackTitle: string): string => {
   let title = rawHeading.trim();
@@ -16,7 +14,7 @@ const normalizeBriefHeading = (rawHeading: string, fallbackTitle: string): strin
     return fallbackTitle;
   }
 
-  return startCaseHeading(title);
+  return normalizeInitiativeTitle(title);
 };
 
 export const extractSpecSummaryTitle = (
@@ -39,5 +37,5 @@ export const extractSpecSummaryTitle = (
   }
 
   const title = stripWrappingQuotes(rawHeading);
-  return title ? startCaseHeading(title) : fallbackTitle;
+  return title ? toSentenceCaseLabel(title) : fallbackTitle;
 };

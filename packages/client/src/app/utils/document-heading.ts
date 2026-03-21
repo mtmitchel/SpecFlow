@@ -1,8 +1,39 @@
 import type { InitiativeArtifactStep } from "../../types.js";
 
 const stripWrappingQuotes = (value: string): string => value.replace(/^["“”'`]+|["“”'`]+$/g, "").trim();
-const startCaseHeading = (value: string): string =>
-  value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
+const TITLE_SPECIAL_CASES = new Map<string, string>([
+  ["api", "API"],
+  ["github", "GitHub"],
+  ["json", "JSON"],
+  ["prd", "PRD"],
+  ["pwa", "PWA"],
+  ["tauri", "Tauri"],
+  ["ui", "UI"],
+  ["ux", "UX"],
+]);
+const applySpecialCases = (value: string): string => {
+  let normalized = value;
+
+  for (const [lowercase, styled] of TITLE_SPECIAL_CASES.entries()) {
+    normalized = normalized.replace(
+      new RegExp(`\\b${lowercase}\\b`, "gi"),
+      styled
+    );
+  }
+
+  return normalized;
+};
+const toSentenceCaseHeading = (value: string): string => {
+  const normalized = stripWrappingQuotes(value).trim();
+  if (!normalized) {
+    return normalized;
+  }
+
+  return applySpecialCases(normalized.toLowerCase()).replace(
+    /(^|:\s+|\/)([a-z])/g,
+    (_, prefix: string, character: string) => `${prefix}${character.toUpperCase()}`
+  );
+};
 
 const normalizeBriefHeading = (
   rawHeading: string,
@@ -19,7 +50,7 @@ const normalizeBriefHeading = (
     title = "";
   }
 
-  return startCaseHeading(title || initiativeTitle || fallbackTitle);
+  return toSentenceCaseHeading(title || initiativeTitle || fallbackTitle);
 };
 
 export const extractDocumentHeading = (
@@ -42,7 +73,7 @@ export const extractDocumentHeading = (
   const title =
     step === "brief"
       ? normalizeBriefHeading(rawTitle, initiativeTitle, fallbackTitle)
-      : startCaseHeading(stripWrappingQuotes(rawTitle) || fallbackTitle);
+      : toSentenceCaseHeading(stripWrappingQuotes(rawTitle) || fallbackTitle);
 
   return {
     title,

@@ -101,8 +101,8 @@ describe("ticket routes", () => {
         url: "/api/tickets/ticket-aabbccdd",
         payload: { status: "in-progress" }
       });
-      expect(patchResponse.statusCode).toBe(409);
-      expect(patchResponse.json().message).toContain("coverage check");
+      expect(patchResponse.statusCode).toBe(200);
+      expect(patchResponse.json().ticket.status).toBe("in-progress");
     } finally {
       await fixture.cleanup();
     }

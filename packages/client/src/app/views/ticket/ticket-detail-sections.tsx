@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Ticket, TicketStatus } from "../../../types.js";
+import type { Ticket } from "../../../types.js";
 import { CustomSelect } from "../../components/custom-select.js";
 
 export interface TicketPreflightIssue {
@@ -10,13 +10,19 @@ export interface TicketPreflightIssue {
 }
 
 export type ExecutionStageState = "active" | "complete" | "future" | "checkpoint";
+export type TicketCriterionStatus = "pending" | "pass" | "fail";
+export type TicketStageVariant = "default" | "handoff" | "review" | "verification";
 
 export interface TicketAnchorStep {
   label: string;
-  summary: string;
   state: ExecutionStageState;
 }
 
+export interface TicketStageSummaryItem {
+  label: string;
+  value: string;
+  tone?: "default" | "success" | "warn";
+}
 
 const renderIssueList = (issues: TicketPreflightIssue[]) => (
   <div className="ticket-issues-list">
@@ -54,74 +60,54 @@ const getDisplayFileTargets = (targets: string[]): string[] => {
 };
 
 interface TicketAnchorCardProps {
-  contextLabel: string;
-  phaseName: string;
-  ticketStatusLabel: string;
-  verificationLabel: string;
-  fileTargetsCount: number;
   steps: TicketAnchorStep[];
-  validTransitions: Array<{ key: TicketStatus; label: string }>;
-  moveToStatus: TicketStatus | "";
-  onMoveToStatusChange: (nextStatus: TicketStatus | "") => void;
-  onUpdateStatus: () => Promise<void>;
 }
 
-const getTabItemClass = (state: ExecutionStageState): string => {
+const getStepItemClass = (state: ExecutionStageState): string => {
   if (state === "active" || state === "checkpoint") {
-    return "ticket-tab-item ticket-tab-item-active";
+    return "ticket-stepper-item ticket-stepper-item-active";
   }
 
   if (state === "complete") {
-    return "ticket-tab-item ticket-tab-item-done";
+    return "ticket-stepper-item ticket-stepper-item-done";
   }
 
-  return "ticket-tab-item";
+  return "ticket-stepper-item";
+};
+
+const getStageStateLabel = (state: ExecutionStageState): string => {
+  if (state === "active") {
+    return "Active";
+  }
+
+  if (state === "complete") {
+    return "Complete";
+  }
+
+  if (state === "checkpoint") {
+    return "Needs attention";
+  }
+
+  return "Pending";
 };
 
 export const TicketAnchorCard = ({
-  contextLabel: _contextLabel,
-  phaseName: _phaseName,
-  ticketStatusLabel: _ticketStatusLabel,
-  verificationLabel: _verificationLabel,
-  fileTargetsCount: _fileTargetsCount,
   steps,
-  validTransitions,
-  moveToStatus,
-  onMoveToStatusChange,
-  onUpdateStatus,
 }: TicketAnchorCardProps) => (
   <section className="ticket-anchor-card">
-    <div className="ticket-tab-bar" role="tablist" aria-label="Ticket execution path">
+    <p className="ticket-anchor-label">Agent workbench</p>
+    <ol className="ticket-stepper" aria-label="Ticket stages">
       {steps.map((step) => (
-        <button
-          key={step.label}
-          type="button"
-          role="tab"
-          className={getTabItemClass(step.state)}
-          disabled={step.state === "future"}
-          aria-selected={step.state === "active" || step.state === "checkpoint"}
-        >
-          {step.label}
-        </button>
+        <li key={step.label} className={getStepItemClass(step.state)}>
+          <div className="ticket-stepper-heading">
+            <strong>{step.label}</strong>
+            <span className={`ticket-stepper-state ticket-stepper-state-${step.state}`}>
+              {getStageStateLabel(step.state)}
+            </span>
+          </div>
+        </li>
       ))}
-    </div>
-
-    {validTransitions.length > 0 ? (
-      <div className="ticket-status-strip">
-        <div className="ticket-status-toolbar">
-          <CustomSelect
-            options={validTransitions.map((column) => ({ value: column.key, label: column.label }))}
-            value={moveToStatus}
-            onChange={(val) => onMoveToStatusChange(val as TicketStatus | "")}
-            placeholder="Move ticket to"
-            aria-label="Move ticket to"
-          />
-          <button type="button" disabled={!moveToStatus} onClick={() => void onUpdateStatus()}>
-            Update status
-          </button>
-        </div>
-      </div>
-    ) : null}
+    </ol>
   </section>
 );
 
@@ -145,6 +131,10 @@ interface TicketFocusCardProps {
   body: string;
   state: ExecutionStageState;
   badgeLabel?: string;
+  variant?: TicketStageVariant;
+  issues?: TicketPreflightIssue[];
+  summaryItems?: TicketStageSummaryItem[];
+  actions?: ReactNode;
   children?: ReactNode;
 }
 
@@ -153,15 +143,34 @@ export const TicketFocusCard = ({
   body,
   state: _state,
   badgeLabel: _badgeLabel,
+  variant = "default",
+  issues = [],
+  summaryItems = [],
+  actions = null,
   children = null,
 }: TicketFocusCardProps) => (
-  <section className="ticket-focus-card">
+  <section className={`ticket-focus-card ticket-focus-card-${variant}`}>
     <div className="ticket-focus-header">
       <div>
         <h3>{title}</h3>
         <p>{body}</p>
       </div>
+      {actions}
     </div>
+    {issues.length > 0 ? renderIssueList(issues) : null}
+    {summaryItems.length > 0 ? (
+      <dl className="ticket-stage-summary">
+        {summaryItems.map((item) => (
+          <div
+            key={`${item.label}-${item.value}`}
+            className={`ticket-stage-summary-item ticket-stage-summary-item-${item.tone ?? "default"}`}
+          >
+            <dt>{item.label}</dt>
+            <dd>{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    ) : null}
     {children ? <div className="ticket-focus-body">{children}</div> : null}
   </section>
 );
@@ -183,55 +192,146 @@ export const TicketBlockersCard = ({ issues }: TicketBlockersCardProps) => (
 
 interface TicketBriefCardProps {
   ticket: Ticket;
-  groupedCoveredItems: Record<string, Array<{ id: string; text: string }>>;
+  criterionStates: Record<string, TicketCriterionStatus>;
+  status: string;
+  statusOptions: Array<{ value: string; label: string }>;
+  onStatusChange: (value: string) => void;
+  statusUpdating: boolean;
 }
+
+const getCriterionStatusLabel = (status: TicketCriterionStatus): string => {
+  if (status === "pass") {
+    return "Passed";
+  }
+
+  if (status === "fail") {
+    return "Failed";
+  }
+
+  return "Not checked";
+};
+
+const TicketBriefSection = ({
+  title,
+  variant = "default",
+  children,
+}: {
+  title: string;
+  variant?: "default" | "checklist";
+  children: ReactNode;
+}) => (
+  <details className={`ticket-brief-section ticket-brief-section-${variant}`} open>
+    <summary>{title}</summary>
+    <div className="ticket-brief-section-body">{children}</div>
+  </details>
+);
+
+const getCriterionStatusSymbol = (status: TicketCriterionStatus): string => {
+  if (status === "pass") {
+    return "✓";
+  }
+
+  if (status === "fail") {
+    return "×";
+  }
+
+  return "";
+};
 
 export const TicketBriefCard = ({
   ticket,
-  groupedCoveredItems: _groupedCoveredItems,
+  criterionStates,
+  status,
+  statusOptions,
+  onStatusChange,
+  statusUpdating,
 }: TicketBriefCardProps) => {
   const displayTargets = getDisplayFileTargets(ticket.fileTargets);
+  const hasBackground = ticket.description.trim() && ticket.description.trim() !== ticket.title.trim();
+  const hasImplementationPlan = ticket.implementationPlan.trim().length > 0;
 
   return (
-    <section className="ticket-brief-card">
-        <div className="ticket-brief-grid">
-          <section className="ticket-flat-section">
-            <h3>Brief</h3>
-            <h4>Why this matters</h4>
-            <p className="ticket-brief-copy">
-              {ticket.description || `${ticket.title} is the next piece of work for this plan.`}
-            </p>
-          </section>
+    <aside className="ticket-brief-card">
+      <div className="ticket-brief-grid">
+        <div className="ticket-brief-status-row">
+          <span className="ticket-anchor-label">Status</span>
+          <CustomSelect
+            options={statusOptions}
+            value={status}
+            onChange={onStatusChange}
+            disabled={statusUpdating}
+            aria-label="Ticket status"
+          />
+        </div>
 
-          <section className="ticket-flat-section">
-            <h3>Requirements</h3>
-            {ticket.acceptanceCriteria.length === 0 ? (
-              <p className="ticket-empty-note">No must-haves are listed yet.</p>
-            ) : (
-              <ul className="ticket-plan-list">
-                {ticket.acceptanceCriteria.map((criterion) => (
-                  <li key={criterion.id}>{toBriefCriterionText(criterion.text)}</li>
-                ))}
-              </ul>
-            )}
-          </section>
+        <TicketBriefSection title="Task">
+          <div className="ticket-brief-detail-grid">
+            <p className="ticket-brief-copy ticket-task-title">{ticket.title}</p>
+            {hasImplementationPlan ? (
+              <section className="ticket-plan-section">
+                <h4>Implementation notes</h4>
+                <p className="ticket-brief-copy">{ticket.implementationPlan}</p>
+              </section>
+            ) : null}
+          </div>
+        </TicketBriefSection>
 
-          <section className="ticket-flat-section">
-            <h3>Resources</h3>
-            {displayTargets.length === 0 ? (
-              <p className="ticket-empty-note">No likely files are listed yet.</p>
-            ) : (
-              <ul className="ticket-brief-files">
-                {displayTargets.map((target) => (
-                  <li key={target} className="ticket-brief-file-item">
+        {hasBackground ? (
+          <TicketBriefSection title="Goal">
+            <div className="ticket-brief-detail-grid">
+              <p className="ticket-brief-copy">{ticket.description}</p>
+            </div>
+          </TicketBriefSection>
+        ) : null}
+
+        <TicketBriefSection title="Done means" variant="checklist">
+          {ticket.acceptanceCriteria.length === 0 ? (
+            <p className="ticket-empty-note">No must-haves are listed yet.</p>
+          ) : (
+            <ul className="ticket-criteria-list">
+              {ticket.acceptanceCriteria.map((criterion) => {
+                const status = criterionStates[criterion.id] ?? "pending";
+
+                return (
+                  <li
+                    key={criterion.id}
+                    className={`ticket-criterion-item ticket-criterion-item-${status}`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`ticket-criterion-marker ticket-criterion-marker-${status}`}
+                      title={getCriterionStatusLabel(status)}
+                    >
+                      {getCriterionStatusSymbol(status)}
+                    </span>
+                    <span className="ticket-criterion-copy">{toBriefCriterionText(criterion.text)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TicketBriefSection>
+
+        <TicketBriefSection title="Main files">
+          {displayTargets.length === 0 ? (
+            <p className="ticket-empty-note">No likely files are listed yet.</p>
+          ) : (
+            <div className="ticket-context-file-tree-shell">
+              <ul className="ticket-context-file-list">
+                {displayTargets.map((target, index) => (
+                  <li
+                    key={target}
+                    className={`ticket-context-file-item ${index === displayTargets.length - 1 ? "ticket-context-file-item-last" : ""}`}
+                  >
                     <code>{target}</code>
                   </li>
                 ))}
               </ul>
-            )}
-          </section>
+            </div>
+          )}
+        </TicketBriefSection>
 
-        </div>
-    </section>
+      </div>
+    </aside>
   );
 };

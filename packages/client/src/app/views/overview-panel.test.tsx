@@ -90,6 +90,37 @@ const snapshot: ArtifactsSnapshot = {
 };
 
 describe("OverviewPanel", () => {
+  it("shows the new-work chooser when home has no projects or active work", () => {
+    const emptySnapshot: ArtifactsSnapshot = {
+      config: null,
+      initiatives: [],
+      tickets: [],
+      runs: [],
+      runAttempts: [],
+      specs: [],
+      planningReviews: [],
+      ticketCoverageArtifacts: [],
+    };
+
+    render(
+      <MemoryRouter>
+        <OverviewPanel snapshot={emptySnapshot} onOpenCommandPalette={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { name: "Start something new" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Project.*Use the full planning flow/i })).toHaveAttribute(
+      "href",
+      "/new-initiative",
+    );
+    expect(screen.getByRole("link", { name: /Quick task.*Start with a short task/i })).toHaveAttribute(
+      "href",
+      "/new-quick-task",
+    );
+    expect(screen.queryByText("No work is in motion yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Projects")).not.toBeInTheDocument();
+  });
+
   it("shows one clear resume action, then secondary work and recent projects", () => {
     render(
       <MemoryRouter>

@@ -1,4 +1,4 @@
-# Prompt 3: Client State & React Patterns Review
+# Prompt 3: Client state and React patterns review
 
 You are reviewing the current repository checkout for SpecFlow.
 

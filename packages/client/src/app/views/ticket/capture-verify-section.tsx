@@ -1,22 +1,17 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import type { VerificationResult } from "../../../types.js";
-import { WorkflowSection } from "../../components/workflow-section.js";
-import type { WorkflowPhase } from "./workflow.js";
-import { parseScopeCsv } from "../../utils/scope-paths.js";
 import { captureResults } from "../../../api.js";
+import { WorkflowSection } from "../../components/workflow-section.js";
 import { useToast } from "../../context/toast.js";
 import type { TransportEvent } from "../../../api/transport.js";
-
-const HelpTip = ({ text }: { text: string }) => (
-  <span className="help-tip" data-tip={text}>?</span>
-);
+import { parseScopeCsv } from "../../utils/scope-paths.js";
 
 interface CaptureVerifySectionProps {
   ticketId: string;
-  workflowPhase: WorkflowPhase;
+  runId?: string | null;
   captureScopeInput: string;
-  setCaptureScopeInput: (value: string) => void;
   widenedInput: string;
-  setWidenedInput: (value: string) => void;
   capturePreviewData: {
     source: "git" | "snapshot";
     defaultScope: string[];
@@ -25,11 +20,8 @@ interface CaptureVerifySectionProps {
     driftDiff: string | null;
   } | null;
   selectedNoGitPaths: string[];
-  setSelectedNoGitPaths: (paths: string[]) => void;
   captureSummary: string;
-  setCaptureSummary: (value: string) => void;
   refreshCapturePreview: () => void;
-  verifyStreamEvents: string[];
   verifyState: "idle" | "running" | "reconnecting";
   setVerifyStreamEvents: (fn: (prev: string[]) => string[]) => void;
   setVerifyState: (state: "idle" | "running" | "reconnecting") => void;
@@ -41,18 +33,13 @@ interface CaptureVerifySectionProps {
 
 export const CaptureVerifySection = ({
   ticketId,
-  workflowPhase,
+  runId = null,
   captureScopeInput,
-  setCaptureScopeInput,
   widenedInput,
-  setWidenedInput,
   capturePreviewData,
   selectedNoGitPaths,
-  setSelectedNoGitPaths,
   captureSummary,
-  setCaptureSummary,
   refreshCapturePreview,
-  verifyStreamEvents,
   verifyState,
   setVerifyStreamEvents,
   setVerifyState,
@@ -62,10 +49,29 @@ export const CaptureVerifySection = ({
   showIntro = true,
 }: CaptureVerifySectionProps) => {
   const { showError } = useToast();
+  const [autoVerifyError, setAutoVerifyError] = useState<string | null>(null);
+  const autoVerificationKeyRef = useRef<string | null>(null);
+  const changedPaths = capturePreviewData?.changedPaths ?? [];
+  const hasReturnedWork = Boolean(
+    capturePreviewData && (
+      changedPaths.length > 0 ||
+      capturePreviewData.primaryDiff.trim().length > 0 ||
+      (capturePreviewData.driftDiff?.trim().length ?? 0) > 0
+    )
+  );
+  const verificationTriggerKey = capturePreviewData
+    ? `${ticketId}:${capturePreviewData.source}:${changedPaths.join("|")}:${capturePreviewData.primaryDiff.length}:${capturePreviewData.driftDiff?.length ?? 0}`
+    : null;
 
-  const handleCaptureAndVerify = async () => {
+  useEffect(() => {
+    setAutoVerifyError(null);
+  }, [capturePreviewData?.primaryDiff, capturePreviewData?.driftDiff]);
+
+  const startVerification = useCallback(async (mode: "auto" | "manual" = "manual") => {
     setVerifyState("running");
     setVerifyStreamEvents(() => []);
+    setAutoVerifyError(null);
+
     try {
       const widenedScopePaths = parseScopeCsv(widenedInput);
       const scopePaths =
@@ -79,119 +85,116 @@ export const CaptureVerifySection = ({
         scopePaths,
         widenedScopePaths,
         (event: TransportEvent) => {
-          if (event.event === "verify-token") {
-            const chunk = (event.payload as { chunk?: string }).chunk;
-            if (chunk) {
-              setVerifyStreamEvents((current) => [...current, chunk].slice(-200));
-            }
+          if (event.event !== "verify-token") {
+            return;
           }
-        }
+
+          const chunk = (event.payload as { chunk?: string }).chunk;
+          if (chunk) {
+            setVerifyStreamEvents((current) => [...current, chunk].slice(-200));
+          }
+        },
       );
+
       setVerificationResult(result);
       await onRefresh();
     } catch (err) {
-      showError((err as Error).message ?? "We couldn't verify the work.");
+      const message = (err as Error).message ?? "We couldn't verify the work.";
+      setAutoVerifyError(message);
+      if (mode === "manual") {
+        autoVerificationKeyRef.current = null;
+      }
+      showError(message);
     } finally {
       setVerifyState("idle");
     }
-  };
+  }, [
+    capturePreviewData?.source,
+    captureScopeInput,
+    captureSummary,
+    onRefresh,
+    selectedNoGitPaths,
+    setVerificationResult,
+    setVerifyState,
+    setVerifyStreamEvents,
+    showError,
+    ticketId,
+    widenedInput,
+  ]);
+
+  useEffect(() => {
+    if (!verificationTriggerKey || !hasReturnedWork || verifyState === "running") {
+      return;
+    }
+
+    if (autoVerificationKeyRef.current === verificationTriggerKey) {
+      return;
+    }
+
+    autoVerificationKeyRef.current = verificationTriggerKey;
+    void startVerification("auto");
+  }, [hasReturnedWork, startVerification, verificationTriggerKey, verifyState]);
+
+  const secondaryActions =
+    runId || autoVerifyError
+      ? (
+          <div className="button-row">
+            {autoVerifyError ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  autoVerificationKeyRef.current = null;
+                  void startVerification("manual");
+                }}
+              >
+                Retry verification
+              </button>
+            ) : null}
+            {runId ? <Link to={`/run/${runId}/review`}>Review changes</Link> : null}
+            {runId ? <Link to={`/run/${runId}`}>View run report</Link> : null}
+          </div>
+        )
+      : null;
 
   const content = (
     <>
       {showIntro ? (
-        <p className="text-muted-sm" style={{ margin: "0 0 0.5rem" }}>
-          Refresh the captured changes and verify them against what this ticket needs to deliver.
-          <HelpTip text="Compares the captured changes against the acceptance criteria in the ticket plan." />
+        <p className="text-muted-sm" style={{ margin: 0 }}>
+          SpecFlow is checking the returned work against this ticket.
         </p>
       ) : null}
-      <div className="button-row">
-        <button type="button" onClick={() => void refreshCapturePreview()}>
-          Refresh changes
-        </button>
-        {capturePreviewData ? <span className="text-muted-sm">Change source: {capturePreviewData.source}</span> : null}
-      </div>
+
       {capturePreviewData ? (
-        <>
-          <h4>Main files to check</h4>
-          <input
-            className="phase-name-input"
-            value={captureScopeInput}
-            onChange={(event) => setCaptureScopeInput(event.target.value)}
-            placeholder="src/app/ticket-view.tsx, src/app/utils/ui-language.ts"
-          />
-          <h4>Captured changes</h4>
-          <pre>{capturePreviewData.primaryDiff || "(no changes in selected scope)"}</pre>
-        </>
-      ) : null}
-      {capturePreviewData?.source === "snapshot" ? (
-        <div className="panel">
-          <h4>Pick files to review</h4>
-          <input
-            type="file"
-            multiple
-            onChange={(event) => {
-              const files = Array.from(event.target.files ?? []);
-              const paths = files.map((file) => file.webkitRelativePath || file.name);
-              setSelectedNoGitPaths(Array.from(new Set(paths)));
-            }}
-          />
-          <input
-            type="file"
-            multiple
-            {...({ webkitdirectory: "true", directory: "true" } as Record<string, string>)}
-            onChange={(event) => {
-              const files = Array.from(event.target.files ?? []);
-              const paths = files.map((file) => file.webkitRelativePath || file.name);
-              setSelectedNoGitPaths(Array.from(new Set(paths)));
-            }}
-          />
-          <ul>
-            {selectedNoGitPaths.length === 0
-              ? <li>No files selected.</li>
-              : selectedNoGitPaths.map((entry) => <li key={entry}>{entry}</li>)}
-          </ul>
+        <div className={`ticket-outcome-summary ${autoVerifyError ? "ticket-outcome-summary-warn" : ""}`}>
+          <strong>
+            {verifyState === "running"
+              ? "Checking returned work."
+              : autoVerifyError
+                ? "Verification couldn't finish."
+                : "Verification is starting."}
+          </strong>
+          <p>
+            {verifyState === "running"
+              ? "SpecFlow is comparing the returned work against the ticket's must-haves and checking for unexpected changes."
+              : autoVerifyError
+                ? autoVerifyError
+                : "Returned work was detected. The verdict will appear here as soon as the check finishes."}
+          </p>
         </div>
-      ) : null}
-      <textarea
-        className="multiline"
-        value={captureSummary}
-        onChange={(event) => setCaptureSummary(event.target.value)}
-        placeholder="Example: Added the execution gate and updated the related tests."
-      />
-      <h4>Also check these files</h4>
-      <input
-        className="phase-name-input"
-        value={widenedInput}
-        onChange={(event) => setWidenedInput(event.target.value)}
-        placeholder="src/app/detail-workspace.tsx, src/app/views/run-view.tsx"
-      />
-      <div className="status-banner warn" style={{ fontSize: "0.85rem" }}>
-        These files are reviewed for extra changes, but they do not count toward the ticket's must-haves.
-        Use this when the agent also touched related work.
-      </div>
-      <div className="button-row">
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => void handleCaptureAndVerify()}
-        >
-          Verify work
-        </button>
-      </div>
+      ) : (
+        <p className="ticket-empty-note">Preparing the verification context for this ticket.</p>
+      )}
 
-      {verifyState === "running" ? (
-        <div className="verify-progress">
-          <span className="verify-spinner" />
-          Checking the work against the plan...
+      {verifyState !== "running" ? (
+        <div className="button-row">
+          <button type="button" onClick={() => void refreshCapturePreview()}>
+            Check again
+          </button>
         </div>
       ) : null}
 
-      {verifyStreamEvents.length > 0 ? (
-        <details className="verify-stream-toggle">
-          <summary>Verification log</summary>
-          <pre>{verifyStreamEvents.join("")}</pre>
-        </details>
-      ) : null}
+      {secondaryActions}
     </>
   );
 
@@ -200,10 +203,7 @@ export const CaptureVerifySection = ({
   }
 
   return (
-    <WorkflowSection
-      title="Verify work"
-      defaultOpen={workflowPhase === "agent" || workflowPhase === "verify"}
-    >
+    <WorkflowSection title="Verification" defaultOpen>
       {content}
     </WorkflowSection>
   );

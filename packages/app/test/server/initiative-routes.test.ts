@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createServerFixture } from "../helpers/server-fixture.js";
 
@@ -9,7 +11,7 @@ describe("initiative routes", () => {
       const createResponse = await fixture.server.app.inject({
         method: "POST",
         url: "/api/initiatives",
-        payload: { description: "Build auth" }
+        payload: { description: "Build auth", projectRoot: fixture.rootDir }
       });
       expect(createResponse.statusCode).toBe(201);
       const { initiativeId } = createResponse.json() as { initiativeId: string };
@@ -50,7 +52,7 @@ describe("initiative routes", () => {
       const createResponse = await fixture.server.app.inject({
         method: "POST",
         url: "/api/initiatives",
-        payload: { description: "Build auth" }
+        payload: { description: "Build auth", projectRoot: fixture.rootDir }
       });
       expect(createResponse.statusCode).toBe(201);
       const { initiativeId } = createResponse.json() as { initiativeId: string };
@@ -89,7 +91,7 @@ describe("initiative routes", () => {
       const createResponse = await fixture.server.app.inject({
         method: "POST",
         url: "/api/initiatives",
-        payload: { description: "Build auth" }
+        payload: { description: "Build auth", projectRoot: fixture.rootDir }
       });
       expect(createResponse.statusCode).toBe(201);
       const { initiativeId } = createResponse.json() as { initiativeId: string };
@@ -135,7 +137,7 @@ describe("initiative routes", () => {
       const createResponse = await fixture.server.app.inject({
         method: "POST",
         url: "/api/initiatives",
-        payload: { description: "Build auth" }
+        payload: { description: "Build auth", projectRoot: fixture.rootDir }
       });
       expect(createResponse.statusCode).toBe(201);
       const { initiativeId } = createResponse.json() as { initiativeId: string };
@@ -183,6 +185,26 @@ describe("initiative routes", () => {
       });
       expect(specsPut.statusCode).toBe(200);
       expect(specsPut.json().spec.type).toBe("tech-spec");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
+  it("accepts a project root outside the SpecFlow storage root", async () => {
+    const fixture = await createServerFixture();
+
+    try {
+      const projectRoot = path.resolve(fixture.rootDir, "..", "external-project");
+      await mkdir(projectRoot, { recursive: true });
+      const response = await fixture.server.app.inject({
+        method: "POST",
+        url: "/api/initiatives",
+        payload: { description: "Build auth", projectRoot }
+      });
+
+      expect(response.statusCode).toBe(201);
+      const { initiativeId } = response.json() as { initiativeId: string };
+      expect(fixture.store.initiatives.get(initiativeId)?.projectRoot).toBe(projectRoot);
     } finally {
       await fixture.cleanup();
     }

@@ -71,6 +71,20 @@ describe("planner validator boundaries", () => {
     expect(() => validatePhaseCheckResult(result, input)).not.toThrow();
   });
 
+  it("rejects ampersands in refinement questions", () => {
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "prd-scope-and-users",
+        label: "Which users & scope boundary matter most?",
+        decisionType: "scope",
+      }),
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, makeInput())).toThrow(
+      'Refinement question prd-scope-and-users label must not use ampersands. Write "and" instead.'
+    );
+  });
+
   it("allows a same-stage narrower follow-up when the decision boundary changes", () => {
     const priorQuestion = makeSelectQuestion({
       id: "prd-scope-1",

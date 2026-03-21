@@ -47,6 +47,7 @@ Key capabilities in the current version:
 - Mandatory first-draft consultations for Core flows, PRD, and Tech spec with stage-specific budgets and decision types
 - Shared planning transition copy that names the active phase during entry checks, follow-up checks, and artifact generation
 - Direct planning entry: the project entry route `/new-initiative` flows straight into the shared Brief survey instead of a separate handoff mode, even though the user-facing term is now `Project`
+- Per-project roots: new projects choose their own target repo or folder instead of inheriting the active SpecFlow storage root
 - Persisted planning reviews and cross-checks remain available, but they no longer block artifact-to-artifact progression between Brief, Core flows, PRD, and Tech spec
 - Validation now owns the final planning gate before tickets are committed, including in-place follow-up questions when the draft ticket plan exposes unresolved gaps
 - Traceability-backed planning with artifact sidecar trace outlines
