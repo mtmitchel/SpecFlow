@@ -15,6 +15,7 @@ import type {
   Ticket,
   TicketCoverageArtifact,
 } from "../../types.js";
+import { CheckpointGateBanner } from "../components/checkpoint-gate-banner.js";
 import { DiffViewer } from "../components/diff-viewer.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { useToast } from "../context/toast.js";
@@ -355,15 +356,11 @@ export const RunView = ({
           {detail.operationState === "abandoned" ||
           detail.operationState === "superseded" ||
           detail.operationState === "failed" ? (
-            <div className="checkpoint-gate-banner">
-              <div className="checkpoint-gate-copy">
-                <strong>Run ended early</strong>
-                <span>
-                  This run ended {detail.operationState}. Start the next run from the ticket so the work stays attached to the same ticket.
-                </span>
-              </div>
-              {detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link> : null}
-            </div>
+            <CheckpointGateBanner
+              title="Run ended early"
+              body={`This run ended ${detail.operationState}. Start the next run from the ticket so the work stays attached to the same ticket.`}
+              action={detail.ticket ? <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link> : null}
+            />
           ) : null}
 
           <RunReportCard title="Summary" badge={reportVerdict}>

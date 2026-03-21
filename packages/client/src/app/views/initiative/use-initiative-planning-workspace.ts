@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   checkInitiativePhase,
   generateInitiativeBrief,
@@ -7,24 +7,23 @@ import {
   generateInitiativePlan,
   generateInitiativePrd,
   generateInitiativeTechSpec,
-  overrideInitiativeReview,
   requestInitiativeClarificationHelp,
-  runInitiativeReview,
   updateInitiativePhases
 } from "../../../api.js";
 import { deleteInitiative, type InitiativePhaseCheckResult } from "../../../api/initiatives.js";
 import { ApiError } from "../../../api/http.js";
-import type { ArtifactsSnapshot, InitiativePlanningStep, PlanningReviewArtifact, PlanningReviewKind } from "../../../types.js";
+import type { ArtifactsSnapshot, PlanningReviewArtifact, PlanningReviewKind } from "../../../types.js";
 import { useConfirm } from "../../context/confirm.js";
 import { useToast } from "../../context/toast.js";
-import { buildInitiativeStepSearchParams, type InitiativePlanningSurface } from "../../utils/initiative-progress.js";
 import { getInitiativeDisplayTitle } from "../../utils/initiative-titles.js";
-import { getNextInitiativeStep, REVIEWS_BY_STEP } from "../../utils/initiative-workflow.js";
-import { resolveInitiativePlanningRouteState } from "./planning-route-state.js";
+import { getNextInitiativeStep } from "../../utils/initiative-workflow.js";
 import { EMPTY_SPEC_DRAFTS, useInitiativeLoadedSpecs } from "./use-initiative-loaded-specs.js";
 import { useOptimisticPhaseCheck } from "./use-optimistic-phase-check.js";
 import { useInitiativePlanningPersistence } from "./use-initiative-planning-persistence.js";
 import { type BusyActionResult, useCancellableBusyAction } from "./use-cancellable-busy-action.js";
+import { useInitiativePlanningRoute } from "./use-initiative-planning-route.js";
+import { useInitiativeAutoQuestionLoading } from "./use-initiative-auto-question-loading.js";
+import { useInitiativeReviewActions } from "./use-initiative-review-actions.js";
 import {
   type PlanningDrawerState,
   TICKET_COVERAGE_REVIEW_KIND,
@@ -55,7 +54,6 @@ export const useInitiativePlanningWorkspace = (
 ) => {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { showError } = useToast();
   const confirm = useConfirm();
   const initiative = snapshot.initiatives.find((item) => item.id === params.id) ?? null;
@@ -74,9 +72,6 @@ export const useInitiativePlanningWorkspace = (
   const [ticketGenerationError, setTicketGenerationError] = useState<string | null>(null);
   const [drawerState, setDrawerState] = useState<PlanningDrawerState>(null);
   const [isDeletingInitiative, setIsDeletingInitiative] = useState(false);
-  const [autoQuestionLoadStep, setAutoQuestionLoadStep] = useState<SpecStep | null>(null);
-  const [autoQuestionLoadFailedStep, setAutoQuestionLoadFailedStep] = useState<SpecStep | null>(null);
-  const [autoValidationQuestionLoadReviewId, setAutoValidationQuestionLoadReviewId] = useState<string | null>(null);
   const { busyAction, isBusy, cancelBusyAction, withBusyAction } = useCancellableBusyAction();
   const loadedSpecs = useInitiativeLoadedSpecs(initiative?.id ?? null, snapshot.specs);
 
@@ -114,32 +109,17 @@ export const useInitiativePlanningWorkspace = (
     const review = getReview(kind);
     return Boolean(review && !isResolvedReview(review));
   };
-
-  const requestedStep = searchParams.get("step");
-  const requestedSurface = searchParams.get("surface");
-  const routeState = useMemo(() => (
-    initiative
-      ? resolveInitiativePlanningRouteState({
-          initiative,
-          planningReviews: initiativeReviews,
-          requestedStep,
-          requestedSurface,
-          specSummaries: snapshot.specs,
-        })
-      : null
-  ), [initiative, initiativeReviews, requestedStep, requestedSurface, snapshot.specs]);
-  const activeStep: InitiativePlanningStep = routeState?.activeStep ?? "brief";
-  const activeSurface: InitiativePlanningSurface | null =
-    routeState?.activeSurface ?? (activeStep === "validation" || activeStep === "tickets" ? null : "questions");
-
-  useEffect(() => {
-    if (initiative && routeState && searchParams.toString() !== routeState.canonicalSearchParams.toString()) {
-      setSearchParams(routeState.canonicalSearchParams, { replace: true });
-    }
-  }, [initiative, routeState, searchParams, setSearchParams]);
-
-  const activeSpecStep: SpecStep | null =
-    activeStep === "validation" || activeStep === "tickets" ? null : activeStep;
+  const {
+    activeStep,
+    activeSurface,
+    activeSpecStep,
+    navigateToStep,
+    setActiveSurface,
+  } = useInitiativePlanningRoute({
+    initiative,
+    planningReviews: initiativeReviews,
+    specSummaries: snapshot.specs,
+  });
   const validationRefinement = useMemo(
     () => (initiative ? buildValidationRefinement(initiative) : null),
     [initiative]
@@ -269,29 +249,10 @@ export const useInitiativePlanningWorkspace = (
     void onRefresh().catch((error) => showError((error as Error).message ?? "We couldn't refresh planning."));
   }, [onRefresh, showError]);
 
-  const shouldAutoLoadValidationQuestions = Boolean(
-    initiative &&
-      activeStep === "validation" &&
-      validationReview?.status === "blocked" &&
-      activeRefinement &&
-      activeRefinement.questions.length === 0
-  );
-
   const handlePhaseCheckResult = useCallback((step: SpecStep, result: InitiativePhaseCheckResult) => {
     applyPhaseCheckResult(step, result);
     setRefinementAssumptions(result.assumptions);
   }, [applyPhaseCheckResult]);
-
-  const navigateToStep = (step: InitiativePlanningStep, surface?: InitiativePlanningSurface | null): void => {
-    setSearchParams(buildInitiativeStepSearchParams(step, surface));
-  };
-
-  const setActiveSurface = (surface: InitiativePlanningSurface): void => {
-    if (activeStep === "validation" || activeStep === "tickets") {
-      return;
-    }
-    navigateToStep(activeStep, surface);
-  };
 
   const generateSpec = async (step: SpecStep, signal: AbortSignal): Promise<void> => {
     if (!initiative) {
@@ -368,93 +329,40 @@ export const useInitiativePlanningWorkspace = (
     [initiative]
   );
 
-  const shouldAutoLoadEntryQuestions = Boolean(
-    initiative &&
-      activeSpecStep &&
-      activeSpecStep !== "brief" &&
-      !hasActiveContent &&
-      !hasRefinementQuestions &&
-      !hasPhaseSpecificRefinementDecisions
-  );
-
-  useEffect(() => {
-    if (!initiative || !activeSpecStep) {
-      return;
-    }
-
-    if (!shouldAutoLoadEntryQuestions) {
-      setAutoQuestionLoadStep((current) => (current === activeSpecStep ? null : current));
-      setAutoQuestionLoadFailedStep((current) => (current === activeSpecStep ? null : current));
-      return;
-    }
-
-    if (busyAction || autoQuestionLoadStep === activeSpecStep || autoQuestionLoadFailedStep === activeSpecStep) {
-      return;
-    }
-
-    setAutoQuestionLoadStep(activeSpecStep);
-
-    void handleCheckAndAdvance(activeSpecStep).then((status) => {
-      setAutoQuestionLoadStep((current) => (current === activeSpecStep ? null : current));
-      setAutoQuestionLoadFailedStep((current) => {
-        if (status === "completed" || status === "cancelled") {
-          return current === activeSpecStep ? null : current;
-        }
-
-        return activeSpecStep;
-      });
-    });
-  }, [
-    activeRefinement?.checkedAt,
-    activeSpecStep,
-    autoQuestionLoadFailedStep,
+  const {
     autoQuestionLoadStep,
-    busyAction,
-    handleCheckAndAdvance,
+    autoQuestionLoadFailedStep,
+    resetAutoQuestionLoadState,
+  } = useInitiativeAutoQuestionLoading({
+    initiativeId: initiative?.id ?? null,
+    activeStep,
+    activeSpecStep,
+    activeRefinementQuestionCount: activeRefinement?.questions.length ?? 0,
     hasActiveContent,
     hasRefinementQuestions,
-    initiative,
-    shouldAutoLoadEntryQuestions
-  ]);
-
-  useEffect(() => {
-    if (activeStep === "validation" && validationReview?.status === "blocked") {
-      return;
-    }
-
-    setAutoValidationQuestionLoadReviewId(null);
-  }, [activeStep, validationReview?.status]);
-
-  useEffect(() => {
-    if (!initiative || !shouldAutoLoadValidationQuestions || busyAction) {
-      return;
-    }
-
-    const reviewId = validationReview?.id ?? null;
-    if (!reviewId || autoValidationQuestionLoadReviewId === reviewId) {
-      return;
-    }
-
-    setAutoValidationQuestionLoadReviewId(reviewId);
-
-    void withBusyAction("check-validation", async (signal) => {
-      await rerunValidationQuestions(signal, validationFeedbackByStep, validationFeedback);
-      await onRefresh();
-    });
-  }, [
-    activeRefinement,
-    activeStep,
-    autoValidationQuestionLoadReviewId,
+    hasPhaseSpecificRefinementDecisions,
     busyAction,
-    initiative,
-    onRefresh,
+    validationReviewId: validationReview?.id ?? null,
+    validationReviewStatus: validationReview?.status ?? null,
     validationFeedback,
     validationFeedbackByStep,
-    validationReview?.id,
+    handleCheckAndAdvance,
     rerunValidationQuestions,
-    shouldAutoLoadValidationQuestions,
-    withBusyAction
-  ]);
+    withBusyAction,
+    onRefresh,
+  });
+  const { handleRunReview, handleOverrideReview } = useInitiativeReviewActions({
+    initiativeId: initiative?.id ?? null,
+    activeSpecStep,
+    getReview,
+    hasOutstandingReview,
+    reviewOverrideReason,
+    onRefresh,
+    navigateToStep,
+    setReviewOverrideKind,
+    setReviewOverrideReason,
+    withBusyAction,
+  });
 
   const handleGenerateTickets = async (): Promise<void> => {
     if (!initiative) {
@@ -516,54 +424,6 @@ export const useInitiativePlanningWorkspace = (
       const result = await requestInitiativeClarificationHelp(initiative.id, questionId, "", { signal });
       setGuidanceQuestionId(questionId);
       setGuidanceText(result.guidance);
-    });
-  };
-
-  const handleRunReview = async (kind: PlanningReviewKind): Promise<void> => {
-    if (!initiative) {
-      return;
-    }
-
-    await withBusyAction(`review-${kind}`, async (signal) => {
-      const review = await runInitiativeReview(initiative.id, kind, { signal });
-      await onRefresh();
-      if (
-        activeSpecStep &&
-        REVIEWS_BY_STEP[activeSpecStep].every((reviewKind) => {
-          const currentReview = reviewKind === kind ? review : getReview(reviewKind);
-          return currentReview && (currentReview.status === "passed" || currentReview.status === "overridden");
-        })
-      ) {
-        const followingStep = getNextInitiativeStep(activeSpecStep);
-        if (followingStep) {
-          navigateToStep(followingStep);
-        }
-      }
-    });
-  };
-
-  const handleOverrideReview = async (kind: PlanningReviewKind): Promise<void> => {
-    if (!initiative) {
-      return;
-    }
-
-    await withBusyAction(`override-${kind}`, async () => {
-      await overrideInitiativeReview(initiative.id, kind, reviewOverrideReason.trim());
-      const remainingUnresolved =
-        activeSpecStep
-          ? REVIEWS_BY_STEP[activeSpecStep].filter(
-              (reviewKind) => reviewKind !== kind && hasOutstandingReview(reviewKind)
-            )
-          : [];
-      setReviewOverrideKind(null);
-      setReviewOverrideReason("");
-      await onRefresh();
-      if (activeSpecStep && remainingUnresolved.length === 0) {
-        const followingStep = getNextInitiativeStep(activeSpecStep);
-        if (followingStep) {
-          navigateToStep(followingStep);
-        }
-      }
     });
   };
 
@@ -639,8 +499,7 @@ export const useInitiativePlanningWorkspace = (
     setReviewOverrideKind(null);
     setReviewOverrideReason("");
     cancelBusyAction();
-    setAutoQuestionLoadStep(null);
-    setAutoQuestionLoadFailedStep(null);
+    resetAutoQuestionLoadState();
 
     try {
       await deleteInitiative(initiative.id);

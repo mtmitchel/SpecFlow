@@ -1,32 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { saveInitiativeRefinement, saveInitiativeSpecs } from "./initiatives";
 
+const transportJsonRequestMock = vi.fn();
 const transportRequestMock = vi.fn();
 
 vi.mock("./transport", () => ({
+  transportJsonRequest: (...args: unknown[]) => transportJsonRequestMock(...args),
   transportRequest: (...args: unknown[]) => transportRequestMock(...args),
-}));
-
-vi.mock("./http", () => ({
-  parse: vi.fn(),
-  requestJson: vi.fn(),
-}));
-
-vi.mock("./sse", () => ({
-  parseSseResult: vi.fn(),
 }));
 
 describe("initiatives api", () => {
   beforeEach(() => {
+    transportJsonRequestMock.mockReset();
     transportRequestMock.mockReset();
   });
 
   it("adds a bounded timeout when saving refinement answers", async () => {
-    transportRequestMock.mockResolvedValue({ assumptions: [] });
+    transportJsonRequestMock.mockResolvedValue({ assumptions: [] });
 
     await saveInitiativeRefinement("initiative-1", "core-flows", { scope: "notes" }, [], null);
 
-    expect(transportRequestMock).toHaveBeenCalledWith(
+    expect(transportJsonRequestMock).toHaveBeenCalledWith(
       "initiatives.refinement.save",
       {
         id: "initiative-1",
@@ -37,7 +31,15 @@ describe("initiatives api", () => {
           preferredSurface: null
         }
       },
-      expect.any(Function),
+      {
+        url: "/api/initiatives/initiative-1/refinement/core-flows",
+        method: "PATCH",
+        body: {
+          answers: { scope: "notes" },
+          defaultAnswerQuestionIds: [],
+          preferredSurface: null
+        }
+      },
       undefined,
       {
         timeoutMs: 20_000,
@@ -47,18 +49,22 @@ describe("initiatives api", () => {
   });
 
   it("adds a bounded timeout when saving a draft spec", async () => {
-    transportRequestMock.mockResolvedValue(undefined);
+    transportJsonRequestMock.mockResolvedValue(undefined);
 
     await saveInitiativeSpecs("initiative-1", "tech-spec", "# Tech spec");
 
-    expect(transportRequestMock).toHaveBeenCalledWith(
+    expect(transportJsonRequestMock).toHaveBeenCalledWith(
       "initiatives.spec.save",
       {
         id: "initiative-1",
         type: "tech-spec",
         body: { content: "# Tech spec" }
       },
-      expect.any(Function),
+      {
+        url: "/api/initiatives/initiative-1/specs/tech-spec",
+        method: "PUT",
+        body: { content: "# Tech spec" }
+      },
       undefined,
       {
         timeoutMs: 20_000,

@@ -1,7 +1,6 @@
 import type { ArtifactsSnapshot, SpecDocument } from "../types";
 import { normalizeArtifactsSnapshot } from "../config-normalization";
-import { parse, requestJson } from "./http";
-import { transportRequest, type TransportRequestOptions } from "./transport";
+import { transportJsonRequest, type TransportRequestOptions } from "./transport";
 
 const ARTIFACTS_REFRESH_TIMEOUT_MS = 20_000;
 const SPEC_DETAIL_TIMEOUT_MS = 20_000;
@@ -9,13 +8,10 @@ const SPEC_DETAIL_TIMEOUT_MS = 20_000;
 export const fetchArtifacts = async (
   options?: TransportRequestOptions
 ): Promise<ArtifactsSnapshot> => {
-  const snapshot = await transportRequest(
+  const snapshot = await transportJsonRequest<ArtifactsSnapshot>(
     "artifacts.snapshot",
     {},
-    (signal) =>
-      requestJson<ArtifactsSnapshot>("/api/artifacts", {
-        signal
-      }),
+    { url: "/api/artifacts" },
     undefined,
     {
       ...options,
@@ -32,13 +28,10 @@ export const fetchSpecDetail = async (
   specId: string,
   options?: TransportRequestOptions
 ): Promise<SpecDocument> => {
-  const payload = await transportRequest<{ spec: SpecDocument }>(
+  const payload = await transportJsonRequest<{ spec: SpecDocument }>(
     "specs.detail",
     { id: specId },
-    async (signal) => {
-      const response = await fetch(`/api/specs/${specId}`, { signal });
-      return parse<{ spec: SpecDocument }>(response);
-    },
+    { url: `/api/specs/${specId}` },
     undefined,
     {
       ...options,

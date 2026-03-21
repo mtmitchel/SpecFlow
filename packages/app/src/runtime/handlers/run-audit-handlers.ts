@@ -30,6 +30,9 @@ export const runAudit = async (
   if (!run) {
     throw notFound(`Run ${runId} not found`);
   }
+  if (!run.committedAttemptId) {
+    throw badRequest("Audit requires a committed run attempt");
+  }
 
   const ticket = run.ticketId ? runtime.store.tickets.get(run.ticketId) ?? null : null;
   if (!ticket) {
@@ -104,7 +107,12 @@ export const runAudit = async (
     driftDiff: diffResult.driftDiff,
     findings
   };
-  await writeAuditReport(runtime.rootDir, report);
+  await writeAuditReport({
+    rootDir: runtime.rootDir,
+    store: runtime.store,
+    report,
+    operationId: `op-${randomUUID().slice(0, 8)}`
+  });
 
   return report;
 };
@@ -199,7 +207,12 @@ export const dismissAuditFinding = async (
   }
 
   const nextReport: AuditReport = { ...report, findings: updated };
-  await writeAuditReport(runtime.rootDir, nextReport);
+  await writeAuditReport({
+    rootDir: runtime.rootDir,
+    store: runtime.store,
+    report: nextReport,
+    operationId: `op-${randomUUID().slice(0, 8)}`
+  });
 
   return {
     findingId,

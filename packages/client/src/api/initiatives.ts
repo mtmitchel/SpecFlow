@@ -1,6 +1,9 @@
-import { parse, requestJson } from "./http";
-import { parseSseResult } from "./sse";
-import { transportRequest, type TransportRequestOptions } from "./transport";
+import {
+  transportJsonRequest,
+  transportRequest,
+  transportSseRequest,
+  type TransportRequestOptions
+} from "./transport";
 import type {
   InitiativePlanningQuestion,
   InitiativePlanningStep,
@@ -45,17 +48,10 @@ export const createInitiative = async (
   description: string,
   projectRoot: string
 ): Promise<{ initiativeId: string }> =>
-  transportRequest(
+  transportJsonRequest(
     "initiatives.create",
     { body: { description, projectRoot } },
-    () =>
-      requestJson("/api/initiatives", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ description, projectRoot })
-      })
+    { url: "/api/initiatives", method: "POST", body: { description, projectRoot } }
   );
 
 export const updateInitiative = async (
@@ -67,19 +63,10 @@ export const updateInitiative = async (
     resumeTicketId: string | null;
   }>
 ): Promise<void> => {
-  await transportRequest(
+  await transportJsonRequest(
     "initiatives.update",
     { id: initiativeId, body: payload },
-    async () =>
-      parse(
-        await fetch(`/api/initiatives/${initiativeId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
-        })
-      )
+    { url: `/api/initiatives/${initiativeId}`, method: "PATCH", body: payload }
   );
 };
 
@@ -90,7 +77,7 @@ export const checkInitiativePhase = async (
     validationFeedback?: string;
   },
 ): Promise<InitiativePhaseCheckResult> =>
-  transportRequest(
+  transportJsonRequest(
     "initiatives.phaseCheck",
     {
       id: initiativeId,
@@ -99,17 +86,13 @@ export const checkInitiativePhase = async (
         ? { validationFeedback: options.validationFeedback }
         : undefined,
     },
-    (signal) =>
-      requestJson(`/api/initiatives/${initiativeId}/${step}-check`, {
-        method: "POST",
-        headers: options?.validationFeedback
-          ? { "Content-Type": "application/json" }
-          : undefined,
-        body: options?.validationFeedback
-          ? JSON.stringify({ validationFeedback: options.validationFeedback })
-          : undefined,
-        signal,
-      }),
+    {
+      url: `/api/initiatives/${initiativeId}/${step}-check`,
+      method: "POST",
+      body: options?.validationFeedback
+        ? { validationFeedback: options.validationFeedback }
+        : undefined
+    },
     undefined,
     {
       ...options,
@@ -123,17 +106,10 @@ export const generateInitiativeBrief = async (
   initiativeId: string,
   options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  return transportRequest(
+  return transportSseRequest(
     "initiatives.generate.brief",
     { id: initiativeId },
-    async (signal) => {
-      const response = await fetch(`/api/initiatives/${initiativeId}/generate-brief`, {
-        method: "POST",
-        signal,
-      });
-
-      return parseSseResult(response);
-    },
+    { url: `/api/initiatives/${initiativeId}/generate-brief`, method: "POST" },
     undefined,
     options,
   );
@@ -143,17 +119,10 @@ export const generateInitiativeCoreFlows = async (
   initiativeId: string,
   options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  return transportRequest(
+  return transportSseRequest(
     "initiatives.generate.coreFlows",
     { id: initiativeId },
-    async (signal) => {
-      const response = await fetch(`/api/initiatives/${initiativeId}/generate-core-flows`, {
-        method: "POST",
-        signal,
-      });
-
-      return parseSseResult(response);
-    },
+    { url: `/api/initiatives/${initiativeId}/generate-core-flows`, method: "POST" },
     undefined,
     options,
   );
@@ -163,17 +132,10 @@ export const generateInitiativePrd = async (
   initiativeId: string,
   options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  return transportRequest(
+  return transportSseRequest(
     "initiatives.generate.prd",
     { id: initiativeId },
-    async (signal) => {
-      const response = await fetch(`/api/initiatives/${initiativeId}/generate-prd`, {
-        method: "POST",
-        signal,
-      });
-
-      return parseSseResult(response);
-    },
+    { url: `/api/initiatives/${initiativeId}/generate-prd`, method: "POST" },
     undefined,
     options,
   );
@@ -183,17 +145,10 @@ export const generateInitiativeTechSpec = async (
   initiativeId: string,
   options?: TransportRequestOptions,
 ): Promise<{ markdown: string; reviews: PlanningReviewArtifact[] }> => {
-  return transportRequest(
+  return transportSseRequest(
     "initiatives.generate.techSpec",
     { id: initiativeId },
-    async (signal) => {
-      const response = await fetch(`/api/initiatives/${initiativeId}/generate-tech-spec`, {
-        method: "POST",
-        signal,
-      });
-
-      return parseSseResult(response);
-    },
+    { url: `/api/initiatives/${initiativeId}/generate-tech-spec`, method: "POST" },
     undefined,
     options,
   );
@@ -216,17 +171,10 @@ export const generateInitiativePlan = async (
   }>;
   uncoveredCoverageItemIds: string[];
 }> => {
-  return transportRequest(
+  return transportSseRequest(
     "initiatives.generatePlan",
     { id: initiativeId },
-    async (signal) => {
-      const response = await fetch(`/api/initiatives/${initiativeId}/generate-plan`, {
-        method: "POST",
-        signal,
-      });
-
-      return parseSseResult(response);
-    },
+    { url: `/api/initiatives/${initiativeId}/generate-plan`, method: "POST" },
     undefined,
     options,
   );
@@ -236,19 +184,10 @@ export const updateInitiativePhases = async (
   initiativeId: string,
   phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>
 ): Promise<void> => {
-  await transportRequest(
+  await transportJsonRequest(
     "initiatives.update",
     { id: initiativeId, body: { phases } },
-    async () =>
-      parse(
-        await fetch(`/api/initiatives/${initiativeId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ phases })
-        })
-      )
+    { url: `/api/initiatives/${initiativeId}`, method: "PATCH", body: { phases } }
   );
 };
 
@@ -259,18 +198,14 @@ export const saveInitiativeRefinement = async (
   defaultAnswerQuestionIds: string[],
   preferredSurface?: InitiativePlanningSurface | null,
 ): Promise<{ assumptions: string[] }> =>
-  transportRequest(
+  transportJsonRequest(
     "initiatives.refinement.save",
     { id: initiativeId, step, body: { answers, defaultAnswerQuestionIds, preferredSurface } },
-    (signal) =>
-      requestJson(`/api/initiatives/${initiativeId}/refinement/${step}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ answers, defaultAnswerQuestionIds, preferredSurface }),
-        signal
-      }),
+    {
+      url: `/api/initiatives/${initiativeId}/refinement/${step}`,
+      method: "PATCH",
+      body: { answers, defaultAnswerQuestionIds, preferredSurface }
+    },
     undefined,
     {
       timeoutMs: PLANNING_SAVE_TIMEOUT_MS,
@@ -284,18 +219,14 @@ export const requestInitiativeClarificationHelp = async (
   note: string,
   options?: TransportRequestOptions,
 ): Promise<{ guidance: string }> =>
-  transportRequest(
+  transportJsonRequest(
     "initiatives.refinement.help",
     { id: initiativeId, body: { questionId, note } },
-    (signal) =>
-      requestJson(`/api/initiatives/${initiativeId}/refinement/help`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ questionId, note }),
-        signal,
-      }),
+    {
+      url: `/api/initiatives/${initiativeId}/refinement/help`,
+      method: "POST",
+      body: { questionId, note }
+    },
     undefined,
     options,
   );
@@ -319,17 +250,10 @@ export const runInitiativeReview = async (
   kind: PlanningReviewKind,
   options?: TransportRequestOptions,
 ): Promise<PlanningReviewArtifact> => {
-  return transportRequest(
+  return transportSseRequest(
     "initiatives.review.run",
     { id: initiativeId, kind },
-    async (signal) => {
-      const response = await fetch(`/api/initiatives/${initiativeId}/reviews/${kind}/run`, {
-        method: "POST",
-        signal,
-      });
-
-      return parseSseResult(response);
-    },
+    { url: `/api/initiatives/${initiativeId}/reviews/${kind}/run`, method: "POST" },
     undefined,
     options,
   );
@@ -340,17 +264,10 @@ export const overrideInitiativeReview = async (
   kind: PlanningReviewKind,
   reason: string
 ): Promise<{ review: PlanningReviewArtifact }> =>
-  transportRequest(
+  transportJsonRequest(
     "initiatives.review.override",
     { id: initiativeId, kind, body: { reason } },
-    () =>
-      requestJson(`/api/initiatives/${initiativeId}/reviews/${kind}/override`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ reason })
-      })
+    { url: `/api/initiatives/${initiativeId}/reviews/${kind}/override`, method: "POST", body: { reason } }
   );
 
 export const saveInitiativeSpecs = async (
@@ -358,20 +275,10 @@ export const saveInitiativeSpecs = async (
   step: RefinementStep,
   content: string
 ): Promise<void> => {
-  await transportRequest(
+  await transportJsonRequest(
     "initiatives.spec.save",
     { id: initiativeId, type: step, body: { content } },
-    async (signal) =>
-      parse(
-        await fetch(`/api/initiatives/${initiativeId}/specs/${step}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ content }),
-          signal
-        })
-      ),
+    { url: `/api/initiatives/${initiativeId}/specs/${step}`, method: "PUT", body: { content } },
     undefined,
     {
       timeoutMs: PLANNING_SAVE_TIMEOUT_MS,

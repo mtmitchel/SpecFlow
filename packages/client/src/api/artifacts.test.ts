@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchArtifacts, fetchSpecDetail } from "./artifacts";
 
-const transportRequestMock = vi.fn();
+const transportJsonRequestMock = vi.fn();
 
 vi.mock("./transport", () => ({
-  transportRequest: (...args: unknown[]) => transportRequestMock(...args),
+  transportJsonRequest: (...args: unknown[]) => transportJsonRequestMock(...args),
 }));
 
 describe("artifacts api", () => {
   beforeEach(() => {
-    transportRequestMock.mockReset();
+    transportJsonRequestMock.mockReset();
   });
 
   it("adds a bounded timeout when refreshing artifacts", async () => {
-    transportRequestMock.mockResolvedValue({
+    transportJsonRequestMock.mockResolvedValue({
       initiatives: [],
       tickets: [],
       runs: [],
@@ -25,10 +25,10 @@ describe("artifacts api", () => {
 
     await fetchArtifacts();
 
-    expect(transportRequestMock).toHaveBeenCalledWith(
+    expect(transportJsonRequestMock).toHaveBeenCalledWith(
       "artifacts.snapshot",
       {},
-      expect.any(Function),
+      { url: "/api/artifacts" },
       undefined,
       {
         timeoutMs: 20_000,
@@ -38,7 +38,7 @@ describe("artifacts api", () => {
   });
 
   it("adds a bounded timeout when loading a spec detail", async () => {
-    transportRequestMock.mockResolvedValue({
+    transportJsonRequestMock.mockResolvedValue({
       spec: {
         id: "spec-1",
         initiativeId: "initiative-1",
@@ -50,10 +50,10 @@ describe("artifacts api", () => {
 
     await fetchSpecDetail("spec-1");
 
-    expect(transportRequestMock).toHaveBeenCalledWith(
+    expect(transportJsonRequestMock).toHaveBeenCalledWith(
       "specs.detail",
       { id: "spec-1" },
-      expect.any(Function),
+      { url: "/api/specs/spec-1" },
       undefined,
       {
         timeoutMs: 20_000,

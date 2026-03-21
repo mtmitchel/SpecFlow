@@ -55,3 +55,82 @@ export const parseSseResult = async <T>(response: Response): Promise<T> => {
 
   return latestResult;
 };
+
+export interface LegacyEventSourceSubscriptionOptions {
+  url: string;
+  onOpen?: () => void;
+  onEvent?: (eventName: string, event: MessageEvent<string>) => void;
+  onReconnect?: () => Promise<void> | void;
+  onReconnectStateChange?: (state: "idle" | "reconnecting") => void;
+}
+
+export const subscribeLegacyEventSource = (
+  options: LegacyEventSourceSubscriptionOptions
+): (() => void) => {
+  let isMounted = true;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectAttempt = 0;
+  let source: EventSource | null = null;
+  let latestConnectionId = 0;
+
+  const connect = (): void => {
+    if (!isMounted) {
+      return;
+    }
+
+    latestConnectionId += 1;
+    const connectionId = latestConnectionId;
+    source = new EventSource(options.url);
+
+    source.onopen = () => {
+      reconnectAttempt = 0;
+      options.onOpen?.();
+    };
+
+    source.onmessage = (event) => {
+      options.onEvent?.("message", event as MessageEvent<string>);
+    };
+
+    source.addEventListener("verify-token", (event) => {
+      options.onEvent?.("verify-token", event as MessageEvent<string>);
+    });
+
+    source.addEventListener("verify-complete", (event) => {
+      options.onEvent?.("verify-complete", event as MessageEvent<string>);
+    });
+
+    source.onerror = () => {
+      source?.close();
+      const backoff = Math.min(1000 * 2 ** reconnectAttempt, 10_000);
+      reconnectAttempt += 1;
+
+      reconnectTimer = setTimeout(() => {
+        if (!isMounted || connectionId !== latestConnectionId) {
+          return;
+        }
+
+        options.onReconnectStateChange?.("reconnecting");
+        Promise.resolve(options.onReconnect?.())
+          .catch(() => undefined)
+          .finally(() => {
+            if (!isMounted || connectionId !== latestConnectionId) {
+              return;
+            }
+
+            options.onReconnectStateChange?.("idle");
+            connect();
+          });
+      }, backoff);
+    };
+  };
+
+  connect();
+
+  return () => {
+    isMounted = false;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+    }
+    source?.close();
+  };
+};

@@ -1,26 +1,15 @@
 import type { Config, ConfigSavePayload, ProviderModel, SaveProviderKeyPayload } from "../types";
 import { normalizeConfig } from "../config-normalization";
-import { parse } from "./http";
-import { transportRequest } from "./transport";
+import { transportJsonRequest } from "./transport";
 
 const isUnsupportedSidecarMethodError = (error: unknown, method: string): boolean =>
   error instanceof Error && error.message.includes(`Unsupported sidecar method: ${method}`);
 
 export const saveConfig = async (config: ConfigSavePayload): Promise<Config> => {
-  const payload = await transportRequest<{ config: Config }>(
+  const payload = await transportJsonRequest<{ config: Config }>(
     "config.save",
     config,
-    async () => {
-      const response = await fetch("/api/config", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(config)
-      });
-
-      return parse<{ config: Config }>(response);
-    }
+    { url: "/api/config", method: "PUT", body: config }
   );
   const normalizedConfig = normalizeConfig(payload.config);
   if (!normalizedConfig) {
@@ -32,20 +21,10 @@ export const saveConfig = async (config: ConfigSavePayload): Promise<Config> => 
 
 export const saveProviderKey = async (input: SaveProviderKeyPayload): Promise<void> => {
   try {
-    await transportRequest<{ provider: SaveProviderKeyPayload["provider"] }>(
+    await transportJsonRequest<{ provider: SaveProviderKeyPayload["provider"] }>(
       "config.saveProviderKey",
       input,
-      async () => {
-        const response = await fetch("/api/config/provider-key", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(input)
-        });
-
-        return parse<{ provider: SaveProviderKeyPayload["provider"] }>(response);
-      }
+      { url: "/api/config/provider-key", method: "PUT", body: input }
     );
   } catch (error) {
     if (isUnsupportedSidecarMethodError(error, "config.saveProviderKey")) {
@@ -67,20 +46,15 @@ export const fetchProviderModels = async (
     params.set("q", query.trim());
   }
 
-  const payload = await transportRequest<{
+  const payload = await transportJsonRequest<{
     models: ProviderModel[];
   }>(
     "providers.models",
     { provider, q: query },
-    async () => {
-      const response = await fetch(
-        params.toString()
-          ? `/api/providers/${provider}/models?${params.toString()}`
-          : `/api/providers/${provider}/models`
-      );
-      return parse<{
-        models: ProviderModel[];
-      }>(response);
+    {
+      url: params.toString()
+        ? `/api/providers/${provider}/models?${params.toString()}`
+        : `/api/providers/${provider}/models`
     }
   );
 

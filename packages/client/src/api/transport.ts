@@ -1,7 +1,8 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { ApiError } from "./http";
+import { ApiError, parse } from "./http";
+import { parseSseResult } from "./sse";
 
 export interface TransportEvent {
   event: string;
@@ -13,6 +14,13 @@ export interface TransportRequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   timeoutMessage?: string;
+}
+
+interface LegacyWebRequest {
+  url: string;
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  body?: unknown;
+  headers?: HeadersInit;
 }
 
 export class RequestTimeoutError extends Error {
@@ -171,6 +179,64 @@ export const transportRequest = async <T>(
     options
   );
 };
+
+const createLegacyWebRequestInit = (
+  request: LegacyWebRequest,
+  signal?: AbortSignal
+): RequestInit => {
+  const init: RequestInit = {
+    method: request.method,
+    signal
+  };
+
+  if (request.body !== undefined) {
+    init.body = JSON.stringify(request.body);
+    init.headers = {
+      "Content-Type": "application/json",
+      ...(request.headers ?? {})
+    };
+  } else if (request.headers) {
+    init.headers = request.headers;
+  }
+
+  return init;
+};
+
+export const transportJsonRequest = async <T>(
+  method: string,
+  params: unknown,
+  request: LegacyWebRequest,
+  onEvent?: (event: TransportEvent) => void,
+  options?: TransportRequestOptions
+): Promise<T> =>
+  transportRequest(
+    method,
+    params,
+    async (signal) => {
+      const response = await fetch(request.url, createLegacyWebRequestInit(request, signal));
+      return parse<T>(response);
+    },
+    onEvent,
+    options
+  );
+
+export const transportSseRequest = async <T>(
+  method: string,
+  params: unknown,
+  request: LegacyWebRequest,
+  onEvent?: (event: TransportEvent) => void,
+  options?: TransportRequestOptions
+): Promise<T> =>
+  transportRequest(
+    method,
+    params,
+    async (signal) => {
+      const response = await fetch(request.url, createLegacyWebRequestInit(request, signal));
+      return parseSseResult<T>(response);
+    },
+    onEvent,
+    options
+  );
 
 export const isRequestCancelledError = (error: unknown): boolean => {
   if (error instanceof DOMException && error.name === "AbortError") {

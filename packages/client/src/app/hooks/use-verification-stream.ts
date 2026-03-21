@@ -2,6 +2,7 @@ import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 
 import { fetchRunState } from "../../api.js";
 import type { VerificationResult } from "../../types.js";
 import { isDesktopRuntime } from "../../api/transport.js";
+import { subscribeLegacyEventSource } from "../../api/sse.js";
 
 const syncVerificationFromRunState = (
   attemptData: Array<{
@@ -74,98 +75,64 @@ export const useVerificationStream = (
     }
 
     let isMounted = true;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let reconnectAttempt = 0;
-    let source: EventSource | null = null;
-    let latestConnectionId = 0;
 
-    const connect = (): void => {
-      if (!isMounted) {
-        return;
-      }
-
-      latestConnectionId += 1;
-      const connectionId = latestConnectionId;
-      source = new EventSource(`/api/tickets/${ticketId}/verify/stream`);
-
-      source.onopen = () => {
-        reconnectAttempt = 0;
-      };
-
-      source.addEventListener("verify-token", (event) => {
+    const unsubscribe = subscribeLegacyEventSource({
+      url: `/api/tickets/${ticketId}/verify/stream`,
+      onEvent: (eventName, event) => {
         try {
-          const payload = JSON.parse((event as MessageEvent).data) as { chunk?: string };
+          const payload = JSON.parse(event.data) as { chunk?: string };
           const chunk = payload.chunk;
-          if (chunk) {
+          if (eventName === "verify-token" && chunk) {
             setVerifyStreamEvents((current) => [...current, chunk].slice(-200));
           }
         } catch {
           // ignore invalid event payloads
         }
-      });
+        if (eventName !== "verify-complete") {
+          return;
+        }
 
-      source.addEventListener("verify-complete", () => {
-        if (!runId || !isMounted || connectionId !== latestConnectionId || verifyStateRef.current === "running") {
+        if (!runId || !isMounted || verifyStateRef.current === "running") {
           return;
         }
 
         void fetchRunState(runId).then((snapshot) => {
-          if (!isMounted || connectionId !== latestConnectionId) {
+          if (!isMounted) {
             return;
           }
 
           syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
         });
-      });
+      },
+      onReconnect: async () => {
+        if (runId) {
+          await fetchRunState(runId)
+            .then((snapshot) => {
+              if (!isMounted) {
+                return;
+              }
 
-      source.onerror = () => {
-        source?.close();
-        const backoff = Math.min(1000 * 2 ** reconnectAttempt, 10_000);
-        reconnectAttempt += 1;
+              syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
+            })
+            .catch(() => {});
+        }
 
-        reconnectTimer = setTimeout(() => {
-          if (!isMounted || connectionId !== latestConnectionId) {
-            return;
-          }
+        await onRefresh();
+      },
+      onReconnectStateChange: (state) => {
+        if (!isMounted || verifyStateRef.current === "running") {
+          return;
+        }
 
-          if (verifyStateRef.current !== "running") {
-            setVerifyState("reconnecting");
-          }
-          if (runId) {
-            void fetchRunState(runId)
-              .then((snapshot) => {
-                if (!isMounted || connectionId !== latestConnectionId) {
-                  return;
-                }
-
-                syncVerificationFromRunState(snapshot.attempts, setVerificationResult);
-              })
-              .catch(() => {});
-          }
-          void onRefresh().finally(() => {
-            if (!isMounted || connectionId !== latestConnectionId) {
-              return;
-            }
-
-            if (verifyStateRef.current === "reconnecting") {
-              setVerifyState("idle");
-            }
-            connect();
-          });
-        }, backoff);
-      };
-    };
-
-    connect();
+        setVerifyState(state);
+      }
+    });
 
     return () => {
       isMounted = false;
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-      }
-      source?.close();
+      unsubscribe();
     };
-  }, [ticketId, runId]);
+  }, [ticketId, runId, onRefresh]);
 
   return {
     verifyStreamEvents,

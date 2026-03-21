@@ -7,6 +7,7 @@ import { createSpecFlowRuntime } from "./runtime/create-runtime.js";
 import type { SidecarFailure, SidecarRequest } from "./runtime/sidecar-contract.js";
 import type { SpecFlowRuntime } from "./runtime/types.js";
 import { dispatchSidecarRequest, isMutatingSidecarMethod } from "./sidecar/dispatcher.js";
+import { isLongRunningSidecarMethod } from "./sidecar/method-catalog.js";
 
 export const DEFAULT_REQUEST_TTL_MS = 5 * 60_000;
 export const LONG_REQUEST_TTL_MS = 10 * 60_000;
@@ -15,20 +16,7 @@ export const LONG_REQUEST_TTL_MS = 10 * 60_000;
 // Their aggregate budget can exceed the default request window even when each child job
 // stays within its own timeout, so they need a longer sidecar allowance.
 export const usesLongRequestTimeout = (method: string): boolean =>
-  method === "audit.run" ||
-  method === "import.githubIssue" ||
-  method === "initiatives.phaseCheck" ||
-  method === "initiatives.refinement.help" ||
-  method === "initiatives.generate.brief" ||
-  method === "initiatives.generate.coreFlows" ||
-  method === "initiatives.generate.prd" ||
-  method === "initiatives.generate.techSpec" ||
-  method === "initiatives.review.run" ||
-  method === "initiatives.generatePlan" ||
-  method === "tickets.create" ||
-  method === "tickets.exportBundle" ||
-  method === "tickets.exportFixBundle" ||
-  method === "tickets.captureResults";
+  isLongRunningSidecarMethod(method);
 
 export const getRequestTtlMs = (method: string): number =>
   usesLongRequestTimeout(method) ? LONG_REQUEST_TTL_MS : DEFAULT_REQUEST_TTL_MS;

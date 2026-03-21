@@ -3,7 +3,6 @@ import {
   deleteInitiative,
   generateInitiativeArtifact,
   generateInitiativePlan,
-  listInitiatives,
   overrideInitiativeReview,
   requestInitiativeClarificationHelp,
   runInitiativePhaseCheck,
@@ -27,13 +26,12 @@ import {
   listRuns,
   saveBundleZipToFile
 } from "../runtime/handlers/run-query-handlers.js";
-import { getArtifactsSnapshot, getRuntimeStatus, getSpecDetail } from "../runtime/handlers/runtime-handlers.js";
+import { getArtifactsSnapshot, getSpecDetail } from "../runtime/handlers/runtime-handlers.js";
 import {
   capturePreview,
   captureResults,
   exportBundle,
   exportFixBundle,
-  listTickets,
   overrideDone,
   triageQuickTask,
   updateTicket
@@ -42,36 +40,11 @@ import { isHandlerError } from "../runtime/errors.js";
 import type { SidecarFailure, SidecarNotification, SidecarRequest, SidecarSuccess } from "../runtime/sidecar-contract.js";
 import type { SpecFlowRuntime } from "../runtime/types.js";
 import { RequestCancelledError } from "../cancellation.js";
+import { isMutatingSidecarMethod } from "./method-catalog.js";
+
+export { isMutatingSidecarMethod } from "./method-catalog.js";
 
 export type SidecarWriter = (message: SidecarSuccess | SidecarFailure | SidecarNotification) => void;
-
-const MUTATING_METHODS = new Set([
-  "config.save",
-  "config.saveProviderKey",
-  "initiatives.delete",
-  "initiatives.update",
-  "initiatives.refinement.save",
-  "initiatives.spec.save",
-  "initiatives.create",
-  "initiatives.phaseCheck",
-  "initiatives.generate.brief",
-  "initiatives.generate.coreFlows",
-  "initiatives.generate.prd",
-  "initiatives.generate.techSpec",
-  "initiatives.review.run",
-  "initiatives.review.override",
-  "initiatives.generatePlan",
-  "tickets.update",
-  "tickets.create",
-  "tickets.exportBundle",
-  "tickets.exportFixBundle",
-  "tickets.captureResults",
-  "tickets.overrideDone",
-  "audit.createTicket",
-  "import.githubIssue"
-]);
-
-export const isMutatingSidecarMethod = (method: string): boolean => MUTATING_METHODS.has(method);
 
 const emitArtifactsChanged = (write: SidecarWriter, requestId: string, method: string): void => {
   write({
@@ -155,8 +128,6 @@ const routeSidecarMethod = async (
   const params = (request.params ?? {}) as Record<string, unknown>;
 
   switch (request.method) {
-    case "runtime.status":
-      return getRuntimeStatus();
     case "artifacts.snapshot":
       return getArtifactsSnapshot(runtime);
     case "specs.detail":
@@ -208,8 +179,6 @@ const routeSidecarMethod = async (
         String(params.findingId ?? ""),
         typeof params.note === "string" ? params.note : undefined
       );
-    case "initiatives.list":
-      return listInitiatives(runtime);
     case "initiatives.delete":
       return deleteInitiative(runtime, String(params.id ?? ""));
     case "initiatives.update":
@@ -269,8 +238,6 @@ const routeSidecarMethod = async (
       );
     case "initiatives.generatePlan":
       return generateInitiativePlan(runtime, String(params.id ?? ""), async (chunk) => notify("planner-token", { chunk }), signal);
-    case "tickets.list":
-      return listTickets(runtime);
     case "tickets.update":
       return updateTicket(runtime, String(params.id ?? ""), params.body as Record<string, unknown>);
     case "tickets.create":

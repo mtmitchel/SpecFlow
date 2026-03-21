@@ -1,8 +1,11 @@
+import type { ReactNode } from "react";
+
 interface CheckpointGateBannerProps {
   title?: string;
   body?: string;
   actionLabel?: string;
   onAction?: () => void;
+  action?: ReactNode;
   disabled?: boolean;
 }
 
@@ -11,6 +14,7 @@ export const CheckpointGateBanner = ({
   body,
   actionLabel,
   onAction,
+  action,
   disabled = false,
 }: CheckpointGateBannerProps) => (
   <div className="checkpoint-gate-banner">
@@ -18,10 +22,10 @@ export const CheckpointGateBanner = ({
       {title ? <strong>{title}</strong> : null}
       {body ? <span>{body}</span> : null}
     </div>
-    {actionLabel && onAction ? (
+    {action ?? (actionLabel && onAction ? (
       <button type="button" className="btn-primary" onClick={onAction} disabled={disabled}>
         {actionLabel}
       </button>
-    ) : null}
+    ) : null)}
   </div>
 );

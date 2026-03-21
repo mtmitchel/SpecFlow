@@ -1,5 +1,6 @@
 mod build;
 mod contract;
+mod methods;
 mod runtime;
 #[cfg(test)]
 mod tests;
@@ -24,10 +25,8 @@ use self::build::{
 };
 use self::contract::{cancelled_error, closed_error, timeout_error, to_command_error};
 pub use self::contract::{DesktopRuntimeStatus, SidecarCommandError, SidecarRequest};
+use self::methods::pending_request_ttl;
 use self::runtime::{RuntimeCloseReason, RuntimeGeneration, SidecarMessage};
-
-const DEFAULT_PENDING_REQUEST_TTL: Duration = Duration::from_secs(330);
-const LONG_PENDING_REQUEST_TTL: Duration = Duration::from_secs(630);
 
 struct PendingRequest {
     tx: oneshot::Sender<Result<Value, SidecarCommandError>>,
@@ -562,34 +561,6 @@ impl SidecarSupervisor {
 
         let build_root = resolve_dev_build_root().map_err(to_command_error)?;
         available_dev_build_info(&build_root, &self.workspace_root).map_err(to_command_error)
-    }
-}
-
-fn uses_long_pending_timeout(method: &str) -> bool {
-    matches!(
-        method,
-        "audit.run"
-            | "import.githubIssue"
-            | "initiatives.phaseCheck"
-            | "initiatives.refinement.help"
-            | "initiatives.generate.brief"
-            | "initiatives.generate.coreFlows"
-            | "initiatives.generate.prd"
-            | "initiatives.generate.techSpec"
-            | "initiatives.review.run"
-            | "initiatives.generatePlan"
-            | "tickets.create"
-            | "tickets.exportBundle"
-            | "tickets.exportFixBundle"
-            | "tickets.captureResults"
-    )
-}
-
-fn pending_request_ttl(method: &str) -> Duration {
-    if uses_long_pending_timeout(method) {
-        LONG_PENDING_REQUEST_TTL
-    } else {
-        DEFAULT_PENDING_REQUEST_TTL
     }
 }
 

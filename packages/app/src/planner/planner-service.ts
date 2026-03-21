@@ -5,7 +5,6 @@ import { ArtifactStore } from "../store/artifact-store.js";
 import type {
   Initiative,
   InitiativeArtifactStep,
-  PendingTicketPlanArtifact,
   PlanningReviewArtifact,
   PlanningReviewKind,
   Ticket
@@ -15,7 +14,7 @@ import {
   buildRequiredBriefConsultationResult,
   requiresInitialBriefConsultation
 } from "./brief-consultation.js";
-import { AUTO_REVIEW_KINDS_BY_STEP, getImpactedReviewKinds } from "./planning-reviews.js";
+import { getImpactedReviewKinds } from "./planning-reviews.js";
 import { PlannerConflictError } from "./planner-errors.js";
 import {
   blockWorkflowAtStep,
@@ -23,37 +22,24 @@ import {
   getRefinementAssumptions,
   updateRefinementState
 } from "./workflow-state.js";
-import { loadPlannerAgentsMd } from "./internal/agents-md.js";
 import {
   buildPhaseCheckInput,
   buildSpecGenerationInput,
   getArtifactMarkdownMap,
-  getInitiativeTickets,
   getSavedContext,
   requireSpecMarkdown,
   requireSpecUpdatedAt
 } from "./internal/context.js";
-import { getResolvedPlannerConfig } from "./internal/config.js";
 import { toStructuredPlannerError } from "./internal/error-shaping.js";
-import { executePlannerJob as executePlannerJobInternal } from "./internal/job-executor.js";
 import { resolveValidatedPlanResult } from "./internal/plan-generation-job.js";
-import {
-  buildPendingTicketPlanArtifact,
-  commitPendingTicketPlanArtifact
-} from "./internal/plan-job.js";
+import { buildPendingTicketPlanArtifact, commitPendingTicketPlanArtifact } from "./internal/plan-job.js";
 import { validateCoverageMappings } from "./internal/plan-validation.js";
 import { canonicalizePhaseCheckResult, resolveValidatedPhaseCheckResult } from "./internal/phase-check-job.js";
 import { scanRepo } from "./internal/repo-scanner.js";
 import {
-  buildReviewFindings,
-  executeReviewJob as executeReviewJobInternal
-} from "./internal/review-job.js";
-import {
   buildPersistedTicketCoverageArtifact,
   buildTicketCoverageInput,
-  ensureArtifactTrace as ensureArtifactTraceInternal,
   persistPhaseMarkdown as persistPhaseMarkdownInternal,
-  requireTicketCoverageArtifact
 } from "./internal/spec-artifacts.js";
 import { createTicketFromDraft, deriveInitiativeTitle } from "./internal/ticket-factory.js";
 import { normalizeInitiativeTitle } from "./internal/title-style.js";
@@ -61,9 +47,16 @@ import {
   validateClarifyHelpResult,
   validatePhaseMarkdownResult,
   validatePlanResult,
-  validateReviewRunResult,
   validateTriageResult
 } from "./internal/validators.js";
+import {
+  type PlannerServiceRuntimeContext,
+  ensureArtifactTrace as ensureArtifactTraceRuntime,
+  executePlannerJob as executePlannerJobRuntime,
+  executeReviewJob as executeReviewJobRuntime,
+  runAutoReviews as runAutoReviewsRuntime,
+  shouldIncludePrdRepoContext
+} from "./planner-service-runtime.js";
 import type { PlannerJob } from "./prompt-builder.js";
 import type {
   ClarifyHelpInput,
@@ -75,7 +68,6 @@ import type {
   PlanResult,
   RefinementStep,
   ReviewRunInput,
-  ReviewRunResult,
   SpecGenInput,
   TriageInput,
   TriageResult
@@ -104,38 +96,6 @@ const REFINEMENT_JOB_BY_STEP: Record<
   "core-flows": "core-flows-check",
   prd: "prd-check",
   "tech-spec": "tech-spec-check"
-};
-
-const INITIAL_BRIEF_REVIEW_SUMMARY =
-  "Brief intake resolved the blockers for the initial brief draft.";
-
-const PRD_REPO_CONTEXT_SIGNAL_TERMS = [
-  "existing system",
-  "existing-system",
-  "compatibility",
-  "compatible",
-  "migration",
-  "migrate",
-  "integrate",
-  "integration",
-  "extend"
-];
-
-const shouldIncludePrdRepoContext = (input: {
-  initiative: Initiative;
-  markdownByStep: Record<InitiativeArtifactStep, string>;
-  savedContext: Record<string, string | string[] | boolean>;
-}): boolean => {
-  const contextText = [
-    input.initiative.description,
-    input.markdownByStep.brief,
-    input.markdownByStep["core-flows"],
-    JSON.stringify(input.savedContext, null, 2)
-  ]
-    .join("\n")
-    .toLowerCase();
-
-  return PRD_REPO_CONTEXT_SIGNAL_TERMS.some((term) => contextText.includes(term));
 };
 
 export class PlannerService {
@@ -320,7 +280,7 @@ export class PlannerService {
     signal?: AbortSignal
   ): Promise<PlanningReviewArtifact> {
     const initiative = this.requireInitiative(input.initiativeId);
-    const review = await this.executeReviewJob(initiative, input.kind, onToken, signal);
+    const review = await executeReviewJobRuntime(this.getRuntimeContext(), initiative, input.kind, onToken, signal);
     await this.store.upsertPlanningReview(review);
     return review;
   }
@@ -383,7 +343,8 @@ export class PlannerService {
       initiative,
       requireSpecUpdatedAt: (currentInitiativeId, step) =>
         requireSpecUpdatedAt(currentInitiativeId, step, this.store.specs),
-      ensureArtifactTrace: (currentInitiative, step) => this.ensureArtifactTrace(currentInitiative, step, signal)
+      ensureArtifactTrace: (currentInitiative, step) =>
+        ensureArtifactTraceRuntime(this.getRuntimeContext(), currentInitiative, step, signal)
     });
     const repoContext = await scanRepo(projectRoot).catch(() => undefined);
 
@@ -419,9 +380,10 @@ export class PlannerService {
     });
     await this.store.upsertPendingTicketPlanArtifact(pendingPlan);
 
-    const review = await this.executeTicketCoverageReviewForPendingPlan(
+    const review = await executeReviewJobRuntime(
+      this.getRuntimeContext(),
       initiative,
-      pendingPlan,
+      "ticket-coverage-review",
       undefined,
       signal
     );
@@ -597,139 +559,13 @@ export class PlannerService {
     });
 
     const refreshedInitiative = this.requireInitiative(initiativeId);
-    const reviews = await this.runAutoReviews(refreshedInitiative, step, {
+    const reviews = await runAutoReviewsRuntime(this.getRuntimeContext(), refreshedInitiative, step, {
       useIntakeResolvedBriefReview: isInitialBriefDraft
     }, signal);
     return {
       markdown: result.markdown,
       reviews
     };
-  }
-
-  private async runAutoReviews(
-    initiative: Initiative,
-    step: InitiativeArtifactStep,
-    options: { useIntakeResolvedBriefReview?: boolean } = {},
-    signal?: AbortSignal
-  ): Promise<PlanningReviewArtifact[]> {
-    const reviews: PlanningReviewArtifact[] = [];
-    for (const kind of AUTO_REVIEW_KINDS_BY_STEP[step]) {
-      const review =
-        options.useIntakeResolvedBriefReview && kind === "brief-review"
-          ? this.buildInitialBriefReview(initiative)
-          : await this.executeReviewJob(initiative, kind, undefined, signal);
-      await this.store.upsertPlanningReview(review);
-      reviews.push(review);
-    }
-    return reviews;
-  }
-
-  private buildInitialBriefReview(initiative: Initiative): PlanningReviewArtifact {
-    const nowIso = this.now().toISOString();
-
-    return {
-      id: `${initiative.id}:brief-review`,
-      initiativeId: initiative.id,
-      kind: "brief-review",
-      status: "passed",
-      summary: INITIAL_BRIEF_REVIEW_SUMMARY,
-      findings: [],
-      sourceUpdatedAts: {
-        brief: requireSpecUpdatedAt(initiative.id, "brief", this.store.specs)
-      },
-      overrideReason: null,
-      reviewedAt: nowIso,
-      updatedAt: nowIso
-    };
-  }
-
-  private async executeTicketCoverageReviewForPendingPlan(
-    initiative: Initiative,
-    pendingPlan: PendingTicketPlanArtifact,
-    onToken?: LlmTokenHandler,
-    signal?: AbortSignal
-  ): Promise<PlanningReviewArtifact> {
-    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
-    const markdownByStep = await getArtifactMarkdownMap(initiative.id, (specId) => this.store.readSpecMarkdown(specId));
-    const traceOutlines: ReviewRunInput["traceOutlines"] = {};
-
-    for (const step of ["brief", "core-flows", "prd", "tech-spec"] as const) {
-      if (!markdownByStep[step]?.trim()) {
-        throw new Error(`Cannot run ticket coverage review before ${step} exists`);
-      }
-
-      const trace = await this.ensureArtifactTrace(initiative, step, signal);
-      traceOutlines[step] = { sections: trace.sections };
-    }
-
-    const result = await this.executePlannerJob<ReviewRunResult>(
-      "review",
-      {
-        initiativeDescription: initiative.description,
-        kind: "ticket-coverage-review",
-        briefMarkdown: markdownByStep.brief,
-        coreFlowsMarkdown: markdownByStep["core-flows"],
-        prdMarkdown: markdownByStep.prd,
-        techSpecMarkdown: markdownByStep["tech-spec"],
-        traceOutlines,
-        coverageItems: pendingPlan.coverageItems,
-        uncoveredCoverageItemIds: pendingPlan.uncoveredItemIds,
-        tickets: pendingPlan.phases.flatMap((phase) => phase.tickets)
-      },
-      onToken,
-      signal,
-      projectRoot
-    );
-
-    validateReviewRunResult(result);
-
-    const nowIso = this.now().toISOString();
-    return {
-      id: `${initiative.id}:ticket-coverage-review`,
-      initiativeId: initiative.id,
-      kind: "ticket-coverage-review",
-      status: result.blockers.length > 0 ? "blocked" : "passed",
-      summary: result.summary,
-      findings: buildReviewFindings("ticket-coverage-review", result),
-      sourceUpdatedAts: {
-        ...pendingPlan.sourceUpdatedAts,
-        validation: nowIso
-      },
-      overrideReason: null,
-      reviewedAt: nowIso,
-      updatedAt: nowIso
-    };
-  }
-
-  private async executeReviewJob(
-    initiative: Initiative,
-    kind: PlanningReviewKind,
-    onToken?: LlmTokenHandler,
-    signal?: AbortSignal
-  ): Promise<PlanningReviewArtifact> {
-    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
-    if (kind === "ticket-coverage-review") {
-      const pendingPlan = this.store.pendingTicketPlans.get(`${initiative.id}:pending-ticket-plan`);
-      if (pendingPlan) {
-        return this.executeTicketCoverageReviewForPendingPlan(initiative, pendingPlan, onToken, signal);
-      }
-    }
-
-    return executeReviewJobInternal({
-      initiative,
-      kind,
-      nowIso: this.now().toISOString(),
-      validateReviewRunResult,
-      executePlannerJob: (job, payload, reviewOnToken) =>
-        this.executePlannerJob(job, payload, reviewOnToken, signal, projectRoot),
-      getArtifactMarkdownMap: (initiativeId) => getArtifactMarkdownMap(initiativeId, (specId) => this.store.readSpecMarkdown(specId)),
-      ensureArtifactTrace: (currentInitiative, step) => this.ensureArtifactTrace(currentInitiative, step, signal),
-      requireSpecUpdatedAt: (initiativeId, step) => requireSpecUpdatedAt(initiativeId, step, this.store.specs),
-      requireTicketCoverageArtifact: (initiativeId) =>
-        requireTicketCoverageArtifact(initiativeId, this.store.ticketCoverageArtifacts),
-      getInitiativeTickets: (currentInitiative) => getInitiativeTickets(currentInitiative, this.store.tickets),
-      onToken
-    });
   }
 
   private requireInitiative(initiativeId: string): Initiative {
@@ -741,33 +577,6 @@ export class PlannerService {
     return initiative;
   }
 
-  private async ensureArtifactTrace(
-    initiative: Initiative,
-    step: InitiativeArtifactStep,
-    signal?: AbortSignal
-  ) {
-    const projectRoot = resolveInitiativeProjectRoot(this.rootDir, initiative);
-    return ensureArtifactTraceInternal({
-      initiative,
-      step,
-      specs: this.store.specs,
-      artifactTraces: this.store.artifactTraces,
-      nowIso: this.now().toISOString(),
-      validatePhaseMarkdownResult,
-      readSpecMarkdown: (specId) => this.store.readSpecMarkdown(specId),
-      buildSpecGenerationInput: (currentInitiative, refinementStep) =>
-        Promise.all([
-          getArtifactMarkdownMap(currentInitiative.id, (specId) => this.store.readSpecMarkdown(specId)),
-          refinementStep === "tech-spec" ? scanRepo(projectRoot).catch(() => undefined) : Promise.resolve(undefined)
-        ]).then(([markdownByStep, repoContext]) =>
-          buildSpecGenerationInput(currentInitiative, refinementStep, markdownByStep, repoContext)
-        ),
-      executePlannerJob: (job, payload, plannerOnToken) =>
-        this.executePlannerJob(job, payload, plannerOnToken, signal, projectRoot),
-      upsertArtifactTrace: (trace) => this.store.upsertArtifactTrace(trace)
-    });
-  }
-
   private async executePlannerJob<T>(
     job: PlannerJob,
     input: ClarifyHelpInput | PhaseCheckInput | ReviewRunInput | SpecGenInput | PlanInput | TriageInput,
@@ -775,17 +584,16 @@ export class PlannerService {
     signal?: AbortSignal,
     projectRoot = this.rootDir
   ): Promise<T> {
-    const config = await getResolvedPlannerConfig(this.store, this.fetchImpl);
-    const agentsMd = await loadPlannerAgentsMd(projectRoot, config.repoInstructionFile);
+    return executePlannerJobRuntime<T>(this.getRuntimeContext(), job, input, onToken, signal, projectRoot);
+  }
 
-    return executePlannerJobInternal<T>({
+  private getRuntimeContext(): PlannerServiceRuntimeContext {
+    return {
+      rootDir: this.rootDir,
+      store: this.store,
       llmClient: this.llmClient,
-      config,
-      job,
-      payload: input,
-      agentsMd,
-      onToken,
-      signal
-    });
+      fetchImpl: this.fetchImpl,
+      now: this.now
+    };
   }
 }

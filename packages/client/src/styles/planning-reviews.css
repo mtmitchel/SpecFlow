@@ -1,5 +1,4 @@
 /* Planning review and transition surfaces */
-.phase-transition-banner,
 .checkpoint-gate-banner {
   display: flex;
   justify-content: space-between;
@@ -9,35 +8,26 @@
   padding: var(--space-4);
 }
 
-.phase-transition-banner {
-  border: 1px solid var(--accent-border);
-  background: rgba(72, 203, 255, 0.1);
-}
-
 .checkpoint-gate-banner {
   border: 1px solid var(--warning-border);
   background: rgba(243, 187, 82, 0.14);
 }
 
-.phase-transition-copy,
 .checkpoint-gate-copy {
   display: grid;
   gap: var(--space-1);
 }
 
-.phase-transition-copy strong,
 .checkpoint-gate-copy strong {
   font-size: var(--font-caption);
 }
 
-.phase-transition-copy span,
 .checkpoint-gate-copy span {
   color: var(--muted);
   line-height: 1.5;
 }
 
-.checkpoint-gate-banner button,
-.phase-transition-banner button {
+.checkpoint-gate-banner button {
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
@@ -345,7 +335,6 @@
 }
 
 @media (max-width: 720px) {
-  .phase-transition-banner,
   .checkpoint-gate-banner {
     flex-direction: column;
     align-items: flex-start;

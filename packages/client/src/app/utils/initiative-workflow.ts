@@ -16,7 +16,7 @@ import {
   getPrerequisitePlanningStep,
   getNextPlanningStep,
   isReviewResolved
-} from "../../../../app/src/planner/workflow-contract.js";
+} from "../../shared-contracts.js";
 
 export const INITIATIVE_WORKFLOW_STEPS: InitiativePlanningStep[] = PLANNING_STEPS;
 export const INITIATIVE_ARTIFACT_STEPS: InitiativeArtifactStep[] = ARTIFACT_STEPS;

@@ -9,7 +9,7 @@ import {
 } from "../errors.js";
 import { getTicketExecutionGate } from "../../planner/execution-gates.js";
 import type { InitiativePlanningStep } from "../../types/entities.js";
-import { PLANNING_STEP_LABELS } from "../../planner/workflow-contract.js";
+import { PLANNING_STEP_LABELS, REVIEW_KINDS } from "../../planner/workflow-contract.js";
 import { isValidEntityId } from "../../server/validation.js";
 
 export const stepLabel = (step: InitiativePlanningStep): string => PLANNING_STEP_LABELS[step];
@@ -58,17 +58,7 @@ export const requireCoverageReviewResolved = (runtime: SpecFlowRuntime, ticket: 
 };
 
 export const requirePlanningReviewKind = (kind: string): PlanningReviewKind => {
-  if (
-    kind !== "brief-review" &&
-    kind !== "brief-core-flows-crosscheck" &&
-    kind !== "core-flows-review" &&
-    kind !== "core-flows-prd-crosscheck" &&
-    kind !== "prd-review" &&
-    kind !== "prd-tech-spec-crosscheck" &&
-    kind !== "tech-spec-review" &&
-    kind !== "spec-set-review" &&
-    kind !== "ticket-coverage-review"
-  ) {
+  if (!REVIEW_KINDS.includes(kind as PlanningReviewKind)) {
     throw badRequest("Unsupported review kind");
   }
 

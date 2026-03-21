@@ -130,7 +130,7 @@ describe("sidecar entrypoint", () => {
       });
     });
 
-    handleSidecarLine(JSON.stringify({ id: "req-short", method: "runtime.status" }), runtime, state, vi.fn());
+    handleSidecarLine(JSON.stringify({ id: "req-short", method: "artifacts.snapshot" }), runtime, state, vi.fn());
 
     await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TTL_MS - 1);
     expect(capturedSignal?.aborted).toBe(false);

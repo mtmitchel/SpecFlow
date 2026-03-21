@@ -32,9 +32,16 @@ import {
   recoverOrphanOperations as recoverOrphanOperationsInternal
 } from "./internal/recovery.js";
 import { writePreparedArtifacts } from "./internal/artifact-writer.js";
+import {
+  adoptCommittedOperation as adoptCommittedOperationInternal,
+  ensureRunWritable as ensureRunWritableInternal,
+  isLeaseExpired,
+  rebuildOperationIndex,
+  runAttemptKey,
+  uniquePush
+} from "./internal/run-operation-state.js";
 import { specTypeToFileName } from "./internal/spec-utils.js";
 import { type SpecflowWatcher, createSpecflowWatcher } from "./internal/watcher.js";
-import { NotFoundError, RetryableConflictError } from "./errors.js";
 import type { PreparedOperationArtifacts } from "./types.js";
 import type {
   ArtifactTraceOutline,
@@ -50,7 +57,7 @@ import type {
   SpecDocument,
   SpecDocumentSummary,
   TicketCoverageArtifact,
-  Ticket
+  Ticket,
 } from "../types/entities.js";
 
 export type { PreparedOperationArtifacts } from "./types.js";
@@ -155,7 +162,7 @@ export class ArtifactStore {
   private async doReloadFromDisk(): Promise<void> {
     const snapshot = await loadStoreSnapshot({
       rootDir: this.rootDir,
-      runAttemptKey: (runId, attemptId) => this.runAttemptKey(runId, attemptId),
+      runAttemptKey,
       normalizeInitiative: (initiative, inferredCompletion) => this.normalizeInitiative(initiative, inferredCompletion)
     });
 
@@ -171,7 +178,7 @@ export class ArtifactStore {
     replaceMapContents(this.ticketCoverageArtifacts, snapshot.ticketCoverageArtifacts);
     replaceMapContents(this.artifactTraces, snapshot.artifactTraces);
 
-    this.rebuildOperationIndex();
+    rebuildOperationIndex(this.operationIndex, this.runs);
   }
 
   public async upsertConfig(config: Config): Promise<void> {
@@ -328,7 +335,7 @@ export class ArtifactStore {
     const filePath = verificationPath(this.rootDir, runId, attempt.attemptId);
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFileAtomic(filePath, JSON.stringify(attempt, null, 2));
-    this.runAttempts.set(this.runAttemptKey(runId, attempt.attemptId), {
+    this.runAttempts.set(runAttemptKey(runId, attempt.attemptId), {
       attemptId: attempt.attemptId,
       overallPass: attempt.overallPass,
       overrideReason: attempt.overrideReason,
@@ -430,8 +437,8 @@ export class ArtifactStore {
         reloadFromDisk: () => this.reloadFromDisk(),
         markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
         clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
-        isLeaseExpired: (leaseExpiresAt) => this.isLeaseExpired(leaseExpiresAt),
-        uniquePush: (items, value) => this.uniquePush(items, value),
+        isLeaseExpired: (leaseExpiresAt) => isLeaseExpired(leaseExpiresAt, this.now),
+        uniquePush,
         suppressWatcher: () => this.suppressWatcher(),
         resumeWatcher: () => this.resumeWatcher()
       },
@@ -454,8 +461,8 @@ export class ArtifactStore {
         reloadFromDisk: () => this.reloadFromDisk(),
         markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
         clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
-        isLeaseExpired: (leaseExpiresAt) => this.isLeaseExpired(leaseExpiresAt),
-        uniquePush: (items, value) => this.uniquePush(items, value),
+        isLeaseExpired: (leaseExpiresAt) => isLeaseExpired(leaseExpiresAt, this.now),
+        uniquePush,
         suppressWatcher: () => this.suppressWatcher(),
         resumeWatcher: () => this.resumeWatcher()
       },
@@ -510,23 +517,12 @@ export class ArtifactStore {
   }
 
   private async adoptCommittedOperation(runId: string, manifest: OperationManifest): Promise<void> {
-    const run = this.runs.get(runId);
-    if (!run) {
-      return;
-    }
-
-    const updatedRun: Run = {
-      ...run,
-      attempts: this.uniquePush(run.attempts, manifest.targetAttemptId),
-      committedAttemptId: manifest.targetAttemptId,
-      activeOperationId: null,
-      operationLeaseExpiresAt: null,
-      lastCommittedAt: manifest.committedAt ?? manifest.updatedAt,
-      status: "complete"
-    };
-
-    await writeYamlFile(runYamlPath(this.rootDir, runId), updatedRun);
-    this.runs.set(runId, updatedRun);
+    await adoptCommittedOperationInternal({
+      rootDir: this.rootDir,
+      runs: this.runs,
+      runId,
+      manifest
+    });
   }
 
   public async getOperationStatus(operationId: string): Promise<
@@ -573,59 +569,15 @@ export class ArtifactStore {
   }
 
   private async ensureRunWritable(runId: string, requestedOperationId: string): Promise<void> {
-    const lockOwner = this.writeLocks.get(runId);
-    if (lockOwner && lockOwner !== requestedOperationId) {
-      throw new RetryableConflictError(`Run ${runId} is currently locked by ${lockOwner}`);
-    }
-
-    const run = this.runs.get(runId);
-    if (!run) {
-      throw new NotFoundError(`Run ${runId} not found`);
-    }
-
-    if (!run.activeOperationId) {
-      return;
-    }
-
-    if (run.activeOperationId !== requestedOperationId && !this.isLeaseExpired(run.operationLeaseExpiresAt)) {
-      throw new RetryableConflictError(
-        `Run ${runId} has an active operation ${run.activeOperationId}; retry later`
-      );
-    }
-
-    if (this.isLeaseExpired(run.operationLeaseExpiresAt)) {
-      await this.markOperationState(runId, run.activeOperationId, "abandoned");
-      await this.clearRunOperationPointer(runId);
-      await this.reloadFromDisk();
-
-      if (run.activeOperationId === requestedOperationId) {
-        throw new RetryableConflictError(`Operation ${requestedOperationId} lease expired and was abandoned`);
-      }
-    }
-  }
-
-  private isLeaseExpired(leaseExpiresAt: string | null): boolean {
-    if (!leaseExpiresAt) {
-      return false;
-    }
-
-    return Date.parse(leaseExpiresAt) <= this.now().getTime();
-  }
-
-  private runAttemptKey(runId: string, attemptId: string): string {
-    return `${runId}:${attemptId}`;
-  }
-
-  private uniquePush(items: string[], value: string): string[] {
-    return items.includes(value) ? items : [...items, value];
-  }
-
-  private rebuildOperationIndex(): void {
-    this.operationIndex.clear();
-    for (const [runId, run] of this.runs) {
-      if (run.activeOperationId) {
-        this.operationIndex.set(run.activeOperationId, runId);
-      }
-    }
+    await ensureRunWritableInternal({
+      runId,
+      requestedOperationId,
+      writeLocks: this.writeLocks,
+      runs: this.runs,
+      now: this.now,
+      markOperationState: (lockedRunId, operationId, state) => this.markOperationState(lockedRunId, operationId, state),
+      clearRunOperationPointer: (lockedRunId) => this.clearRunOperationPointer(lockedRunId),
+      reloadFromDisk: () => this.reloadFromDisk()
+    });
   }
 }

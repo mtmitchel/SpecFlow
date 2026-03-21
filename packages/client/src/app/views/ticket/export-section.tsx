@@ -128,26 +128,7 @@ export const ExportSection = ({
           </div>
         </details>
       ) : null}
-      {exportResult && !collapseUtilities ? (
-        <details className="ticket-secondary-disclosure">
-          <summary>Bundle details</summary>
-          <div className="ticket-secondary-content">
-            <div className="button-row">
-              <button type="button" className="inline-action" onClick={() => void handleToggleBundlePreview()}>
-                {bundlePreviewOpen
-                  ? "Hide bundle"
-                  : bundleTextLoading
-                    ? "Loading bundle..."
-                    : "Show bundle"}
-              </button>
-              <button type="button" className="inline-action" onClick={() => void handleDownloadBundle()}>
-                Download Markdown bundle
-              </button>
-            </div>
-            {bundlePreviewOpen && bundlePreview ? <pre>{bundlePreview}</pre> : null}
-          </div>
-        </details>
-      ) : null}
+      {exportResult && !collapseUtilities && bundlePreviewOpen && bundlePreview ? <pre>{bundlePreview}</pre> : null}
     </>
   );
 

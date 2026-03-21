@@ -1,6 +1,6 @@
 import type { AgentTarget, Run, RunAttemptDetail, RunDetail, RunDiffPayload, RunListItem } from "../types";
 import { parse } from "./http";
-import { transportRequest } from "./transport";
+import { transportJsonRequest, transportRequest } from "./transport";
 
 export const fetchRunState = async (
   runId: string
@@ -13,13 +13,10 @@ export const fetchRunState = async (
     driftFlags: Array<{ type: string; file: string; description: string }>;
   }>;
 }> => {
-  return transportRequest(
+  return transportJsonRequest(
     "runs.state",
     { id: runId },
-    async () => {
-      const response = await fetch(`/api/runs/${runId}/state`);
-      return parse(response);
-    }
+    { url: `/api/runs/${runId}/state` }
   );
 };
 
@@ -37,13 +34,10 @@ export const fetchRunProgress = async (
     createdAt: string;
   }>;
 }> => {
-  return transportRequest(
+  return transportJsonRequest(
     "runs.progress",
     { id: runId },
-    async (signal) => {
-      const response = await fetch(`/api/runs/${runId}/progress`, { signal });
-      return parse(response);
-    },
+    { url: `/api/runs/${runId}/progress` },
     undefined,
     options
   );
@@ -95,25 +89,19 @@ export const fetchRuns = async (filters: {
   }
 
   const query = params.toString();
-  const payload = await transportRequest<{ runs: RunListItem[] }>(
+  const payload = await transportJsonRequest<{ runs: RunListItem[] }>(
     "runs.list",
     filters,
-    async () => {
-      const response = await fetch(query ? `/api/runs?${query}` : "/api/runs");
-      return parse<{ runs: RunListItem[] }>(response);
-    }
+    { url: query ? `/api/runs?${query}` : "/api/runs" }
   );
   return payload.runs;
 };
 
 export const fetchRunDetail = async (runId: string, options?: { signal?: AbortSignal }): Promise<RunDetail> => {
-  return transportRequest(
+  return transportJsonRequest(
     "runs.detail",
     { id: runId },
-    async (signal) => {
-      const response = await fetch(`/api/runs/${runId}`, { signal });
-      return parse<RunDetail>(response);
-    },
+    { url: `/api/runs/${runId}` },
     undefined,
     options
   );
@@ -124,13 +112,10 @@ export const fetchRunAttemptDetail = async (
   attemptId: string,
   options?: { signal?: AbortSignal }
 ): Promise<RunAttemptDetail> => {
-  const payload = await transportRequest<{ attempt: RunAttemptDetail }>(
+  const payload = await transportJsonRequest<{ attempt: RunAttemptDetail }>(
     "runs.attemptDetail",
     { runId, attemptId },
-    async (signal) => {
-      const response = await fetch(`/api/runs/${runId}/attempts/${attemptId}`, { signal });
-      return parse<{ attempt: RunAttemptDetail }>(response);
-    },
+    { url: `/api/runs/${runId}/attempts/${attemptId}` },
     undefined,
     options
   );
@@ -143,26 +128,20 @@ export const fetchRunDiff = async (
   kind: "primary" | "drift",
   options?: { signal?: AbortSignal }
 ): Promise<RunDiffPayload> => {
-  return transportRequest(
+  return transportJsonRequest(
     "runs.diff",
     { runId, attemptId, kind },
-    async (signal) => {
-      const response = await fetch(`/api/runs/${runId}/attempts/${attemptId}/diff?kind=${kind}`, { signal });
-      return parse<RunDiffPayload>(response);
-    },
+    { url: `/api/runs/${runId}/attempts/${attemptId}/diff?kind=${kind}` },
     undefined,
     options
   );
 };
 
 export const fetchBundleText = async (runId: string, attemptId: string): Promise<string> => {
-  const payload = await transportRequest<{ content: string }>(
+  const payload = await transportJsonRequest<{ content: string }>(
     "runs.bundleText",
     { runId, attemptId },
-    async () => {
-      const response = await fetch(`/api/runs/${runId}/attempts/${attemptId}/bundle-text`);
-      return parse<{ content: string }>(response);
-    }
+    { url: `/api/runs/${runId}/attempts/${attemptId}/bundle-text` }
   );
   return payload.content;
 };

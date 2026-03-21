@@ -1,22 +1,11 @@
 import type { AgentTarget, Ticket, TicketStatus } from "../types";
-import { parse } from "./http";
-import { chooseSavePath, isDesktopRuntime, transportRequest, type TransportEvent } from "./transport";
+import { chooseSavePath, isDesktopRuntime, transportJsonRequest, transportRequest, type TransportEvent } from "./transport";
 
 export const updateTicketStatus = async (ticketId: string, status: TicketStatus): Promise<Ticket> => {
-  const payload = await transportRequest<{ ticket: Ticket }>(
+  const payload = await transportJsonRequest<{ ticket: Ticket }>(
     "tickets.update",
     { id: ticketId, body: { status } },
-    async () => {
-      const response = await fetch(`/api/tickets/${ticketId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ status })
-      });
-
-      return parse<{ ticket: Ticket }>(response);
-    }
+    { url: `/api/tickets/${ticketId}`, method: "PATCH", body: { status } }
   );
   return payload.ticket;
 };
@@ -35,20 +24,10 @@ export const triageQuickTask = async (
     }
   | { decision: "too-large"; reason: string; initiativeId: string; initiativeTitle: string }
 > => {
-  return transportRequest(
+  return transportJsonRequest(
     "tickets.create",
     { body: { description } },
-    async () => {
-      const response = await fetch("/api/tickets", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ description })
-      });
-
-      return parse(response);
-    }
+    { url: "/api/tickets", method: "POST", body: { description } }
   );
 };
 
@@ -57,20 +36,10 @@ export const exportBundle = async (
   agent: AgentTarget,
   exportMode?: "standard" | "quick-fix"
 ): Promise<{ runId: string; attemptId: string; bundlePath: string }> => {
-  return transportRequest(
+  return transportJsonRequest(
     "tickets.exportBundle",
     { id: ticketId, body: { agent, exportMode } },
-    async () => {
-      const response = await fetch(`/api/tickets/${ticketId}/export-bundle`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ agent, exportMode })
-      });
-
-      return parse(response);
-    }
+    { url: `/api/tickets/${ticketId}/export-bundle`, method: "POST", body: { agent, exportMode } }
   );
 };
 
@@ -91,7 +60,7 @@ export const captureResults = async (
     description: string;
   }>;
 }> => {
-  return transportRequest(
+  return transportJsonRequest(
     "tickets.captureResults",
     {
       id: ticketId,
@@ -101,20 +70,14 @@ export const captureResults = async (
         widenedScopePaths
       }
     },
-    async () => {
-      const response = await fetch(`/api/tickets/${ticketId}/capture-results`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          agentSummary,
-          scopePaths,
-          widenedScopePaths
-        })
-      });
-
-      return parse(response);
+    {
+      url: `/api/tickets/${ticketId}/capture-results`,
+      method: "POST",
+      body: {
+        agentSummary,
+        scopePaths,
+        widenedScopePaths
+      }
     },
     onEvent
   );
@@ -134,20 +97,10 @@ export const capturePreview = async (
   primaryDiff: string;
   driftDiff: string | null;
 }> => {
-  return transportRequest(
+  return transportJsonRequest(
     "tickets.capturePreview",
     { id: ticketId, body: payload },
-    async () => {
-      const response = await fetch(`/api/tickets/${ticketId}/capture-preview`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      return parse(response);
-    }
+    { url: `/api/tickets/${ticketId}/capture-preview`, method: "POST", body: payload }
   );
 };
 
@@ -156,23 +109,10 @@ export const overrideDone = async (
   reason: string,
   overrideAccepted: boolean
 ): Promise<{ runId: string; attemptId: string }> => {
-  return transportRequest(
+  return transportJsonRequest(
     "tickets.overrideDone",
     { id: ticketId, body: { reason, overrideAccepted } },
-    async () => {
-      const response = await fetch(`/api/tickets/${ticketId}/override-done`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          reason,
-          overrideAccepted
-        })
-      });
-
-      return parse(response);
-    }
+    { url: `/api/tickets/${ticketId}/override-done`, method: "POST", body: { reason, overrideAccepted } }
   );
 };
 
