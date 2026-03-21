@@ -491,6 +491,7 @@ export const InitiativeView = ({
             <TicketsStepSection
               initiative={initiative}
               initiativeTickets={initiativeTickets}
+              initiativeReviews={initiativeReviews}
               onOpenTicket={openTicket}
               onCommitPhaseName={handlePhaseRename}
               onMoveTicket={onMoveTicket}

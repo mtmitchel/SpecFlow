@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { getTicketStatusTransitionGate } from "../../../../app/src/planner/execution-gates.js";
 import { fetchOperationStatus, fetchRunAttemptDetail } from "../../api.js";
 import type {
   Initiative,
@@ -13,7 +14,7 @@ import type {
   TicketStatus,
 } from "../../types.js";
 import { useToast } from "../context/toast.js";
-import { statusColumns } from "../constants/status-columns.js";
+import { getAvailableStatusOptions } from "../constants/status-columns.js";
 import { findPhaseWarning } from "../utils/phase-warning.js";
 import { useVerificationStream } from "../hooks/use-verification-stream.js";
 import { useCapturePreview } from "../hooks/use-capture-preview.js";
@@ -107,6 +108,18 @@ export const TicketView = ({
     .filter((attempt) => run?.attempts.includes(attempt.attemptId))
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   const latestAttempt = attempts[0] ?? null;
+  const ticketStatusMap = new Map(
+    tickets.map((candidate) => [candidate.id, { status: candidate.status }] as const),
+  );
+  const reviewStatusMap = new Map(
+    planningReviews.map((review) => [review.id, { status: review.status }] as const),
+  );
+  const statusOptions = ticket
+    ? getAvailableStatusOptions(ticket, ticketStatusMap, reviewStatusMap).map((column) => ({
+        value: column.key,
+        label: column.label,
+      }))
+    : [];
 
   const verify = useVerificationStream(params.id, run?.id, onRefresh);
   const capture = useCapturePreview(params.id, run?.id, ticket?.fileTargets ?? []);
@@ -367,8 +380,22 @@ export const TicketView = ({
         ];
 
   const handleStatusChange = async (status: string): Promise<void> => {
+    if (!ticket) {
+      return;
+    }
+
     const nextStatus = status as TicketStatus;
     if (nextStatus === ticket.status) {
+      return;
+    }
+    const transitionGate = getTicketStatusTransitionGate(
+      ticket,
+      nextStatus,
+      reviewStatusMap,
+      ticketStatusMap,
+    );
+    if (!transitionGate.allowed) {
+      showError(transitionGate.message);
       return;
     }
 
@@ -408,14 +435,14 @@ export const TicketView = ({
 
       <div className="ticket-content-card">
         <div className="ticket-workbench">
-          <TicketBriefCard
-            ticket={ticket}
-            criterionStates={criterionStates}
-            status={ticket.status}
-            statusOptions={statusColumns.map((column) => ({ value: column.key, label: column.label }))}
-            onStatusChange={(value) => {
-              void handleStatusChange(value);
-            }}
+            <TicketBriefCard
+              ticket={ticket}
+              criterionStates={criterionStates}
+              status={ticket.status}
+              statusOptions={statusOptions}
+              onStatusChange={(value) => {
+                void handleStatusChange(value);
+              }}
             statusUpdating={statusUpdating}
           />
 

@@ -54,7 +54,7 @@ export class BundleGenerator {
       throw new Error(`Ticket ${input.ticketId} not found`);
     }
 
-    const executionGate = getTicketExecutionGate(ticket, this.store.planningReviews);
+    const executionGate = getTicketExecutionGate(ticket, this.store.planningReviews, this.store.tickets);
     if (!executionGate.allowed) {
       throw new Error(executionGate.message);
     }

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Initiative, Ticket } from "../../../types.js";
+import type { Initiative, PlanningReviewArtifact, Ticket } from "../../../types.js";
 import { statusColumns } from "../../constants/status-columns.js";
 import { TicketsStepSection } from "./tickets-step-section.js";
 
@@ -51,6 +51,19 @@ const baseTicket: Ticket = {
   updatedAt: "2026-03-16T10:50:00.000Z",
 };
 
+const passedCoverageReview: PlanningReviewArtifact = {
+  id: `${baseInitiative.id}:ticket-coverage-review`,
+  initiativeId: baseInitiative.id,
+  kind: "ticket-coverage-review",
+  status: "passed",
+  summary: "Coverage is clear.",
+  findings: [],
+  sourceUpdatedAts: { tickets: "2026-03-16T10:20:00.000Z" },
+  overrideReason: null,
+  reviewedAt: "2026-03-16T10:30:00.000Z",
+  updatedAt: "2026-03-16T10:30:00.000Z",
+};
+
 const createDataTransfer = () => {
   const store = new Map<string, string>();
   return {
@@ -64,25 +77,28 @@ const createDataTransfer = () => {
 };
 
 const renderSection = ({
-  initiative = baseInitiative,
-  initiativeTickets = [baseTicket],
-  onOpenTicket = vi.fn(),
-  onCommitPhaseName = vi.fn(),
-  onMoveTicket = vi.fn(async () => undefined),
-}: {
-  initiative?: Initiative;
-  initiativeTickets?: Ticket[];
-  onOpenTicket?: (ticketId: string) => void;
-  onCommitPhaseName?: (phaseId: string, nextName: string) => void;
-  onMoveTicket?: (ticketId: string, status: Ticket["status"]) => Promise<void>;
+    initiative = baseInitiative,
+    initiativeTickets = [baseTicket],
+    initiativeReviews = [],
+    onOpenTicket = vi.fn(),
+    onCommitPhaseName = vi.fn(),
+    onMoveTicket = vi.fn(async () => undefined),
+  }: {
+    initiative?: Initiative;
+    initiativeTickets?: Ticket[];
+    initiativeReviews?: PlanningReviewArtifact[];
+    onOpenTicket?: (ticketId: string) => void;
+    onCommitPhaseName?: (phaseId: string, nextName: string) => void;
+    onMoveTicket?: (ticketId: string, status: Ticket["status"]) => Promise<void>;
 } = {}) =>
   render(
-    <TicketsStepSection
-      initiative={initiative}
-      initiativeTickets={initiativeTickets}
-      onOpenTicket={onOpenTicket}
-      onCommitPhaseName={onCommitPhaseName}
-      onMoveTicket={onMoveTicket}
+      <TicketsStepSection
+        initiative={initiative}
+        initiativeTickets={initiativeTickets}
+        initiativeReviews={initiativeReviews}
+        onOpenTicket={onOpenTicket}
+        onCommitPhaseName={onCommitPhaseName}
+        onMoveTicket={onMoveTicket}
     />,
   );
 
@@ -218,7 +234,7 @@ describe("TicketsStepSection", () => {
     const onMoveTicket = vi.fn(async () => undefined);
     const dataTransfer = createDataTransfer();
 
-    renderSection({ onMoveTicket });
+    renderSection({ onMoveTicket, initiativeReviews: [passedCoverageReview] });
 
     const ticketCard = screen.getByText(baseTicket.title).closest("li");
     const readyColumn = screen.getByLabelText("Up next tickets");
@@ -230,6 +246,43 @@ describe("TicketsStepSection", () => {
 
     await waitFor(() => {
       expect(onMoveTicket).toHaveBeenCalledWith(baseTicket.id, "ready");
+    });
+  });
+
+  it("does not move a blocked ticket into execution when a dependency is still open", async () => {
+    const onMoveTicket = vi.fn(async () => undefined);
+    const dataTransfer = createDataTransfer();
+    const blockedTicket: Ticket = {
+      ...baseTicket,
+      status: "ready",
+      blockedBy: ["ticket-blocker"],
+    };
+    const blockerTicket: Ticket = {
+      ...baseTicket,
+      id: "ticket-blocker",
+      title: "Finish prerequisite ticket",
+      status: "verify",
+      blockedBy: [],
+      blocks: [blockedTicket.id],
+      coverageItemIds: ["coverage-prd-requirements-1"],
+    };
+
+    renderSection({
+      onMoveTicket,
+      initiativeTickets: [blockedTicket, blockerTicket],
+      initiativeReviews: [passedCoverageReview],
+    });
+
+    const ticketCard = screen.getByText(blockedTicket.title).closest("li");
+    const inProgressColumn = screen.getByLabelText("In progress tickets");
+
+    fireEvent.dragStart(ticketCard!, { dataTransfer });
+    fireEvent.dragEnter(inProgressColumn, { dataTransfer });
+    fireEvent.dragOver(inProgressColumn, { dataTransfer });
+    fireEvent.drop(inProgressColumn, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onMoveTicket).not.toHaveBeenCalled();
     });
   });
 

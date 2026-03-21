@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Initiative, InitiativePhase, Ticket, TicketStatus } from "../../../types.js";
+import type { Initiative, InitiativePhase, PlanningReviewArtifact, Ticket, TicketStatus } from "../../../types.js";
 import { canTransition, statusColumns } from "../../constants/status-columns.js";
 
 const getOrderedPhases = (initiative: Initiative): InitiativePhase[] =>
@@ -41,6 +41,7 @@ const getUnfinishedBlockerCount = (
 interface TicketsStepSectionProps {
   initiative: Initiative;
   initiativeTickets: Ticket[];
+  initiativeReviews: PlanningReviewArtifact[];
   onOpenTicket: (ticketId: string) => void;
   onCommitPhaseName: (phaseId: string, nextName: string) => void;
   onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
@@ -49,6 +50,7 @@ interface TicketsStepSectionProps {
 export const TicketsStepSection = ({
   initiative,
   initiativeTickets,
+  initiativeReviews,
   onOpenTicket,
   onCommitPhaseName: _onCommitPhaseName,
   onMoveTicket,
@@ -67,6 +69,12 @@ export const TicketsStepSection = ({
   const [movingTicketId, setMovingTicketId] = useState<string | null>(null);
   const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
   const phaseDropdownRef = useRef<HTMLDivElement>(null);
+  const ticketStatusMap = new Map(
+    initiativeTickets.map((ticket) => [ticket.id, { status: ticket.status }] as const),
+  );
+  const reviewStatusMap = new Map(
+    initiativeReviews.map((review) => [review.id, { status: review.status }] as const),
+  );
 
   useEffect(() => {
     if (!phaseDropdownOpen) return;
@@ -142,7 +150,7 @@ export const TicketsStepSection = ({
       ticket &&
         ticket.phaseId === selectedPhase.id &&
         ticket.status !== nextStatus &&
-        canTransition(ticket.status, nextStatus),
+        canTransition(ticket, nextStatus, ticketStatusMap, reviewStatusMap),
     );
 
   const handleDrop = async (

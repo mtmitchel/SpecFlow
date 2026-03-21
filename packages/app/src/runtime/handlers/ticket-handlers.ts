@@ -1,8 +1,9 @@
 import type { AgentType } from "../../types/entities.js";
 import type { NotificationSink, SpecFlowRuntime } from "../types.js";
 import { badRequest } from "../errors.js";
+import { getTicketStatusTransitionGate } from "../../planner/execution-gates.js";
 import { isValidFindingId } from "../../validation.js";
-import { readTicket, requireCoverageReviewResolved, requireValidEntityId, structuredPlannerError, structuredVerifierError } from "./shared.js";
+import { readTicket, requireTicketExecutionAllowed, requireValidEntityId, structuredPlannerError, structuredVerifierError } from "./shared.js";
 import { resolveTicketProjectRoot } from "../../project-roots.js";
 
 export const listTickets = (runtime: SpecFlowRuntime) => ({
@@ -20,6 +21,21 @@ export const updateTicket = async (
 ) => {
   const ticket = readTicket(runtime, ticketId);
   const nextStatus = body.status ?? ticket.status;
+  const transitionGate = getTicketStatusTransitionGate(
+    ticket,
+    nextStatus,
+    runtime.store.planningReviews,
+    runtime.store.tickets
+  );
+  if (!transitionGate.allowed) {
+    throw badRequest(transitionGate.message, {
+      error: "Blocked",
+      message: transitionGate.message,
+      reviewKind: transitionGate.code === "coverage-review-unresolved" ? transitionGate.reviewKind : undefined,
+      blockingTicketIds:
+        transitionGate.code === "blocked-by-open-ticket" ? transitionGate.blockingTicketIds : undefined
+    });
+  }
 
   const updated = {
     ...ticket,
@@ -89,7 +105,7 @@ export const exportBundle = async (
 ) => {
   requireValidOperationId(input.operationId);
   const ticket = readTicket(runtime, ticketId);
-  requireCoverageReviewResolved(runtime, ticket);
+  requireTicketExecutionAllowed(runtime, ticket);
 
   try {
     const result = await runtime.bundleGenerator.exportBundle({
@@ -135,7 +151,7 @@ export const exportFixBundle = async (
   }
 
   const ticket = readTicket(runtime, run.ticketId);
-  requireCoverageReviewResolved(runtime, ticket);
+  requireTicketExecutionAllowed(runtime, ticket);
 
   try {
     const result = await runtime.bundleGenerator.exportBundle({

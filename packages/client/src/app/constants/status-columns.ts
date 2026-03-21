@@ -1,4 +1,5 @@
-import type { TicketStatus } from "../../types";
+import { getTicketStatusTransitionGate } from "../../../../app/src/planner/execution-gates.js";
+import type { PlanningReviewArtifact, Ticket, TicketStatus } from "../../types";
 
 export const statusColumns: Array<{ key: TicketStatus; label: string }> = [
   { key: "backlog", label: "Backlog" },
@@ -8,6 +9,19 @@ export const statusColumns: Array<{ key: TicketStatus; label: string }> = [
   { key: "done", label: "Done" }
 ];
 
-export const canTransition = (from: TicketStatus, to: TicketStatus): boolean => {
-  return from !== to;
-};
+export const canTransition = (
+  ticket: Pick<Ticket, "initiativeId" | "blockedBy" | "status">,
+  to: TicketStatus,
+  tickets: ReadonlyMap<string, Pick<Ticket, "status">>,
+  planningReviews: ReadonlyMap<string, Pick<PlanningReviewArtifact, "status">>
+): boolean =>
+  ticket.status !== to && getTicketStatusTransitionGate(ticket, to, planningReviews, tickets).allowed;
+
+export const getAvailableStatusOptions = (
+  ticket: Pick<Ticket, "initiativeId" | "blockedBy" | "status">,
+  tickets: ReadonlyMap<string, Pick<Ticket, "status">>,
+  planningReviews: ReadonlyMap<string, Pick<PlanningReviewArtifact, "status">>
+): Array<{ key: TicketStatus; label: string }> =>
+  statusColumns.filter(
+    (column) => column.key === ticket.status || canTransition(ticket, column.key, tickets, planningReviews)
+  );

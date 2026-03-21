@@ -39,12 +39,8 @@ export const readTicket = (runtime: SpecFlowRuntime, ticketId: string): Ticket =
   return ticket;
 };
 
-export const requireCoverageReviewResolved = (runtime: SpecFlowRuntime, ticket: Ticket): void => {
-  if (!ticket.initiativeId) {
-    return;
-  }
-
-  const gate = getTicketExecutionGate(ticket, runtime.store.planningReviews);
+export const requireTicketExecutionAllowed = (runtime: SpecFlowRuntime, ticket: Ticket): void => {
+  const gate = getTicketExecutionGate(ticket, runtime.store.planningReviews, runtime.store.tickets);
   if (gate.allowed) {
     return;
   }
@@ -52,7 +48,8 @@ export const requireCoverageReviewResolved = (runtime: SpecFlowRuntime, ticket: 
   throw conflict(gate.message, {
     error: "Blocked",
     message: gate.message,
-    reviewKind: gate.reviewKind
+    reviewKind: gate.code === "coverage-review-unresolved" ? gate.reviewKind : undefined,
+    blockingTicketIds: gate.code === "blocked-by-open-ticket" ? gate.blockingTicketIds : undefined
   });
 };
 

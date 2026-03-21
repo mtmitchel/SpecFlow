@@ -287,6 +287,20 @@ describe("TicketView", () => {
     });
   });
 
+  it("hides execution statuses in the header control when the coverage review is unresolved", () => {
+    renderView({
+      planningReviews: [],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ticket status" }));
+
+    expect(screen.getByRole("option", { name: "Backlog" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Up next" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "In progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Needs attention" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Done" })).not.toBeInTheDocument();
+  });
+
   it("hides the coverage gate banner once the review is overridden", () => {
     renderView({
       planningReviews: [
