@@ -22,6 +22,7 @@ import { normalizeInitiativeWorkflow } from "../planner/workflow-state.js";
 import { readYamlFile } from "../io/yaml.js";
 import { writeYamlFile } from "../io/yaml.js";
 import { pruneExpiredTempOperations as pruneExpiredTempOperationsInternal } from "./internal/cleanup.js";
+import { recoverInterruptedInitiativeWrites, writeInitiativeWithStaging } from "./internal/store-writer.js";
 import { loadStoreSnapshot, replaceMapContents } from "./internal/reload.js";
 import {
   commitRunOperation as commitRunOperationInternal,
@@ -180,6 +181,7 @@ export class ArtifactStore {
 
   private async doReloadFromDisk(): Promise<void> {
     const startedAt = Date.now();
+    await recoverInterruptedInitiativeWrites(this.rootDir);
     const snapshot = await loadStoreSnapshot({
       rootDir: this.rootDir,
       runAttemptKey,
@@ -258,35 +260,25 @@ export class ArtifactStore {
         Array.from(this.tickets.values()).some((ticket) => ticket.initiativeId === initiative.id)
     });
 
-    const dir = initiativeDir(this.rootDir, normalized.id);
-    await mkdir(dir, { recursive: true });
-    await writeYamlFile(initiativeYamlPath(this.rootDir, normalized.id), normalized);
-
     const hasDocChanges =
       docs.brief !== undefined ||
       docs.coreFlows !== undefined ||
       docs.prd !== undefined ||
       docs.techSpec !== undefined;
 
-    if (docs.brief !== undefined) {
-      await writeFileAtomic(path.join(dir, "brief.md"), docs.brief);
-    }
-
-    if (docs.coreFlows !== undefined) {
-      await writeFileAtomic(path.join(dir, "core-flows.md"), docs.coreFlows);
-    }
-
-    if (docs.prd !== undefined) {
-      await writeFileAtomic(path.join(dir, "prd.md"), docs.prd);
-    }
-
-    if (docs.techSpec !== undefined) {
-      await writeFileAtomic(path.join(dir, "tech-spec.md"), docs.techSpec);
-    }
-
     if (hasDocChanges) {
+      await writeInitiativeWithStaging({
+        rootDir: this.rootDir,
+        initiative: normalized,
+        docs,
+        suppressWatcher: () => this.suppressWatcher(),
+        resumeWatcher: () => this.resumeWatcher()
+      });
       await this.reloadFromDisk();
     } else {
+      const dir = initiativeDir(this.rootDir, normalized.id);
+      await mkdir(dir, { recursive: true });
+      await writeYamlFile(initiativeYamlPath(this.rootDir, normalized.id), normalized);
       this.initiatives.set(normalized.id, normalized);
       this.bumpRevision();
     }
