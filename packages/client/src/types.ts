@@ -27,8 +27,16 @@ import type {
   PlanningReviewStatus,
   ProviderId,
   ProviderKeyStatus,
+  InitiativePhaseCheckResult,
   Run,
+  RunAttemptDetail,
+  RunDetail,
+  RunDetailAttemptSummary,
+  RunDiffPayload,
+  RunListItem,
   RunAttemptRecord,
+  RunProgressPayload,
+  RunStatePayload,
   SaveProviderKeyPayload,
   SpecDocument,
   SpecDocumentSummary,
@@ -36,8 +44,9 @@ import type {
   TicketCoverageArtifact,
   TicketCoverageItem,
   TicketStatus,
+  VerificationResult,
   VerificationSeverity,
-} from "./shared-contracts.js";
+} from "@specflow/shared-contracts";
 
 export type {
   AgentTarget,
@@ -68,7 +77,15 @@ export type {
   PlanningReviewStatus,
   ProviderId,
   ProviderKeyStatus,
+  InitiativePhaseCheckResult,
   Run,
+  RunAttemptDetail,
+  RunDetail,
+  RunDetailAttemptSummary,
+  RunDiffPayload,
+  RunListItem,
+  RunProgressPayload,
+  RunStatePayload,
   SaveProviderKeyPayload,
   SpecDocument,
   SpecDocumentSummary,
@@ -76,99 +93,11 @@ export type {
   TicketCoverageArtifact,
   TicketCoverageItem,
   TicketStatus,
+  VerificationResult,
   VerificationSeverity,
 };
 
 export type RunAttempt = RunAttemptRecord;
-
-export interface RunListAttempt {
-  attemptId: string;
-  overallPass: boolean;
-  createdAt: string;
-}
-
-export interface RunListItem {
-  run: Run;
-  ticket: Ticket | null;
-  attempts: RunListAttempt[];
-  operationState: OperationState | null;
-}
-
-export interface VerificationResult {
-  overallPass: boolean;
-  criteriaResults: Array<{
-    criterionId: string;
-    pass: boolean;
-    evidence: string;
-    severity?: VerificationSeverity;
-    remediationHint?: string;
-  }>;
-  driftFlags: Array<{
-    type: string;
-    file: string;
-    description: string;
-    severity?: VerificationSeverity;
-  }>;
-}
-
-export interface RunAttemptDetail {
-  id: string;
-  attemptId: string;
-  agentSummary: string;
-  diffSource: "git" | "snapshot";
-  initialScopePaths: string[];
-  widenedScopePaths: string[];
-  primaryDiffPath: string;
-  driftDiffPath: string | null;
-  overrideReason: string | null;
-  overrideAccepted: boolean;
-  criteriaResults: Array<{
-    criterionId: string;
-    pass: boolean;
-    evidence: string;
-    severity?: VerificationSeverity;
-    remediationHint?: string;
-  }>;
-  driftFlags: Array<{
-    type: string;
-    file: string;
-    description: string;
-    severity?: VerificationSeverity;
-  }>;
-  overallPass: boolean;
-  createdAt: string;
-}
-
-export interface RunDetailAttemptSummary {
-  id: string;
-  attemptId: string;
-  overallPass: boolean;
-  overrideReason: string | null;
-  overrideAccepted: boolean;
-  createdAt: string;
-}
-
-export interface RunDetail {
-  run: Run;
-  ticket: Ticket | null;
-  attempts: RunDetailAttemptSummary[];
-  operationState: OperationState | null;
-  committed: {
-    attemptId: string;
-    attempt: RunDetailAttemptSummary | null;
-    attemptDetail?: RunAttemptDetail | null;
-    bundleManifest: {
-      contextFiles: string[];
-      requiredFiles: string[];
-      [key: string]: unknown;
-    } | null;
-  } | null;
-}
-
-export interface RunDiffPayload {
-  kind: "primary" | "drift";
-  diff: string;
-}
 
 export interface ProviderModel {
   id: string;

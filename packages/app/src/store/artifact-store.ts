@@ -2,7 +2,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { writeFileAtomic } from "../io/atomic-write.js";
 import { logObservabilityEvent } from "../observability.js";
-import type { ArtifactsSnapshotMeta, StoreReloadIssue } from "../shared-contracts.js";
+import type { ArtifactsSnapshotMeta, StoreReloadIssue } from "../types/contracts.js";
 import {
   configPath,
   decisionsDir,

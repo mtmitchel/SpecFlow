@@ -1,11 +1,12 @@
 import type {
   AgentTarget,
   OperationStatusRecord,
-  Run,
   RunAttemptDetail,
   RunDetail,
   RunDiffPayload,
-  RunListItem
+  RunListItem,
+  RunProgressPayload,
+  RunStatePayload,
 } from "../types";
 import { ApiError } from "./http";
 import { transportJsonRequest, transportRequest } from "./transport";
@@ -13,15 +14,7 @@ import { transportJsonRequest, transportRequest } from "./transport";
 export const fetchRunState = async (
   runId: string,
   options?: { signal?: AbortSignal }
-): Promise<{
-  run: Run;
-  attempts: Array<{
-    attemptId: string;
-    overallPass: boolean;
-    criteriaResults: Array<{ criterionId: string; pass: boolean; evidence: string }>;
-    driftFlags: Array<{ type: string; file: string; description: string }>;
-  }>;
-}> => {
+): Promise<RunStatePayload> => {
   return transportJsonRequest(
     "runs.state",
     { id: runId },
@@ -33,17 +26,7 @@ export const fetchRunState = async (
 export const fetchRunProgress = async (
   runId: string,
   options?: { signal?: AbortSignal }
-): Promise<{
-  run: Run;
-  operationState: "prepared" | "committed" | "abandoned" | "superseded" | "failed" | null;
-  attempts: Array<{
-    attemptId: string;
-    overallPass: boolean;
-    overrideReason: string | null;
-    overrideAccepted: boolean;
-    createdAt: string;
-  }>;
-}> => {
+): Promise<RunProgressPayload> => {
   return transportJsonRequest(
     "runs.progress",
     { id: runId },

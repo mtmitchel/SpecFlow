@@ -1,10 +1,12 @@
-import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
 
 const host = process.env.SPECFLOW_CLIENT_HOST ?? "127.0.0.1";
 const port = Number.parseInt(process.env.SPECFLOW_CLIENT_PORT ?? "5173", 10);
 
 const clientPort = Number.isFinite(port) ? port : 5173;
 const clientOrigin = `http://${host}:${clientPort}`;
+const sharedContractsPath = fileURLToPath(new URL("../app/src/shared-contracts.ts", import.meta.url));
 
 const createCsp = (mode: "dev" | "prod"): string => {
   const directives = [
@@ -46,9 +48,22 @@ const cspMetaPlugin = (mode: "dev" | "prod") => ({
 
 export default defineConfig(({ command }) => ({
   plugins: [cspMetaPlugin(command === "serve" ? "dev" : "prod")],
+  resolve: {
+    alias: [
+      {
+        find: /^@specflow\/shared-contracts$/,
+        replacement: sharedContractsPath
+      }
+    ]
+  },
   server: {
     host,
     port: clientPort
+  },
+  test: {
+    alias: {
+      "@specflow/shared-contracts": sharedContractsPath
+    }
   },
   build: {
     rollupOptions: {

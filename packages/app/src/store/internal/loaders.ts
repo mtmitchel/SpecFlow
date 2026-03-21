@@ -20,7 +20,7 @@ import {
   verificationPath
 } from "../../io/paths.js";
 import { readYamlFile } from "../../io/yaml.js";
-import type { StoreReloadIssue } from "../../shared-contracts.js";
+import type { StoreReloadIssue } from "../../types/contracts.js";
 import type {
   ArtifactTraceOutline,
   Initiative,

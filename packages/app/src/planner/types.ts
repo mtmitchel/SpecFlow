@@ -7,6 +7,7 @@ import type {
   PlanningReviewKind,
   TicketCoverageItem
 } from "../types/entities.js";
+import type { InitiativePhaseCheckResult } from "../types/contracts.js";
 
 export type PlannerQuestionType = InitiativePlanningQuestionType;
 export type PlannerQuestion = InitiativePlanningQuestion;
@@ -30,11 +31,7 @@ export interface PlannerRepoContext {
   configSummary: string;
 }
 
-export interface PhaseCheckResult {
-  decision: "proceed" | "ask";
-  questions: PlannerQuestion[];
-  assumptions: string[];
-}
+export type PhaseCheckResult = InitiativePhaseCheckResult;
 
 export interface ClarifyHelpInput {
   initiativeDescription: string;

@@ -5,7 +5,7 @@ import {
   type TransportRequestOptions
 } from "./transport";
 import type {
-  InitiativePlanningQuestion,
+  InitiativePhaseCheckResult,
   InitiativePlanningStep,
   InitiativePlanningSurface,
   PlanningReviewArtifact,
@@ -38,11 +38,7 @@ const PHASE_CHECK_TIMEOUT_LABEL: Record<RefinementStep, string> = {
   "tech-spec": "tech spec questions"
 };
 
-export interface InitiativePhaseCheckResult {
-  decision: "proceed" | "ask";
-  questions: InitiativePlanningQuestion[];
-  assumptions: string[];
-}
+export type { InitiativePhaseCheckResult } from "../types";
 
 export const createInitiative = async (
   description: string,

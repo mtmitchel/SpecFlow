@@ -5,6 +5,15 @@ import { pipeline } from "node:stream/promises";
 import type { BundleManifest } from "../../bundle/types.js";
 import { readYamlFile } from "../../io/yaml.js";
 import type { Run } from "../../types/entities.js";
+import type {
+  RunAttemptDetail,
+  RunAttemptDetailPayload,
+  RunDetail,
+  RunDiffPayload,
+  RunListItem,
+  RunProgressPayload,
+  RunStatePayload,
+} from "../../types/contracts.js";
 import { zipDirectory } from "../../io/zip-directory.js";
 import { isContainedPath } from "../../validation.js";
 import type { SpecFlowRuntime } from "../types.js";
@@ -19,7 +28,7 @@ const readTextIfExists = async (filePath: string): Promise<string | null> => {
   }
 };
 
-const loadRunAttempts = (run: Run, runtime: SpecFlowRuntime) =>
+const loadRunAttempts = (run: Run, runtime: SpecFlowRuntime): RunProgressPayload["attempts"] =>
   run.attempts
     .map((attemptId) => {
       const attempt = runtime.store.runAttempts.get(`${run.id}:${attemptId}`);
@@ -46,7 +55,7 @@ export const listRuns = async (
     dateFrom: string;
     dateTo: string;
   }>
-) => {
+): Promise<{ runs: RunListItem[] }> => {
   let runs = Array.from(runtime.store.runs.values());
 
   if (query.ticketId) {
@@ -103,7 +112,7 @@ export const listRuns = async (
   };
 };
 
-export const getRunDetail = async (runtime: SpecFlowRuntime, runId: string) => {
+export const getRunDetail = async (runtime: SpecFlowRuntime, runId: string): Promise<RunDetail> => {
   requireValidEntityId(runId, "run ID");
   const run = runtime.store.runs.get(runId);
   if (!run) {
@@ -145,8 +154,12 @@ export const getRunDetail = async (runtime: SpecFlowRuntime, runId: string) => {
     committed: run.committedAttemptId
           ? {
               attemptId: run.committedAttemptId,
-              attempt: committedAttempt ?? null,
-              attemptDetail: committedAttemptDetail,
+              attempt: committedAttempt
+                ? { id: `${run.id}:${committedAttempt.attemptId}`, ...committedAttempt }
+                : null,
+              attemptDetail: committedAttemptDetail
+                ? { id: `${run.id}:${run.committedAttemptId}`, ...committedAttemptDetail }
+                : null,
               bundleManifest
         }
       : null
@@ -157,7 +170,7 @@ export const getRunAttemptDetail = async (
   runtime: SpecFlowRuntime,
   runId: string,
   attemptId: string
-) => {
+): Promise<RunAttemptDetailPayload> => {
   requireValidEntityId(runId, "run ID");
   requireValidEntityId(attemptId, "attempt ID");
 
@@ -175,11 +188,13 @@ export const getRunAttemptDetail = async (
     throw notFound(`Attempt ${attemptId} not found for run ${runId}`);
   }
 
+  const attemptRecord: RunAttemptDetail = {
+    id: `${runId}:${attemptId}`,
+    ...attempt
+  };
+
   return {
-    attempt: {
-      id: `${runId}:${attemptId}`,
-      ...attempt
-    }
+    attempt: attemptRecord
   };
 };
 
@@ -188,7 +203,7 @@ export const getRunDiff = async (
   runId: string,
   attemptId: string,
   kind: "primary" | "drift"
-) => {
+): Promise<RunDiffPayload> => {
   requireValidEntityId(runId, "run ID");
   requireValidEntityId(attemptId, "attempt ID");
 
@@ -276,7 +291,7 @@ export const saveBundleZipToFile = async (
   };
 };
 
-export const getRunState = async (runtime: SpecFlowRuntime, runId: string) => {
+export const getRunState = async (runtime: SpecFlowRuntime, runId: string): Promise<RunStatePayload> => {
   requireValidEntityId(runId, "run ID");
   const run = runtime.store.runs.get(runId);
   if (!run) {
@@ -293,7 +308,7 @@ export const getRunState = async (runtime: SpecFlowRuntime, runId: string) => {
   };
 };
 
-export const getRunProgress = async (runtime: SpecFlowRuntime, runId: string) => {
+export const getRunProgress = async (runtime: SpecFlowRuntime, runId: string): Promise<RunProgressPayload> => {
   requireValidEntityId(runId, "run ID");
   const run = runtime.store.runs.get(runId);
   if (!run) {

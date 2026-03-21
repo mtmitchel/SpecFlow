@@ -1,12 +1,6 @@
-import type {
-  AgentType,
-  OperationState,
-  RedactedConfig,
-  RunAttemptSummary,
-} from "./types/entities.js";
-
 export type {
   ConfigSavePayload,
+  DriftFlag,
   Initiative,
   InitiativeArtifactStep,
   InitiativePhase,
@@ -28,6 +22,8 @@ export type {
   ProviderKeyStatus,
   OperationState,
   Run,
+  RunAttempt,
+  RunCriterionResult,
   RunAttemptSummary,
   SaveProviderKeyPayload,
   SpecDocument,
@@ -39,6 +35,26 @@ export type {
   VerificationSeverity,
 } from "./types/entities.js";
 export type { AuditCategory, AuditFinding, AuditReport } from "./audit/types.js";
+export type {
+  AgentTarget,
+  ArtifactsSnapshot,
+  ArtifactsSnapshotMeta,
+  Config,
+  InitiativePhaseCheckResult,
+  OperationStatusRecord,
+  RunAttemptDetail,
+  RunAttemptDetailPayload,
+  RunAttemptRecord,
+  RunBundleManifestPreview,
+  RunDetail,
+  RunDetailAttemptSummary,
+  RunDiffPayload,
+  RunListItem,
+  RunProgressPayload,
+  RunStatePayload,
+  StoreReloadIssue,
+  VerificationResult,
+} from "./types/contracts.js";
 export {
   ARTIFACT_STEPS,
   PLANNING_STEPS,
@@ -52,46 +68,3 @@ export {
   getPrerequisitePlanningStep,
   isReviewResolved,
 } from "./planner/workflow-contract.js";
-
-export type AgentTarget = AgentType;
-export type Config = RedactedConfig;
-
-export interface StoreReloadIssue {
-  scope: "config" | "initiative" | "ticket" | "run" | "decision" | "reload";
-  path: string;
-  message: string;
-}
-
-export interface ArtifactsSnapshotMeta {
-  revision: number;
-  generatedAt: string;
-  generationTimeMs: number;
-  payloadBytes: number;
-  reloadIssues: StoreReloadIssue[];
-}
-
-export interface OperationStatusRecord {
-  operationId: string;
-  runId: string;
-  targetAttemptId: string;
-  state: OperationState;
-  leaseExpiresAt: string;
-  updatedAt: string;
-}
-
-export interface RunAttemptRecord extends RunAttemptSummary {
-  id: string;
-}
-
-export interface ArtifactsSnapshot {
-  config: RedactedConfig | null;
-  meta?: ArtifactsSnapshotMeta;
-  workspaceRoot?: string;
-  initiatives: import("./types/entities.js").Initiative[];
-  tickets: import("./types/entities.js").Ticket[];
-  runs: import("./types/entities.js").Run[];
-  runAttempts: RunAttemptRecord[];
-  specs: import("./types/entities.js").SpecDocumentSummary[];
-  planningReviews: import("./types/entities.js").PlanningReviewArtifact[];
-  ticketCoverageArtifacts: import("./types/entities.js").TicketCoverageArtifact[];
-}
