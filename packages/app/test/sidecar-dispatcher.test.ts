@@ -4,6 +4,7 @@ import { createHandlerError } from "../src/runtime/errors.js";
 import type { SpecFlowRuntime } from "../src/runtime/types.js";
 
 const saveConfigMock = vi.fn();
+const continueInitiativeArtifactStepMock = vi.fn();
 const generateInitiativeArtifactMock = vi.fn();
 
 vi.mock("../src/runtime/handlers/runtime-handlers.js", () => ({
@@ -31,6 +32,11 @@ vi.mock("../src/runtime/handlers/initiative-handlers.js", () => ({
   saveInitiativeRefinement: vi.fn(),
   saveInitiativeSpec: vi.fn(),
   updateInitiative: vi.fn()
+}));
+
+vi.mock("../src/runtime/handlers/initiative-continue-handlers.js", () => ({
+  continueInitiativeArtifactStep: (...args: unknown[]) => continueInitiativeArtifactStepMock(...args),
+  continueInitiativeValidation: vi.fn(),
 }));
 
 vi.mock("../src/runtime/handlers/import-handlers.js", () => ({
@@ -162,6 +168,61 @@ describe("sidecar dispatcher", () => {
           method: "initiatives.generate.prd",
           requestId: "req-generate",
           correlationId: "req-generate"
+        }
+      }
+    ]);
+  });
+
+  it("forwards planner-token notifications for the combined continuation flow", async () => {
+    const runtime = createRuntimeStub();
+    const messages: unknown[] = [];
+
+    continueInitiativeArtifactStepMock.mockImplementationOnce(async (_runtime, _id, _kind, _body, onChunk) => {
+      await onChunk("chunk-1");
+      return { decision: "proceed", generated: true };
+    });
+
+    await dispatchSidecarRequest(
+      runtime,
+      {
+        id: "req-continue",
+        method: "initiatives.continueArtifactStep",
+        params: {
+          id: "initiative-1",
+          step: "prd",
+          body: {
+            draft: {
+              answers: { audience: "teams" },
+              defaultAnswerQuestionIds: [],
+              preferredSurface: "questions",
+            },
+          },
+        },
+      },
+      (message) => {
+        messages.push(message);
+      }
+    );
+
+    expect(messages).toEqual([
+      {
+        event: "planner-token",
+        requestId: "req-continue",
+        payload: { chunk: "chunk-1" }
+      },
+      {
+        id: "req-continue",
+        ok: true,
+        result: { decision: "proceed", generated: true }
+      },
+      {
+        event: "artifacts.changed",
+        requestId: "req-continue",
+        payload: {
+          reason: "initiatives.continueArtifactStep",
+          method: "initiatives.continueArtifactStep",
+          requestId: "req-continue",
+          correlationId: "req-continue"
         }
       }
     ]);

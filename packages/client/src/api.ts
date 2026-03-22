@@ -3,6 +3,8 @@ export { fetchArtifacts, fetchSpecDetail } from "./api/artifacts";
 export {
   createInitiative,
   checkInitiativePhase,
+  continueInitiativeArtifactStep,
+  continueInitiativeValidation,
   generateInitiativePlan,
   generateInitiativeBrief,
   generateInitiativeCoreFlows,

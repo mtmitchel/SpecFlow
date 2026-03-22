@@ -35,6 +35,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Coalesced refinement autosaves so rapid answer changes no longer race each other through the desktop mutation queue
 - Stopped fresh downstream phases from timing out on a bogus save before the first question check completes
 - Fixed the inline survey deck so it advances only through unresolved questions instead of looping back to already answered blockers
+- Moved the final planning `Continue` action onto backend-owned combined continuation requests so Brief, Core flows, PRD, Tech spec, and Validation can persist the local draft and move forward in one foreground request
+- Kept background answer saving inline and non-blocking so a slow autosave no longer strands the user on an answered-summary card
 
 **Naming and copy guardrails**
 - Added a shared design and language charter to planner prompts, ticket generation, quick-task triage, and bundle handoff
@@ -119,6 +121,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 **Documentation**
 - Rewrote the setup and architecture docs for the desktop-first runtime
 - Added `docs/runtime-modes.md` to document desktop dev, desktop build, legacy web fallback, and CLI/runtime expectations
+- Documented the local-first planning continue flow and the required `tauri dev` restart boundary when bridge method names change during desktop development
 
 ## [0.3.0] - 2026-03-01
 

@@ -40,7 +40,15 @@ export type {
   ArtifactsSnapshot,
   ArtifactsSnapshotMeta,
   Config,
+  InitiativeArtifactStepContinuePayload,
+  InitiativeArtifactStepContinueResult,
   InitiativePhaseCheckResult,
+  InitiativePlanPreviewPhase,
+  InitiativePlanPreviewTicket,
+  InitiativeRefinementDraft,
+  InitiativeValidationContinuePayload,
+  InitiativeValidationContinueResult,
+  InitiativeValidationDraftByStep,
   OperationStatusRecord,
   RunAttemptDetail,
   RunAttemptDetailPayload,
@@ -53,6 +61,7 @@ export type {
   RunProgressPayload,
   RunStatePayload,
   StoreReloadIssue,
+  ValidationFeedbackByStep,
   VerificationResult,
 } from "./types/contracts.js";
 export {

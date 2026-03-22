@@ -8,6 +8,8 @@ import { InitiativeRouteView } from "./initiative-route-view.js";
 
 const fetchSpecDetailMock = vi.fn();
 const checkInitiativePhaseMock = vi.fn();
+const continueInitiativeArtifactStepMock = vi.fn();
+const continueInitiativeValidationMock = vi.fn();
 const generateInitiativeBriefMock = vi.fn();
 const generateInitiativeCoreFlowsMock = vi.fn();
 const generateInitiativePlanMock = vi.fn();
@@ -19,6 +21,8 @@ vi.mock("../../api.js", async () => {
     ...actual,
     fetchSpecDetail: (...args: unknown[]) => fetchSpecDetailMock(...args),
     checkInitiativePhase: (...args: unknown[]) => checkInitiativePhaseMock(...args),
+    continueInitiativeArtifactStep: (...args: unknown[]) => continueInitiativeArtifactStepMock(...args),
+    continueInitiativeValidation: (...args: unknown[]) => continueInitiativeValidationMock(...args),
     generateInitiativeBrief: (...args: unknown[]) => generateInitiativeBriefMock(...args),
     generateInitiativeCoreFlows: (...args: unknown[]) => generateInitiativeCoreFlowsMock(...args),
     generateInitiativePlan: (...args: unknown[]) => generateInitiativePlanMock(...args),
@@ -550,50 +554,6 @@ const coreFlowsQuestionSnapshot: ArtifactsSnapshot = {
   ]
 };
 
-const coreFlowsReadyToGenerateSnapshot: ArtifactsSnapshot = {
-  ...snapshot,
-  initiatives: [
-    {
-      ...initiative,
-      workflow: {
-        activeStep: "core-flows",
-        steps: {
-          brief: { status: "complete", updatedAt: "2026-03-16T12:10:00.000Z" },
-          "core-flows": { status: "ready", updatedAt: null },
-          prd: { status: "locked", updatedAt: null },
-          "tech-spec": { status: "locked", updatedAt: null },
-          validation: { status: "locked", updatedAt: null },
-          tickets: { status: "locked", updatedAt: null }
-        },
-        refinements: {
-          ...initiative.workflow.refinements,
-          "core-flows": {
-            questions: [],
-            history: [coreFlowsQuestion],
-            answers: {
-              [coreFlowsQuestion.id]: "Capture first, organize later"
-            },
-            defaultAnswerQuestionIds: [],
-            baseAssumptions: [],
-            checkedAt: "2026-03-16T12:25:00.000Z"
-          }
-        }
-      }
-    }
-  ],
-  specs: [
-    {
-      id: briefSpec.id,
-      initiativeId: briefSpec.initiativeId,
-      type: briefSpec.type,
-      title: briefSpec.title,
-      sourcePath: briefSpec.sourcePath,
-      createdAt: briefSpec.createdAt,
-      updatedAt: briefSpec.updatedAt
-    }
-  ]
-};
-
 const prdReadySnapshot: ArtifactsSnapshot = {
   ...snapshot,
   initiatives: [
@@ -710,11 +670,76 @@ describe("InitiativeView", () => {
   beforeEach(() => {
     fetchSpecDetailMock.mockReset();
     checkInitiativePhaseMock.mockReset();
+    continueInitiativeArtifactStepMock.mockReset();
+    continueInitiativeValidationMock.mockReset();
     generateInitiativeBriefMock.mockReset();
     generateInitiativeCoreFlowsMock.mockReset();
     generateInitiativePlanMock.mockReset();
     saveInitiativeRefinementMock.mockReset();
     saveInitiativeRefinementMock.mockResolvedValue({ assumptions: [] });
+    continueInitiativeArtifactStepMock.mockImplementation(
+      async (
+        initiativeId: string,
+        step: "brief" | "core-flows" | "prd" | "tech-spec",
+        _body: unknown,
+        options?: { signal?: AbortSignal; onPlannerToken?: (chunk: string) => void }
+      ) => {
+        const result = await checkInitiativePhaseMock(initiativeId, step, {
+          signal: options?.signal,
+        });
+        if (result.decision === "ask") {
+          return { ...result, generated: false };
+        }
+
+        options?.onPlannerToken?.("chunk-1");
+        if (step === "brief") {
+          await generateInitiativeBriefMock(initiativeId, { signal: options?.signal });
+        } else if (step === "core-flows") {
+          await generateInitiativeCoreFlowsMock(initiativeId, { signal: options?.signal });
+        }
+
+        return { ...result, generated: true };
+      }
+    );
+    continueInitiativeValidationMock.mockImplementation(
+      async (
+        initiativeId: string,
+        body: {
+          validationFeedbackByStep?: Partial<Record<"brief" | "core-flows" | "prd" | "tech-spec", string>>;
+          validationFeedback?: string | null;
+        },
+        options?: { signal?: AbortSignal; onPlannerToken?: (chunk: string) => void }
+      ) => {
+        const feedbackByStep = body.validationFeedbackByStep ?? {};
+        const stepsToCheck =
+          Object.entries(feedbackByStep)
+            .filter(([, feedback]) => Boolean(feedback))
+            .map(([step]) => step as "brief" | "core-flows" | "prd" | "tech-spec");
+        const scopedSteps: Array<"brief" | "core-flows" | "prd" | "tech-spec"> =
+          stepsToCheck.length > 0
+            ? stepsToCheck
+            : ["brief", "core-flows", "prd", "tech-spec"];
+        const blockedSteps: string[] = [];
+
+        for (const step of scopedSteps) {
+          const result = await checkInitiativePhaseMock(initiativeId, step, {
+            signal: options?.signal,
+            validationFeedback: feedbackByStep[step] ?? body.validationFeedback ?? undefined,
+          });
+          if (result.decision === "ask") {
+            blockedSteps.push(step);
+          }
+        }
+
+        if (blockedSteps.length > 0) {
+          return { decision: "ask", generated: false, blockedSteps };
+        }
+
+        options?.onPlannerToken?.("chunk-1");
+        await generateInitiativePlanMock(initiativeId, { signal: options?.signal });
+        return { decision: "proceed", generated: true, blockedSteps: [] };
+      }
+    );
   });
 
   it("opens the standard brief survey when the user lands on the brief step", async () => {
@@ -1185,7 +1210,7 @@ describe("InitiativeView", () => {
             element={
               <StatefulSequenceRoute
                 initialSnapshot={coreFlowsQuestionSnapshot}
-                refreshedSnapshots={[coreFlowsReadyToGenerateSnapshot, prdReadySnapshot]}
+                refreshedSnapshots={[prdReadySnapshot]}
               />
             }
           />

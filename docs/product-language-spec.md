@@ -109,7 +109,7 @@ Clarification is a refinement mechanism that can appear:
 - inside Validation, when the draft ticket plan exposes unresolved gaps that can be turned back into targeted artifact-level follow-up questions without sending the user backward through the pipeline
 
 The UI should present clarification as help for improving the next artifact, not as a separate workflow destination.
-When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` should always mean "go to the previous stage." Reopening the current step's answered questions should use an explicit action such as `Revise answers`, not `Back`. The live forward path after a completed survey should continue into the next planning step instead of stopping on an answered-summary card. Resume behavior should still remember deliberate revision: after generation, completed steps reopen in review by default, but if the user deliberately reopens the answered questions, Home and bare project routes should restore that questions surface until the user returns to review or regenerates the artifact.
+When an artifact already exists, the review screen should still be able to reopen that same step's answered clarification history inline. `Back` should always mean "go to the previous stage." Reopening the current step's answered questions should use an explicit action such as `Revise answers`, not `Back`. The live forward path after a completed survey should continue into the next planning step instead of stopping on an answered-summary card. Background answer saving should stay quiet and inline while the user is still answering questions; only the explicit forward action should block and show an error when the real continue or generation request fails. Resume behavior should still remember deliberate revision: after generation, completed steps reopen in review by default, but if the user deliberately reopens the answered questions, Home and bare project routes should restore that questions surface until the user returns to review or regenerates the artifact.
 
 For a fresh project, the required Brief intake always captures four framing decisions:
 
@@ -325,7 +325,8 @@ Use explicit object names.
 
 Users should not be asked to manage routine persistence in planning flows.
 
-The default model is autosave.
+The default model is background autosave plus a local-first `Continue` action.
+Background answer saving is best-effort and inline. The explicit `Continue` action is the foreground commitment point that may block and show an error if the real continuation request fails.
 
 ### Allowed status copy
 
@@ -333,6 +334,7 @@ The default model is autosave.
 - `Saved`
 - `Changes saved`
 - `Saving failed. Try again.`
+- `Continue`
 
 ### Disallowed default patterns
 

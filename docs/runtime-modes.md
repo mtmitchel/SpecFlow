@@ -71,6 +71,7 @@ Important:
 
 - `npm run ui` prefers an existing packaged desktop binary over the current source tree.
 - If you have changed sidecar JSON-RPC methods or desktop transport behavior in source, use `npm run tauri dev` or rebuild the desktop app first.
+- If `npm run tauri dev` was already running when those bridge methods changed, restart that session before validating the new flow.
 - Otherwise you can end up with a newer UI talking to an older packaged sidecar, which surfaces as unsupported sidecar-method errors.
 
 ## CLI Behavior

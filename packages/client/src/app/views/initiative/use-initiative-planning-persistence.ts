@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { saveInitiativeRefinement, saveInitiativeSpecs } from "../../../api.js";
+import { isRequestCancelledError } from "../../../api/transport.js";
 import type {
   Initiative,
   InitiativePlanningStep,
@@ -60,6 +61,15 @@ export const useInitiativePlanningPersistence = ({
   const persistRefinementRef = useRef<() => Promise<boolean>>(async () => true);
   const refinementPersistInFlightRef = useRef<Promise<boolean> | null>(null);
   const refinementPersistQueuedRef = useRef(false);
+  const refinementPersistAbortControllerRef = useRef<AbortController | null>(null);
+  const refinementPersistEpochRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      refinementPersistAbortControllerRef.current?.abort();
+    },
+    []
+  );
 
   useEffect(() => {
     if (!initiative || !activeSpecStep || editingStep !== activeSpecStep) {
@@ -150,6 +160,10 @@ export const useInitiativePlanningPersistence = ({
       return true;
     }
 
+    const persistEpoch = refinementPersistEpochRef.current;
+    const controller = new AbortController();
+    refinementPersistAbortControllerRef.current?.abort();
+    refinementPersistAbortControllerRef.current = controller;
     setRefinementSaveState("saving");
     try {
       if (activeStep === "validation") {
@@ -176,7 +190,8 @@ export const useInitiativePlanningPersistence = ({
             step,
             next.answers,
             next.defaultAnswerQuestionIds,
-            persisted.preferredSurface ?? null
+            persisted.preferredSurface ?? null,
+            { signal: controller.signal }
           );
         }
       } else if (activeSpecStep) {
@@ -186,17 +201,33 @@ export const useInitiativePlanningPersistence = ({
           refinementAnswers,
           defaultAnswerQuestionIds,
           activeSurface,
+          { signal: controller.signal },
         );
+        if (persistEpoch !== refinementPersistEpochRef.current) {
+          return true;
+        }
         setRefinementAssumptions(result.assumptions);
       }
 
+      if (persistEpoch !== refinementPersistEpochRef.current) {
+        return true;
+      }
       await onRefresh();
+      if (persistEpoch !== refinementPersistEpochRef.current) {
+        return true;
+      }
       setRefinementSaveState("saved");
       return true;
     } catch (error) {
-      showError((error as Error).message ?? "We couldn't save your answers.");
+      if (isRequestCancelledError(error) || persistEpoch !== refinementPersistEpochRef.current) {
+        return true;
+      }
       setRefinementSaveState("error");
       return false;
+    } finally {
+      if (refinementPersistAbortControllerRef.current === controller) {
+        refinementPersistAbortControllerRef.current = null;
+      }
     }
   }, [
     activeRefinement,
@@ -212,7 +243,6 @@ export const useInitiativePlanningPersistence = ({
     setRefinementAssumptions,
     setRefinementSaveState,
     shouldPersistRefinementState,
-    showError,
   ]);
 
   useEffect(() => {
@@ -283,13 +313,17 @@ export const useInitiativePlanningPersistence = ({
   ]);
 
   const flushRefinementPersistence = useCallback(async (): Promise<boolean> => {
+    refinementPersistEpochRef.current += 1;
     if (refinementTimerRef.current !== null) {
       window.clearTimeout(refinementTimerRef.current);
       refinementTimerRef.current = null;
     }
-
-    return persistRefinement();
-  }, [persistRefinement]);
+    refinementPersistQueuedRef.current = false;
+    refinementPersistAbortControllerRef.current?.abort();
+    refinementPersistAbortControllerRef.current = null;
+    refinementPersistInFlightRef.current = null;
+    return true;
+  }, []);
 
   return {
     flushRefinementPersistence,

@@ -2,12 +2,17 @@ import {
   transportRequest,
   transportJsonRequest,
   transportSseRequest,
+  type TransportEvent,
   type TransportRequestOptions
 } from "./transport";
 import type {
+  InitiativeArtifactStepContinuePayload,
+  InitiativeArtifactStepContinueResult,
   InitiativePhaseCheckResult,
   InitiativePlanningStep,
   InitiativePlanningSurface,
+  InitiativeValidationContinuePayload,
+  InitiativeValidationContinueResult,
   PlanningReviewArtifact,
   PlanningReviewKind
 } from "../types";
@@ -39,6 +44,24 @@ const PHASE_CHECK_TIMEOUT_LABEL: Record<RefinementStep, string> = {
 };
 
 export type { InitiativePhaseCheckResult } from "../types";
+
+const forwardPlannerToken =
+  (onPlannerToken: ((chunk: string) => void) | undefined) =>
+  (event: TransportEvent): void => {
+    if (!onPlannerToken || event.event !== "planner-token") {
+      return;
+    }
+
+    const chunk =
+      typeof (event.payload as { chunk?: unknown } | undefined)?.chunk === "string"
+        ? (event.payload as { chunk: string }).chunk
+        : null;
+    if (!chunk) {
+      return;
+    }
+
+    onPlannerToken(chunk);
+  };
 
 export const createInitiative = async (
   description: string,
@@ -171,15 +194,46 @@ export const saveInitiativeRefinement = async (
   answers: Record<string, string | string[] | boolean>,
   defaultAnswerQuestionIds: string[],
   preferredSurface?: InitiativePlanningSurface | null,
+  options?: TransportRequestOptions,
 ): Promise<{ assumptions: string[] }> =>
   transportJsonRequest(
     "initiatives.refinement.save",
     { id: initiativeId, step, body: { answers, defaultAnswerQuestionIds, preferredSurface } },
     undefined,
     {
+      ...options,
       timeoutMs: PLANNING_SAVE_TIMEOUT_MS,
       timeoutMessage: `Saving your ${REFINEMENT_STEP_LABELS[step]} answers took too long. Try again.`
     }
+  );
+
+export const continueInitiativeArtifactStep = async (
+  initiativeId: string,
+  step: RefinementStep,
+  body: InitiativeArtifactStepContinuePayload,
+  options?: TransportRequestOptions & {
+    onPlannerToken?: (chunk: string) => void;
+  },
+): Promise<InitiativeArtifactStepContinueResult> =>
+  transportSseRequest(
+    "initiatives.continueArtifactStep",
+    { id: initiativeId, step, body },
+    forwardPlannerToken(options?.onPlannerToken),
+    options,
+  );
+
+export const continueInitiativeValidation = async (
+  initiativeId: string,
+  body: InitiativeValidationContinuePayload,
+  options?: TransportRequestOptions & {
+    onPlannerToken?: (chunk: string) => void;
+  },
+): Promise<InitiativeValidationContinueResult> =>
+  transportSseRequest(
+    "initiatives.continueValidation",
+    { id: initiativeId, body },
+    forwardPlannerToken(options?.onPlannerToken),
+    options,
   );
 
 export const requestInitiativeClarificationHelp = async (

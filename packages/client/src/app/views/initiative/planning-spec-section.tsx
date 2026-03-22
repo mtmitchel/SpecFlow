@@ -272,6 +272,11 @@ export const PlanningSpecSection = ({
       }
 
       void beginAutoAdvance(activeSpecStep, {
+        draft: {
+          answers: refinementAnswers,
+          defaultAnswerQuestionIds,
+          preferredSurface: activeSurface,
+        },
         navigateOnSuccess: shouldNavigateForwardAfterGeneration,
       });
     });

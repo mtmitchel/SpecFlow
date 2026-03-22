@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveInitiativeRefinement, saveInitiativeSpecs } from "./initiatives";
+import {
+  continueInitiativeArtifactStep,
+  continueInitiativeValidation,
+  saveInitiativeRefinement,
+  saveInitiativeSpecs,
+} from "./initiatives";
 
 const transportJsonRequestMock = vi.fn();
 const transportRequestMock = vi.fn();
@@ -7,6 +12,7 @@ const transportRequestMock = vi.fn();
 vi.mock("./transport", () => ({
   transportJsonRequest: (...args: unknown[]) => transportJsonRequestMock(...args),
   transportRequest: (...args: unknown[]) => transportRequestMock(...args),
+  transportSseRequest: (...args: unknown[]) => transportRequestMock(...args),
 }));
 
 describe("initiatives api", () => {
@@ -56,6 +62,79 @@ describe("initiatives api", () => {
         timeoutMs: 20_000,
         timeoutMessage: "Saving the tech spec draft took too long. Try again."
       }
+    );
+  });
+
+  it("routes artifact step continuation through the long-running continue method", async () => {
+    transportRequestMock.mockResolvedValue({ decision: "proceed", generated: true });
+
+    await continueInitiativeArtifactStep(
+      "initiative-1",
+      "prd",
+      {
+        draft: {
+          answers: { audience: "Teams" },
+          defaultAnswerQuestionIds: [],
+          preferredSurface: "questions",
+        },
+      }
+    );
+
+    expect(transportRequestMock).toHaveBeenCalledWith(
+      "initiatives.continueArtifactStep",
+      {
+        id: "initiative-1",
+        step: "prd",
+        body: {
+          draft: {
+            answers: { audience: "Teams" },
+            defaultAnswerQuestionIds: [],
+            preferredSurface: "questions",
+          },
+        },
+      },
+      expect.any(Function),
+      undefined
+    );
+  });
+
+  it("routes validation continuation through the long-running continue method", async () => {
+    transportRequestMock.mockResolvedValue({ decision: "ask", generated: false, blockedSteps: ["tech-spec"] });
+
+    await continueInitiativeValidation("initiative-1", {
+      draftByStep: {
+        "tech-spec": {
+          answers: { "validation-lww-source": "Server-assigned canonical timestamps" },
+          defaultAnswerQuestionIds: [],
+          preferredSurface: "questions",
+        },
+      },
+      validationFeedbackByStep: {
+        "tech-spec": "Pick the authoritative timestamp source before ticket generation.",
+      },
+      validationFeedback: "Pick the authoritative timestamp source before ticket generation.",
+    });
+
+    expect(transportRequestMock).toHaveBeenCalledWith(
+      "initiatives.continueValidation",
+      {
+        id: "initiative-1",
+        body: {
+          draftByStep: {
+            "tech-spec": {
+              answers: { "validation-lww-source": "Server-assigned canonical timestamps" },
+              defaultAnswerQuestionIds: [],
+              preferredSurface: "questions",
+            },
+          },
+          validationFeedbackByStep: {
+            "tech-spec": "Pick the authoritative timestamp source before ticket generation.",
+          },
+          validationFeedback: "Pick the authoritative timestamp source before ticket generation.",
+        },
+      },
+      expect.any(Function),
+      undefined
     );
   });
 });

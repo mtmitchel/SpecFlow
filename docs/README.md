@@ -42,6 +42,7 @@ Key capabilities in the current version:
 - Mandatory brief intake before the first brief is generated
 - Mandatory first-draft consultations for Core flows, PRD, and Tech spec with stage-specific budgets and decision types
 - Shared planning transition copy that names the active phase during entry checks, follow-up checks, and artifact generation
+- Local-first planning continuation that uses the current answered survey state for the explicit `Continue` action instead of blocking on background save completion
 - Direct planning entry: the project entry route `/new-initiative` flows straight into the shared Brief survey instead of a separate handoff mode, even though the user-facing term is now `Project`
 - Per-project roots: new projects choose their own target repo or folder instead of inheriting the active SpecFlow storage root
 - Persisted planning reviews and cross-checks remain available, but they no longer block artifact-to-artifact progression between Brief, Core flows, PRD, and Tech spec
@@ -55,6 +56,7 @@ Key capabilities in the current version:
 - LLM-powered drift audit with Bug/Performance/Security/Clarity finding categories
 - Real streaming progress for LLM operations through Tauri channels backed by sidecar notifications
 - Structured desktop observability with request correlation and store reload metadata behind `SPECFLOW_DEBUG_OBSERVABILITY=1`
+- Explicit desktop restart boundary for new bridge methods: when sidecar method names change, a fresh `npm run tauri dev` session is required before runtime validation
 - GitHub Issue import through the backend `import.githubIssue` action
 - Ticket dependencies with automatic inter-phase wiring and enforced status transitions
 - Full-store backup through `specflow backup-store`, with documented restore steps in the root README and runtime docs

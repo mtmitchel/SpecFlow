@@ -186,6 +186,9 @@ describe("useInitiativePlanningPersistence", () => {
       { "brief-launch": "Open ready to capture" },
       [],
       "questions",
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Second answer" }));
@@ -209,6 +212,9 @@ describe("useInitiativePlanningPersistence", () => {
       { "brief-launch": "Show the notes list" },
       [],
       "questions",
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
     );
 
     await act(async () => {
@@ -237,6 +243,28 @@ describe("useInitiativePlanningPersistence", () => {
     });
 
     expect(saveInitiativeRefinementMock).not.toHaveBeenCalled();
+    expect(showError).not.toHaveBeenCalled();
+  });
+
+  it("keeps refinement save failures inline instead of firing a toast", async () => {
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    const showError = vi.fn();
+
+    saveInitiativeRefinementMock.mockRejectedValue(
+      new Error("Saving your brief answers took too long. Try again.")
+    );
+
+    render(<PersistenceHarness onRefresh={onRefresh} showError={showError} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "First answer" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("save-state").textContent).toBe("error");
     expect(showError).not.toHaveBeenCalled();
   });
 });

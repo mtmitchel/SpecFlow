@@ -4,8 +4,9 @@ import type { InitiativeRefinementState } from "../../../types.js";
 import { ToastProvider } from "../../context/toast.js";
 import { PlanningSpecSection } from "./planning-spec-section.js";
 
-const { checkInitiativePhaseMock, generateInitiativeTechSpecMock } = vi.hoisted(() => ({
+const { checkInitiativePhaseMock, continueInitiativeArtifactStepMock, generateInitiativeTechSpecMock } = vi.hoisted(() => ({
   checkInitiativePhaseMock: vi.fn(),
+  continueInitiativeArtifactStepMock: vi.fn(),
   generateInitiativeTechSpecMock: vi.fn(),
 }));
 
@@ -14,6 +15,7 @@ vi.mock("../../../api.js", async () => {
   return {
     ...actual,
     checkInitiativePhase: (...args: unknown[]) => checkInitiativePhaseMock(...args),
+    continueInitiativeArtifactStep: (...args: unknown[]) => continueInitiativeArtifactStepMock(...args),
     generateInitiativeTechSpec: (...args: unknown[]) => generateInitiativeTechSpecMock(...args),
   };
 });
@@ -29,7 +31,27 @@ const emptyRefinement: InitiativeRefinementState = {
 describe("PlanningSpecSection", () => {
   beforeEach(() => {
     checkInitiativePhaseMock.mockReset();
+    continueInitiativeArtifactStepMock.mockReset();
     generateInitiativeTechSpecMock.mockReset();
+    continueInitiativeArtifactStepMock.mockImplementation(
+      async (
+        initiativeId: string,
+        step: "brief" | "core-flows" | "prd" | "tech-spec",
+        _body: unknown,
+        options?: { signal?: AbortSignal; onPlannerToken?: (chunk: string) => void }
+      ) => {
+        const result = await checkInitiativePhaseMock(initiativeId, step, {
+          signal: options?.signal,
+        });
+        if (result.decision === "ask") {
+          return { ...result, generated: false };
+        }
+
+        options?.onPlannerToken?.("chunk-1");
+        await generateInitiativeTechSpecMock(initiativeId, { signal: options?.signal });
+        return { ...result, generated: true };
+      }
+    );
   });
 
   it("shows an inline loading state instead of the completion card while updating an existing spec from survey answers", async () => {

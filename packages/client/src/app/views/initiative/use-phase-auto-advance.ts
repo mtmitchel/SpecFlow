@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkInitiativePhase,
+  continueInitiativeArtifactStep,
   generateInitiativeBrief,
   generateInitiativeCoreFlows,
   generateInitiativePrd,
@@ -8,7 +9,11 @@ import {
 } from "../../../api.js";
 import type { InitiativePhaseCheckResult } from "../../../api/initiatives.js";
 import { isRequestCancelledError, isRequestTimeoutError } from "../../../api/transport.js";
-import type { InitiativeArtifactStep, InitiativePlanningStep } from "../../../types.js";
+import type {
+  InitiativeArtifactStep,
+  InitiativePlanningStep,
+  InitiativeRefinementDraft,
+} from "../../../types.js";
 import { useToast } from "../../context/toast.js";
 import type { InitiativePlanningSurface } from "../../utils/initiative-progress.js";
 
@@ -21,6 +26,7 @@ interface PhaseAutoAdvanceConfig {
 }
 
 interface AutoAdvanceOptions {
+  draft?: InitiativeRefinementDraft;
   navigateOnSuccess?: boolean;
   skipCheck?: boolean;
   phaseCheckTimeoutMs?: number;
@@ -78,6 +84,25 @@ const runPhaseCheck = async (
   }
 };
 
+const runDraftDrivenAdvance = async (
+  initiativeId: string,
+  step: InitiativeArtifactStep,
+  draft: InitiativeRefinementDraft,
+  signal: AbortSignal,
+  onPlannerToken: () => void,
+): Promise<InitiativePhaseCheckResult> =>
+  continueInitiativeArtifactStep(
+    initiativeId,
+    step,
+    { draft },
+    {
+      signal,
+      onPlannerToken: () => {
+        onPlannerToken();
+      },
+    },
+  );
+
 export const usePhaseAutoAdvance = ({
   initiativeId,
   navigateToStep,
@@ -122,27 +147,53 @@ export const usePhaseAutoAdvance = ({
     setAutoAdvanceFailedStage(null);
     let failedStage: "check" | "generate" = options.skipCheck ? "generate" : "check";
 
-    try {
-      if (!options.skipCheck) {
+      try {
+      if (options.draft) {
         setAutoAdvance({ step, stage: "check" });
-        const result = await runPhaseCheck(initiativeId, step, controller.signal, {
-          phaseCheckTimeoutMs: options.phaseCheckTimeoutMs,
-        });
+        const result = await runDraftDrivenAdvance(
+          initiativeId,
+          step,
+          options.draft,
+          controller.signal,
+          () => {
+            setAutoAdvance((current) =>
+              current?.step === step ? { step, stage: "generate" } : current
+            );
+          }
+        );
         onPhaseCheckResult?.(step, result);
-        refreshSnapshotInBackground();
         if (result.decision === "ask") {
+          refreshSnapshotInBackground();
           return;
         }
-      }
-
-      failedStage = "generate";
-      setAutoAdvance({ step, stage: "generate" });
-      await runPhaseGeneration(initiativeId, step, controller.signal);
-      await onRefresh();
-      if (navigateOnSuccess && nextStep) {
-        navigateToStep(nextStep);
+        await onRefresh();
+        if (navigateOnSuccess && nextStep) {
+          navigateToStep(nextStep);
+        } else {
+          navigateToStep(step, "review");
+        }
       } else {
-        navigateToStep(step, "review");
+        if (!options.skipCheck) {
+          setAutoAdvance({ step, stage: "check" });
+          const result = await runPhaseCheck(initiativeId, step, controller.signal, {
+            phaseCheckTimeoutMs: options.phaseCheckTimeoutMs,
+          });
+          onPhaseCheckResult?.(step, result);
+          if (result.decision === "ask") {
+            refreshSnapshotInBackground();
+            return;
+          }
+        }
+
+        failedStage = "generate";
+        setAutoAdvance({ step, stage: "generate" });
+        await runPhaseGeneration(initiativeId, step, controller.signal);
+        await onRefresh();
+        if (navigateOnSuccess && nextStep) {
+          navigateToStep(nextStep);
+        } else {
+          navigateToStep(step, "review");
+        }
       }
     } catch (error) {
       if (isRequestCancelledError(error)) {

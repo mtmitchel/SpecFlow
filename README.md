@@ -45,6 +45,7 @@ npm run ui
 That runs the CLI from source and launches an existing packaged desktop binary. If no desktop binary is available, it fails closed. Use `npm run tauri dev` for source development or `npm run package:desktop` to produce a local desktop binary.
 
 If you have changed sidecar methods or desktop-only transport behavior in source, prefer `npm run tauri dev` until you rebuild the desktop app. `npm run ui` will still prefer an older packaged binary if one exists, which can leave the UI and sidecar on different revisions.
+If you add or rename sidecar bridge methods while `npm run tauri dev` is already running, restart that desktop session before validating the flow. A stale bridge generation surfaces as `The desktop runtime rejected an unsupported request.`
 
 ## Workspace Commands
 
@@ -158,6 +159,7 @@ SpecFlow is local-first by default:
 - **Direct planning entry**: the project entry route `/new-initiative` flows directly into the shared Brief survey instead of bouncing through a separate handoff mode.
 - **Per-project roots**: each new project binds to the repo or folder the user selects, so SpecFlow can plan and verify many different apps from one storage workspace instead of assuming one repeated project root.
 - **Phase-specific planning transitions**: planning entry, follow-up checks, and artifact generation now name the active phase directly and explain the next step instead of falling back to generic waiting copy.
+- **Local-first planning continuation**: the final `Continue` action for Brief, Core flows, PRD, Tech spec, and Validation now persists the current local answers and moves forward in one foreground request, while background answer saving stays best-effort and inline.
 - **Bundle export**: packages a ticket's full context (covered spec items, criteria, specs, repo snapshot) into an agent-ready bundle for Claude Code, Codex CLI, OpenCode, or generic agents. Desktop mode saves ZIP bundles through the native file picker instead of an HTTP download anchor.
 - **Verification with severity**: captures agent output and runs an LLM verifier that classifies each criterion as Critical/Major/Minor/Outdated, with remediation hints.
 - **Fix-forward loop**: failed verification auto-enriches the re-export bundle with failure context; one-click re-export and re-verify.

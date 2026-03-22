@@ -11,6 +11,10 @@ import {
   saveInitiativeSpec,
   updateInitiative
 } from "../runtime/handlers/initiative-handlers.js";
+import {
+  continueInitiativeArtifactStep,
+  continueInitiativeValidation,
+} from "../runtime/handlers/initiative-continue-handlers.js";
 import type { InitiativePlanningSurface } from "../types/entities.js";
 import { importGithubIssue } from "../runtime/handlers/import-handlers.js";
 import { getOperationStatus } from "../runtime/handlers/operation-handlers.js";
@@ -250,6 +254,23 @@ const routeSidecarMethod = async (
           defaultAnswerQuestionIds?: string[];
           preferredSurface?: InitiativePlanningSurface | null;
         }
+      );
+    case "initiatives.continueArtifactStep":
+      return continueInitiativeArtifactStep(
+        runtime,
+        String(params.id ?? ""),
+        String(params.step ?? ""),
+        params.body as import("../types/contracts.js").InitiativeArtifactStepContinuePayload,
+        async (chunk) => notify("planner-token", { chunk }),
+        signal
+      );
+    case "initiatives.continueValidation":
+      return continueInitiativeValidation(
+        runtime,
+        String(params.id ?? ""),
+        params.body as import("../types/contracts.js").InitiativeValidationContinuePayload,
+        async (chunk) => notify("planner-token", { chunk }),
+        signal
       );
     case "initiatives.refinement.help":
       return requestInitiativeClarificationHelp(runtime, String(params.id ?? ""), params.body as Record<string, unknown>, signal);

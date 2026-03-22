@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   checkInitiativePhase,
+  continueInitiativeValidation,
   generateInitiativeBrief,
   generateInitiativeCoreFlows,
   generateInitiativePlan,
@@ -35,15 +36,16 @@ import {
 } from "./shared.js";
 import {
   buildValidationReviewFeedback,
-  buildValidationRefinement,
-  VALIDATION_REFINEMENT_STEPS
+  buildValidationRefinement
 } from "./validation-refinement.js";
 import {
   buildPlanValidationFeedbackByStep,
   buildValidationReviewFeedbackByStep,
-  getValidationFeedbackForStep,
-  getValidationFeedbackSteps
 } from "./validation-feedback.js";
+import {
+  buildValidationDraftByStep,
+  rerunValidationQuestions,
+} from "./planning-continuation.js";
 
 const EMPTY_DRAFT_SAVE_STATE: Record<SpecStep, SaveState> = {
   brief: "idle", "core-flows": "idle", prd: "idle", "tech-spec": "idle"
@@ -299,37 +301,6 @@ export const useInitiativePlanningWorkspace = (
     });
   }, [handlePhaseCheckResult, initiative, onRefresh, refreshSnapshotInBackground, withBusyAction]);
 
-  const rerunValidationQuestions = useCallback(
-    async (
-      signal: AbortSignal,
-      feedbackByStep: Partial<Record<SpecStep, string>>,
-      fallbackFeedback?: string | null
-    ): Promise<boolean> => {
-      if (!initiative) {
-        return false;
-      }
-
-      const scopedSteps = getValidationFeedbackSteps(feedbackByStep);
-      const stepsToCheck =
-        scopedSteps.length > 0 ? scopedSteps : VALIDATION_REFINEMENT_STEPS;
-      let validationBlocked = false;
-
-      for (const step of stepsToCheck) {
-        const result = await checkInitiativePhase(initiative.id, step, {
-          signal,
-          validationFeedback: getValidationFeedbackForStep(step, feedbackByStep, fallbackFeedback),
-        });
-
-        if (result.decision === "ask") {
-          validationBlocked = true;
-        }
-      }
-
-      return validationBlocked;
-    },
-    [initiative]
-  );
-
   const {
     autoQuestionLoadStep,
     autoQuestionLoadFailedStep,
@@ -348,7 +319,15 @@ export const useInitiativePlanningWorkspace = (
     validationFeedback,
     validationFeedbackByStep,
     handleCheckAndAdvance,
-    rerunValidationQuestions,
+    rerunValidationQuestions: (signal, feedbackByStep, fallbackFeedback) =>
+      initiative
+        ? rerunValidationQuestions({
+            initiativeId: initiative.id,
+            signal,
+            feedbackByStep,
+            fallbackFeedback,
+          })
+        : Promise.resolve(false),
     withBusyAction,
     onRefresh,
   });
@@ -376,15 +355,54 @@ export const useInitiativePlanningWorkspace = (
     setTicketGenerationError(null);
     let generationError: string | null = null;
     const status = await withBusyAction("generate-tickets", async (signal) => {
-      if (activeStep === "validation") {
-        const validationBlocked = await rerunValidationQuestions(
-          signal,
-          validationFeedbackByStep,
-          validationFeedback
+      const recoverPlanValidationFailure = async (error: unknown): Promise<boolean> => {
+        const recoverableFeedbackByStep = buildPlanValidationFeedbackByStep(
+          error instanceof ApiError ? error.details : undefined
         );
-        if (validationBlocked) {
+        const recovered =
+          Object.keys(recoverableFeedbackByStep).length > 0
+            ? await rerunValidationQuestions({
+                initiativeId: initiative.id,
+                signal,
+                feedbackByStep: recoverableFeedbackByStep,
+              })
+            : false;
+        if (recovered) {
+          await onRefresh();
+          return true;
+        }
+
+        generationError =
+          (error as Error).message?.trim() || "Ticket generation failed.";
+        return false;
+      };
+
+      if (activeStep === "validation") {
+        try {
+          const result = await continueInitiativeValidation(
+            initiative.id,
+            {
+              draftByStep: buildValidationDraftByStep({
+                initiative,
+                answers: refinementAnswers,
+                defaultAnswerQuestionIds,
+              }),
+              validationFeedbackByStep,
+              validationFeedback,
+            },
+            { signal }
+          );
+          if (result.decision === "ask") {
+            await onRefresh();
+            return;
+          }
           await onRefresh();
           return;
+        } catch (error) {
+          if (await recoverPlanValidationFailure(error)) {
+            return;
+          }
+          throw error;
         }
       }
 
@@ -392,17 +410,9 @@ export const useInitiativePlanningWorkspace = (
         await generateInitiativePlan(initiative.id, { signal });
         await onRefresh();
       } catch (error) {
-        const recoverableFeedbackByStep = buildPlanValidationFeedbackByStep(
-          error instanceof ApiError ? error.details : undefined
-        );
-        const recovered = await rerunValidationQuestions(signal, recoverableFeedbackByStep);
-        if (recovered) {
-          await onRefresh();
+        if (await recoverPlanValidationFailure(error)) {
           return;
         }
-
-        generationError =
-          (error as Error).message?.trim() || "Ticket generation failed.";
         throw error;
       }
     });

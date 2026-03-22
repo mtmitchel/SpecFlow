@@ -2,6 +2,8 @@ import type {
   AgentType,
   DriftFlag,
   Initiative,
+  InitiativeArtifactStep,
+  InitiativePlanningSurface,
   InitiativePlanningQuestion,
   OperationState,
   PlanningReviewArtifact,
@@ -62,6 +64,65 @@ export interface InitiativePhaseCheckResult {
   decision: "proceed" | "ask";
   questions: InitiativePlanningQuestion[];
   assumptions: string[];
+}
+
+export interface InitiativeRefinementDraft {
+  answers: Record<string, string | string[] | boolean>;
+  defaultAnswerQuestionIds: string[];
+  preferredSurface: InitiativePlanningSurface | null;
+}
+
+export interface ValidationFeedbackByStep {
+  brief?: string;
+  "core-flows"?: string;
+  prd?: string;
+  "tech-spec"?: string;
+}
+
+export interface InitiativeValidationDraftByStep {
+  brief?: InitiativeRefinementDraft;
+  "core-flows"?: InitiativeRefinementDraft;
+  prd?: InitiativeRefinementDraft;
+  "tech-spec"?: InitiativeRefinementDraft;
+}
+
+export interface InitiativeArtifactStepContinuePayload {
+  draft: InitiativeRefinementDraft;
+}
+
+export interface InitiativeValidationContinuePayload {
+  draftByStep: InitiativeValidationDraftByStep;
+  validationFeedbackByStep: ValidationFeedbackByStep;
+  validationFeedback?: string | null;
+}
+
+export interface InitiativeArtifactStepContinueResult
+  extends InitiativePhaseCheckResult {
+  generated: boolean;
+  markdown?: string;
+  reviews?: PlanningReviewArtifact[];
+}
+
+export interface InitiativePlanPreviewTicket {
+  title: string;
+  description: string;
+  acceptanceCriteria: string[];
+  fileTargets: string[];
+  coverageItemIds: string[];
+}
+
+export interface InitiativePlanPreviewPhase {
+  name: string;
+  order: number;
+  tickets: InitiativePlanPreviewTicket[];
+}
+
+export interface InitiativeValidationContinueResult {
+  decision: "proceed" | "ask";
+  generated: boolean;
+  blockedSteps: InitiativeArtifactStep[];
+  phases?: InitiativePlanPreviewPhase[];
+  uncoveredCoverageItemIds?: string[];
 }
 
 export interface VerificationResult {

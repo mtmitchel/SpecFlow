@@ -97,6 +97,7 @@ Command notes:
 
 - `npm run tauri dev` is the primary development loop. `npm run dev` is an alias.
 - `npm run ui` launches from source and requires an existing desktop binary.
+- If sidecar method names or the desktop transport contract change while a desktop dev session is already running, restart `npm run tauri dev` before validating the new flow.
 - `npm run check` is the required pre-finish gate for normal development. It currently runs ESLint, both TypeScript checks, and the UI dedupe gate.
 - `npm test` runs the backend and client Vitest suites.
 - `npm run package:desktop` is explicit packaging only. It is not part of the normal development loop.
