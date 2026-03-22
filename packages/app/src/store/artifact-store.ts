@@ -118,6 +118,7 @@ export class ArtifactStore {
   private revision = 0;
   private lastReloadDurationMs = 0;
   private lastReloadIssues: StoreReloadIssue[] = [];
+  private lastSnapshotPayloadBytes = 0;
 
   public constructor(options: ArtifactStoreOptions) {
     this.rootDir = options.rootDir;
@@ -203,6 +204,7 @@ export class ArtifactStore {
       },
       bumpRevision: () => this.bumpRevision()
     });
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertConfig(config: Config): Promise<void> {
@@ -214,6 +216,7 @@ export class ArtifactStore {
       config
     );
     this.config = config;
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertInitiative(
@@ -238,6 +241,7 @@ export class ArtifactStore {
       initiative,
       docs
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async deleteInitiative(id: string): Promise<void> {
@@ -258,6 +262,7 @@ export class ArtifactStore {
       },
       id
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertTicket(ticket: Ticket): Promise<void> {
@@ -269,6 +274,7 @@ export class ArtifactStore {
       },
       ticket
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async deleteTicket(id: string): Promise<void> {
@@ -280,6 +286,7 @@ export class ArtifactStore {
       },
       id
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async deleteRun(id: string): Promise<void> {
@@ -292,6 +299,7 @@ export class ArtifactStore {
       },
       id
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertRun(run: Run): Promise<void> {
@@ -303,6 +311,7 @@ export class ArtifactStore {
       },
       run
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   private normalizeInitiative(
@@ -332,6 +341,7 @@ export class ArtifactStore {
       runId,
       attempt
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async readRunAttempt(runId: string, attemptId: string): Promise<RunAttempt | null> {
@@ -355,6 +365,7 @@ export class ArtifactStore {
       },
       spec
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertPlanningReview(review: PlanningReviewArtifact): Promise<void> {
@@ -366,6 +377,7 @@ export class ArtifactStore {
       },
       review
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertPendingTicketPlanArtifact(plan: PendingTicketPlanArtifact): Promise<void> {
@@ -377,6 +389,7 @@ export class ArtifactStore {
       },
       plan
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async deletePendingTicketPlanArtifact(initiativeId: string): Promise<void> {
@@ -388,6 +401,7 @@ export class ArtifactStore {
       },
       initiativeId
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertTicketCoverageArtifact(coverage: TicketCoverageArtifact): Promise<void> {
@@ -399,6 +413,7 @@ export class ArtifactStore {
       },
       coverage
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async upsertArtifactTrace(trace: ArtifactTraceOutline): Promise<void> {
@@ -410,6 +425,7 @@ export class ArtifactStore {
       },
       trace
     );
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async prepareRunOperation(input: PrepareOperationInput): Promise<OperationManifest> {
@@ -511,6 +527,7 @@ export class ArtifactStore {
       runId,
       manifest
     });
+    this.refreshSnapshotPayloadBytes();
   }
 
   public async getOperationStatus(operationId: string): Promise<
@@ -547,6 +564,7 @@ export class ArtifactStore {
   private async clearRunOperationPointer(runId: string): Promise<void> {
     await clearRunOperationPointerInternal(this.rootDir, this.runs, runId);
     this.bumpRevision();
+    this.refreshSnapshotPayloadBytes();
   }
 
   private suppressWatcher(): void {
@@ -575,9 +593,32 @@ export class ArtifactStore {
       revision: this.revision,
       generatedAt: this.now().toISOString(),
       generationTimeMs: this.lastReloadDurationMs,
-      payloadBytes: 0,
+      payloadBytes: this.lastSnapshotPayloadBytes,
       reloadIssues: this.lastReloadIssues.slice()
     };
+  }
+
+  private refreshSnapshotPayloadBytes(): void {
+    const snapshotForMeasurement = {
+      config: this.config,
+      meta: {
+        revision: this.revision,
+        generatedAt: this.now().toISOString(),
+        generationTimeMs: this.lastReloadDurationMs,
+        payloadBytes: this.lastSnapshotPayloadBytes,
+        reloadIssues: this.lastReloadIssues.slice()
+      },
+      workspaceRoot: this.rootDir,
+      initiatives: Array.from(this.initiatives.values()),
+      tickets: Array.from(this.tickets.values()),
+      runs: Array.from(this.runs.values()),
+      runAttempts: Array.from(this.runAttempts.entries()).map(([id, value]) => ({ id, ...value })),
+      specs: Array.from(this.specs.values()),
+      planningReviews: Array.from(this.planningReviews.values()),
+      ticketCoverageArtifacts: Array.from(this.ticketCoverageArtifacts.values())
+    };
+
+    this.lastSnapshotPayloadBytes = Buffer.byteLength(JSON.stringify(snapshotForMeasurement), "utf8");
   }
 
   private bumpRevision(): number {

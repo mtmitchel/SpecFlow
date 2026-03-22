@@ -3,7 +3,7 @@ import { redactConfig } from "../default-config.js";
 import { notFound } from "../errors.js";
 
 export const getArtifactsSnapshot = (runtime: SpecFlowRuntime) => {
-  const snapshot = {
+  return {
     config: redactConfig(runtime.store.config),
     meta: runtime.store.getSnapshotMeta(),
     workspaceRoot: runtime.rootDir,
@@ -15,9 +15,6 @@ export const getArtifactsSnapshot = (runtime: SpecFlowRuntime) => {
     planningReviews: Array.from(runtime.store.planningReviews.values()),
     ticketCoverageArtifacts: Array.from(runtime.store.ticketCoverageArtifacts.values())
   };
-
-  snapshot.meta.payloadBytes = Buffer.byteLength(JSON.stringify(snapshot), "utf8");
-  return snapshot;
 };
 
 export const getSpecDetail = async (runtime: SpecFlowRuntime, specId: string) => {

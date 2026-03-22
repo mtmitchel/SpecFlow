@@ -9,6 +9,7 @@ import {
 } from "../../api.js";
 import type { AuditCategory, AuditReport } from "../../types.js";
 import { useToast } from "../context/toast.js";
+import { formatDateTime } from "../utils/date-format.js";
 import { parseScopeCsv } from "../utils/scope-paths.js";
 import { CustomSelect } from "./custom-select.js";
 import { DiffViewer, findDiffRowsForFinding } from "./diff-viewer.js";
@@ -146,7 +147,7 @@ export const AuditPanel = ({
         </span>
         {report ? (
           <span className="badge">
-            Updated {new Date(report.generatedAt).toLocaleString()}
+            Updated {formatDateTime(report.generatedAt)}
           </span>
         ) : null}
       </div>

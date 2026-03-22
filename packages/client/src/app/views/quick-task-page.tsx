@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { triageQuickTask } from "../../api/tickets.js";
 import { useToast } from "../context/toast.js";
+import {
+  applyInitiativeUpdate,
+  applyQuickTaskTicketCreation,
+  noopApplySnapshotUpdate,
+  type ApplySnapshotUpdate,
+} from "../utils/snapshot-updates.js";
 
 const modKey =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
@@ -9,10 +15,10 @@ const modKey =
     : "Ctrl";
 
 interface QuickTaskPageProps {
-  onRefresh: () => Promise<void>;
+  onApplySnapshotUpdate?: ApplySnapshotUpdate;
 }
 
-export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
+export const QuickTaskPage = ({ onApplySnapshotUpdate = noopApplySnapshotUpdate }: QuickTaskPageProps) => {
   const navigate = useNavigate();
   const { showError } = useToast();
   const [text, setText] = useState("");
@@ -31,11 +37,12 @@ export const QuickTaskPage = ({ onRefresh }: QuickTaskPageProps) => {
     setBusy(true);
     try {
       const result = await triageQuickTask(text.trim());
-      await onRefresh();
       if (result.decision === "ok") {
-        navigate(`/ticket/${result.ticketId}`);
+        onApplySnapshotUpdate((current) => applyQuickTaskTicketCreation(current, result.ticket));
+        navigate(`/ticket/${result.ticket.id}`);
       } else {
-        navigate(`/initiative/${result.initiativeId}?step=brief`);
+        onApplySnapshotUpdate((current) => applyInitiativeUpdate(current, result.initiative));
+        navigate(`/initiative/${result.initiative.id}?step=brief`);
       }
     } catch (error) {
       showError((error as Error).message ?? "We couldn't start the quick task.");

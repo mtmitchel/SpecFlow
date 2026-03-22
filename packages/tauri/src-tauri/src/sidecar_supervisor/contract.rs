@@ -37,7 +37,7 @@ pub struct DesktopRuntimeStatus {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SavedBundleZip {
-    pub(crate) path: String,
+    pub(crate) saved: bool,
 }
 
 pub(crate) fn closed_error() -> SidecarCommandError {

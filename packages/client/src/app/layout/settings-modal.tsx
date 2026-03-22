@@ -33,7 +33,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
   const [saving, setSaving] = useState(false);
   const [modelsGeneration, setModelsGeneration] = useState(0);
   const [dirty, setDirty] = useState(false);
-  const [activeSection, setActiveSection] = useState<'general' | 'providers'>('providers');
+  const [activeSection, setActiveSection] = useState<"desktop" | "providers">("providers");
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,10 +86,10 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
       <div className="settings-modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-modal-header">
           <div>
-            <h2 className="heading-reset settings-modal-heading">Providers and agents</h2>
-            <p className="text-muted-sm" style={{ margin: '0.2rem 0 0' }}>Configure providers and model preferences</p>
+            <h2 className="heading-reset settings-modal-heading">Provider settings</h2>
+            <p className="text-muted-sm settings-modal-intro">Choose how SpecFlow plans and verifies work.</p>
           </div>
-          <button type="button" className="settings-modal-close" onClick={close} aria-label="Close">
+          <button type="button" className="settings-modal-close" onClick={close} aria-label="Close settings">
             ×
           </button>
         </div>
@@ -103,13 +103,10 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
               Providers
             </button>
             <button
-              className={`settings-modal-nav-item ${activeSection === 'general' ? 'active' : ''}`}
-              onClick={() => setActiveSection('general')}
+              className={`settings-modal-nav-item ${activeSection === "desktop" ? "active" : ""}`}
+              onClick={() => setActiveSection("desktop")}
             >
-              General
-            </button>
-            <button className="settings-modal-nav-item disabled" disabled>
-              More options coming later
+              Desktop
             </button>
           </nav>
 
@@ -166,7 +163,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                           </span>
                           <strong>{opt.label}</strong>
                           <span className="settings-provider-card-status">
-                            {hasKey ? "Key saved" : "Not configured"}
+                            {hasKey ? "Saved key" : "Not configured"}
                           </span>
                         </button>
                       );
@@ -176,7 +173,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
                     API key
                     <input
                       type="password"
-                      placeholder={selectedProviderHasApiKey ? "(key set -- leave blank to keep)" : "Paste your API key"}
+                      placeholder={selectedProviderHasApiKey ? "Paste a new API key" : "Paste an API key"}
                       value={apiKeyInput}
                       onChange={(event) => { setDirty(true); setApiKeyInput(event.target.value); }}
                     />
@@ -200,7 +197,7 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
               ) : (
                 <>
                   <p className="settings-readonly-hint settings-general-hint">
-                    Host and port are set in the CLI.
+                    Desktop launch settings come from the local CLI configuration.
                   </p>
                   <label>
                     Host
@@ -218,10 +215,10 @@ export const SettingsModal = ({ config, onSave }: SettingsModalProps) => {
               )}
               <div className="settings-button-row">
                 <button type="submit" disabled={saving}>
-                  {saving ? "Saving..." : "Save"}
+                  {saving ? "Saving..." : "Save settings"}
                 </button>
                 <button type="button" className="settings-cancel" onClick={close}>
-                  Close
+                  Close settings
                 </button>
               </div>
             </form>

@@ -3,8 +3,28 @@ import type { DriftFlag } from "../../types/entities.js";
 import { buildRevisionArgs, buildScopedArgs, normalizeRelativePath } from "./path-utils.js";
 import type { DiffComputationResult, DiffSourceSelection } from "./types.js";
 
+const GIT_REPOSITORY_ENV_KEYS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_PREFIX",
+  "GIT_SUPER_PREFIX",
+] as const;
+
+const createGit = (baseDir: string) => {
+  const env = { ...process.env };
+  for (const key of GIT_REPOSITORY_ENV_KEYS) {
+    delete env[key];
+  }
+
+  return simpleGit({ baseDir }).env(env);
+};
+
 export const isGitRepository = async (rootDir: string): Promise<boolean> => {
-  const git = simpleGit({ baseDir: rootDir });
+  const git = createGit(rootDir);
   try {
     return await git.checkIsRepo();
   } catch {
@@ -18,7 +38,7 @@ export const computeGitDiff = async (input: {
   widenedScopePaths: string[];
   diffSource: Exclude<DiffSourceSelection, { mode: "snapshot" }>;
 }): Promise<DiffComputationResult> => {
-  const git = simpleGit({ baseDir: input.rootDir });
+  const git = createGit(input.rootDir);
   const revisionArgs = buildRevisionArgs(input.diffSource);
   const scopeArgs = buildScopedArgs(input.initialScopePaths);
   const widenedOnly = input.widenedScopePaths

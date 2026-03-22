@@ -4,6 +4,7 @@ import { fetchRuns } from "../../api/runs.js";
 import type { ArtifactsSnapshot, RunListItem } from "../../types.js";
 import { CustomSelect } from "../components/custom-select.js";
 import { useToast } from "../context/toast.js";
+import { formatDateTime } from "../utils/date-format.js";
 
 interface RunsListViewProps {
   snapshot: ArtifactsSnapshot;
@@ -120,7 +121,7 @@ export const RunsListView = ({ snapshot }: RunsListViewProps) => {
                   </td>
                   <td className="aggregate-table-muted">{item.attempts.length}</td>
                   <td className="aggregate-table-muted">
-                    {new Date(item.run.createdAt).toLocaleString()}
+                    {formatDateTime(item.run.createdAt)}
                   </td>
                 </tr>
               ))}

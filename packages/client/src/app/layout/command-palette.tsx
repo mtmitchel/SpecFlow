@@ -3,17 +3,18 @@ import type { ArtifactsSnapshot } from "../../types.js";
 import { PaletteSearchMode } from "./palette-search-mode.js";
 import { PaletteQuickTaskMode } from "./palette-quick-task-mode.js";
 import { PaletteGithubImportMode } from "./palette-github-import-mode.js";
+import type { ApplySnapshotUpdate } from "../utils/snapshot-updates.js";
 
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   snapshot: ArtifactsSnapshot;
-  onRefresh: () => Promise<void>;
+  onApplySnapshotUpdate: ApplySnapshotUpdate;
 }
 
 type PaletteMode = "search" | "quick-task" | "github-import";
 
-export const CommandPalette = ({ open, onClose, snapshot, onRefresh }: CommandPaletteProps) => {
+export const CommandPalette = ({ open, onClose, snapshot, onApplySnapshotUpdate }: CommandPaletteProps) => {
   const [mode, setMode] = useState<PaletteMode>("search");
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -59,7 +60,7 @@ export const CommandPalette = ({ open, onClose, snapshot, onRefresh }: CommandPa
           <PaletteQuickTaskMode
             inputRef={inputRef}
             onClose={onClose}
-            onRefresh={onRefresh}
+            onApplySnapshotUpdate={onApplySnapshotUpdate}
             onBack={() => setMode("search")}
           />
         )}
@@ -68,7 +69,7 @@ export const CommandPalette = ({ open, onClose, snapshot, onRefresh }: CommandPa
           <PaletteGithubImportMode
             inputRef={inputRef}
             onClose={onClose}
-            onRefresh={onRefresh}
+            onApplySnapshotUpdate={onApplySnapshotUpdate}
             onBack={() => setMode("search")}
           />
         )}

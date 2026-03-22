@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
-
 :root {
   --bg: radial-gradient(circle at 10% 0%, #223b53 0%, #10151f 35%, #090d14 100%);
   --panel: rgba(16, 24, 38, 0.82);
@@ -189,9 +187,10 @@ body {
   background: var(--bg);
   color: var(--text);
   color-scheme: dark;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   font-size: var(--font-body-sm);
   line-height: var(--line-height-normal);
+  -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, h5, h6 {

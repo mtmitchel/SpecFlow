@@ -65,6 +65,9 @@ const canReplacePlanningTickets = (runtime: SpecFlowRuntime, initiative: Initiat
 export const deleteInitiative = async (runtime: SpecFlowRuntime, initiativeId: string) => {
   const initiative = readInitiative(runtime, initiativeId);
   await runtime.store.deleteInitiative(initiative.id);
+  return {
+    initiativeId: initiative.id
+  };
 };
 
 export const updateInitiative = async (
@@ -249,7 +252,7 @@ export const createDraftInitiative = async (
     projectRoot: normalizedProjectRoot
   });
   return {
-    initiativeId: initiative.id
+    initiative
   };
 };
 

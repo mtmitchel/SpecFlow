@@ -30,17 +30,20 @@ import { SAVE_STATE_LABELS, type SaveState } from "./initiative/shared.js";
 import { TicketsStepSection } from "./initiative/tickets-step-section.js";
 import { useInitiativePlanningWorkspace } from "./initiative/use-initiative-planning-workspace.js";
 import { ValidationSection } from "./initiative/validation-section.js";
+import { noopApplySnapshotUpdate, type ApplySnapshotUpdate } from "../utils/snapshot-updates.js";
 
 export const InitiativeView = ({
   snapshot,
   onRefresh,
+  onApplySnapshotUpdate = noopApplySnapshotUpdate,
   onMoveTicket,
 }: {
   snapshot: ArtifactsSnapshot;
   onRefresh: () => Promise<void>;
+  onApplySnapshotUpdate?: ApplySnapshotUpdate;
   onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
 }) => {
-  const workspace = useInitiativePlanningWorkspace(snapshot, onRefresh);
+  const workspace = useInitiativePlanningWorkspace(snapshot, onRefresh, onApplySnapshotUpdate);
 
   const renderSaveState = (state: SaveState) => {
     const label = SAVE_STATE_LABELS[state];

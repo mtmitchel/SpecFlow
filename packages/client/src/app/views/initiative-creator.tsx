@@ -4,6 +4,7 @@ import { createInitiative } from "../../api/initiatives.js";
 import { pickProjectRoot } from "../../api/transport.js";
 import { useToast } from "../context/toast.js";
 import { Pipeline } from "../components/pipeline.js";
+import { applyInitiativeUpdate, noopApplySnapshotUpdate, type ApplySnapshotUpdate } from "../utils/snapshot-updates.js";
 import {
   PIPELINE_NODE_LABELS,
   PIPELINE_NODE_ORDER,
@@ -21,10 +22,10 @@ const ENTRY_PIPELINE: PipelineNodeModel[] = PIPELINE_NODE_ORDER.map((key) => ({
 }));
 
 export const InitiativeCreator = ({
-  onRefresh,
+  onApplySnapshotUpdate = noopApplySnapshotUpdate,
   defaultBrowseRoot
 }: {
-  onRefresh: () => Promise<void>;
+  onApplySnapshotUpdate?: ApplySnapshotUpdate;
   defaultBrowseRoot: string;
 }) => {
   const navigate = useNavigate();
@@ -76,8 +77,8 @@ export const InitiativeCreator = ({
     setBusy(true);
     try {
       const result = await createInitiative(description.trim(), projectRootToken);
-      await onRefresh();
-      navigate(`/initiative/${result.initiativeId}?step=brief`);
+      onApplySnapshotUpdate((current) => applyInitiativeUpdate(current, result.initiative));
+      navigate(`/initiative/${result.initiative.id}?step=brief`);
     } catch (err) {
       showError((err as Error).message ?? "We couldn't start the project.");
     } finally {

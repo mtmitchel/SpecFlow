@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { ApiError } from "./http";
-import { subscribeArtifactsChanged, transportRequest } from "./transport";
+import { saveDesktopBundleZip, subscribeArtifactsChanged, transportRequest } from "./transport";
 
 vi.mock("@tauri-apps/api/core", () => ({
   Channel: class MockChannel<T> {
@@ -167,5 +167,23 @@ describe("transportRequest", () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
     unsubscribe();
+  });
+
+  it("returns a success flag for desktop ZIP saves without exposing the saved path", async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(invoke).mockResolvedValue({ saved: true });
+
+    await expect(
+      saveDesktopBundleZip("run-12345678", "attempt-12345678", "bundle.zip")
+    ).resolves.toBe(true);
+
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith(
+      "desktop_save_bundle_zip",
+      expect.objectContaining({
+        runId: "run-12345678",
+        attemptId: "attempt-12345678",
+        defaultFilename: "bundle.zip",
+      })
+    );
   });
 });

@@ -286,8 +286,7 @@ export const saveBundleZipToFile = async (
   await pipeline(zip.stream, createWriteStream(absoluteDestination));
 
   return {
-    path: absoluteDestination,
-    filename: zip.filename
+    saved: true
   };
 };
 

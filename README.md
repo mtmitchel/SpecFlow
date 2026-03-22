@@ -56,6 +56,7 @@ npm run tauri:dev
 npm run lint
 npm run check
 npm test
+npm run smoke:desktop
 npm run package:desktop
 npm run build:desktop-runtime
 npm run package:sidecar
@@ -63,6 +64,7 @@ npm run ui
 ```
 
 `npm test` runs both the backend and client Vitest suites.
+`npm run smoke:desktop` runs the deterministic desktop smoke harness against the real App component with mocked desktop transport, covering app launch, approved-folder project creation, one planning continuation, and ZIP bundle save.
 `npm run lint` runs the shared ESLint baseline for TypeScript, React Hooks, and general correctness issues.
 `npm run check` now runs lint, both TypeScript checks, and the UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
 `npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.

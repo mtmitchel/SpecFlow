@@ -19,6 +19,7 @@ import { CheckpointGateBanner } from "../components/checkpoint-gate-banner.js";
 import { DiffViewer } from "../components/diff-viewer.js";
 import { MarkdownView } from "../components/markdown-view.js";
 import { useToast } from "../context/toast.js";
+import { formatDateTime, formatLogTime } from "../utils/date-format.js";
 import { usePersistInitiativeResumeTicket } from "./use-persist-initiative-resume-ticket.js";
 
 const RunReportCard = ({
@@ -45,13 +46,6 @@ const getValidationScoreToneClass = (score: number): string =>
 const getValidationScoreValueClass = (score: number): string =>
   score >= 80 ? "score-pass" : score >= 50 ? "score-partial" : "score-fail";
 
-const formatLogTimestamp = (value: string): string =>
-  new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-
 const formatSeverityLabel = (
   pass: boolean,
   severity?: string,
@@ -66,7 +60,7 @@ export const RunView = ({
   planningReviews: _planningReviews,
   runs: _runs,
   ticketCoverageArtifacts: _ticketCoverageArtifacts,
-  onRefresh,
+  onRefresh: _onRefresh,
 }: {
   initiatives: Initiative[];
   tickets: Ticket[];
@@ -307,7 +301,6 @@ export const RunView = ({
     initiativeId: initiative?.id ?? null,
     resumeTicketId: detail?.ticket?.initiativeId ? detail.ticket.id : null,
     currentResumeTicketId: initiative?.workflow.resumeTicketId,
-    onRefresh,
     showError,
   });
 
@@ -340,7 +333,7 @@ export const RunView = ({
   const validationScore = criteriaTotal > 0 ? Math.round((criteriaPassed / criteriaTotal) * 100) : 0;
   const validationScoreToneClass = getValidationScoreToneClass(validationScore);
   const validationScoreValueClass = getValidationScoreValueClass(validationScore);
-  const criteriaLogTimestamp = formatLogTimestamp(committedAttemptDetail?.createdAt ?? detail.run.createdAt);
+  const criteriaLogTimestamp = formatLogTime(committedAttemptDetail?.createdAt ?? detail.run.createdAt);
 
   const verificationPass = committedAttemptDetail?.overallPass ?? detail.committed?.attempt?.overallPass ?? null;
   const bundleFiles = [
@@ -398,7 +391,7 @@ export const RunView = ({
 
           {criteriaTotal > 0 ? (
             <RunReportCard
-              title="Verification log"
+              title="Verification details"
               badge={`${criteriaPassed}/${criteriaTotal} passed`}
             >
               <div className="run-criteria-log">
@@ -503,7 +496,7 @@ export const RunView = ({
                       {attempt.attemptId} · {attempt.overallPass ? "pass" : "fail"}
                       {attempt.overrideReason ? ` · override: ${attempt.overrideReason}` : ""}
                     </span>
-                    <span>{new Date(attempt.createdAt).toLocaleString()}</span>
+                    <span>{formatDateTime(attempt.createdAt)}</span>
                   </li>
                 ))
               )}
@@ -513,7 +506,7 @@ export const RunView = ({
 
         <aside className="run-report-side">
           {criteriaTotal > 0 ? (
-            <RunReportCard title="Validation score">
+            <RunReportCard title="Verification score">
               <div className={`run-validation-score ${validationScoreToneClass}`}>
                 <span className={`run-validation-score-value ${validationScoreValueClass}`}>
                   {validationScore}%

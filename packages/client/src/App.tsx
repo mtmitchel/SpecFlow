@@ -12,6 +12,11 @@ import { DetailWorkspace } from "./app/views/detail-workspace";
 import { CommandPalette } from "./app/layout/command-palette";
 import { SettingsModal } from "./app/layout/settings-modal";
 import {
+  applyConfigUpdate,
+  applyTicketUpdate,
+  type ApplySnapshotUpdate,
+} from "./app/utils/snapshot-updates";
+import {
   getDesktopRuntimeStatus,
   isDesktopRuntime,
   subscribeArtifactsChanged
@@ -43,6 +48,10 @@ const AppInner = () => {
   const [navigatorOpen, setNavigatorOpen] = useState(false);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const refreshQueuedRef = useRef(false);
+
+  const applySnapshotUpdate = useCallback<ApplySnapshotUpdate>((update) => {
+    setSnapshot((current) => update(current));
+  }, []);
 
   const logDesktopRuntime = useCallback(async (reason: string): Promise<void> => {
     if (!import.meta.env.DEV || !isDesktopRuntime()) {
@@ -160,14 +169,11 @@ const AppInner = () => {
   const handleMoveTicket = useCallback(async (ticketId: string, status: TicketStatus): Promise<void> => {
     try {
       const updatedTicket = await updateTicketStatus(ticketId, status);
-      setSnapshot((prev) => ({
-        ...prev,
-        tickets: prev.tickets.map((t) => (t.id === ticketId ? updatedTicket : t))
-      }));
+      applySnapshotUpdate((current) => applyTicketUpdate(current, updatedTicket));
     } catch (err) {
       showError((err as Error).message ?? "We couldn't update the ticket status.");
     }
-  }, [showError]);
+  }, [applySnapshotUpdate, showError]);
 
   const handleSaveConfig = useCallback(async (next: ConfigSavePayload, apiKey?: string): Promise<void> => {
     try {
@@ -180,11 +186,11 @@ const AppInner = () => {
       }
 
       const updatedConfig = await saveConfig(next);
-      setSnapshot((prev) => ({ ...prev, config: updatedConfig }));
+      applySnapshotUpdate((current) => applyConfigUpdate(current, updatedConfig));
     } catch (err) {
       showError((err as Error).message ?? "We couldn't save settings.");
     }
-  }, [showError]);
+  }, [applySnapshotUpdate, showError]);
 
   if (loading) {
     return (
@@ -219,13 +225,14 @@ const AppInner = () => {
             open={commandPaletteOpen}
             onClose={() => setCommandPaletteOpen(false)}
             snapshot={snapshot}
-            onRefresh={refreshArtifacts}
+            onApplySnapshotUpdate={applySnapshotUpdate}
           />
         }
       >
         <DetailWorkspace
           snapshot={snapshot}
           onRefresh={refreshArtifacts}
+          onApplySnapshotUpdate={applySnapshotUpdate}
           onMoveTicket={handleMoveTicket}
           onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         />

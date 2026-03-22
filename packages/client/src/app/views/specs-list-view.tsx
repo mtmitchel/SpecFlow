@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ArtifactsSnapshot } from "../../types.js";
 import { CustomSelect } from "../components/custom-select.js";
+import { formatDateTime } from "../utils/date-format.js";
 
 interface SpecsListViewProps {
   snapshot: ArtifactsSnapshot;
@@ -113,7 +114,7 @@ export const SpecsListView = ({ snapshot }: SpecsListViewProps) => {
                     ) : "--"}
                   </td>
                   <td className="aggregate-table-muted">
-                    {new Date(spec.updatedAt).toLocaleString()}
+                    {formatDateTime(spec.updatedAt)}
                   </td>
                 </tr>
               ))}

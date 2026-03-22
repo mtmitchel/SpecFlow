@@ -314,18 +314,18 @@ export const saveDesktopBundleZip = async (
   runId: string,
   attemptId: string,
   defaultFilename: string
-): Promise<string | null> => {
+): Promise<boolean> => {
   if (!isDesktopRuntime()) {
-    return null;
+    return false;
   }
 
   try {
-    const result = await invoke<{ path: string } | null>("desktop_save_bundle_zip", {
+    const result = await invoke<{ saved: boolean } | null>("desktop_save_bundle_zip", {
       runId,
       attemptId,
       defaultFilename
     });
-    return result?.path ?? null;
+    return result?.saved === true;
   } catch (error) {
     throw normalizeDesktopError(error);
   }
