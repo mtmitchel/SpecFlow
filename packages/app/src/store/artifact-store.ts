@@ -1,29 +1,12 @@
-import { mkdir, readFile, stat } from "node:fs/promises";
-import path from "node:path";
-import { writeFileAtomic } from "../io/atomic-write.js";
 import { logObservabilityEvent } from "../observability.js";
 import type { ArtifactsSnapshotMeta, StoreReloadIssue } from "../types/contracts.js";
 import {
-  configPath,
-  decisionsDir,
-  initiativeDir,
-  initiativePendingTicketPlanPath,
-  initiativeTicketCoveragePath,
-  initiativeReviewPath,
-  initiativeTracePath,
-  initiativeYamlPath,
   operationManifestPath,
-  runDir,
-  runYamlPath,
-  ticketPath,
-  verificationPath
 } from "../io/paths.js";
 import { normalizeInitiativeWorkflow } from "../planner/workflow-state.js";
 import { readYamlFile } from "../io/yaml.js";
-import { writeYamlFile } from "../io/yaml.js";
 import { pruneExpiredTempOperations as pruneExpiredTempOperationsInternal } from "./internal/cleanup.js";
-import { recoverInterruptedInitiativeWrites, writeInitiativeWithStaging } from "./internal/store-writer.js";
-import { loadStoreSnapshot, replaceMapContents } from "./internal/reload.js";
+import { reloadStoreFromDisk } from "./internal/store-reload-lifecycle.js";
 import {
   commitRunOperation as commitRunOperationInternal,
   getOperationStatus as getOperationStatusInternal,
@@ -39,12 +22,28 @@ import {
   adoptCommittedOperation as adoptCommittedOperationInternal,
   ensureRunWritable as ensureRunWritableInternal,
   isLeaseExpired,
-  rebuildOperationIndex,
   runAttemptKey,
   uniquePush
 } from "./internal/run-operation-state.js";
-import { specTypeToFileName } from "./internal/spec-utils.js";
 import { type SpecflowWatcher, createSpecflowWatcher } from "./internal/watcher.js";
+import {
+  deleteInitiativeRecord,
+  deletePendingTicketPlanRecord,
+  deleteRunRecord,
+  deleteTicketRecord,
+  readRunAttemptRecord,
+  readSpecRecord,
+  upsertArtifactTraceRecord,
+  upsertConfigRecord,
+  upsertInitiativeRecord,
+  upsertPendingTicketPlanRecord,
+  upsertPlanningReviewRecord,
+  upsertRunAttemptRecord,
+  upsertRunRecord,
+  upsertSpecRecord,
+  upsertTicketCoverageRecord,
+  upsertTicketRecord
+} from "./internal/store-entity-operations.js";
 import type { PreparedOperationArtifacts } from "./types.js";
 import type {
   ArtifactTraceOutline,
@@ -173,182 +172,137 @@ export class ArtifactStore {
       await this.reloadInFlight;
       return;
     }
-    this.reloadInFlight = this.doReloadFromDisk().finally(() => {
+    this.reloadInFlight = this.applyReloadFromDisk().finally(() => {
       this.reloadInFlight = null;
     });
     await this.reloadInFlight;
   }
 
-  private async doReloadFromDisk(): Promise<void> {
-    const startedAt = Date.now();
-    await recoverInterruptedInitiativeWrites(this.rootDir);
-    const snapshot = await loadStoreSnapshot({
+  private async applyReloadFromDisk(): Promise<void> {
+    await reloadStoreFromDisk({
       rootDir: this.rootDir,
+      initiatives: this.initiatives,
+      tickets: this.tickets,
+      runs: this.runs,
+      runAttempts: this.runAttempts,
+      specs: this.specs,
+      planningReviews: this.planningReviews,
+      pendingTicketPlans: this.pendingTicketPlans,
+      ticketCoverageArtifacts: this.ticketCoverageArtifacts,
+      artifactTraces: this.artifactTraces,
+      operationIndex: this.operationIndex,
       runAttemptKey,
-      normalizeInitiative: (initiative, inferredCompletion) => this.normalizeInitiative(initiative, inferredCompletion)
-    });
-
-    this.config = snapshot.config;
-
-    replaceMapContents(this.initiatives, snapshot.initiatives);
-    replaceMapContents(this.tickets, snapshot.tickets);
-    replaceMapContents(this.runs, snapshot.runs);
-    replaceMapContents(this.runAttempts, snapshot.runAttempts);
-    replaceMapContents(this.specs, snapshot.specs);
-    replaceMapContents(this.planningReviews, snapshot.planningReviews);
-    replaceMapContents(this.pendingTicketPlans, snapshot.pendingTicketPlans);
-    replaceMapContents(this.ticketCoverageArtifacts, snapshot.ticketCoverageArtifacts);
-    replaceMapContents(this.artifactTraces, snapshot.artifactTraces);
-    this.lastReloadIssues = snapshot.issues;
-    this.lastReloadDurationMs = Date.now() - startedAt;
-    this.bumpRevision();
-
-    rebuildOperationIndex(this.operationIndex, this.runs);
-
-    logObservabilityEvent({
-      layer: "store",
-      event: "store.reload",
-      status: snapshot.issues.length > 0 ? "error" : "ok",
-      durationMs: this.lastReloadDurationMs,
-      details: {
-        revision: this.revision,
-        initiativeCount: this.initiatives.size,
-        ticketCount: this.tickets.size,
-        runCount: this.runs.size,
-        runAttemptCount: this.runAttempts.size,
-        reloadIssueCount: snapshot.issues.length
-      }
+      normalizeInitiative: (initiative, inferredCompletion) =>
+        this.normalizeInitiative(initiative, inferredCompletion),
+      setConfig: (config) => {
+        this.config = config;
+      },
+      setReloadState: (durationMs, issues) => {
+        this.lastReloadDurationMs = durationMs;
+        this.lastReloadIssues = issues;
+      },
+      bumpRevision: () => this.bumpRevision()
     });
   }
 
   public async upsertConfig(config: Config): Promise<void> {
-    await writeYamlFile(configPath(this.rootDir), config);
+    await upsertConfigRecord(
+      {
+        rootDir: this.rootDir,
+        bumpRevision: () => this.bumpRevision()
+      },
+      config
+    );
     this.config = config;
-    this.bumpRevision();
   }
 
   public async upsertInitiative(
     initiative: Initiative,
     docs: { brief?: string; coreFlows?: string; prd?: string; techSpec?: string } = {}
   ): Promise<void> {
-    const normalized = this.normalizeInitiative(initiative, {
-      hasBrief:
-        docs.brief !== undefined
-          ? docs.brief.trim().length > 0
-          : this.specs.has(`${initiative.id}:brief`),
-      hasCoreFlows:
-        docs.coreFlows !== undefined
-          ? docs.coreFlows.trim().length > 0
-          : this.specs.has(`${initiative.id}:core-flows`),
-      hasPrd:
-        docs.prd !== undefined
-          ? docs.prd.trim().length > 0
-          : this.specs.has(`${initiative.id}:prd`),
-      hasTechSpec:
-        docs.techSpec !== undefined
-          ? docs.techSpec.trim().length > 0
-          : this.specs.has(`${initiative.id}:tech-spec`),
-      hasValidation:
-        this.pendingTicketPlans.has(`${initiative.id}:pending-ticket-plan`) ||
-        this.planningReviews.has(`${initiative.id}:ticket-coverage-review`) ||
-        initiative.workflow.steps.validation?.status === "complete" ||
-        initiative.ticketIds.length > 0 ||
-        initiative.phases.length > 0,
-      hasTickets:
-        initiative.ticketIds.length > 0 ||
-        initiative.phases.length > 0 ||
-        Array.from(this.tickets.values()).some((ticket) => ticket.initiativeId === initiative.id)
-    });
-
-    const hasDocChanges =
-      docs.brief !== undefined ||
-      docs.coreFlows !== undefined ||
-      docs.prd !== undefined ||
-      docs.techSpec !== undefined;
-
-    if (hasDocChanges) {
-      await writeInitiativeWithStaging({
+    await upsertInitiativeRecord(
+      {
         rootDir: this.rootDir,
-        initiative: normalized,
-        docs,
+        initiatives: this.initiatives,
+        specs: this.specs,
+        planningReviews: this.planningReviews,
+        pendingTicketPlans: this.pendingTicketPlans,
+        tickets: this.tickets,
+        normalizeInitiative: (nextInitiative, inferredCompletion) =>
+          this.normalizeInitiative(nextInitiative, inferredCompletion),
+        reloadFromDisk: () => this.reloadFromDisk(),
         suppressWatcher: () => this.suppressWatcher(),
-        resumeWatcher: () => this.resumeWatcher()
-      });
-      await this.reloadFromDisk();
-    } else {
-      const dir = initiativeDir(this.rootDir, normalized.id);
-      await mkdir(dir, { recursive: true });
-      await writeYamlFile(initiativeYamlPath(this.rootDir, normalized.id), normalized);
-      this.initiatives.set(normalized.id, normalized);
-      this.bumpRevision();
-    }
+        resumeWatcher: () => this.resumeWatcher(),
+        bumpRevision: () => this.bumpRevision()
+      },
+      initiative,
+      docs
+    );
   }
 
   public async deleteInitiative(id: string): Promise<void> {
-    const dir = initiativeDir(this.rootDir, id);
-    const { rm } = await import("node:fs/promises");
-    const relatedTickets = Array.from(this.tickets.values()).filter((ticket) => ticket.initiativeId === id);
-    const relatedTicketIds = new Set(relatedTickets.map((ticket) => ticket.id));
-    const relatedRuns = Array.from(this.runs.values()).filter((run) => run.ticketId && relatedTicketIds.has(run.ticketId));
-
-    for (const run of relatedRuns) {
-      await this.deleteRun(run.id);
-    }
-
-    for (const ticket of relatedTickets) {
-      await this.deleteTicket(ticket.id);
-    }
-
-    await rm(dir, { recursive: true, force: true });
-    this.initiatives.delete(id);
-    // Remove associated specs from memory
-    for (const [key, spec] of this.specs) {
-      if (spec.initiativeId === id) this.specs.delete(key);
-    }
-    for (const [key, review] of this.planningReviews) {
-      if (review.initiativeId === id) this.planningReviews.delete(key);
-    }
-    for (const [key, pendingPlan] of this.pendingTicketPlans) {
-      if (pendingPlan.initiativeId === id) this.pendingTicketPlans.delete(key);
-    }
-    for (const [key, coverage] of this.ticketCoverageArtifacts) {
-      if (coverage.initiativeId === id) this.ticketCoverageArtifacts.delete(key);
-    }
-    for (const [key, trace] of this.artifactTraces) {
-      if (trace.initiativeId === id) this.artifactTraces.delete(key);
-    }
-    this.bumpRevision();
+    await deleteInitiativeRecord(
+      {
+        rootDir: this.rootDir,
+        initiatives: this.initiatives,
+        tickets: this.tickets,
+        runs: this.runs,
+        specs: this.specs,
+        planningReviews: this.planningReviews,
+        pendingTicketPlans: this.pendingTicketPlans,
+        ticketCoverageArtifacts: this.ticketCoverageArtifacts,
+        artifactTraces: this.artifactTraces,
+        deleteRun: (runId) => this.deleteRun(runId),
+        deleteTicket: (ticketId) => this.deleteTicket(ticketId),
+        bumpRevision: () => this.bumpRevision()
+      },
+      id
+    );
   }
 
   public async upsertTicket(ticket: Ticket): Promise<void> {
-    await writeYamlFile(ticketPath(this.rootDir, ticket.id), ticket);
-    this.tickets.set(ticket.id, ticket);
-    this.bumpRevision();
+    await upsertTicketRecord(
+      {
+        rootDir: this.rootDir,
+        tickets: this.tickets,
+        bumpRevision: () => this.bumpRevision()
+      },
+      ticket
+    );
   }
 
   public async deleteTicket(id: string): Promise<void> {
-    const { rm } = await import("node:fs/promises");
-    await rm(ticketPath(this.rootDir, id), { force: true });
-    this.tickets.delete(id);
-    this.bumpRevision();
+    await deleteTicketRecord(
+      {
+        rootDir: this.rootDir,
+        tickets: this.tickets,
+        bumpRevision: () => this.bumpRevision()
+      },
+      id
+    );
   }
 
   public async deleteRun(id: string): Promise<void> {
-    const { rm } = await import("node:fs/promises");
-    await rm(runDir(this.rootDir, id), { recursive: true, force: true });
-    this.runs.delete(id);
-    for (const key of Array.from(this.runAttempts.keys())) {
-      if (key.startsWith(`${id}:`)) {
-        this.runAttempts.delete(key);
-      }
-    }
-    this.bumpRevision();
+    await deleteRunRecord(
+      {
+        rootDir: this.rootDir,
+        runs: this.runs,
+        runAttempts: this.runAttempts,
+        bumpRevision: () => this.bumpRevision()
+      },
+      id
+    );
   }
 
   public async upsertRun(run: Run): Promise<void> {
-    await writeYamlFile(runYamlPath(this.rootDir, run.id), run);
-    this.runs.set(run.id, run);
-    this.bumpRevision();
+    await upsertRunRecord(
+      {
+        rootDir: this.rootDir,
+        runs: this.runs,
+        bumpRevision: () => this.bumpRevision()
+      },
+      run
+    );
   }
 
   private normalizeInitiative(
@@ -369,46 +323,23 @@ export class ArtifactStore {
   }
 
   public async upsertRunAttempt(runId: string, attempt: RunAttempt): Promise<void> {
-    const filePath = verificationPath(this.rootDir, runId, attempt.attemptId);
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFileAtomic(filePath, JSON.stringify(attempt, null, 2));
-    this.runAttempts.set(runAttemptKey(runId, attempt.attemptId), {
-      attemptId: attempt.attemptId,
-      overallPass: attempt.overallPass,
-      overrideReason: attempt.overrideReason,
-      overrideAccepted: attempt.overrideAccepted,
-      createdAt: attempt.createdAt
-    });
-    this.bumpRevision();
+    await upsertRunAttemptRecord(
+      {
+        rootDir: this.rootDir,
+        runAttempts: this.runAttempts,
+        bumpRevision: () => this.bumpRevision()
+      },
+      runId,
+      attempt
+    );
   }
 
   public async readRunAttempt(runId: string, attemptId: string): Promise<RunAttempt | null> {
-    try {
-      const raw = await readFile(verificationPath(this.rootDir, runId, attemptId), "utf8");
-      return JSON.parse(raw) as RunAttempt;
-    } catch {
-      return null;
-    }
+    return readRunAttemptRecord(this.rootDir, runId, attemptId);
   }
 
   public async readSpec(specId: string): Promise<SpecDocument | null> {
-    const summary = this.specs.get(specId);
-    if (!summary) {
-      return null;
-    }
-
-    try {
-      const content = await readFile(summary.sourcePath, "utf8");
-      const fileStat = await stat(summary.sourcePath);
-      return {
-        ...summary,
-        content,
-        createdAt: fileStat.birthtime.toISOString(),
-        updatedAt: fileStat.mtime.toISOString()
-      };
-    } catch {
-      return null;
-    }
+    return readSpecRecord(this.specs, specId);
   }
 
   public async readSpecMarkdown(specId: string): Promise<string> {
@@ -416,55 +347,69 @@ export class ArtifactStore {
   }
 
   public async upsertSpec(spec: SpecDocument): Promise<void> {
-    if (spec.type === "decision") {
-      const filePath = path.join(decisionsDir(this.rootDir), `${spec.id}.md`);
-      await writeFileAtomic(filePath, spec.content);
-    } else {
-      if (!spec.initiativeId) {
-        throw new Error("initiativeId is required for non-decision specs");
-      }
-
-      const fileName = specTypeToFileName(spec.type);
-      const filePath = path.join(initiativeDir(this.rootDir, spec.initiativeId), fileName);
-      await writeFileAtomic(filePath, spec.content);
-    }
-
-    await this.reloadFromDisk();
+    await upsertSpecRecord(
+      {
+        rootDir: this.rootDir,
+        reloadFromDisk: () => this.reloadFromDisk(),
+        bumpRevision: () => this.bumpRevision()
+      },
+      spec
+    );
   }
 
   public async upsertPlanningReview(review: PlanningReviewArtifact): Promise<void> {
-    const filePath = initiativeReviewPath(this.rootDir, review.initiativeId, review.kind);
-    await writeYamlFile(filePath, review);
-    this.planningReviews.set(review.id, review);
-    this.bumpRevision();
+    await upsertPlanningReviewRecord(
+      {
+        rootDir: this.rootDir,
+        planningReviews: this.planningReviews,
+        bumpRevision: () => this.bumpRevision()
+      },
+      review
+    );
   }
 
   public async upsertPendingTicketPlanArtifact(plan: PendingTicketPlanArtifact): Promise<void> {
-    const filePath = initiativePendingTicketPlanPath(this.rootDir, plan.initiativeId);
-    await writeYamlFile(filePath, plan);
-    this.pendingTicketPlans.set(plan.id, plan);
-    this.bumpRevision();
+    await upsertPendingTicketPlanRecord(
+      {
+        rootDir: this.rootDir,
+        pendingTicketPlans: this.pendingTicketPlans,
+        bumpRevision: () => this.bumpRevision()
+      },
+      plan
+    );
   }
 
   public async deletePendingTicketPlanArtifact(initiativeId: string): Promise<void> {
-    const { rm } = await import("node:fs/promises");
-    await rm(initiativePendingTicketPlanPath(this.rootDir, initiativeId), { force: true });
-    this.pendingTicketPlans.delete(`${initiativeId}:pending-ticket-plan`);
-    this.bumpRevision();
+    await deletePendingTicketPlanRecord(
+      {
+        rootDir: this.rootDir,
+        pendingTicketPlans: this.pendingTicketPlans,
+        bumpRevision: () => this.bumpRevision()
+      },
+      initiativeId
+    );
   }
 
   public async upsertTicketCoverageArtifact(coverage: TicketCoverageArtifact): Promise<void> {
-    const filePath = initiativeTicketCoveragePath(this.rootDir, coverage.initiativeId);
-    await writeYamlFile(filePath, coverage);
-    this.ticketCoverageArtifacts.set(coverage.id, coverage);
-    this.bumpRevision();
+    await upsertTicketCoverageRecord(
+      {
+        rootDir: this.rootDir,
+        ticketCoverageArtifacts: this.ticketCoverageArtifacts,
+        bumpRevision: () => this.bumpRevision()
+      },
+      coverage
+    );
   }
 
   public async upsertArtifactTrace(trace: ArtifactTraceOutline): Promise<void> {
-    const filePath = initiativeTracePath(this.rootDir, trace.initiativeId, trace.step);
-    await writeYamlFile(filePath, trace);
-    this.artifactTraces.set(trace.id, trace);
-    this.bumpRevision();
+    await upsertArtifactTraceRecord(
+      {
+        rootDir: this.rootDir,
+        artifactTraces: this.artifactTraces,
+        bumpRevision: () => this.bumpRevision()
+      },
+      trace
+    );
   }
 
   public async prepareRunOperation(input: PrepareOperationInput): Promise<OperationManifest> {
@@ -635,7 +580,8 @@ export class ArtifactStore {
     };
   }
 
-  private bumpRevision(): void {
+  private bumpRevision(): number {
     this.revision += 1;
+    return this.revision;
   }
 }
