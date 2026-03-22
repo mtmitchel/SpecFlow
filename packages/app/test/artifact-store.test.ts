@@ -205,8 +205,8 @@ describe("ArtifactStore", () => {
       id: "adr-1",
       initiativeId: null,
       type: "decision",
-      title: "Use Fastify",
-      content: "# Decision\nUse Fastify",
+      title: "Use desktop transport",
+      content: "# Decision\nUse desktop transport",
       sourcePath: "",
       createdAt: now,
       updatedAt: now
@@ -238,7 +238,7 @@ describe("ArtifactStore", () => {
     const decisionSummary = Array.from(reloaded.specs.values()).find((spec) => spec.type === "decision");
     expect(decisionSummary?.title).toContain("adr-1");
     const decision = await reloaded.readSpec("decision:adr-1");
-    expect(decision?.content).toContain("Use Fastify");
+    expect(decision?.content).toContain("Use desktop transport");
 
     await reloaded.close();
     await rm(rootDir, { recursive: true, force: true });
