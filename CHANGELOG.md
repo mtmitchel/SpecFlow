@@ -24,6 +24,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - After spec generation, user now lands on the review surface instead of auto-advancing to the next step
 - After validation passes with no follow-up questions, auto-navigates to tickets
 - Local refinement answers are preserved when follow-up questions arrive mid-survey
+- Validation survey renders immediately when questions exist instead of showing an intermediary summary card
+
+**Step transition reliability**
+- Fixed bounce-back when advancing between planning steps caused by stale auto-advance promises navigating after the user moved on
+- Fixed workflow normalization promoting artifact-inferred step status when a persisted locked status conflicts with a completed prerequisite
+- Stale auto-advance controllers are now cancelled when the user clicks Continue to advance
+- Plan generation timeout raised from 180s to 300s for plan and plan-repair jobs
+- Plan validation retry budget raised from 2 to 3 attempts to handle truncated LLM responses
 
 ### Changed
 

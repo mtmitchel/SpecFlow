@@ -1,140 +1,77 @@
 # Planning survey navigation redesign
 
+Status: **Implemented** (commits 084d715..0b188af on main)
+
 ## Problem
 
-The planning survey has three UX problems:
+The planning survey had five UX and reliability problems:
 
-1. **Redundant navigation buttons.** "Back" (previous step) and "Previous question" (previous question) appear side by side. They serve different scopes but look like peers, creating confusion.
+1. **Redundant navigation buttons.** "Back" (previous step) and "Previous question" (previous question) appeared side by side.
+2. **No review gate after spec generation.** After answering all questions, the system auto-advanced to the next step without letting the user read the generated document.
+3. **Validation did not auto-skip.** When validation passed with no follow-up questions, the user still saw a manual "Continue" screen.
+4. **Step transition bounce-back.** Navigating to the next step bounced the user back because a stale auto-advance promise completed after the user moved on, calling `navigateToStep` for the old step.
+5. **Validation intermediary card.** When validation had questions, an extra summary card appeared before the survey instead of launching directly into the questions.
 
-2. **No review gate after spec generation.** After answering all questions for a step (e.g., core flows), the system auto-generates the artifact and immediately navigates to the next step's questions. The user never reads the generated document before being pushed forward.
-
-3. **Validation does not auto-skip.** When validation passes with no follow-up questions, the user still sees a validation completed screen with a manual "Continue" button. If nothing needs attention, go straight to tickets.
-
-## Design
+## Implementation
 
 ### Change 1: Unified Back button
 
-Replace the two separate "Back" and "Previous question" buttons with a single "Back" button.
-
-**Logic (evaluated in order):**
-
-1. If there is a previous question in the current survey, navigate to that question.
-2. Else if there is a previous planning step, navigate to that step's review surface.
-3. Else the button is hidden (first question of the first step).
-
-This means on question 2+ the user walks backward through questions. Only after reaching question 1 and clicking "Back" again does it go to the previous step. The user cannot jump directly from an arbitrary question to the previous step -- they must walk back first.
-
 **File:** `packages/client/src/app/views/initiative/refinement-section.tsx`
 
-In the survey question action row (inside the `questionDeck && !showSurveyLoading && currentQuestion` branch), two adjacent conditional button blocks render "Back" (`onBackToPreviousStep`) and "Previous question" (`previousQuestionId`). Replace both with a single conditional:
-
-```tsx
-{previousQuestionId ? (
-  <button type="button" onClick={() => setOpenQuestionId(previousQuestionId)}>
-    Back
-  </button>
-) : onBackToPreviousStep ? (
-  <button type="button" onClick={() => onBackToPreviousStep()}>
-    Back
-  </button>
-) : null}
-```
-
-The "all questions answered" completion card also renders an `onBackToPreviousStep` button. That block has no `previousQuestionId` rendering, so it is unaffected by this change -- it stays as-is.
+Single "Back" button: if `previousQuestionId` exists, navigates to the previous question; else if `onBackToPreviousStep` exists, navigates to the previous step's review; else hidden.
 
 ### Change 2: Review gate after spec generation
 
-After generating a spec artifact, always navigate to the current step's review surface instead of auto-advancing to the next step.
-
-The review surface already exists. It renders the generated document with action buttons including "Continue to [next step]". The user reads the document and explicitly clicks to advance.
-
 **File:** `packages/client/src/app/views/initiative/planning-spec-section.tsx`
 
-The constant `shouldNavigateForwardAfterGeneration` (currently `!hasActiveContent`) controls whether survey completion and error-retry paths auto-advance. Change it to always be `false`:
+`shouldNavigateForwardAfterGeneration` changed to `false`. All five `beginAutoAdvance` call sites now use `navigateOnSuccess: false`. After generation, the user always lands on the current step's review surface. The existing "Continue to [next step]" button in the review surface is the explicit advance mechanism.
 
-```typescript
-// Before:
-const shouldNavigateForwardAfterGeneration = !hasActiveContent;
-
-// After:
-const shouldNavigateForwardAfterGeneration = false;
-```
-
-This covers the survey completion call at `handleCompleteSurvey` (which passes `navigateOnSuccess: shouldNavigateForwardAfterGeneration`) and the error-retry button for non-brief steps (which also reads `shouldNavigateForwardAfterGeneration`).
-
-Additionally, three other `beginAutoAdvance` calls pass `navigateOnSuccess: true` directly:
-
-| Call site | Context | Change |
-|-----------|---------|--------|
-| Brief auto-start effect (`shouldAutoStartBrief`) | `navigateOnSuccess: true` | Change to `false` |
-| Downstream entry generation effect (`shouldAutoGenerateAfterEntryCheck`) | `navigateOnSuccess: true` | Change to `false` |
-| Error-retry button for brief step | `navigateOnSuccess: true` | Change to `false` |
-
-After all five sites use `false`, `use-phase-auto-advance.ts` always takes the existing `navigateToStep(step, "review")` fallback path (present in both the draft and non-draft branches of `beginAutoAdvance`). No changes needed in that file.
-
-### Change 3: Validation auto-skip when no questions
-
-When validation runs and completes without producing follow-up questions, navigate directly to the tickets step instead of showing the validation completed view.
+### Change 3: Validation auto-skip
 
 **File:** `packages/client/src/app/views/initiative/use-initiative-planning-workspace.ts`
 
-In `handleGenerateTickets`, there are two success paths. Both need a `navigateToStep("tickets")` call after `onRefresh()`.
+`navigateToStep("tickets")` added after `onRefresh()` in both the `continueInitiativeValidation` non-ask path and the `generateInitiativePlan` success path inside `handleGenerateTickets`.
 
-**Path A -- `activeStep === "validation"` (continuation check):**
+### Change 4: Cancel stale auto-advance on step transition
 
-When `continueInitiativeValidation` returns `decision === "ask"`, the user stays on validation (questions appear after refresh). When `decision !== "ask"`, tickets have been generated. Add `navigateToStep("tickets")` before the return:
+**Files:** `planning-spec-section.tsx`, `use-phase-auto-advance.ts`
 
-```typescript
-if (result.decision === "ask") {
-  await onRefresh();
-  return;
-}
-await onRefresh();
-navigateToStep("tickets");
-return;
-```
+The "Continue" button in the review surface now calls `cancelAutoAdvance()` before `onAdvanceToNextStep()`, aborting the old step's pending LLM call. `beginAutoAdvance` checks `controller.signal.aborted` after every async boundary (`onRefresh`, `runPhaseGeneration`) and bails if the advance was cancelled. This prevents a completed LLM call from navigating back to a step the user already left.
 
-**Path B -- initial plan generation:**
+### Change 5: Validation survey renders immediately
 
-After `generateInitiativePlan` succeeds and `onRefresh()` completes, tickets have been generated. Add `navigateToStep("tickets")` inside the `try` block, after `await onRefresh()`:
+**File:** `packages/client/src/app/views/initiative/validation-section.tsx`
 
-```typescript
-try {
-  await generateInitiativePlan(initiative.id, { signal });
-  await onRefresh();
-  navigateToStep("tickets");
-} catch (error) {
-  // ... existing recovery logic unchanged
-}
-```
+The survey condition changed from `(reviewBlocked && hasQuestions)` to `hasQuestions`. The intermediary summary card (title, badges, description) above the survey was removed. When questions exist, the survey card renders directly.
 
-`navigateToStep` is already in scope inside the workspace hook (destructured from `useInitiativePlanningRoute`). The surface parameter is optional and tickets have no surface, so `navigateToStep("tickets")` is correct.
+### Change 6: Workflow normalization consistency
 
-**validation-section.tsx impact:** The validation survey's `handleCompleteSurvey` calls `onValidatePlan()` (which is `handleGenerateTickets`), then calls `setShowRevisionSurvey(false)`. After Change 3, `handleGenerateTickets` navigates away on success, so `setShowRevisionSurvey(false)` runs on an unmounting component. This is harmless (React does not error on state updates during unmount cleanup), but for clarity, the `setShowRevisionSurvey(false)` call can be moved before `onValidatePlan()` or guarded -- this is a minor cleanup, not a correctness issue.
+**File:** `packages/app/src/planner/workflow-state.ts`
 
-The completed/passed validation view with the manual "Continue" button becomes unreachable during normal flow. Cleanup is deferred.
+In `normalizeInitiativeWorkflow`, a persisted `"locked"` step status is promoted to the artifact-inferred status when the prerequisite step has already normalized to `"complete"`. This prevents the impossible `prerequisite-complete / downstream-locked` state caused by file-watcher reload races.
 
-## Scope
+### Change 7: LLM resilience
 
-- Client-side only. No backend changes.
-- No new components or files.
-- No CSS changes.
-- Three files modified: `refinement-section.tsx`, `planning-spec-section.tsx`, `use-initiative-planning-workspace.ts`.
+**Files:** `planner/internal/job-executor.ts`, `planner/internal/plan-generation-job.ts`
 
-## Testing
+- Plan and plan-repair job timeout raised from 180s to 300s
+- Plan validation retry budget raised from 2 to 3 attempts
+- Markdown heading sentence case auto-corrected instead of throwing (`normalizeMarkdownHeadingsSentenceCase`)
+- Brief heading mismatch auto-corrected instead of throwing
 
-**refinement-section.test.tsx:**
-- The test "keeps Back for the previous stage and uses a separate button for the previous question" asserts both "Back" and "Previous question" buttons appear simultaneously and have distinct click targets. This test must be rewritten to verify the unified behavior: on question 2, "Back" goes to question 1; on question 1, "Back" goes to the previous step's review.
+## Files modified
 
-**planning-spec-section.test.tsx:**
-- Tests that assert auto-navigation to the next step after generation must be updated to expect navigation to the current step's review surface.
-
-**initiative-view.test.tsx:**
-- Tests covering the auto-advance flow (e.g., "auto-continues into core flow questions after brief generation") must be updated to expect the user lands on the brief review surface instead.
-
-No new test files needed.
-
-## Out of scope
-
-- The sidecar timeout error visible in the second screenshot is unrelated to navigation flow.
-- Cleanup of now-unreachable validation completed view is deferred.
+| File | Changes |
+|------|---------|
+| `packages/client/src/app/views/initiative/refinement-section.tsx` | Unified Back button |
+| `packages/client/src/app/views/initiative/use-refinement-state.ts` | New file: extracted hook from refinement-section |
+| `packages/client/src/app/views/initiative/planning-spec-section.tsx` | Review gate, cancel auto-advance |
+| `packages/client/src/app/views/initiative/use-phase-auto-advance.ts` | Abort guard after async boundaries |
+| `packages/client/src/app/views/initiative/use-initiative-planning-workspace.ts` | Validation auto-skip, answer preservation |
+| `packages/client/src/app/views/initiative/validation-section.tsx` | Direct survey rendering |
+| `packages/client/src/app/views/initiative-view.tsx` | Wiring for onAdvanceToNextStep |
+| `packages/app/src/planner/workflow-state.ts` | Normalization consistency fix |
+| `packages/app/src/planner/internal/job-executor.ts` | Timeout increase |
+| `packages/app/src/planner/internal/plan-generation-job.ts` | Retry budget increase |
+| `packages/app/src/planner/internal/title-style.ts` | Sentence case normalize |
+| `packages/app/src/planner/internal/validators.ts` | Heading auto-correction |
