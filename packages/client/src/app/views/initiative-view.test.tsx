@@ -1014,13 +1014,19 @@ describe("InitiativeView", () => {
     });
   });
 
-  it("returns to the generated brief for review after brief generation completes", async () => {
+  it("auto-continues into core flow questions after brief generation completes", async () => {
     fetchSpecDetailMock.mockResolvedValue(briefSpec);
-    checkInitiativePhaseMock.mockResolvedValue({
-      decision: "proceed",
-      questions: [],
-      assumptions: []
-    });
+    checkInitiativePhaseMock
+      .mockResolvedValueOnce({
+        decision: "proceed",
+        questions: [],
+        assumptions: [],
+      })
+      .mockResolvedValueOnce({
+        decision: "ask",
+        questions: [coreFlowsQuestion],
+        assumptions: [],
+      });
     generateInitiativeBriefMock.mockResolvedValue({ reviews: [{ status: "passed" }] });
 
     render(
@@ -1028,7 +1034,12 @@ describe("InitiativeView", () => {
         <Routes>
           <Route
             path="/initiative/:id"
-            element={<StatefulHandoffRoute initialSnapshot={snapshot} refreshedSnapshot={briefCompleteSnapshot} />}
+            element={
+              <StatefulSequenceRoute
+                initialSnapshot={snapshot}
+                refreshedSnapshots={[briefCompleteSnapshot, coreFlowsQuestionSnapshot]}
+              />
+            }
           />
         </Routes>
       </MemoryRouter>
@@ -1038,12 +1049,12 @@ describe("InitiativeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(screen.getByText("A short summary.")).toBeInTheDocument();
+      expect(screen.getByText("What should the primary note flow feel like?")).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("Ready to draft the brief")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Brief" })).toHaveClass("pipeline-node-selected");
-    expect(screen.queryByRole("button", { name: "Core flows" })).not.toHaveClass("pipeline-node-selected");
+    expect(screen.getByText("?step=core-flows")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Core flows" })).toHaveClass("pipeline-node-selected");
+    expect(screen.queryByText("A short summary.")).not.toBeInTheDocument();
   });
 
   it("goes straight into core flow questions after entering the phase", async () => {
@@ -1154,7 +1165,7 @@ describe("InitiativeView", () => {
     }
   });
 
-  it("auto-generates core flows and lands on review after the last answer when no more questions are needed", async () => {
+  it("auto-generates core flows and continues into the next phase after the last answer", async () => {
     fetchSpecDetailMock.mockImplementation(async (specId: string) => (specId === coreFlowsSpec.id ? coreFlowsSpec : briefSpec));
     checkInitiativePhaseMock.mockResolvedValue({
       decision: "proceed",
@@ -1190,11 +1201,54 @@ describe("InitiativeView", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("?step=core-flows&surface=review")).toBeInTheDocument();
+      expect(screen.getByText("?step=prd")).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
-    expect(screen.getByText("Open into note capture.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "PRD" })).toHaveClass("pipeline-node-selected");
+    expect(screen.queryByText("Open into note capture.")).not.toBeInTheDocument();
+  });
+
+  it("auto-runs the saved brief intake on resume instead of parking on the answered summary", async () => {
+    fetchSpecDetailMock.mockResolvedValue(briefSpec);
+    checkInitiativePhaseMock
+      .mockResolvedValueOnce({
+        decision: "proceed",
+        questions: [],
+        assumptions: [],
+      })
+      .mockResolvedValueOnce({
+        decision: "ask",
+        questions: [coreFlowsQuestion],
+        assumptions: [],
+      });
+    generateInitiativeBriefMock.mockResolvedValue({ reviews: [{ status: "passed" }] });
+
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief&surface=questions`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={
+              <StatefulSequenceRoute
+                initialSnapshot={readyToDraftSnapshot}
+                refreshedSnapshots={[briefCompleteSnapshot, coreFlowsQuestionSnapshot]}
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(generateInitiativeBriefMock).toHaveBeenCalledWith(initiative.id, expect.anything());
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("What should the primary note flow feel like?")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("All questions are answered")).not.toBeInTheDocument();
+    expect(screen.getByText("?step=core-flows")).toBeInTheDocument();
   });
 
   it("re-checks validation-backed artifact questions before regenerating tickets", async () => {

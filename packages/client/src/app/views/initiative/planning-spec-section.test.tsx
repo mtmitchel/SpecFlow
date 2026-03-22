@@ -153,6 +153,107 @@ describe("PlanningSpecSection", () => {
     });
   });
 
+  it("auto-continues a completed pre-artifact survey instead of stopping on the answered summary", async () => {
+    const navigateToStep = vi.fn();
+    const flushRefinementPersistence = vi.fn().mockResolvedValue(true);
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+
+    checkInitiativePhaseMock.mockResolvedValue({
+      decision: "proceed",
+      questions: [],
+      assumptions: [],
+    });
+    generateInitiativeTechSpecMock.mockResolvedValue({
+      markdown: "# Tech spec",
+      reviews: [],
+    });
+
+    render(
+      <ToastProvider>
+        <PlanningSpecSection
+          initiativeId="initiative-1"
+          initiativeTitle="Simple desktop notes"
+          activeSpecStep="tech-spec"
+          activeSurface="questions"
+          activeRefinement={{
+            questions: [],
+            history: [
+              {
+                id: "tech-architecture",
+                label: "Which application architecture should v1 use?",
+                type: "select",
+                whyThisBlocks: "The tech spec needs one architecture before implementation can be drafted.",
+                affectedArtifact: "tech-spec",
+                decisionType: "architecture",
+                assumptionIfUnanswered: "Use the current app architecture.",
+                options: ["Tauri", "Native GTK"],
+                optionHelp: {
+                  Tauri: "Keeps the existing web UI and desktop shell split.",
+                  "Native GTK": "Moves the app to a native widget stack.",
+                },
+                recommendedOption: "Tauri",
+                allowCustomAnswer: false,
+              },
+            ],
+            answers: {
+              "tech-architecture": "Tauri",
+            },
+            defaultAnswerQuestionIds: [],
+            baseAssumptions: [],
+            checkedAt: "2026-03-19T09:00:00.000Z",
+          }}
+          busyAction={null}
+          isBusy={false}
+          isDeletingInitiative={false}
+          hasActiveContent={false}
+          hasPhaseSpecificRefinementDecisions
+          unresolvedQuestionCount={0}
+          nextStep="validation"
+          nextStepActionLabel="Continue"
+          handlePhaseCheckResult={vi.fn()}
+          flushRefinementPersistence={flushRefinementPersistence}
+          refinementAnswers={{ "tech-architecture": "Tauri" }}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="saved"
+          guidanceQuestionId={null}
+          guidanceText={null}
+          savedDrafts={{
+            brief: "",
+            "core-flows": "",
+            prd: "",
+            "tech-spec": "",
+          }}
+          autoQuestionLoadStep={null}
+          autoQuestionLoadFailedStep={null}
+          onRefresh={onRefresh}
+          navigateToStep={navigateToStep}
+          setActiveSurface={vi.fn()}
+          handleCheckAndAdvance={vi.fn().mockResolvedValue("completed")}
+          onAdvanceToNextStep={vi.fn()}
+          handleRequestGuidance={vi.fn()}
+          updateRefinementAnswer={vi.fn()}
+          deferRefinementQuestion={vi.fn()}
+          openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
+          renderSaveState={() => <span>Saved</span>}
+        />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(flushRefinementPersistence).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(generateInitiativeTechSpecMock).toHaveBeenCalledWith("initiative-1", expect.anything());
+    });
+
+    await waitFor(() => {
+      expect(navigateToStep).toHaveBeenCalledWith("validation");
+    });
+  });
+
   it("shows a handoff loading state instead of rendering a blank column while the next step is preparing", () => {
     render(
       <ToastProvider>

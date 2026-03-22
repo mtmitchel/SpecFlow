@@ -163,6 +163,7 @@ export const PlanningSpecSection = ({
     !hasRevisableQuestions &&
     !hasPhaseSpecificRefinementDecisions &&
     Boolean(refinementCheckedAt);
+  const shouldNavigateForwardAfterGeneration = !hasActiveContent;
 
   useEffect(() => {
     if (
@@ -188,7 +189,7 @@ export const PlanningSpecSection = ({
     }
 
     void beginAutoAdvance("brief", {
-      navigateOnSuccess: false,
+      navigateOnSuccess: true,
     });
   }, [
     autoAdvanceFailedStep,
@@ -214,7 +215,10 @@ export const PlanningSpecSection = ({
     }
 
     downstreamEntryGenerationRef.current = activeSpecStep;
-    void beginAutoAdvance(activeSpecStep, { skipCheck: true });
+    void beginAutoAdvance(activeSpecStep, {
+      navigateOnSuccess: true,
+      skipCheck: true,
+    });
   }, [
     activeSpecStep,
     autoAdvanceStep,
@@ -260,6 +264,17 @@ export const PlanningSpecSection = ({
 
     openRefinementDrawer(activeSpecStep);
     void handleCheckAndAdvance(activeSpecStep);
+  };
+  const handleCompleteSurvey = () => {
+    void flushRefinementPersistence().then((persisted) => {
+      if (!persisted) {
+        return;
+      }
+
+      void beginAutoAdvance(activeSpecStep, {
+        navigateOnSuccess: shouldNavigateForwardAfterGeneration,
+      });
+    });
   };
   const loadingStateLabel = loadingStateCopy?.title ?? null;
   const loadingStateBody = loadingStateCopy?.body ?? null;
@@ -416,6 +431,7 @@ export const PlanningSpecSection = ({
               loadingStateLabel={loadingStateLabel}
               loadingStateBody={loadingStateBody}
               variant="survey"
+              autoCompleteResolvedSurvey={activeSurface === "questions"}
               surveyCompleteLabel={
                 generationFailed
                   ? `Generate ${label.toLowerCase()}`
@@ -424,17 +440,7 @@ export const PlanningSpecSection = ({
                     : "Continue"
               }
               onBackToPreviousStep={previousStep ? navigateToPreviousStage : undefined}
-              onCompleteSurvey={() => {
-                void flushRefinementPersistence().then((persisted) => {
-                  if (!persisted) {
-                    return;
-                  }
-
-                  void beginAutoAdvance(activeSpecStep, {
-                    navigateOnSuccess: false,
-                  });
-                });
-              }}
+              onCompleteSurvey={handleCompleteSurvey}
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
               onAnswerLater={deferRefinementQuestion}
@@ -459,14 +465,17 @@ export const PlanningSpecSection = ({
                 onClick={() => {
                   if (activeSpecStep === "brief") {
                     void beginAutoAdvance("brief", {
-                      navigateOnSuccess: false,
+                      navigateOnSuccess: true,
                       skipCheck: generationFailed,
                     });
                     return;
                   }
 
                   if (generationFailed) {
-                    void beginAutoAdvance(activeSpecStep, { skipCheck: true });
+                    void beginAutoAdvance(activeSpecStep, {
+                      navigateOnSuccess: shouldNavigateForwardAfterGeneration,
+                      skipCheck: true,
+                    });
                     return;
                   }
 
@@ -551,17 +560,7 @@ export const PlanningSpecSection = ({
                     : `Update ${label.toLowerCase()}`
               }
               onBackToPreviousStep={previousStep ? navigateToPreviousStage : undefined}
-              onCompleteSurvey={() => {
-                void flushRefinementPersistence().then((persisted) => {
-                  if (!persisted) {
-                    return;
-                  }
-
-                  void beginAutoAdvance(activeSpecStep, {
-                    navigateOnSuccess: false,
-                  });
-                });
-              }}
+              onCompleteSurvey={handleCompleteSurvey}
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
               onAnswerLater={deferRefinementQuestion}

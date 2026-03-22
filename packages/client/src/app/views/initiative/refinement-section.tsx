@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type {
   InitiativePlanningQuestion,
   InitiativePlanningStep,
@@ -64,6 +64,7 @@ interface RefinementSectionProps {
   leadingStepCount?: number;
   surveyResumeKey?: number;
   surveyCompleteLabel?: string;
+  autoCompleteResolvedSurvey?: boolean;
   onBackToPreviousStep?: () => void;
   onCompleteSurvey?: () => void | Promise<void>;
   onRequestGuidance: (questionId: string) => void | Promise<void>;
@@ -90,6 +91,7 @@ export const RefinementSection = ({
   leadingStepCount = 0,
   surveyResumeKey = 0,
   surveyCompleteLabel = "Continue",
+  autoCompleteResolvedSurvey = false,
   onBackToPreviousStep,
   onCompleteSurvey,
   onRequestGuidance,
@@ -168,6 +170,7 @@ export const RefinementSection = ({
   const [openQuestionId, setOpenQuestionId] = useState<string | null>(() =>
     initialOpenQuestionId,
   );
+  const autoCompletedResolvedSurveyRef = useRef<string | null>(null);
   const survey = variant === "survey";
   const showSurveyLoading = questionDeck && Boolean(loadingStateLabel);
 
@@ -255,6 +258,37 @@ export const RefinementSection = ({
       : null;
   const completionReviewQuestionId = questionIds[questionIds.length - 1] ?? null;
   const backButtonLabel = "Back";
+  const shouldAutoCompleteResolvedSurvey =
+    autoCompleteResolvedSurvey &&
+    questionDeck &&
+    !showSurveyLoading &&
+    openQuestionId === null &&
+    locallyUnresolvedQuestionCount === 0 &&
+    visibleQuestions.length > 0 &&
+    Boolean(onCompleteSurvey);
+  const autoCompleteResolvedSurveyKey = shouldAutoCompleteResolvedSurvey
+    ? JSON.stringify({
+        step: activeSpecStep,
+        questionIds,
+        answers: effectiveRefinementAnswers,
+        defaultAnswerQuestionIds: effectiveDefaultAnswerQuestionIds,
+        surveyResumeKey,
+      })
+    : null;
+
+  useEffect(() => {
+    if (!autoCompleteResolvedSurveyKey) {
+      autoCompletedResolvedSurveyRef.current = null;
+      return;
+    }
+
+    if (autoCompletedResolvedSurveyRef.current === autoCompleteResolvedSurveyKey) {
+      return;
+    }
+
+    autoCompletedResolvedSurveyRef.current = autoCompleteResolvedSurveyKey;
+    void onCompleteSurvey?.();
+  }, [autoCompleteResolvedSurveyKey, onCompleteSurvey]);
 
   const renderReopenedQuestionContext = (
     question: InitiativePlanningQuestion,
