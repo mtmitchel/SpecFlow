@@ -12,6 +12,28 @@ import { DiffEngine } from "../src/verify/diff-engine.js";
 import { VerifierService } from "../src/verify/verifier-service.js";
 
 const now = "2026-02-27T20:00:00.000Z";
+const GIT_REPOSITORY_ENV_KEYS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_PREFIX",
+  "GIT_SUPER_PREFIX",
+] as const;
+
+const createIsolatedGitEnv = (): NodeJS.ProcessEnv => {
+  const env = { ...process.env };
+  for (const key of GIT_REPOSITORY_ENV_KEYS) {
+    delete env[key];
+  }
+
+  return env;
+};
+
+const runGit = (cwd: string, args: string[], stdio?: "ignore") =>
+  execFileSync("git", args, { cwd, stdio, env: createIsolatedGitEnv() });
 
 const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   await mkdir(path.join(rootDir, "specflow", "initiatives"), { recursive: true });
@@ -61,7 +83,7 @@ class MockLlmClient implements LlmClient {
 const canSpawnGit = (): boolean => {
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "specflow-git-check-"));
   try {
-    execFileSync("git", ["init"], { cwd: tempDir, stdio: "ignore" });
+    runGit(tempDir, ["init"], "ignore");
     return true;
   } catch {
     return false;
@@ -78,11 +100,11 @@ describe("DiffEngine", () => {
     await writeFile(path.join(rootDir, "src", "app.ts"), "export const value = 1;\n", "utf8");
 
     try {
-      execFileSync("git", ["init"], { cwd: rootDir });
-      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: rootDir });
-      execFileSync("git", ["config", "user.name", "Tester"], { cwd: rootDir });
-      execFileSync("git", ["add", "."], { cwd: rootDir });
-      execFileSync("git", ["commit", "-m", "init"], { cwd: rootDir });
+      runGit(rootDir, ["init"]);
+      runGit(rootDir, ["config", "user.email", "test@example.com"]);
+      runGit(rootDir, ["config", "user.name", "Tester"]);
+      runGit(rootDir, ["add", "."]);
+      runGit(rootDir, ["commit", "-m", "init"]);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EPERM") {
         await rm(rootDir, { recursive: true, force: true });
