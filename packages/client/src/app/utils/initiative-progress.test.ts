@@ -177,7 +177,7 @@ describe("getInitiativeProgressModel", () => {
     );
   });
 
-  it("restores the questions surface when a completed step last stayed in planning questions", () => {
+  it("restores the review surface when a completed step has a saved artifact", () => {
     const initiative: Initiative = {
       ...baseInitiative,
       workflow: {
@@ -226,7 +226,7 @@ describe("getInitiativeProgressModel", () => {
     const progress = getInitiativeProgressModel(initiative, snapshot);
 
     expect(getInitiativeResumeHref(initiative, progress, snapshot)).toBe(
-      `/initiative/${initiative.id}?step=brief&surface=questions`,
+      `/initiative/${initiative.id}?step=brief&surface=review`,
     );
   });
 

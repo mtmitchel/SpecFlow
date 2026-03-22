@@ -189,7 +189,7 @@ describe("InitiativeRouteView planning surfaces", () => {
     expect(screen.getByText("A short summary.")).toBeInTheDocument();
   });
 
-  it("restores a bare initiative route to questions when that step last stayed on questions", async () => {
+  it("restores a bare initiative route to review when that step already has a document", async () => {
     fetchSpecDetailMock.mockResolvedValueOnce(briefSpecDetail);
 
     renderRoute(
@@ -216,11 +216,11 @@ describe("InitiativeRouteView planning surfaces", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
-        `/initiative/${initiative.id}?step=brief&surface=questions`,
+        `/initiative/${initiative.id}?step=brief&surface=review`,
       );
     });
 
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("A short summary.")).toBeInTheDocument();
   });
 
   it("reopens the question surface from review through the explicit revise action", async () => {
@@ -282,7 +282,7 @@ describe("InitiativeRouteView planning surfaces", () => {
       );
     });
 
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("All questions are answered")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeInTheDocument();
   });
 

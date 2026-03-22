@@ -151,8 +151,8 @@ describe("ValidationSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
 
-    expect(screen.getByText("Step 1 of 1")).toBeInTheDocument();
-    expect(screen.getByText(validationQuestion.label)).toBeInTheDocument();
+    expect(screen.getByText("All questions are answered")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review answers" })).toBeInTheDocument();
   });
 
   it("keeps revise answers available when completed validation only has saved decisions", () => {

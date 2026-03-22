@@ -96,19 +96,59 @@ export const RefinementSection = ({
   onAnswerChange,
   onAnswerLater
 }: RefinementSectionProps) => {
+  const compact = variant !== "full";
+  const questionDeck = variant === "survey" || variant === "compact";
   const visibleQuestions = useMemo(
     () => buildVisibleQuestions(activeRefinement),
     [activeRefinement],
   );
+  const locallyTouchedQuestionIds = useMemo(
+    () =>
+      new Set([
+        ...Object.keys(refinementAnswers),
+        ...defaultAnswerQuestionIds,
+      ]),
+    [defaultAnswerQuestionIds, refinementAnswers],
+  );
+  const effectiveRefinementAnswers = useMemo(
+    () =>
+      locallyTouchedQuestionIds.size === 0
+        ? activeRefinement.answers
+        : {
+            ...activeRefinement.answers,
+            ...refinementAnswers,
+          },
+    [activeRefinement.answers, locallyTouchedQuestionIds.size, refinementAnswers],
+  );
+  const effectiveDefaultAnswerQuestionIds = useMemo(() => {
+    if (locallyTouchedQuestionIds.size === 0) {
+      return activeRefinement.defaultAnswerQuestionIds;
+    }
+
+    return [
+      ...activeRefinement.defaultAnswerQuestionIds.filter(
+        (questionId) => !locallyTouchedQuestionIds.has(questionId),
+      ),
+      ...defaultAnswerQuestionIds,
+    ];
+  }, [
+    activeRefinement.defaultAnswerQuestionIds,
+    defaultAnswerQuestionIds,
+    locallyTouchedQuestionIds,
+  ]);
   const locallyUnresolvedQuestionIds = useMemo(() => new Set(
     visibleQuestions
       .filter(
         (question) =>
-          !isQuestionAnswered(refinementAnswers[question.id]) &&
-          !defaultAnswerQuestionIds.includes(question.id),
+          !isQuestionAnswered(effectiveRefinementAnswers[question.id]) &&
+          !effectiveDefaultAnswerQuestionIds.includes(question.id),
       )
       .map((question) => question.id),
-  ), [defaultAnswerQuestionIds, refinementAnswers, visibleQuestions]);
+  ), [
+    effectiveDefaultAnswerQuestionIds,
+    effectiveRefinementAnswers,
+    visibleQuestions,
+  ]);
   const locallyUnresolvedQuestionCount = locallyUnresolvedQuestionIds.size;
   const visibleRefinement = useMemo<InitiativeRefinementState>(
     () => ({
@@ -117,11 +157,17 @@ export const RefinementSection = ({
     }),
     [activeRefinement, visibleQuestions],
   );
+  const initialOpenQuestionId =
+    questionDeck && locallyUnresolvedQuestionCount === 0
+      ? null
+      : getFirstOpenQuestionId(
+          visibleRefinement,
+          effectiveRefinementAnswers,
+          effectiveDefaultAnswerQuestionIds,
+        );
   const [openQuestionId, setOpenQuestionId] = useState<string | null>(() =>
-    getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds),
+    initialOpenQuestionId,
   );
-  const compact = variant !== "full";
-  const questionDeck = variant === "survey" || variant === "compact";
   const survey = variant === "survey";
   const showSurveyLoading = questionDeck && Boolean(loadingStateLabel);
 
@@ -134,7 +180,11 @@ export const RefinementSection = ({
   useEffect(() => {
     if (openQuestionId === null) {
       if (questionDeck && locallyUnresolvedQuestionCount > 0) {
-        setOpenQuestionId(getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
+        setOpenQuestionId(getFirstOpenQuestionId(
+          visibleRefinement,
+          effectiveRefinementAnswers,
+          effectiveDefaultAnswerQuestionIds,
+        ));
       }
       return;
     }
@@ -144,16 +194,43 @@ export const RefinementSection = ({
       return;
     }
 
-    setOpenQuestionId(getFirstOpenQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
-  }, [defaultAnswerQuestionIds, locallyUnresolvedQuestionCount, openQuestionId, questionDeck, refinementAnswers, visibleQuestions, visibleRefinement]);
+    setOpenQuestionId(getFirstOpenQuestionId(
+      visibleRefinement,
+      effectiveRefinementAnswers,
+      effectiveDefaultAnswerQuestionIds,
+    ));
+  }, [
+    effectiveDefaultAnswerQuestionIds,
+    effectiveRefinementAnswers,
+    locallyUnresolvedQuestionCount,
+    openQuestionId,
+    questionDeck,
+    visibleQuestions,
+    visibleRefinement,
+  ]);
 
   useEffect(() => {
     if (!survey || surveyResumeKey === 0) {
       return;
     }
 
-    setOpenQuestionId(getResumeQuestionId(visibleRefinement, refinementAnswers, defaultAnswerQuestionIds));
-  }, [defaultAnswerQuestionIds, refinementAnswers, survey, surveyResumeKey, visibleRefinement]);
+    setOpenQuestionId(
+      locallyUnresolvedQuestionCount > 0
+        ? getResumeQuestionId(
+            visibleRefinement,
+            effectiveRefinementAnswers,
+            effectiveDefaultAnswerQuestionIds,
+          )
+        : null,
+    );
+  }, [
+    effectiveDefaultAnswerQuestionIds,
+    effectiveRefinementAnswers,
+    locallyUnresolvedQuestionCount,
+    survey,
+    surveyResumeKey,
+    visibleRefinement,
+  ]);
 
   const questionIds = useMemo(
     () => visibleQuestions.map((question) => question.id),
@@ -287,8 +364,13 @@ export const RefinementSection = ({
         <div className="planning-intake-question-list">
           {visibleQuestions.map((question, index) => {
             const usingDefault =
-              defaultAnswerQuestionIds.includes(question.id) && !isQuestionAnswered(refinementAnswers[question.id]);
-            const preview = getAnswerPreview(question, refinementAnswers[question.id], usingDefault);
+              effectiveDefaultAnswerQuestionIds.includes(question.id) &&
+              !isQuestionAnswered(effectiveRefinementAnswers[question.id]);
+            const preview = getAnswerPreview(
+              question,
+              effectiveRefinementAnswers[question.id],
+              usingDefault,
+            );
             const resolved = Boolean(preview);
             const open = openQuestionId === question.id;
             const questionIndex = questionIds.indexOf(question.id);
@@ -329,7 +411,7 @@ export const RefinementSection = ({
                     {renderReopenedQuestionContext(question)}
                     <RefinementField
                       question={question}
-                      value={refinementAnswers[question.id]}
+                      value={effectiveRefinementAnswers[question.id]}
                       onChange={(nextValue) => onAnswerChange(question.id, nextValue)}
                     />
 
@@ -393,7 +475,7 @@ export const RefinementSection = ({
           {renderReopenedQuestionContext(currentQuestion, "survey")}
           <RefinementField
             question={currentQuestion}
-            value={refinementAnswers[currentQuestion.id]}
+            value={effectiveRefinementAnswers[currentQuestion.id]}
             onChange={(nextValue) => onAnswerChange(currentQuestion.id, nextValue)}
           />
 
@@ -433,8 +515,8 @@ export const RefinementSection = ({
               className="btn-primary"
               disabled={
                 isBusy ||
-                !defaultAnswerQuestionIds.includes(currentQuestion.id) &&
-                !isQuestionAnswered(refinementAnswers[currentQuestion.id])
+                !effectiveDefaultAnswerQuestionIds.includes(currentQuestion.id) &&
+                !isQuestionAnswered(effectiveRefinementAnswers[currentQuestion.id])
               }
               onClick={() => {
                 if (nextQuestionId) {

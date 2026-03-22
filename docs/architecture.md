@@ -384,7 +384,7 @@ host: string                 # default 127.0.0.1
 repoInstructionFile: string  # default specflow/AGENTS.md
 ```
 
-Provider secrets are stored separately in repo-root `.env`. Settings writes use a dedicated secret-save path (`config.saveProviderKey` / `PUT /api/config/provider-key`) that updates `.env`, refreshes `process.env`, and never returns the raw key. Legacy `apiKey` fields found in `specflow/config.yaml` are auto-migrated into `.env` and scrubbed on startup.
+Provider secrets are stored separately in repo-root `.env`. Settings writes use the desktop sidecar config handlers (`config.save` and `config.saveProviderKey`) to update `.env`, refresh `process.env`, and keep the raw key out of runtime responses. Legacy `apiKey` fields found in `specflow/config.yaml` are auto-migrated into `.env` and scrubbed on startup.
 
 **BundleManifest**
 ```yaml

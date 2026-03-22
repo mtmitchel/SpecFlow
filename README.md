@@ -56,7 +56,7 @@ npm run lint
 npm run check
 npm test
 npm run package:desktop
-npm run package:web
+npm run build:desktop-runtime
 npm run package:sidecar
 npm run ui
 ```
@@ -65,6 +65,7 @@ npm run ui
 `npm run lint` runs the shared ESLint baseline for TypeScript, React Hooks, and general correctness issues.
 `npm run check` now runs lint, both TypeScript checks, and the UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
 `npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.
+`npm run build:desktop-runtime` builds the client and Node sidecar payload that desktop packaging consumes.
 `npm run package:desktop` is the explicit packaging command for an unsigned native desktop bundle. It is not part of the normal development loop.
 
 Direct CLI commands during development:

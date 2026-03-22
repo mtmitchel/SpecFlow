@@ -96,7 +96,6 @@ describe("RefinementSection", () => {
         busyAction={null}
         isBusy={false}
         saveStateIndicator={null}
-        variant="survey"
         onRequestGuidance={vi.fn()}
         onAnswerChange={vi.fn()}
         onAnswerLater={vi.fn()}
@@ -199,7 +198,7 @@ describe("RefinementSection", () => {
             },
           ],
         }}
-        refinementAnswers={{}}
+        refinementAnswers={{ "brief-problem": "Capture something quickly" }}
         defaultAnswerQuestionIds={[]}
         refinementAssumptions={[]}
         refinementSaveState="idle"
@@ -209,7 +208,6 @@ describe("RefinementSection", () => {
         busyAction={null}
         isBusy={false}
         saveStateIndicator={null}
-        variant="survey"
         onRequestGuidance={vi.fn()}
         onAnswerChange={vi.fn()}
         onAnswerLater={vi.fn()}

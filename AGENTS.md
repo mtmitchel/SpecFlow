@@ -212,7 +212,7 @@ Do not swallow errors. Every error path must either surface to the caller, log w
 - Markdown docs should use concise sections with clear scope boundaries.
 - File names use kebab-case unless framework conventions require otherwise.
 - Do not annotate React component return types with `: JSX.Element`. TypeScript infers them correctly and the global `JSX` namespace was removed in `@types/react@19`.
-- Use `ConfigSavePayload` from `types.ts` when sending config to `PUT /api/config`. Use `Config` for reading.
+- Use `ConfigSavePayload` from `types.ts` when sending config to `config.save`. Use `Config` for reading.
 - `AgentTarget` is the canonical type for agent selection (`"claude-code" | "codex-cli" | "opencode" | "generic"`). Import it from `../types` rather than re-declaring it locally.
 
 ## 7. CSS Design System
@@ -286,7 +286,7 @@ When adding routes that accept entity IDs or file paths, validate before constru
 
 ### API key handling
 
-The server redacts `apiKey` from all API responses. Clients receive `hasApiKey: boolean` instead. The raw key is only ever sent from client to server on `PUT /api/config` via `ConfigSavePayload`. Never include the raw key in any API response, log line, or error message.
+The server redacts `apiKey` from all API responses. Clients receive `hasApiKey: boolean` instead. The raw key is only ever sent from client to server through the desktop `config.save` path via `ConfigSavePayload`. Never include the raw key in any API response, log line, or error message.
 
 ### Secrets
 

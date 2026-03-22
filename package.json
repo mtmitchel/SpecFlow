@@ -6,8 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "package:desktop": "npm run package:web && npm run package:sidecar && npm run -w @specflow/tauri build",
-    "package:web": "npm run -w @specflow/client build && npm run -w @specflow/app build",
+    "package:desktop": "npm run build:desktop-runtime && npm run package:sidecar && npm run -w @specflow/tauri build",
+    "build:desktop-runtime": "npm run -w @specflow/client build && npm run -w @specflow/app build",
     "package:sidecar": "TARGET=$(rustc -vV | sed -n 's/^host: //p') && mkdir -p packages/app/dist-sidecar && caxa --input . --output packages/app/dist-sidecar/specflow-sidecar-$TARGET -- '{{caxa}}/node_modules/.bin/node' '{{caxa}}/packages/app/dist/sidecar.js'",
     "lint": "eslint .",
     "check": "npm run lint && tsc -p packages/app/tsconfig.json --noEmit && tsc -p packages/client/tsconfig.json --noEmit && npm run check:ui-dedupe",

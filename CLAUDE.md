@@ -145,7 +145,7 @@ If the refactor would touch more than 3 files, wait for confirmation before exec
 - Shared TypeScript types live in `packages/app/src/types/`. Do not duplicate cross-package shapes.
 - Use `.js` extensions in imports inside `packages/app` source.
 - Do not annotate React component return types with `: JSX.Element`.
-- Use `ConfigSavePayload` for `PUT /api/config` writes and `Config` for reads.
+- Use `ConfigSavePayload` for `config.save` writes and `Config` for reads.
 - `AgentTarget` is the canonical agent-selection type. Import it from shared types instead of re-declaring it.
 - `Ticket` requires both `blockedBy: string[]` and `blocks: string[]`.
 

@@ -1360,9 +1360,27 @@ describe("InitiativeView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
 
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(await screen.findByText("All questions are answered")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Regenerate brief" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit text" })).not.toBeInTheDocument();
+  });
+
+  it("shows the answered survey summary instead of resetting to the first question", async () => {
+    render(
+      <MemoryRouter initialEntries={[`/initiative/${initiative.id}?step=brief&surface=questions`]}>
+        <Routes>
+          <Route
+            path="/initiative/:id"
+            element={<InitiativeRouteView snapshot={briefReviewSnapshot} onRefresh={vi.fn(async () => undefined)} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("All questions are answered")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "What primary problem should v1 solve?" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps blocked brief work in the clarification flow instead of dumping review findings into the page", async () => {

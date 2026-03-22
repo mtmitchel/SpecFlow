@@ -83,17 +83,27 @@ export const getInitiativePlanningSurface = (
     (refinement?.questions.length ?? 0) > 0 ||
     (refinement?.history?.length ?? 0) > 0;
   const defaultSurface: InitiativePlanningSurface = hasArtifact ? "review" : "questions";
-  const resolvedSurface = preferredSurface ?? getStoredInitiativePlanningSurface(initiative, step);
+  const requestedSurface = preferredSurface ?? null;
+  const storedSurface =
+    preferredSurface === undefined
+      ? getStoredInitiativePlanningSurface(initiative, step)
+      : null;
 
-  if (!resolvedSurface) {
-    return defaultSurface;
-  }
-
-  if (resolvedSurface === "review" && hasArtifact) {
+  if (requestedSurface === "review" && hasArtifact) {
     return "review";
   }
 
-  if (resolvedSurface === "questions" && canOpenQuestions) {
+  if (requestedSurface === "questions" && canOpenQuestions) {
+    return "questions";
+  }
+
+  // Completed artifact steps always reopen in review by default. The question
+  // surface remains available only through an explicit route or revise action.
+  if (hasArtifact) {
+    return "review";
+  }
+
+  if (storedSurface === "questions" && canOpenQuestions) {
     return "questions";
   }
 
