@@ -127,10 +127,19 @@ export const normalizeInitiativeWorkflow = (
   for (const step of PLANNING_STEPS) {
     const current = workflow.steps?.[step];
     const fallback = normalized.steps[step];
+    const prerequisite = getPrerequisitePlanningStep(step);
+    const prerequisiteComplete = prerequisite
+      ? normalized.steps[prerequisite].status === "complete"
+      : false;
+
     normalized.steps[step] = {
       status:
         current && VALID_STEP_STATUS.has(current.status)
-          ? current.status
+          ? current.status === "locked" &&
+            fallback.status !== "locked" &&
+            prerequisiteComplete
+            ? fallback.status
+            : current.status
           : fallback.status,
       updatedAt: current?.updatedAt ?? fallback.updatedAt
     };
