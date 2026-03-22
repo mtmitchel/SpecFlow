@@ -302,6 +302,12 @@ describe("InitiativeRouteView planning surfaces", () => {
           validation: { status: "complete", updatedAt: "2026-03-16T12:50:00.000Z" },
           tickets: { status: "ready", updatedAt: "2026-03-16T13:00:00.000Z" },
         },
+        refinements: {
+          brief: { questions: [], history: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: "2026-03-16T12:05:00.000Z" },
+          "core-flows": { questions: [], history: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
+          prd: { questions: [], history: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
+          "tech-spec": { questions: [], history: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: null },
+        },
       },
     };
 

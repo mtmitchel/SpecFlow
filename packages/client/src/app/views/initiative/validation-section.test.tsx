@@ -99,7 +99,7 @@ describe("ValidationSection", () => {
     renderSection();
 
     expect(screen.getByText(validationQuestion.label)).toBeInTheDocument();
-    expect(screen.getByText("1 question")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 1")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Accept risk" })).not.toBeInTheDocument();
   });
 

@@ -319,21 +319,9 @@ export const ValidationSection = ({
     );
   }
 
-  if (((reviewBlocked && hasQuestions) || showRevisionSurvey) && surveyRefinement) {
+  if ((hasQuestions || showRevisionSurvey) && surveyRefinement) {
     return (
       <div className="planning-step-column planning-step-column-narrow">
-        <div className="planning-validation-summary planning-section-card">
-          <div className="planning-document-card-header">
-            <div className="planning-validation-heading">
-              <h3 className="planning-document-card-title">{fallbackPrompt.title}</h3>
-              <div className="planning-validation-badges">
-                <span className={validationBadgeClass}>{validationBadgeLabel}</span>
-                {questionBadgeLabel ? <span className="badge badge--verify">{questionBadgeLabel}</span> : null}
-              </div>
-            </div>
-          </div>
-          <p className="planning-validation-copy">{fallbackPrompt.body}</p>
-        </div>
         <RefinementSection
           activeSpecStep="validation"
           activeRefinement={surveyRefinement}
