@@ -120,7 +120,7 @@ export const PlanningSpecSection = ({
     autoAdvanceStep,
     autoAdvanceFailedStep,
     beginAutoAdvance,
-    cancelAutoAdvance: _cancelAutoAdvance,
+    cancelAutoAdvance,
     isAutoGenerating,
     isAutoPending,
   } = usePhaseAutoAdvance({
@@ -136,8 +136,8 @@ export const PlanningSpecSection = ({
       return;
     }
 
-    _cancelAutoAdvance();
-  }, [_cancelAutoAdvance, isDeletingInitiative]);
+    cancelAutoAdvance();
+  }, [cancelAutoAdvance, isDeletingInitiative]);
 
   const refinementCheckedAt = activeRefinement?.checkedAt ?? null;
   const label = INITIATIVE_WORKFLOW_LABELS[activeSpecStep];
@@ -528,7 +528,7 @@ export const PlanningSpecSection = ({
             <button
               type="button"
               className="btn-primary"
-              onClick={onAdvanceToNextStep ?? undefined}
+              onClick={() => { cancelAutoAdvance(); onAdvanceToNextStep?.(); }}
               disabled={isBusy}
             >
               {nextStepActionLabel}

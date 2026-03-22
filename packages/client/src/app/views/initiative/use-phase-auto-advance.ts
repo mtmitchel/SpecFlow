@@ -167,6 +167,9 @@ export const usePhaseAutoAdvance = ({
           return;
         }
         await onRefresh();
+        if (controller.signal.aborted) {
+          return;
+        }
         if (navigateOnSuccess && nextStep) {
           navigateToStep(nextStep);
         } else {
@@ -189,6 +192,9 @@ export const usePhaseAutoAdvance = ({
         setAutoAdvance({ step, stage: "generate" });
         await runPhaseGeneration(initiativeId, step, controller.signal);
         await onRefresh();
+        if (controller.signal.aborted) {
+          return;
+        }
         if (navigateOnSuccess && nextStep) {
           navigateToStep(nextStep);
         } else {
