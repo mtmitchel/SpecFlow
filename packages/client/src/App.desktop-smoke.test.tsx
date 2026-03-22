@@ -456,8 +456,9 @@ describe("App desktop smoke", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Brief summary for the quick capture workspace.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Revise answers" })).toBeInTheDocument();
     });
+    expect(screen.queryByText("What primary problem should v1 solve?")).not.toBeInTheDocument();
 
     expect(backend.snapshotRequests).toBe(2);
 
