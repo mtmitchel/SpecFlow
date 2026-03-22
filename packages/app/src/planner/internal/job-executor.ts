@@ -48,14 +48,14 @@ export const executePlannerJob = async <T>(input: {
       userPrompt: prompts.userPrompt,
       maxTokens: MAX_TOKENS_BY_JOB[input.job],
       timeoutMs:
-        input.job === "plan" ||
-        input.job === "plan-repair" ||
-        input.job === "brief-gen" ||
-        input.job === "core-flows-gen" ||
-        input.job === "prd-gen" ||
-        input.job === "tech-spec-gen"
-          ? 180_000
-          : 90_000
+        input.job === "plan" || input.job === "plan-repair"
+          ? 300_000
+          : input.job === "brief-gen" ||
+              input.job === "core-flows-gen" ||
+              input.job === "prd-gen" ||
+              input.job === "tech-spec-gen"
+            ? 180_000
+            : 90_000
     },
     input.onToken,
     { signal: input.signal }
