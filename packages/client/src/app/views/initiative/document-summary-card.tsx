@@ -112,7 +112,7 @@ export const DocumentSummaryCard = ({
     return (
       <div className="planning-summary-card">
         <h4>Document</h4>
-        <p className="text-muted-sm" style={{ margin: 0 }}>
+        <p className="text-muted-sm m-0">
           The document is empty.
         </p>
       </div>

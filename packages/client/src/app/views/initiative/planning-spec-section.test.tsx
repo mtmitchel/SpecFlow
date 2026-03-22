@@ -272,7 +272,7 @@ describe("PlanningSpecSection", () => {
     });
 
     await waitFor(() => {
-      expect(navigateToStep).toHaveBeenCalledWith("validation");
+      expect(navigateToStep).toHaveBeenCalledWith("tech-spec", "review");
     });
   });
 

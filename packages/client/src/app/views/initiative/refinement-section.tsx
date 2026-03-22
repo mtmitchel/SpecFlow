@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type {
   InitiativePlanningQuestion,
   InitiativePlanningStep,
@@ -11,38 +11,10 @@ import {
 } from "../../utils/initiative-workflow.js";
 import { RefinementField } from "./refinement-fields.js";
 import type { ReopenedQuestionContext } from "./refinement-history.js";
-import { getAnswerPreview, getFirstOpenQuestionId, getResumeQuestionId } from "./refinement-question-utils.js";
+import { getAnswerPreview } from "./refinement-question-utils.js";
 import type { SaveState } from "./shared.js";
 import { isQuestionAnswered } from "./shared.js";
-
-const buildVisibleQuestions = (
-  activeRefinement: InitiativeRefinementState,
-): InitiativePlanningQuestion[] => {
-  const history = activeRefinement.history ?? [];
-  const activeQuestions = activeRefinement.questions;
-
-  if (history.length === 0 || activeQuestions.length === 0) {
-    return activeQuestions.length > 0 ? activeQuestions : history;
-  }
-
-  const reopenedHistoryQuestionIds = new Set(
-    activeQuestions.flatMap((question) => question.reopensQuestionIds ?? [])
-  );
-  const visibleHistory = history.filter(
-    (question) => !reopenedHistoryQuestionIds.has(question.id)
-  );
-  const activeQuestionsById = new Map(activeQuestions.map((question) => [question.id, question]));
-  const visibleQuestions = visibleHistory.map((question) => activeQuestionsById.get(question.id) ?? question);
-  const historyQuestionIds = new Set(visibleHistory.map((question) => question.id));
-
-  for (const question of activeQuestions) {
-    if (!historyQuestionIds.has(question.id)) {
-      visibleQuestions.push(question);
-    }
-  }
-
-  return visibleQuestions;
-};
+import { useRefinementState } from "./use-refinement-state.js";
 
 interface RefinementSectionProps {
   activeSpecStep: InitiativePlanningStep;
@@ -98,197 +70,39 @@ export const RefinementSection = ({
   onAnswerChange,
   onAnswerLater
 }: RefinementSectionProps) => {
-  const compact = variant !== "full";
-  const questionDeck = variant === "survey" || variant === "compact";
-  const visibleQuestions = useMemo(
-    () => buildVisibleQuestions(activeRefinement),
-    [activeRefinement],
-  );
-  const locallyTouchedQuestionIds = useMemo(
-    () =>
-      new Set([
-        ...Object.keys(refinementAnswers),
-        ...defaultAnswerQuestionIds,
-      ]),
-    [defaultAnswerQuestionIds, refinementAnswers],
-  );
-  const effectiveRefinementAnswers = useMemo(
-    () =>
-      locallyTouchedQuestionIds.size === 0
-        ? activeRefinement.answers
-        : {
-            ...activeRefinement.answers,
-            ...refinementAnswers,
-          },
-    [activeRefinement.answers, locallyTouchedQuestionIds.size, refinementAnswers],
-  );
-  const effectiveDefaultAnswerQuestionIds = useMemo(() => {
-    if (locallyTouchedQuestionIds.size === 0) {
-      return activeRefinement.defaultAnswerQuestionIds;
-    }
-
-    return [
-      ...activeRefinement.defaultAnswerQuestionIds.filter(
-        (questionId) => !locallyTouchedQuestionIds.has(questionId),
-      ),
-      ...defaultAnswerQuestionIds,
-    ];
-  }, [
-    activeRefinement.defaultAnswerQuestionIds,
-    defaultAnswerQuestionIds,
-    locallyTouchedQuestionIds,
-  ]);
-  const locallyUnresolvedQuestionIds = useMemo(() => new Set(
-    visibleQuestions
-      .filter(
-        (question) =>
-          !isQuestionAnswered(effectiveRefinementAnswers[question.id]) &&
-          !effectiveDefaultAnswerQuestionIds.includes(question.id),
-      )
-      .map((question) => question.id),
-  ), [
-    effectiveDefaultAnswerQuestionIds,
-    effectiveRefinementAnswers,
+  const {
     visibleQuestions,
-  ]);
-  const locallyUnresolvedQuestionCount = locallyUnresolvedQuestionIds.size;
-  const visibleRefinement = useMemo<InitiativeRefinementState>(
-    () => ({
-      ...activeRefinement,
-      questions: visibleQuestions,
-    }),
-    [activeRefinement, visibleQuestions],
-  );
-  const initialOpenQuestionId =
-    questionDeck && locallyUnresolvedQuestionCount === 0
-      ? null
-      : getFirstOpenQuestionId(
-          visibleRefinement,
-          effectiveRefinementAnswers,
-          effectiveDefaultAnswerQuestionIds,
-        );
-  const [openQuestionId, setOpenQuestionId] = useState<string | null>(() =>
-    initialOpenQuestionId,
-  );
-  const autoCompletedResolvedSurveyRef = useRef<string | null>(null);
-  const survey = variant === "survey";
-  const showSurveyLoading = questionDeck && Boolean(loadingStateLabel);
-
-  const resolvedQuestionCount = visibleQuestions.length - locallyUnresolvedQuestionCount;
-  const completionPercent =
-    visibleQuestions.length === 0
-      ? 0
-      : Math.round((resolvedQuestionCount / visibleQuestions.length) * 100);
-
-  useEffect(() => {
-    if (openQuestionId === null) {
-      if (questionDeck && locallyUnresolvedQuestionCount > 0) {
-        setOpenQuestionId(getFirstOpenQuestionId(
-          visibleRefinement,
-          effectiveRefinementAnswers,
-          effectiveDefaultAnswerQuestionIds,
-        ));
-      }
-      return;
-    }
-
-    const hasOpenQuestion = visibleQuestions.some((question) => question.id === openQuestionId);
-    if (hasOpenQuestion) {
-      return;
-    }
-
-    setOpenQuestionId(getFirstOpenQuestionId(
-      visibleRefinement,
-      effectiveRefinementAnswers,
-      effectiveDefaultAnswerQuestionIds,
-    ));
-  }, [
-    effectiveDefaultAnswerQuestionIds,
     effectiveRefinementAnswers,
+    effectiveDefaultAnswerQuestionIds,
     locallyUnresolvedQuestionCount,
+    resolvedQuestionCount,
+    completionPercent,
     openQuestionId,
+    setOpenQuestionId,
+    currentQuestion,
+    previousQuestionId,
+    nextQuestionId,
+    questionIds,
+    surveyStepLabel,
+    completionReviewQuestionId,
     questionDeck,
-    visibleQuestions,
-    visibleRefinement,
-  ]);
-
-  useEffect(() => {
-    if (!survey || surveyResumeKey === 0) {
-      return;
-    }
-
-    setOpenQuestionId(
-      locallyUnresolvedQuestionCount > 0
-        ? getResumeQuestionId(
-            visibleRefinement,
-            effectiveRefinementAnswers,
-            effectiveDefaultAnswerQuestionIds,
-          )
-        : null,
-    );
-  }, [
-    effectiveDefaultAnswerQuestionIds,
-    effectiveRefinementAnswers,
-    locallyUnresolvedQuestionCount,
+    compact,
     survey,
+    showSurveyLoading,
+  } = useRefinementState({
+    activeSpecStep,
+    activeRefinement,
+    refinementAnswers,
+    defaultAnswerQuestionIds,
+    variant,
+    leadingStepCount,
     surveyResumeKey,
-    visibleRefinement,
-  ]);
+    autoCompleteResolvedSurvey,
+    loadingStateLabel,
+    onCompleteSurvey,
+  });
 
-  const questionIds = useMemo(
-    () => visibleQuestions.map((question) => question.id),
-    [visibleQuestions],
-  );
-  const currentQuestion = questionDeck
-    ? openQuestionId === null
-      ? null
-      : visibleQuestions.find((question) => question.id === openQuestionId) ?? null
-    : null;
-  const currentQuestionIndex = currentQuestion ? questionIds.indexOf(currentQuestion.id) : -1;
-  const previousQuestionId = currentQuestionIndex > 0 ? questionIds[currentQuestionIndex - 1] ?? null : null;
-  const nextQuestionId = currentQuestionIndex >= 0
-    ? visibleQuestions
-        .slice(currentQuestionIndex + 1)
-        .find((question) => locallyUnresolvedQuestionIds.has(question.id))
-        ?.id ?? null
-    : null;
-  const surveyStepLabel =
-    questionDeck && currentQuestionIndex >= 0
-      ? `Step ${leadingStepCount + currentQuestionIndex + 1} of ${leadingStepCount + visibleQuestions.length}`
-      : null;
-  const completionReviewQuestionId = questionIds[questionIds.length - 1] ?? null;
   const backButtonLabel = "Back";
-  const shouldAutoCompleteResolvedSurvey =
-    autoCompleteResolvedSurvey &&
-    questionDeck &&
-    !showSurveyLoading &&
-    openQuestionId === null &&
-    locallyUnresolvedQuestionCount === 0 &&
-    visibleQuestions.length > 0 &&
-    Boolean(onCompleteSurvey);
-  const autoCompleteResolvedSurveyKey = shouldAutoCompleteResolvedSurvey
-    ? JSON.stringify({
-        step: activeSpecStep,
-        questionIds,
-        answers: effectiveRefinementAnswers,
-        defaultAnswerQuestionIds: effectiveDefaultAnswerQuestionIds,
-        surveyResumeKey,
-      })
-    : null;
-
-  useEffect(() => {
-    if (!autoCompleteResolvedSurveyKey) {
-      autoCompletedResolvedSurveyRef.current = null;
-      return;
-    }
-
-    if (autoCompletedResolvedSurveyRef.current === autoCompleteResolvedSurveyKey) {
-      return;
-    }
-
-    autoCompletedResolvedSurveyRef.current = autoCompleteResolvedSurveyKey;
-    void onCompleteSurvey?.();
-  }, [autoCompleteResolvedSurveyKey, onCompleteSurvey]);
 
   const renderReopenedQuestionContext = (
     question: InitiativePlanningQuestion,
@@ -480,7 +294,7 @@ export const RefinementSection = ({
                     ) : null}
 
                     {!compact && usingDefault ? (
-                      <div className="status-banner warn" style={{ marginBottom: 0 }}>
+                      <div className="status-banner warn mb-0">
                         Default assumption: {question.assumptionIfUnanswered}
                       </div>
                     ) : null}
@@ -495,7 +309,7 @@ export const RefinementSection = ({
       {!compact && refinementAssumptions.length > 0 ? (
         <div className="clarification-help-panel">
           <span className="qa-label">Current assumptions</span>
-          <ul style={{ margin: 0 }}>
+          <ul className="m-0">
             {refinementAssumptions.map((assumption) => (
               <li key={assumption}>{assumption}</li>
             ))}
@@ -514,20 +328,19 @@ export const RefinementSection = ({
           />
 
           <div className="button-row planning-intake-question-actions">
-            {onBackToPreviousStep ? (
-              <button
-                type="button"
-                onClick={() => onBackToPreviousStep()}
-              >
-                {backButtonLabel}
-              </button>
-            ) : null}
             {previousQuestionId ? (
               <button
                 type="button"
                 onClick={() => setOpenQuestionId(previousQuestionId)}
               >
-                Previous question
+                Back
+              </button>
+            ) : onBackToPreviousStep ? (
+              <button
+                type="button"
+                onClick={() => onBackToPreviousStep()}
+              >
+                Back
               </button>
             ) : null}
             <button

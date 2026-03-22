@@ -145,7 +145,7 @@ export const RefinementField = ({
       <div className="clarification-option-list">
         {options.map((option) => (
           <label key={option} className="clarification-option-card clarification-option-checkbox">
-            <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <span className="flex-inline-center">
               <input
                 type="checkbox"
                 checked={selected.includes(option)}
@@ -163,7 +163,7 @@ export const RefinementField = ({
           </label>
         ))}
         <label className="clarification-option-card clarification-option-checkbox">
-          <span style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <span className="flex-inline-center">
             <input
               type="checkbox"
               checked={hasOther}

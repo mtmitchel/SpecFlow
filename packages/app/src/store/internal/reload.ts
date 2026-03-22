@@ -13,10 +13,7 @@ import type {
   Ticket,
   TicketCoverageArtifact
 } from "../../types/entities.js";
-import { loadDecisions, loadInitiatives, loadRuns, loadTickets } from "./loaders.js";
-
-const describeIssue = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+import { describeIssue, loadDecisions, loadInitiatives, loadRuns, loadTickets } from "./loaders.js";
 
 export interface StoreReloadSnapshot {
   config: Config | null;

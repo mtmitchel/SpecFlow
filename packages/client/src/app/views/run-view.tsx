@@ -360,7 +360,7 @@ export const RunView = ({
           <p>{runTypeLabel}</p>
         </div>
         {detail.ticket ? (
-          <div className="button-row" style={{ marginBottom: 0 }}>
+          <div className="button-row mb-0">
             <Link to={`/ticket/${detail.ticket.id}`}>Open ticket</Link>
           </div>
         ) : null}

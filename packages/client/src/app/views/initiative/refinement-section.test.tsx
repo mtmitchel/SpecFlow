@@ -395,7 +395,7 @@ describe("RefinementSection", () => {
     expect(onBackToPreviousStep).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps Back for the previous stage and uses a separate button for the previous question", () => {
+  it("uses a single Back button that walks questions first, then falls back to the previous step", () => {
     const onBackToPreviousStep = vi.fn();
 
     render(
@@ -436,18 +436,23 @@ describe("RefinementSection", () => {
       />
     );
 
+    // Advance to question 2
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(screen.getByRole("heading", { name: "Who is this for first?" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Previous question" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Previous question" }));
+    // On question 2 there is exactly one Back button (no "Previous question")
+    const backButtons = screen.getAllByRole("button", { name: "Back" });
+    expect(backButtons).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Previous question" })).not.toBeInTheDocument();
+
+    // Back on question 2 navigates to question 1 (previous question takes priority)
+    fireEvent.click(backButtons[0]);
 
     expect(screen.getByRole("heading", { name: "What primary problem should v1 solve?" })).toBeInTheDocument();
     expect(onBackToPreviousStep).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    // On question 1 (no previous question), Back falls back to the previous step
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
     expect(onBackToPreviousStep).toHaveBeenCalledTimes(1);

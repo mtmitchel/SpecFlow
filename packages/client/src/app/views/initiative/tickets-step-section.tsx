@@ -105,7 +105,7 @@ export const TicketsStepSection = ({
           <div className="planning-document-card-header">
             <h3 className="planning-document-card-title">Tickets aren&apos;t ready yet</h3>
           </div>
-          <p className="text-muted-sm" style={{ margin: 0 }}>
+          <p className="text-muted-sm m-0">
             Finish validation before tickets are created.
           </p>
         </div>
@@ -120,7 +120,7 @@ export const TicketsStepSection = ({
           <div className="planning-document-card-header">
             <h3 className="planning-document-card-title">Tickets need a refresh</h3>
           </div>
-          <p className="text-muted-sm" style={{ margin: 0 }}>
+          <p className="text-muted-sm m-0">
             Refresh tickets from validation before you start execution.
           </p>
         </div>

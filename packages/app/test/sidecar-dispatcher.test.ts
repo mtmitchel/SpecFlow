@@ -9,7 +9,6 @@ const generateInitiativeArtifactMock = vi.fn();
 
 vi.mock("../src/runtime/handlers/runtime-handlers.js", () => ({
   getArtifactsSnapshot: vi.fn(),
-  getRuntimeStatus: vi.fn(),
   getSpecDetail: vi.fn()
 }));
 
@@ -24,7 +23,6 @@ vi.mock("../src/runtime/handlers/initiative-handlers.js", () => ({
   deleteInitiative: vi.fn(),
   generateInitiativeArtifact: (...args: unknown[]) => generateInitiativeArtifactMock(...args),
   generateInitiativePlan: vi.fn(),
-  listInitiatives: vi.fn(),
   overrideInitiativeReview: vi.fn(),
   requestInitiativeClarificationHelp: vi.fn(),
   runInitiativePhaseCheck: vi.fn(),

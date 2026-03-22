@@ -293,7 +293,7 @@ export const ValidationSection = ({
         <div className="planning-survey-card planning-survey-card-active planning-survey-card-compact planning-survey-card-retry">
           <div style={{ display: "grid", gap: "0.35rem" }}>
             <strong>Can&apos;t validate the plan</strong>
-            <p className="text-muted-sm" style={{ margin: 0 }}>
+            <p className="text-muted-sm m-0">
               {generationError}
             </p>
           </div>

@@ -163,7 +163,7 @@ export const PlanningSpecSection = ({
     !hasRevisableQuestions &&
     !hasPhaseSpecificRefinementDecisions &&
     Boolean(refinementCheckedAt);
-  const shouldNavigateForwardAfterGeneration = !hasActiveContent;
+  const shouldNavigateForwardAfterGeneration = false;
 
   useEffect(() => {
     if (
@@ -189,7 +189,7 @@ export const PlanningSpecSection = ({
     }
 
     void beginAutoAdvance("brief", {
-      navigateOnSuccess: true,
+      navigateOnSuccess: false,
     });
   }, [
     autoAdvanceFailedStep,
@@ -216,7 +216,7 @@ export const PlanningSpecSection = ({
 
     downstreamEntryGenerationRef.current = activeSpecStep;
     void beginAutoAdvance(activeSpecStep, {
-      navigateOnSuccess: true,
+      navigateOnSuccess: false,
       skipCheck: true,
     });
   }, [
@@ -470,7 +470,7 @@ export const PlanningSpecSection = ({
                 onClick={() => {
                   if (activeSpecStep === "brief") {
                     void beginAutoAdvance("brief", {
-                      navigateOnSuccess: true,
+                      navigateOnSuccess: false,
                       skipCheck: generationFailed,
                     });
                     return;

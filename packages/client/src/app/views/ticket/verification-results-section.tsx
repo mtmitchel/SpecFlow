@@ -98,7 +98,7 @@ export const VerificationResultsSection = ({
               <h4>Other changes in the main files</h4>
               <ul className="ticket-plan-list">
                 {primaryDrift.length === 0
-                  ? <li style={{ color: "var(--muted)" }}>None</li>
+                  ? <li className="text-muted">None</li>
                   : primaryDrift.map((flag) => (
                     <li key={`${flag.type}-${flag.file}`}>
                       {flag.severity ? (
@@ -156,7 +156,7 @@ export const VerificationResultsSection = ({
                 <h4>Other changes in the main files</h4>
                 <ul className="ticket-plan-list">
                   {primaryDrift.length === 0
-                    ? <li style={{ color: "var(--muted)" }}>None</li>
+                    ? <li className="text-muted">None</li>
                     : primaryDrift.map((flag) => (
                       <li key={`${flag.type}-${flag.file}`}>
                         {flag.severity ? (
@@ -175,7 +175,7 @@ export const VerificationResultsSection = ({
                 </h4>
                 <ul className="ticket-plan-list">
                   {widenedDrift.length === 0
-                    ? <li style={{ color: "var(--muted)" }}>None</li>
+                    ? <li className="text-muted">None</li>
                     : widenedDrift.map((flag) => <li key={`${flag.type}-${flag.file}`}>{flag.file} · {flag.description}</li>)}
                 </ul>
               </div>

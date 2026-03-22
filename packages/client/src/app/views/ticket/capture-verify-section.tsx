@@ -160,7 +160,7 @@ export const CaptureVerifySection = ({
   const content = (
     <>
       {showIntro ? (
-        <p className="text-muted-sm" style={{ margin: 0 }}>
+        <p className="text-muted-sm m-0">
           SpecFlow is checking the returned work against this ticket.
         </p>
       ) : null}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   checkInitiativePhase,
@@ -153,6 +153,7 @@ export const useInitiativePlanningWorkspace = (
       })
     : "";
 
+  const previousSyncStepRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeRefinement) {
       setRefinementAnswers({});
@@ -160,10 +161,18 @@ export const useInitiativePlanningWorkspace = (
       setRefinementAssumptions([]);
       setGuidanceQuestionId(null);
       setGuidanceText(null);
+      previousSyncStepRef.current = null;
       return;
     }
 
-    setRefinementAnswers(activeRefinement.answers);
+    const stepChanged = previousSyncStepRef.current !== activeStep;
+    previousSyncStepRef.current = activeStep;
+
+    if (stepChanged) {
+      setRefinementAnswers(activeRefinement.answers);
+    } else {
+      setRefinementAnswers((current) => ({ ...activeRefinement.answers, ...current }));
+    }
     setDefaultAnswerQuestionIds(activeRefinement.defaultAnswerQuestionIds);
     setRefinementAssumptions(activeRefinement.baseAssumptions);
     setGuidanceQuestionId(null);
@@ -397,6 +406,7 @@ export const useInitiativePlanningWorkspace = (
             return;
           }
           await onRefresh();
+          navigateToStep("tickets");
           return;
         } catch (error) {
           if (await recoverPlanValidationFailure(error)) {
@@ -409,6 +419,7 @@ export const useInitiativePlanningWorkspace = (
       try {
         await generateInitiativePlan(initiative.id, { signal });
         await onRefresh();
+        navigateToStep("tickets");
       } catch (error) {
         if (await recoverPlanValidationFailure(error)) {
           return;

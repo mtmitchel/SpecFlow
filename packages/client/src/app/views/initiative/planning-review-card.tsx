@@ -139,7 +139,7 @@ export const PlanningReviewCard = ({
       {showDetails ? (
         <div className="planning-review-details">
           {showOverrideAction && onToggleOverride ? (
-            <div className="button-row" style={{ marginTop: 0 }}>
+            <div className="button-row mt-0">
               <button
                 type="button"
                 onClick={onToggleOverride}
@@ -159,7 +159,7 @@ export const PlanningReviewCard = ({
                 placeholder={overridePlaceholder}
                 rows={3}
               />
-              <div className="button-row" style={{ marginTop: 0 }}>
+              <div className="button-row mt-0">
                 <button
                   type="button"
                   className="btn-primary"

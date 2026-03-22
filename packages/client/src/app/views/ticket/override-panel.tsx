@@ -17,7 +17,7 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
     <details className="ticket-secondary-disclosure">
       <summary>Mark done with risk</summary>
       <div className="ticket-secondary-content">
-        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: 0 }}>
+        <p className="text-muted-sm m-0">
           Use this only when you want to close the ticket even though verification found issues.
           SpecFlow will save your reason with the run.
         </p>
@@ -32,7 +32,7 @@ export const OverridePanel = ({ ticketId, onRefresh }: OverridePanelProps) => {
           placeholder="Example: The remaining issue is low risk and tracked in follow-up work."
         />
         {overrideReasonError && (
-          <p style={{ color: "var(--danger)", fontSize: "0.82rem", margin: "0.2rem 0 0" }}>
+          <p className="text-danger-sm">
             Add a reason before marking the ticket done.
           </p>
         )}

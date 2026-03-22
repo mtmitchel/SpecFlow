@@ -256,6 +256,28 @@ describe("resolveValidatedPlanResult", () => {
     ).toThrow('Project title must use sentence case. Use "Local notes workspace" instead of "Local Notes Workspace".');
   });
 
+  it("reconciles a mismatched markdown heading to match initiativeTitle", () => {
+    const result = {
+      initiativeTitle: "Note-taking app",
+      markdown: "# Notes capture app\n\n## Goals\n\nCapture notes locally.",
+      traceOutline: { sections: [] },
+    };
+
+    validatePhaseMarkdownResult(result, { requireInitiativeTitle: true });
+    expect(result.markdown).toBe("# Note-taking app\n\n## Goals\n\nCapture notes locally.");
+  });
+
+  it("prepends a heading when the markdown has no top-level heading", () => {
+    const result = {
+      initiativeTitle: "Note-taking app",
+      markdown: "## Goals\n\nCapture notes locally.",
+      traceOutline: { sections: [] },
+    };
+
+    validatePhaseMarkdownResult(result, { requireInitiativeTitle: true });
+    expect(result.markdown).toBe("# Note-taking app\n\n## Goals\n\nCapture notes locally.");
+  });
+
   it("rejects ampersands in generated markdown", () => {
     expect(() =>
       validatePhaseMarkdownResult(

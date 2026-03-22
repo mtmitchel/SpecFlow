@@ -7,7 +7,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Fixed
+
+**Code health audit**
+- Fixed method catalog drift: 4 desktop features (`specs.detail`, `providers.models`, `operations.status`, `runs.attemptDetail`) were blocked by the Rust allowlist; 5 phantom entries removed
+- Removed dead exports `listInitiatives` and `getRuntimeStatus` and their test mocks
+- Extracted duplicated `describeIssue` utility from `loaders.ts` and `reload.ts`
+- Replaced 17 inline styles with shared CSS utility classes (`m-0`, `mt-0`, `mb-0`, `flex-inline-center`, `text-muted`, `text-danger-sm`)
+
+**LLM output validation resilience**
+- Brief markdown heading mismatch now auto-corrects to match `initiativeTitle` instead of throwing
+- Markdown headings with wrong sentence case now auto-correct instead of throwing (e.g., `## problem` becomes `## Problem`)
+
+**Planning survey navigation**
+- Unified "Back" and "Previous question" into a single "Back" button that walks questions first, then falls back to the previous step
+- After spec generation, user now lands on the review surface instead of auto-advancing to the next step
+- After validation passes with no follow-up questions, auto-navigates to tickets
+- Local refinement answers are preserved when follow-up questions arrive mid-survey
+
 ### Changed
+
+**Refactoring**
+- Extracted `refinement-section.tsx` state logic into `use-refinement-state.ts` hook (614 LOC reduced to 428 LOC)
+
 
 **Shell hierarchy and run framing**
 - Split Home resume targets from stable project-shell navigation so Home remains the primary resume surface while the sidebar and project cards stay stable object entry points

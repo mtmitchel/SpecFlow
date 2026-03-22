@@ -46,7 +46,7 @@ import { shouldReplaceInitiativeTitle } from "../../planner/internal/initiative-
 
 type ReloadScope = StoreReloadIssue["scope"];
 
-const describeIssue = (error: unknown): string =>
+export const describeIssue = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 const recordIssue = (

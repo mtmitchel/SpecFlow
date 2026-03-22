@@ -1,13 +1,6 @@
 import type { SpecFlowRuntime } from "../types.js";
 import { redactConfig } from "../default-config.js";
-import { PROTOCOL_VERSION, SERVER_VERSION, runtimeCapabilities } from "../../runtime-status.js";
 import { notFound } from "../errors.js";
-
-export const getRuntimeStatus = () => ({
-  serverVersion: SERVER_VERSION,
-  protocolVersion: PROTOCOL_VERSION,
-  capabilities: runtimeCapabilities
-});
 
 export const getArtifactsSnapshot = (runtime: SpecFlowRuntime) => {
   const snapshot = {

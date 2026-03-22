@@ -1039,7 +1039,7 @@ describe("InitiativeView", () => {
     });
   });
 
-  it("auto-continues into core flow questions after brief generation completes", async () => {
+  it("lands on the brief review surface after brief generation instead of auto-advancing", async () => {
     fetchSpecDetailMock.mockResolvedValue(briefSpec);
     checkInitiativePhaseMock
       .mockResolvedValueOnce({
@@ -1074,12 +1074,12 @@ describe("InitiativeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(screen.getByText("What should the primary note flow feel like?")).toBeInTheDocument();
+      expect(screen.getByText("A short summary.")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("?step=core-flows")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Core flows" })).toHaveClass("pipeline-node-selected");
-    expect(screen.queryByText("A short summary.")).not.toBeInTheDocument();
+    expect(screen.getByText("?step=brief&surface=review")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Brief" })).toHaveClass("pipeline-node-selected");
+    expect(screen.queryByText("What should the primary note flow feel like?")).not.toBeInTheDocument();
   });
 
   it("goes straight into core flow questions after entering the phase", async () => {
@@ -1190,7 +1190,7 @@ describe("InitiativeView", () => {
     }
   });
 
-  it("auto-generates core flows and continues into the next phase after the last answer", async () => {
+  it("auto-generates core flows and lands on the review surface instead of advancing", async () => {
     fetchSpecDetailMock.mockImplementation(async (specId: string) => (specId === coreFlowsSpec.id ? coreFlowsSpec : briefSpec));
     checkInitiativePhaseMock.mockResolvedValue({
       decision: "proceed",
@@ -1226,14 +1226,14 @@ describe("InitiativeView", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("?step=prd")).toBeInTheDocument();
+      expect(screen.getByText("?step=core-flows&surface=review")).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("button", { name: "PRD" })).toHaveClass("pipeline-node-selected");
-    expect(screen.queryByText("Open into note capture.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Core flows" })).toHaveClass("pipeline-node-selected");
+    expect(screen.getByText("Open into note capture.")).toBeInTheDocument();
   });
 
-  it("auto-runs the saved brief intake on resume instead of parking on the answered summary", async () => {
+  it("auto-runs the saved brief intake on resume and lands on the brief review surface", async () => {
     fetchSpecDetailMock.mockResolvedValue(briefSpec);
     checkInitiativePhaseMock
       .mockResolvedValueOnce({
@@ -1269,11 +1269,11 @@ describe("InitiativeView", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("What should the primary note flow feel like?")).toBeInTheDocument();
+      expect(screen.getByText("?step=brief&surface=review")).toBeInTheDocument();
     });
 
     expect(screen.queryByText("All questions are answered")).not.toBeInTheDocument();
-    expect(screen.getByText("?step=core-flows")).toBeInTheDocument();
+    expect(screen.getByText("Keep capture fast.")).toBeInTheDocument();
   });
 
   it("re-checks validation-backed artifact questions before regenerating tickets", async () => {

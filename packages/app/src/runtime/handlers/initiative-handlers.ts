@@ -62,10 +62,6 @@ const canReplacePlanningTickets = (runtime: SpecFlowRuntime, initiative: Initiat
   );
 };
 
-export const listInitiatives = (runtime: SpecFlowRuntime) => ({
-  initiatives: Array.from(runtime.store.initiatives.values())
-});
-
 export const deleteInitiative = async (runtime: SpecFlowRuntime, initiativeId: string) => {
   const initiative = readInitiative(runtime, initiativeId);
   await runtime.store.deleteInitiative(initiative.id);

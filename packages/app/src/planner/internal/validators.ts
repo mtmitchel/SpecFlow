@@ -13,7 +13,7 @@ import { getQuestionPolicy } from "../refinement-check-policy.js";
 import {
   validateInitiativeTitle,
   validateMarkdownNoAmpersands,
-  validateMarkdownHeadingsSentenceCase,
+  normalizeMarkdownHeadingsSentenceCase,
   validateNoAmpersands,
   validatePhaseName,
   validateTicketTitle,
@@ -88,7 +88,7 @@ export const validatePhaseMarkdownResult = (
   }
 
   validateMarkdownNoAmpersands(result.markdown);
-  validateMarkdownHeadingsSentenceCase(result.markdown);
+  result.markdown = normalizeMarkdownHeadingsSentenceCase(result.markdown);
 
   if (options.requireInitiativeTitle) {
     if (!result.initiativeTitle?.trim()) {
@@ -99,7 +99,15 @@ export const validatePhaseMarkdownResult = (
     const headingMatch = result.markdown.trim().match(/^#\s+(.+?)\s*(?:\r?\n|$)/);
     const heading = headingMatch?.[1]?.trim() ?? "";
     if (heading !== result.initiativeTitle.trim()) {
-      throw new Error("Brief markdown heading must exactly match initiativeTitle");
+      const title = result.initiativeTitle.trim();
+      if (headingMatch) {
+        result.markdown = result.markdown.replace(
+          /^(\s*)#\s+.+?(\s*(?:\r?\n|$))/,
+          `$1# ${title}$2`
+        );
+      } else {
+        result.markdown = `# ${title}\n\n${result.markdown.trimStart()}`;
+      }
     }
   }
 };

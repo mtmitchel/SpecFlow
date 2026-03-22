@@ -203,23 +203,18 @@ export const validateTicketTitle = (value: string): void => {
   });
 };
 
-export const validateMarkdownHeadingsSentenceCase = (markdown: string): void => {
-  const headings = Array.from(markdown.matchAll(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/gm));
-
-  for (const match of headings) {
-    const heading = stripWrappingQuotes(match[1] ?? "").trim();
+export const normalizeMarkdownHeadingsSentenceCase = (markdown: string): string =>
+  markdown.replace(/^(\s{0,3}#{1,6}\s+)(.+?)(\s*#*\s*)$/gm, (_match, prefix, rawHeading, suffix) => {
+    const heading = stripWrappingQuotes(rawHeading).trim();
     if (!heading) {
-      continue;
+      return `${prefix}${rawHeading}${suffix}`;
     }
 
     const canonical = toSentenceCaseLabel(heading);
-    if (heading !== canonical) {
-      throw new Error(
-        `Markdown heading "${heading}" must use sentence case. Use "${canonical}" instead.`,
-      );
-    }
-  }
-};
+    return heading === canonical
+      ? `${prefix}${rawHeading}${suffix}`
+      : `${prefix}${canonical}${suffix}`;
+  });
 
 export const validateMarkdownNoAmpersands = (markdown: string): void => {
   const lines = markdown.split(/\r?\n/);

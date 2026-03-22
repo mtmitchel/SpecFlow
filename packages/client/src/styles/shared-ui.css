@@ -787,9 +787,15 @@ button.btn-success:disabled,
 }
 
 /* Utility classes */
+.text-muted { color: var(--muted); }
 .text-muted-sm { color: var(--muted); font-size: var(--font-body-sm); }
 .text-muted-caption { color: var(--muted); font-size: var(--font-body-sm); }
+.text-danger-sm { color: var(--danger); font-size: var(--font-body-sm); }
 .heading-reset { margin: 0; }
+.m-0 { margin: 0; }
+.mt-0 { margin-top: 0; }
+.mb-0 { margin-bottom: 0; }
+.flex-inline-center { display: flex; gap: 0.5rem; align-items: center; }
 
 .textarea-sm { min-height: 140px; }
 .textarea-md { min-height: 220px; }
