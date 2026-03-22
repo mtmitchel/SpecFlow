@@ -47,10 +47,8 @@ const reviewResult = (summary: string) => ({
   recommendedFixes: []
 });
 
-const repeatResponseTwice = (payload: unknown): string[] => [
-  JSON.stringify(payload),
-  JSON.stringify(payload)
-];
+const repeatPlanResponse = (payload: unknown): string[] =>
+  Array.from({ length: 3 }, () => JSON.stringify(payload));
 
 const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   const base = specflowDir(rootDir);
@@ -269,7 +267,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient(
-          repeatResponseTwice({
+          repeatPlanResponse({
             decision: "ask",
             questions: [
               {
@@ -350,7 +348,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient(
-          repeatResponseTwice({
+          repeatPlanResponse({
             decision: "ask",
             questions: [],
             assumptions: []
@@ -413,7 +411,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient(
-          repeatResponseTwice({
+          repeatPlanResponse({
             decision: "ask",
             questions: [],
             assumptions: []
@@ -502,7 +500,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient(
-          repeatResponseTwice({
+          repeatPlanResponse({
             decision: "ask",
             questions: [
               {
@@ -568,7 +566,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient(
-          repeatResponseTwice({
+          repeatPlanResponse({
             decision: "ask",
             questions: [
               {
@@ -635,7 +633,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient(
-          repeatResponseTwice({
+          repeatPlanResponse({
             decision: "ask",
             questions: [
               {
@@ -702,7 +700,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient(
-          repeatResponseTwice({
+          repeatPlanResponse({
             decision: "ask",
             questions: [
               {
@@ -1401,7 +1399,7 @@ describe("PlannerService", () => {
           JSON.stringify(reviewResult("Tech spec review")),
           JSON.stringify(reviewResult("PRD/tech spec cross-check")),
           JSON.stringify(reviewResult("Spec set review")),
-          ...repeatResponseTwice({
+          ...repeatPlanResponse({
             phases: [
               {
                 name: "Phase 1",

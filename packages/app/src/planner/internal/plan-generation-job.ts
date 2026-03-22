@@ -1,7 +1,7 @@
 import { PlanValidationError, buildPlanValidationFeedback } from "./plan-validation.js";
 import type { PlanInput, PlanResult } from "../types.js";
 
-const MAX_PLAN_VALIDATION_ATTEMPTS = 2;
+const MAX_PLAN_VALIDATION_ATTEMPTS = 3;
 
 export const resolveValidatedPlanResult = async (input: {
   planInput: PlanInput;

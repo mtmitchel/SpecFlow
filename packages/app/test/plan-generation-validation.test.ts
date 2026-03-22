@@ -98,7 +98,7 @@ describe("resolveValidatedPlanResult", () => {
       })
     ).rejects.toThrow("Plan result missing phases array");
 
-    expect(executePlan).toHaveBeenCalledTimes(2);
+    expect(executePlan).toHaveBeenCalledTimes(3);
     expect(executePlanRepair).not.toHaveBeenCalled();
   });
 
