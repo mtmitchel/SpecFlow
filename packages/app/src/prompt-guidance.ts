@@ -18,9 +18,23 @@ const TITLE_STYLE_RULES = [
   "Do not end names or headings with a period."
 ] as const;
 
+const ENGINEERING_FOUNDATIONS_RULES = [
+  "Treat package boundaries, shared type ownership, runtime-mode boundaries, file-size limits, and folder conventions as implementation constraints that must stay correct throughout delivery.",
+  "Treat secret handling, canonical input validation helpers, sanitization, least-privilege desktop capabilities, and on-device data boundaries as day-one requirements, not later hardening.",
+  "Treat atomic writes, staged commits, idempotent operations, concurrent mutation handling, interrupted-write recovery, and corrupted-data handling as part of the core design.",
+  "Treat cancellation, payload-size awareness, file I/O cost, streaming behavior, and hot-path performance as ongoing implementation concerns, not cleanup work for later.",
+  "Treat test coverage, deterministic test strategy, CI gates, duplicate-UI prevention, and release readiness as part of done.",
+  "Treat design tokens, shared interaction states, motion policy, copy rules, observability, safe diagnostics, docs accuracy, and dependency policy as first-class constraints for every affected change."
+] as const;
+
 export const PLANNER_PRODUCT_DESIGN_CHARTER_SECTION = formatBullets(
   "Product design charter:",
   PRODUCT_DESIGN_CHARTER_RULES
+);
+
+export const PLANNER_ENGINEERING_FOUNDATIONS_SECTION = formatBullets(
+  "Continuous engineering foundations:",
+  ENGINEERING_FOUNDATIONS_RULES
 );
 
 export const PLANNER_REVIEW_PRODUCT_DESIGN_SECTION = formatBullets(
@@ -51,5 +65,14 @@ export const BUNDLE_PRODUCT_DESIGN_SECTION = formatBullets(
     "Treat information architecture and product design as part of the task, not optional polish.",
     "Keep the primary workflow obvious with clear primary versus secondary actions and progressive disclosure where it affects comprehension.",
     "Handle navigation, information hierarchy, statuses, and empty/loading/error, recovery, or destructive states intentionally when the ticket affects them."
+  ]
+);
+
+export const BUNDLE_ENGINEERING_FOUNDATIONS_SECTION = formatBullets(
+  "Continuous engineering guardrails:",
+  [
+    "Keep architecture boundaries, shared types, validation helpers, staged writes, and recovery rules correct while implementing the ticket.",
+    "Preserve security, privacy, observability, testing, design-system, docs, and dependency constraints throughout the change, not only at the end.",
+    "Treat AGENTS.md plus the covered engineering foundation items below as hard constraints for the entire task."
   ]
 );

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { buildPlannerPrompt } from "../src/planner/prompt-builder.js";
 
+const emptyTraceOutlines = {
+  brief: { sections: [] },
+  "core-flows": { sections: [] },
+  prd: { sections: [] },
+  "tech-spec": { sections: [] },
+};
+
 describe("planner design guidance", () => {
   it("includes the design charter in core flows generation prompts", () => {
     const prompt = buildPlannerPrompt(
@@ -41,6 +48,7 @@ describe("planner design guidance", () => {
     expect(prompt.userPrompt).toContain(
       "Treat information architecture and product design as part of the product contract, not polish."
     );
+    expect(prompt.userPrompt).toContain("Continuous engineering foundations:");
     expect(prompt.userPrompt).toContain(
       "Define the navigation model, information hierarchy, key objects, statuses or feedback, primary versus secondary actions"
     );
@@ -51,16 +59,14 @@ describe("planner design guidance", () => {
       "plan",
       {
         initiativeDescription: "Build a project management desktop app for solo founders.",
-        briefMarkdown: "# Brief",
-        coreFlowsMarkdown: "# Core flows",
-        prdMarkdown: "# PRD",
-        techSpecMarkdown: "# Tech spec",
+        traceOutlines: emptyTraceOutlines,
         coverageItems: []
       },
       "Always write tests."
     );
 
     expect(prompt.userPrompt).toContain("Product design and information architecture rules:");
+    expect(prompt.userPrompt).toContain("Continuous engineering foundations:");
     expect(prompt.userPrompt).toContain(
       "create tickets that cover the structure, navigation, feedback, and state handling needed to make that experience coherent"
     );
@@ -87,6 +93,7 @@ describe("planner design guidance", () => {
     );
 
     expect(prompt.userPrompt).toContain("Product design review lens:");
+    expect(prompt.userPrompt).toContain("Continuous engineering foundations:");
     expect(prompt.userPrompt).toContain(
       "During ticket-coverage review, call out when the plan omits necessary design or information-architecture work implied by the artifact set."
     );

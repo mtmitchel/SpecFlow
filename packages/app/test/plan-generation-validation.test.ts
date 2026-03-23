@@ -13,10 +13,12 @@ import {
 
 const basePlanInput: PlanInput = {
   initiativeDescription: "Build a lightweight offline-first note-taking app",
-  briefMarkdown: "# Brief",
-  coreFlowsMarkdown: "# Core flows",
-  prdMarkdown: "# PRD",
-  techSpecMarkdown: "# Tech spec",
+  traceOutlines: {
+    brief: { sections: [] },
+    "core-flows": { sections: [] },
+    prd: { sections: [] },
+    "tech-spec": { sections: [] },
+  },
   coverageItems: []
 };
 

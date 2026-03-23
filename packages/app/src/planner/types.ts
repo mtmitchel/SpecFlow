@@ -141,12 +141,13 @@ export interface SpecGenInput {
   repoContext?: PlannerRepoContext;
 }
 
+export type PlannerTraceOutlineMap = Partial<
+  Record<RefinementStep, { sections: ArtifactTraceOutlineSection[] }>
+>;
+
 export interface PlanInput {
   initiativeDescription: string;
-  briefMarkdown: string;
-  coreFlowsMarkdown: string;
-  prdMarkdown: string;
-  techSpecMarkdown: string;
+  traceOutlines: PlannerTraceOutlineMap;
   coverageItems: TicketCoverageItem[];
   repoContext?: PlannerRepoContext;
   validationFeedback?: PlanValidationFeedback;
@@ -164,7 +165,7 @@ export interface ReviewRunInput {
   coreFlowsMarkdown?: string;
   prdMarkdown?: string;
   techSpecMarkdown?: string;
-  traceOutlines?: Partial<Record<RefinementStep, { sections: ArtifactTraceOutlineSection[] }>>;
+  traceOutlines?: PlannerTraceOutlineMap;
   coverageItems?: TicketCoverageItem[];
   uncoveredCoverageItemIds?: string[];
   tickets?: Array<{

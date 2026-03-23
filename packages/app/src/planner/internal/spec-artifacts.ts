@@ -21,6 +21,7 @@ import { normalizeInitiativeTitle } from "./title-style.js";
 import { completeWorkflowStep } from "../workflow-state.js";
 import type {
   PhaseMarkdownResult,
+  PlannerTraceOutlineMap,
   RefinementStep,
   SpecGenInput
 } from "../types.js";
@@ -44,6 +45,7 @@ export const buildTicketCoverageInput = async (input: {
   ensureArtifactTrace: (initiative: Initiative, step: InitiativeArtifactStep) => Promise<ArtifactTraceOutline>;
 }): Promise<{
   items: TicketCoverageItem[];
+  traceOutlines: PlannerTraceOutlineMap;
   sourceUpdatedAts: Partial<Record<InitiativePlanningStep, string>>;
 }> => {
   const traces: Partial<Record<InitiativeArtifactStep, ArtifactTraceOutline>> = {};
@@ -56,6 +58,12 @@ export const buildTicketCoverageInput = async (input: {
 
   return {
     items: buildTicketCoverageItems(traces),
+    traceOutlines: Object.fromEntries(
+      Object.entries(traces).map(([step, trace]) => [
+        step,
+        { sections: trace?.sections ?? [] },
+      ])
+    ) as PlannerTraceOutlineMap,
     sourceUpdatedAts
   };
 };

@@ -5,7 +5,9 @@ import type { SpecFlowRuntime } from "../src/runtime/types.js";
 
 const saveConfigMock = vi.fn();
 const continueInitiativeArtifactStepMock = vi.fn();
+const continueInitiativeValidationMock = vi.fn();
 const generateInitiativeArtifactMock = vi.fn();
+const generateInitiativePlanMock = vi.fn();
 
 vi.mock("../src/runtime/handlers/runtime-handlers.js", () => ({
   getArtifactsSnapshot: vi.fn(),
@@ -22,7 +24,7 @@ vi.mock("../src/runtime/handlers/initiative-handlers.js", () => ({
   createDraftInitiative: vi.fn(),
   deleteInitiative: vi.fn(),
   generateInitiativeArtifact: (...args: unknown[]) => generateInitiativeArtifactMock(...args),
-  generateInitiativePlan: vi.fn(),
+  generateInitiativePlan: (...args: unknown[]) => generateInitiativePlanMock(...args),
   overrideInitiativeReview: vi.fn(),
   requestInitiativeClarificationHelp: vi.fn(),
   runInitiativePhaseCheck: vi.fn(),
@@ -34,7 +36,7 @@ vi.mock("../src/runtime/handlers/initiative-handlers.js", () => ({
 
 vi.mock("../src/runtime/handlers/initiative-continue-handlers.js", () => ({
   continueInitiativeArtifactStep: (...args: unknown[]) => continueInitiativeArtifactStepMock(...args),
-  continueInitiativeValidation: vi.fn(),
+  continueInitiativeValidation: (...args: unknown[]) => continueInitiativeValidationMock(...args),
 }));
 
 vi.mock("../src/runtime/handlers/import-handlers.js", () => ({
@@ -221,6 +223,120 @@ describe("sidecar dispatcher", () => {
           method: "initiatives.continueArtifactStep",
           requestId: "req-continue",
           correlationId: "req-continue"
+        }
+      }
+    ]);
+  });
+
+  it("forwards planner-status notifications before the plan-generation success result", async () => {
+    const runtime = createRuntimeStub();
+    const messages: unknown[] = [];
+
+    generateInitiativePlanMock.mockImplementationOnce(
+      async (_runtime, _id, onChunk, _signal, onStatus) => {
+        await onStatus("Preparing validation inputs...");
+        await onChunk("chunk-1");
+        await onStatus("Running ticket coverage review...");
+        return { phases: [], uncoveredCoverageItemIds: [] };
+      }
+    );
+
+    await dispatchSidecarRequest(
+      runtime,
+      { id: "req-plan", method: "initiatives.generatePlan", params: { id: "initiative-1" } },
+      (message) => {
+        messages.push(message);
+      }
+    );
+
+    expect(messages).toEqual([
+      {
+        event: "planner-status",
+        requestId: "req-plan",
+        payload: { message: "Preparing validation inputs..." }
+      },
+      {
+        event: "planner-token",
+        requestId: "req-plan",
+        payload: { chunk: "chunk-1" }
+      },
+      {
+        event: "planner-status",
+        requestId: "req-plan",
+        payload: { message: "Running ticket coverage review..." }
+      },
+      {
+        id: "req-plan",
+        ok: true,
+        result: { phases: [], uncoveredCoverageItemIds: [] }
+      },
+      {
+        event: "artifacts.changed",
+        requestId: "req-plan",
+        payload: {
+          reason: "initiatives.generatePlan",
+          method: "initiatives.generatePlan",
+          requestId: "req-plan",
+          correlationId: "req-plan"
+        }
+      }
+    ]);
+  });
+
+  it("forwards planner-status notifications for the combined validation flow", async () => {
+    const runtime = createRuntimeStub();
+    const messages: unknown[] = [];
+
+    continueInitiativeValidationMock.mockImplementationOnce(
+      async (_runtime, _id, _body, onChunk, _signal, onStatus) => {
+        await onStatus("Preparing validation inputs...");
+        await onChunk("chunk-1");
+        await onStatus("Committing ticket plan...");
+        return { decision: "proceed", generated: true, blockedSteps: [] };
+      }
+    );
+
+    await dispatchSidecarRequest(
+      runtime,
+      {
+        id: "req-validation",
+        method: "initiatives.continueValidation",
+        params: { id: "initiative-1", body: { draftByStep: {} } },
+      },
+      (message) => {
+        messages.push(message);
+      }
+    );
+
+    expect(messages).toEqual([
+      {
+        event: "planner-status",
+        requestId: "req-validation",
+        payload: { message: "Preparing validation inputs..." }
+      },
+      {
+        event: "planner-token",
+        requestId: "req-validation",
+        payload: { chunk: "chunk-1" }
+      },
+      {
+        event: "planner-status",
+        requestId: "req-validation",
+        payload: { message: "Committing ticket plan..." }
+      },
+      {
+        id: "req-validation",
+        ok: true,
+        result: { decision: "proceed", generated: true, blockedSteps: [] }
+      },
+      {
+        event: "artifacts.changed",
+        requestId: "req-validation",
+        payload: {
+          reason: "initiatives.continueValidation",
+          method: "initiatives.continueValidation",
+          requestId: "req-validation",
+          correlationId: "req-validation"
         }
       }
     ]);

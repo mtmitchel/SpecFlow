@@ -26,6 +26,7 @@ interface ValidationSectionProps {
   busyAction: string | null;
   isBusy: boolean;
   generationError: string | null;
+  validationStatusMessage: string | null;
   validationReview: PlanningReviewArtifact | undefined;
   reviewOverrideKind: PlanningReviewKind | null;
   reviewOverrideReason: string;
@@ -182,6 +183,7 @@ export const ValidationSection = ({
   busyAction,
   isBusy,
   generationError,
+  validationStatusMessage,
   validationReview,
   reviewOverrideKind,
   reviewOverrideReason,
@@ -283,7 +285,7 @@ export const ValidationSection = ({
   if (generateBusy) {
     return renderTransientLoadingCard(
       "Validating plan...",
-      "Checking the ticket draft before tickets are created."
+      validationStatusMessage ?? "Checking the ticket draft before tickets are created."
     );
   }
 

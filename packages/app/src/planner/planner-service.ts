@@ -27,6 +27,7 @@ import type {
 } from "./types.js";
 import {
   commitPendingPlanForInitiative,
+  type PlanStatusSink,
   runPlanJob,
   runTriageJob
 } from "./internal/planner-service-plans.js";
@@ -185,9 +186,10 @@ export class PlannerService {
   public async runPlanJob(
     input: { initiativeId: string },
     onToken?: LlmTokenHandler,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onStatus?: PlanStatusSink
   ): Promise<PlanResult> {
-    return runPlanJob(this.getServiceDependencies(), input, onToken, signal);
+    return runPlanJob(this.getServiceDependencies(), input, onToken, signal, onStatus);
   }
 
   public async commitPendingPlan(input: { initiativeId: string }): Promise<void> {

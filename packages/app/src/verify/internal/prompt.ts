@@ -1,8 +1,16 @@
 import type { LlmClient, LlmTokenHandler } from "../../llm/client.js";
 import { parseJsonEnvelope } from "../../planner/json-parser.js";
-import type { DriftFlag, RunCriterionResult, Ticket, VerificationSeverity } from "../../types/entities.js";
+import type {
+  DriftFlag,
+  RunCriterionResult,
+  Ticket,
+  TicketCoverageItem,
+  VerificationSeverity,
+} from "../../types/entities.js";
 import type { DiffComputationResult } from "../diff-engine.js";
 import type { ResolvedVerifierConfig } from "./config.js";
+import { BUNDLE_ENGINEERING_FOUNDATIONS_SECTION } from "../../prompt-guidance.js";
+import { isEngineeringFoundationCoverageItem } from "../../planner/ticket-coverage.js";
 
 export interface ParsedVerifierResult {
   criteriaResults: Array<{
@@ -49,11 +57,19 @@ export const runVerifierPrompt = async (input: {
   llmClient: LlmClient;
   config: ResolvedVerifierConfig;
   ticket: Ticket;
+  coveredItems: TicketCoverageItem[];
   diffResult: DiffComputationResult;
   agentsMd: string;
   onToken?: LlmTokenHandler;
   signal?: AbortSignal;
 }): Promise<ParsedVerifierResult> => {
+  const coveredItems = input.coveredItems.length
+    ? JSON.stringify(input.coveredItems, null, 2)
+    : "[]";
+  const engineeringFoundations = input.coveredItems.filter(
+    isEngineeringFoundationCoverageItem
+  );
+
   const systemPrompt = [
     "You are SpecFlow verifier. Your job is to determine whether a code diff satisfies the acceptance criteria of a ticket.",
     "",
@@ -81,6 +97,8 @@ export const runVerifierPrompt = async (input: {
     "",
     DRIFT_GUIDE,
     "",
+    BUNDLE_ENGINEERING_FOUNDATIONS_SECTION,
+    "",
     "AGENTS.md conventions to check against:",
     input.agentsMd
   ].join("\n");
@@ -89,6 +107,12 @@ export const runVerifierPrompt = async (input: {
     `Ticket ID: ${input.ticket.id}`,
     `Ticket Title: ${input.ticket.title}`,
     `Acceptance Criteria:\n${JSON.stringify(input.ticket.acceptanceCriteria, null, 2)}`,
+    `Covered spec items:\n${coveredItems}`,
+    `Covered engineering foundations:\n${
+      engineeringFoundations.length > 0
+        ? JSON.stringify(engineeringFoundations, null, 2)
+        : "[]"
+    }`,
     `Diff Source: ${input.diffResult.diffSource}`,
     `Primary Diff:\n${input.diffResult.primaryDiff || "(empty — no changes in primary scope)"}`,
     `Drift Diff:\n${input.diffResult.driftDiff || "(empty — no drift changes)"}`

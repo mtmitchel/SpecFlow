@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { verificationPath } from "../src/io/paths.js";
 import type { LlmClient, LlmRequest, LlmTokenHandler } from "../src/llm/client.js";
 import { ArtifactStore } from "../src/store/artifact-store.js";
-import type { Initiative, Run, Ticket } from "../src/types/entities.js";
+import type { Initiative, Run, Ticket, TicketCoverageArtifact } from "../src/types/entities.js";
 import { DiffEngine } from "../src/verify/diff-engine.js";
 import { VerifierService } from "../src/verify/verifier-service.js";
 
@@ -406,6 +406,166 @@ describe("VerifierService", () => {
     await store.close();
     await rm(rootDir, { recursive: true, force: true });
     await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  it("includes covered engineering foundations in the verifier prompt for initiative tickets", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-verify-foundations-"));
+    await createSpecflowLayout(rootDir);
+    await mkdir(path.join(rootDir, "src"), { recursive: true });
+    await writeFile(path.join(rootDir, "src", "a.ts"), "export const a = 2;\n", "utf8");
+
+    const initiative: Initiative = {
+      id: "initiative-foundations",
+      title: "Verification foundations",
+      description: "Verify coverage-aware prompts",
+      status: "active",
+      phases: [],
+      specIds: [],
+      ticketIds: ["ticket-foundations"],
+      workflow: {
+        activeStep: "tickets",
+        steps: {
+          brief: { status: "complete", updatedAt: now },
+          "core-flows": { status: "complete", updatedAt: now },
+          prd: { status: "complete", updatedAt: now },
+          "tech-spec": { status: "complete", updatedAt: now },
+          validation: { status: "complete", updatedAt: now },
+          tickets: { status: "complete", updatedAt: now },
+        },
+        refinements: {
+          brief: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+          "core-flows": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+          prd: { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+          "tech-spec": { questions: [], answers: {}, defaultAnswerQuestionIds: [], baseAssumptions: [], checkedAt: now },
+        },
+      },
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const run: Run = {
+      id: "run-foundations",
+      ticketId: "ticket-foundations",
+      type: "execution",
+      agentType: "codex-cli",
+      status: "pending",
+      attempts: ["attempt-base"],
+      committedAttemptId: "attempt-base",
+      activeOperationId: null,
+      operationLeaseExpiresAt: null,
+      lastCommittedAt: now,
+      createdAt: now
+    };
+
+    const ticket: Ticket = {
+      id: "ticket-foundations",
+      initiativeId: initiative.id,
+      phaseId: null,
+      title: "Verify foundations",
+      description: "Verify coverage-aware prompt context",
+      status: "in-progress",
+      acceptanceCriteria: [{ id: "c1", text: "A" }],
+      implementationPlan: "",
+      fileTargets: ["src/a.ts"],
+      coverageItemIds: [
+        "coverage-prd-requirements-1",
+        "coverage-tech-spec-engineering-foundations-1",
+      ],
+      blockedBy: [],
+      blocks: [],
+      runId: run.id,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const coverage: TicketCoverageArtifact = {
+      id: `${initiative.id}:ticket-coverage`,
+      initiativeId: initiative.id,
+      items: [
+        {
+          id: "coverage-prd-requirements-1",
+          sourceStep: "prd",
+          sectionKey: "requirements",
+          sectionLabel: "Requirements",
+          kind: "requirement",
+          text: "Add the login endpoint."
+        },
+        {
+          id: "coverage-tech-spec-engineering-foundations-1",
+          sourceStep: "tech-spec",
+          sectionKey: "engineering-foundations",
+          sectionLabel: "Engineering foundations",
+          kind: "engineering-foundation",
+          text:
+            "Use atomic writes, staged commits, and explicit recovery for interrupted ticket-plan commits."
+        }
+      ],
+      uncoveredItemIds: [],
+      sourceUpdatedAts: { prd: now, "tech-spec": now, tickets: now },
+      generatedAt: now,
+      updatedAt: now
+    };
+
+    await mkdir(path.join(rootDir, "specflow", "runs", run.id, "attempts", "attempt-base", "snapshot-before", "src"), {
+      recursive: true
+    });
+    await writeFile(
+      path.join(rootDir, "specflow", "runs", run.id, "attempts", "attempt-base", "snapshot-before", "src", "a.ts"),
+      "export const a = 1;\n",
+      "utf8"
+    );
+
+    const store = new ArtifactStore({ rootDir, now: () => new Date(now) });
+    await store.initialize();
+    await store.upsertConfig({
+      provider: "openrouter",
+      model: "openrouter/model",
+      port: 3141,
+      host: "127.0.0.1",
+      repoInstructionFile: "specflow/AGENTS.md"
+    });
+    process.env.OPENROUTER_API_KEY = "test-key";
+    await store.upsertInitiative(initiative);
+    await store.upsertRun(run);
+    await store.upsertTicketCoverageArtifact(coverage);
+    await store.upsertTicket(ticket);
+
+    let capturedRequest: LlmRequest | null = null;
+    const llmClient: LlmClient = {
+      complete: async (request) => {
+        capturedRequest = request;
+        return JSON.stringify({
+          criteriaResults: [{ criterionId: "c1", pass: true, evidence: "present" }],
+          driftFlags: [],
+          overallPass: true
+        });
+      }
+    };
+
+    const verifier = new VerifierService({
+      rootDir,
+      store,
+      llmClient,
+      fetchImpl: mockProviderRegistryFetch,
+      now: () => new Date(now),
+      idGenerator: (() => {
+        const ids = ["attemptfoundations", "opfoundations"];
+        let index = 0;
+        return () => ids[index++] ?? `id${index}`;
+      })()
+    });
+
+    await verifier.captureAndVerify({ ticketId: ticket.id });
+
+    expect(capturedRequest?.systemPrompt).toContain("Continuous engineering guardrails:");
+    expect(capturedRequest?.userPrompt).toContain("Covered spec items:");
+    expect(capturedRequest?.userPrompt).toContain("coverage-prd-requirements-1");
+    expect(capturedRequest?.userPrompt).toContain("Covered engineering foundations:");
+    expect(capturedRequest?.userPrompt).toContain("coverage-tech-spec-engineering-foundations-1");
+    expect(capturedRequest?.userPrompt).toContain("Use atomic writes, staged commits, and explicit recovery");
+
+    await store.close();
+    await rm(rootDir, { recursive: true, force: true });
   });
 
   it("keeps a passing verification in verify status until the user accepts it", async () => {

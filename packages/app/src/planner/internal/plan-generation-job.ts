@@ -8,11 +8,22 @@ export const resolveValidatedPlanResult = async (input: {
   executePlan: (planInput: PlanInput) => Promise<PlanResult>;
   executePlanRepair: (planInput: PlanInput) => Promise<PlanResult>;
   validateResult: (result: PlanResult) => void;
+  onAttempt?: (details: {
+    attemptNumber: number;
+    mode: "plan" | "plan-repair";
+    planInput: PlanInput;
+  }) => Promise<void> | void;
 }): Promise<PlanResult> => {
   let planInput = input.planInput;
   let executeCurrentPlan = input.executePlan;
+  let currentMode: "plan" | "plan-repair" = "plan";
 
   for (let attempt = 0; attempt < MAX_PLAN_VALIDATION_ATTEMPTS; attempt += 1) {
+    await input.onAttempt?.({
+      attemptNumber: attempt + 1,
+      mode: currentMode,
+      planInput
+    });
     const result = await executeCurrentPlan(planInput);
 
     try {
@@ -28,10 +39,13 @@ export const resolveValidatedPlanResult = async (input: {
         validationFeedback: buildPlanValidationFeedback(error),
         previousInvalidResult: result,
       };
-      executeCurrentPlan =
-        error instanceof PlanValidationError
-          ? input.executePlanRepair
-          : input.executePlan;
+      if (error instanceof PlanValidationError) {
+        executeCurrentPlan = input.executePlanRepair;
+        currentMode = "plan-repair";
+      } else {
+        executeCurrentPlan = input.executePlan;
+        currentMode = "plan";
+      }
     }
   }
 

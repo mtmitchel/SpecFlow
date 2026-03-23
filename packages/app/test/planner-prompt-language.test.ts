@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { buildPlannerPrompt } from "../src/planner/prompt-builder.js";
 
+const emptyTraceOutlines = {
+  brief: { sections: [] },
+  "core-flows": { sections: [] },
+  prd: { sections: [] },
+  "tech-spec": { sections: [] },
+};
+
 describe("planner prompt language", () => {
   it("requires a compact project title in brief generation prompts", () => {
     const prompt = buildPlannerPrompt(
@@ -106,8 +113,12 @@ describe("planner prompt language", () => {
     );
 
     expect(prdPrompt.userPrompt).toContain("Treat the PRD as the user-visible product contract");
+    expect(prdPrompt.userPrompt).toContain("Continuous engineering foundations:");
     expect(prdPrompt.userPrompt).toContain("Do not specify architecture, libraries, runtime/package choices");
     expect(techSpecPrompt.userPrompt).toContain("Treat the Tech spec as the implementation contract");
+    expect(techSpecPrompt.userPrompt).toContain(
+      'Include a dedicated "Engineering foundations" section'
+    );
     expect(techSpecPrompt.userPrompt).toContain("Do not restate the full Brief, Core flows, or PRD");
     expect(techSpecPrompt.userPrompt).toContain("quality strategy");
   });
@@ -160,10 +171,7 @@ describe("planner prompt language", () => {
       "plan",
       {
         initiativeDescription: "Build a lightweight offline-first note-taking app",
-        briefMarkdown: "# Brief",
-        coreFlowsMarkdown: "# Core flows",
-        prdMarkdown: "# PRD",
-        techSpecMarkdown: "# Tech spec",
+        traceOutlines: emptyTraceOutlines,
         coverageItems: [],
         validationFeedback: {
           summary: "Missing Brief goal: Preserve local note history.",
@@ -195,6 +203,8 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain("Missing Brief goal: Preserve local note history.");
     expect(prompt.userPrompt).toContain("Coverage item ID: coverage-brief-goals-1");
     expect(prompt.userPrompt).toContain("Previous invalid ticket plan");
+    expect(prompt.userPrompt).toContain("Trace outlines:");
+    expect(prompt.userPrompt).toContain("Continuous engineering foundations:");
   });
 
   it("uses a focused repair prompt for coverage-fix retries", () => {
@@ -202,10 +212,7 @@ describe("planner prompt language", () => {
       "plan-repair",
       {
         initiativeDescription: "Build a lightweight offline-first note-taking app",
-        briefMarkdown: "# Brief",
-        coreFlowsMarkdown: "# Core flows",
-        prdMarkdown: "# PRD",
-        techSpecMarkdown: "# Tech spec",
+        traceOutlines: emptyTraceOutlines,
         coverageItems: [],
         validationFeedback: {
           summary: "Missing Brief goal: Preserve local note history.",
@@ -244,6 +251,7 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain("Resolve every validation issue listed below.");
     expect(prompt.userPrompt).toContain("Previous invalid ticket plan");
     expect(prompt.userPrompt).not.toContain("Repository context (use this to generate accurate file paths");
+    expect(prompt.userPrompt).toContain("Continuous engineering foundations:");
   });
 
   it("requires short sentence-case phase and ticket titles in planning prompts", () => {
@@ -251,10 +259,7 @@ describe("planner prompt language", () => {
       "plan",
       {
         initiativeDescription: "Build a lightweight offline-first note-taking app",
-        briefMarkdown: "# Local notes",
-        coreFlowsMarkdown: "# Core flows",
-        prdMarkdown: "# PRD",
-        techSpecMarkdown: "# Tech spec",
+        traceOutlines: emptyTraceOutlines,
         coverageItems: [],
       },
       "team-rules: always include tests"
@@ -285,10 +290,7 @@ describe("planner prompt language", () => {
       "plan-repair",
       {
         initiativeDescription: "Build a notes app\u0007 with sync",
-        briefMarkdown: "# Brief\u0000",
-        coreFlowsMarkdown: "# Core flows",
-        prdMarkdown: "# PRD",
-        techSpecMarkdown: "# Tech spec",
+        traceOutlines: emptyTraceOutlines,
         coverageItems: [],
         validationFeedback: {
           summary: `Bad feedback ${"x".repeat(5_000)}`,

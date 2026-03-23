@@ -11,6 +11,7 @@ import type {
   TriageInput
 } from "./types.js";
 import {
+  PLANNER_ENGINEERING_FOUNDATIONS_SECTION,
   PLANNER_PRODUCT_DESIGN_CHARTER_SECTION,
   PLANNER_REVIEW_PRODUCT_DESIGN_SECTION,
   PLANNER_TITLE_STYLE_SECTION,
@@ -375,6 +376,7 @@ const buildReviewPrompt = (systemPrompt: string, input: ReviewRunInput): PromptB
     `Review this project artifact set for ${input.kind}.`,
     "Rules:",
     PLANNER_REVIEW_PRODUCT_DESIGN_SECTION,
+    PLANNER_ENGINEERING_FOUNDATIONS_SECTION,
     "- Identify only material blockers and meaningful warnings.",
     "- Use traceabilityGaps for missing or inconsistent links between artifacts.",
     "- Use assumptions for important implicit decisions the team should make explicit.",
@@ -474,6 +476,8 @@ export const buildPlannerPrompt = (
   if (job === "prd-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "PRD", [
       "Expand the product behavior, requirements, rules, failure behavior, scope boundaries, visible performance or compatibility promises, acceptance framing, and non-goals.",
+      PLANNER_ENGINEERING_FOUNDATIONS_SECTION,
+      "Make user-visible security, privacy, offline, recovery, performance, and support constraints explicit when they shape the shipped product contract.",
       ...getPromptPolicy("prd").generationRules,
       'The traceOutline should include sections for "requirements", "rules", "acceptance-criteria", and "non-goals".'
     ]);
@@ -482,8 +486,10 @@ export const buildPlannerPrompt = (
   if (job === "tech-spec-gen") {
     return buildGenerationPrompt(systemPrompt, input as SpecGenInput, "Tech spec", [
       "Cover architecture, major components, data flow, constraints, implementation approach, risks, and quality strategy.",
+      PLANNER_ENGINEERING_FOUNDATIONS_SECTION,
+      'Include a dedicated "Engineering foundations" section that states the repository-critical constraints the implementation must preserve continuously.',
       ...getPromptPolicy("tech-spec").generationRules,
-      'The traceOutline should include sections for "components", "data-entities", "decisions", "risks", and "quality-strategy".'
+      'The traceOutline should include sections for "components", "data-entities", "decisions", "risks", "quality-strategy", and "engineering-foundations".'
     ]);
   }
 
@@ -498,6 +504,10 @@ export const buildPlannerPrompt = (
   if (job === "plan" || job === "plan-repair") {
     const planInput = input as PlanInput;
     const isRepair = job === "plan-repair";
+    const traceOutlineSection =
+      Object.keys(planInput.traceOutlines).length > 0
+        ? `Trace outlines:\n${stringifyPromptValue(planInput.traceOutlines)}`
+        : null;
     const repoSection = planInput.repoContext
       ? [
           "Repository context (use this to generate accurate file paths — only reference files that exist):",
@@ -532,6 +542,7 @@ export const buildPlannerPrompt = (
         ? "- Every missing coverage item must appear in some ticket.coverageItemIds or in uncoveredCoverageItemIds."
         : null,
       TICKET_PLAN_PRODUCT_DESIGN_SECTION,
+      PLANNER_ENGINEERING_FOUNDATIONS_SECTION,
       PLANNER_TITLE_STYLE_SECTION,
       "Every coverage item must be accounted for. Assign each one to one or more tickets through coverageItemIds, or list it in uncoveredCoverageItemIds when the current plan intentionally leaves it out.",
       "Keep phase names short and scannable. Use 1 to 4 words in sentence case.",
@@ -540,10 +551,7 @@ export const buildPlannerPrompt = (
       "Write acceptance criteria as specific, observable outcomes that can be judged from a code diff. Avoid vague criteria like 'works well' or 'is intuitive'.",
       "Each ticket must have at least one coverageItemId unless the plan is invalid.",
       `Project description:\n${normalizePromptText(planInput.initiativeDescription)}`,
-      isRepair ? null : `Brief:\n${planInput.briefMarkdown}`,
-      isRepair ? null : `Core flows:\n${planInput.coreFlowsMarkdown}`,
-      isRepair ? null : `PRD:\n${planInput.prdMarkdown}`,
-      isRepair ? null : `Tech spec:\n${planInput.techSpecMarkdown}`,
+      traceOutlineSection,
       `Coverage items:\n${stringifyPromptValue(planInput.coverageItems)}`
     ];
 

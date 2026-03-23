@@ -49,10 +49,18 @@ const renderSection = (options: {
   activeRefinement?: InitiativeRefinementState | null;
   validationReview?: PlanningReviewArtifact | undefined;
   hasGeneratedTickets?: boolean;
+  busyAction?: string | null;
+  isBusy?: boolean;
+  generationError?: string | null;
+  validationStatusMessage?: string | null;
 } = {}) => {
   const {
     activeRefinement = buildRefinement([validationQuestion]),
     hasGeneratedTickets = false,
+    busyAction = null,
+    isBusy = false,
+    generationError = null,
+    validationStatusMessage = null,
   } = options;
   const validationReview =
     "validationReview" in options ? options.validationReview : blockedReview;
@@ -72,9 +80,10 @@ const renderSection = (options: {
       unresolvedQuestionCount={activeRefinement?.questions.length ?? 0}
       guidanceQuestionId={null}
       guidanceText={null}
-      busyAction={null}
-      isBusy={false}
-      generationError={null}
+      busyAction={busyAction}
+      isBusy={isBusy}
+      generationError={generationError}
+      validationStatusMessage={validationStatusMessage}
       validationReview={validationReview}
       reviewOverrideKind={null}
       reviewOverrideReason=""
@@ -174,5 +183,20 @@ describe("ValidationSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revise answers" }));
 
     expect(onValidatePlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the latest planner validation status while generating tickets", () => {
+    renderSection({
+      activeRefinement: buildRefinement([]),
+      busyAction: "generate-tickets",
+      isBusy: true,
+      validationStatusMessage: "Running ticket coverage review...",
+    });
+
+    expect(screen.getByText("Validating plan...")).toBeInTheDocument();
+    expect(screen.getByText("Running ticket coverage review...")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Checking the ticket draft before tickets are created."),
+    ).not.toBeInTheDocument();
   });
 });

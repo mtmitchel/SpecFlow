@@ -63,6 +63,34 @@ const forwardPlannerToken =
     onPlannerToken(chunk);
   };
 
+const forwardPlannerStatus =
+  (onPlannerStatus: ((message: string) => void) | undefined) =>
+  (event: TransportEvent): void => {
+    if (!onPlannerStatus || event.event !== "planner-status") {
+      return;
+    }
+
+    const message =
+      typeof (event.payload as { message?: unknown } | undefined)?.message === "string"
+        ? (event.payload as { message: string }).message
+        : null;
+    if (!message) {
+      return;
+    }
+
+    onPlannerStatus(message);
+  };
+
+const forwardPlannerEvents =
+  (options: {
+    onPlannerToken?: (chunk: string) => void;
+    onPlannerStatus?: (message: string) => void;
+  }) =>
+  (event: TransportEvent): void => {
+    forwardPlannerToken(options.onPlannerToken)(event);
+    forwardPlannerStatus(options.onPlannerStatus)(event);
+  };
+
 export const createInitiative = async (
   description: string,
   projectRootToken?: string
@@ -158,7 +186,10 @@ export const generateInitiativeTechSpec = async (
 
 export const generateInitiativePlan = async (
   initiativeId: string,
-  options?: TransportRequestOptions,
+  options?: TransportRequestOptions & {
+    onPlannerToken?: (chunk: string) => void;
+    onPlannerStatus?: (message: string) => void;
+  },
 ): Promise<{
   phases: Array<{
     name: string;
@@ -176,7 +207,7 @@ export const generateInitiativePlan = async (
   return transportSseRequest(
     "initiatives.generatePlan",
     { id: initiativeId },
-    undefined,
+    forwardPlannerEvents(options ?? {}),
     options,
   );
 };
@@ -218,7 +249,7 @@ export const continueInitiativeArtifactStep = async (
   transportSseRequest(
     "initiatives.continueArtifactStep",
     { id: initiativeId, step, body },
-    forwardPlannerToken(options?.onPlannerToken),
+    forwardPlannerEvents({ onPlannerToken: options?.onPlannerToken }),
     options,
   );
 
@@ -227,12 +258,16 @@ export const continueInitiativeValidation = async (
   body: InitiativeValidationContinuePayload,
   options?: TransportRequestOptions & {
     onPlannerToken?: (chunk: string) => void;
+    onPlannerStatus?: (message: string) => void;
   },
 ): Promise<InitiativeValidationContinueResult> =>
   transportSseRequest(
     "initiatives.continueValidation",
     { id: initiativeId, body },
-    forwardPlannerToken(options?.onPlannerToken),
+    forwardPlannerEvents({
+      onPlannerToken: options?.onPlannerToken,
+      onPlannerStatus: options?.onPlannerStatus,
+    }),
     options,
   );
 

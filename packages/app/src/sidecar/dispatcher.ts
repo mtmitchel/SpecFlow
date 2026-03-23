@@ -270,7 +270,8 @@ const routeSidecarMethod = async (
         String(params.id ?? ""),
         params.body as import("../types/contracts.js").InitiativeValidationContinuePayload,
         async (chunk) => notify("planner-token", { chunk }),
-        signal
+        signal,
+        async (message) => notify("planner-status", { message })
       );
     case "initiatives.refinement.help":
       return requestInitiativeClarificationHelp(runtime, String(params.id ?? ""), params.body as Record<string, unknown>, signal);
@@ -315,7 +316,13 @@ const routeSidecarMethod = async (
         params.body as { reason?: string }
       );
     case "initiatives.generatePlan":
-      return generateInitiativePlan(runtime, String(params.id ?? ""), async (chunk) => notify("planner-token", { chunk }), signal);
+      return generateInitiativePlan(
+        runtime,
+        String(params.id ?? ""),
+        async (chunk) => notify("planner-token", { chunk }),
+        signal,
+        async (message) => notify("planner-status", { message })
+      );
     case "tickets.update":
       return updateTicket(runtime, String(params.id ?? ""), params.body as Record<string, unknown>);
     case "tickets.create":

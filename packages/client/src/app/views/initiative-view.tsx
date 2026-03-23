@@ -82,6 +82,7 @@ export const InitiativeView = ({
     reviewOverrideKind,
     reviewOverrideReason,
     ticketGenerationError,
+    validationStatusMessage,
     setReviewOverrideReason,
     validationReview,
     initiativeTickets,
@@ -356,6 +357,7 @@ export const InitiativeView = ({
       busyAction={busyAction}
       isBusy={isBusy}
       generationError={ticketGenerationError}
+      validationStatusMessage={validationStatusMessage}
       validationReview={validationReview}
       reviewOverrideKind={reviewOverrideKind}
       reviewOverrideReason={reviewOverrideReason}

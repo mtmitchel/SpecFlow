@@ -12,6 +12,7 @@ import { readAttemptArtifact, resolveExistingVerificationOperation } from "./int
 import { runVerifierPrompt } from "./internal/prompt.js";
 import { throwIfAborted } from "../cancellation.js";
 import { resolveTicketProjectRoot } from "../project-roots.js";
+import { getTicketCoverageArtifactId } from "../planner/ticket-coverage.js";
 
 export interface VerifierServiceOptions {
   rootDir: string;
@@ -99,10 +100,16 @@ export class VerifierService {
 
     const config = await getResolvedVerifierConfig(this.store, this.fetchImpl);
     const agentsMd = await readVerifierAgentsMd(projectRoot, config.repoInstructionFile);
+    const coveredItems = ticket.initiativeId
+      ? this.store.ticketCoverageArtifacts
+          .get(getTicketCoverageArtifactId(ticket.initiativeId))
+          ?.items.filter((item) => ticket.coverageItemIds.includes(item.id)) ?? []
+      : [];
     const parsed = await runVerifierPrompt({
       llmClient: this.llmClient,
       config,
       ticket,
+      coveredItems,
       diffResult,
       agentsMd,
       onToken,

@@ -447,12 +447,18 @@ export const generateInitiativePlan = async (
   runtime: SpecFlowRuntime,
   initiativeId: string,
   onToken?: ProgressSink,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onStatus?: (message: string) => Promise<void> | void
 ) => {
   validateInitiativePlanGeneration(runtime, initiativeId);
 
   try {
-    return await runtime.plannerService.runPlanJob({ initiativeId }, onToken, signal);
+    return await runtime.plannerService.runPlanJob(
+      { initiativeId },
+      onToken,
+      signal,
+      onStatus
+    );
   } catch (error) {
     throw structuredPlannerError(runtime, error);
   }

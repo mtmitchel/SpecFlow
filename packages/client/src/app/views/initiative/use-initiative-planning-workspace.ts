@@ -2,17 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   checkInitiativePhase,
-  continueInitiativeValidation,
   generateInitiativeBrief,
   generateInitiativeCoreFlows,
-  generateInitiativePlan,
   generateInitiativePrd,
   generateInitiativeTechSpec,
   requestInitiativeClarificationHelp,
   updateInitiativePhases
 } from "../../../api.js";
 import { deleteInitiative, type InitiativePhaseCheckResult } from "../../../api/initiatives.js";
-import { ApiError } from "../../../api/http.js";
 import type { ArtifactsSnapshot, PlanningReviewArtifact, PlanningReviewKind } from "../../../types.js";
 import { useConfirm } from "../../context/confirm.js";
 import { useToast } from "../../context/toast.js";
@@ -39,13 +36,10 @@ import {
   buildValidationRefinement
 } from "./validation-refinement.js";
 import {
-  buildPlanValidationFeedbackByStep,
   buildValidationReviewFeedbackByStep,
 } from "./validation-feedback.js";
-import {
-  buildValidationDraftByStep,
-  rerunValidationQuestions,
-} from "./planning-continuation.js";
+import { rerunValidationQuestions } from "./planning-continuation.js";
+import { useValidationTicketGeneration } from "./use-validation-ticket-generation.js";
 
 const EMPTY_DRAFT_SAVE_STATE: Record<SpecStep, SaveState> = {
   brief: "idle", "core-flows": "idle", prd: "idle", "tech-spec": "idle"
@@ -72,7 +66,6 @@ export const useInitiativePlanningWorkspace = (
   const [guidanceText, setGuidanceText] = useState<string | null>(null);
   const [reviewOverrideKind, setReviewOverrideKind] = useState<PlanningReviewKind | null>(null);
   const [reviewOverrideReason, setReviewOverrideReason] = useState("");
-  const [ticketGenerationError, setTicketGenerationError] = useState<string | null>(null);
   const [drawerState, setDrawerState] = useState<PlanningDrawerState>(null);
   const [isDeletingInitiative, setIsDeletingInitiative] = useState(false);
   const { busyAction, isBusy, cancelBusyAction, withBusyAction } = useCancellableBusyAction();
@@ -196,16 +189,6 @@ export const useInitiativePlanningWorkspace = (
     initiativeTickets.length > 0
       ? snapshot.runs.filter((run) => run.ticketId && initiativeTickets.some((ticket) => ticket.id === run.ticketId))
       : [];
-  useEffect(() => {
-    if ((initiative?.phases.length ?? 0) > 0 || initiativeTickets.length > 0) {
-      setTicketGenerationError(null);
-    }
-  }, [initiative?.phases.length, initiativeTickets.length]);
-  useEffect(() => {
-    if (activeStep === "validation" && (activeRefinement?.questions.length ?? 0) > 0) {
-      setTicketGenerationError(null);
-    }
-  }, [activeRefinement?.questions.length, activeStep]);
   const headerTitle = initiative ? getInitiativeDisplayTitle(initiative.title, initiative.description) : "";
   const hasActiveContent = activeSpecStep ? savedDrafts[activeSpecStep].trim().length > 0 : false;
   const hasRefinementQuestions = getVisibleRefinementQuestions(activeRefinement).length > 0;
@@ -352,90 +335,24 @@ export const useInitiativePlanningWorkspace = (
     setReviewOverrideReason,
     withBusyAction,
   });
-
-  const handleGenerateTickets = async (): Promise<void> => {
-    if (!initiative) {
-      return;
-    }
-    const persisted = await flushRefinementPersistence();
-    if (!persisted) {
-      return;
-    }
-    setTicketGenerationError(null);
-    let generationError: string | null = null;
-    const status = await withBusyAction("generate-tickets", async (signal) => {
-      const recoverPlanValidationFailure = async (error: unknown): Promise<boolean> => {
-        const recoverableFeedbackByStep = buildPlanValidationFeedbackByStep(
-          error instanceof ApiError ? error.details : undefined
-        );
-        const recovered =
-          Object.keys(recoverableFeedbackByStep).length > 0
-            ? await rerunValidationQuestions({
-                initiativeId: initiative.id,
-                signal,
-                feedbackByStep: recoverableFeedbackByStep,
-              })
-            : false;
-        if (recovered) {
-          await onRefresh();
-          return true;
-        }
-
-        generationError =
-          (error as Error).message?.trim() || "Ticket generation failed.";
-        return false;
-      };
-
-      if (activeStep === "validation") {
-        try {
-          const result = await continueInitiativeValidation(
-            initiative.id,
-            {
-              draftByStep: buildValidationDraftByStep({
-                initiative,
-                answers: refinementAnswers,
-                defaultAnswerQuestionIds,
-              }),
-              validationFeedbackByStep,
-              validationFeedback,
-            },
-            { signal }
-          );
-          if (result.decision === "ask") {
-            await onRefresh();
-            return;
-          }
-          await onRefresh();
-          navigateToStep("tickets");
-          return;
-        } catch (error) {
-          if (await recoverPlanValidationFailure(error)) {
-            return;
-          }
-          throw error;
-        }
-      }
-
-      try {
-        await generateInitiativePlan(initiative.id, { signal });
-        await onRefresh();
-        navigateToStep("tickets");
-      } catch (error) {
-        if (await recoverPlanValidationFailure(error)) {
-          return;
-        }
-        throw error;
-      }
-    });
-
-    if (
-      status === "failed" &&
-      initiative.phases.length === 0 &&
-      initiativeTickets.length === 0
-    ) {
-      setTicketGenerationError(generationError ?? "Ticket generation failed.");
-    }
-  };
+  const {
+    ticketGenerationError,
+    validationStatusMessage,
+    handleGenerateTickets,
+  } = useValidationTicketGeneration({
+    initiative,
+    initiativeTicketCount: initiativeTickets.length,
+    activeStep,
+    activeRefinement,
+    refinementAnswers,
+    defaultAnswerQuestionIds,
+    validationFeedbackByStep,
+    validationFeedback,
+    flushRefinementPersistence,
+    withBusyAction,
+    onRefresh,
+    navigateToStep,
+  });
 
   const handleRequestGuidance = async (questionId: string): Promise<void> => {
     if (!initiative) {
@@ -566,6 +483,7 @@ export const useInitiativePlanningWorkspace = (
     reviewOverrideKind,
     reviewOverrideReason,
     ticketGenerationError,
+    validationStatusMessage,
     drawerState,
     headerTitle,
     activeStep,

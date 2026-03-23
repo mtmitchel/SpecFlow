@@ -7,6 +7,7 @@ import type {
 } from "../types/entities.js";
 
 const COVERAGE_STEPS: InitiativeArtifactStep[] = ["brief", "core-flows", "prd", "tech-spec"];
+export const ENGINEERING_FOUNDATIONS_SECTION_KEY = "engineering-foundations";
 
 const SECTION_KEYS_BY_STEP: Record<
   InitiativeArtifactStep,
@@ -29,7 +30,11 @@ const SECTION_KEYS_BY_STEP: Record<
   ],
   "tech-spec": [
     { key: "decisions", kind: "decision" },
-    { key: "verification-hooks", kind: "verification-hook" }
+    { key: "verification-hooks", kind: "verification-hook" },
+    {
+      key: ENGINEERING_FOUNDATIONS_SECTION_KEY,
+      kind: "engineering-foundation"
+    }
   ]
 };
 
@@ -43,6 +48,12 @@ export const getTicketCoverageArtifactId = (initiativeId: string): string =>
 
 export const getTicketCoverageReviewId = (initiativeId: string): string =>
   `${initiativeId}:ticket-coverage-review`;
+
+export const isEngineeringFoundationCoverageItem = (
+  item: Pick<TicketCoverageItem, "sectionKey" | "kind">
+): boolean =>
+  item.sectionKey === ENGINEERING_FOUNDATIONS_SECTION_KEY ||
+  item.kind === "engineering-foundation";
 
 export const buildTicketCoverageItems = (
   traces: Partial<Record<InitiativeArtifactStep, ArtifactTraceOutline>>

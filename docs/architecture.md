@@ -90,8 +90,10 @@ One transport adapts those handlers:
 The shared sidecar contract uses correlated request/response envelopes plus request-scoped notifications. Mutating methods also trigger global artifact change notifications so the UI can refresh snapshot state after writes.
 Those global notifications now preserve the originating `requestId` and `correlationId`, which lets the client suppress redundant whole-snapshot refreshes after locally applied mutations and gives support logs one stable identifier across client, sidecar, and desktop-bridge events.
 Planning question flows now also use two backend-owned continuation methods, `initiatives.continueArtifactStep` and `initiatives.continueValidation`. Those combined requests persist the current local refinement draft, rerun the phase or validation checks, and generate the next artifact or ticket plan inside the same foreground request instead of forcing the client to wait for a separate background autosave round-trip before it can continue.
+Ticket-plan generation and plan repair are structured-input operations. Validation no longer resends the raw Brief, Core flows, PRD, and Tech spec markdown back to the planner. Instead, the planner consumes persisted trace outlines, ticket-coverage items, repo context, and optional validation feedback, which keeps the payload smaller and makes coverage and engineering-foundation expectations explicit.
 
 The browser never calls provider APIs directly. AI operations stream through request-scoped Tauri channels backed by sidecar notifications. The UI refresh model stays snapshot-based: on disconnect or completion, it fetches the latest committed state rather than attempting event replay.
+Long-running planning requests can emit both `planner-token` notifications and request-scoped `planner-status` notifications. Validation uses the status channel to surface milestones such as preparing inputs, drafting the ticket plan, repairing coverage, running coverage review, and committing the plan.
 
 When `SPECFLOW_DEBUG_OBSERVABILITY=1` is set, the app runtime, Node sidecar, and Rust bridge each emit structured observability events to stderr. These logs cover request start/finish/timeout/cancel paths, sidecar startup and shutdown, store reload timings, and sidecar restarts without printing provider secrets.
 
@@ -114,6 +116,7 @@ For the user-facing version of these workflow rules, see [`workflows.md`](workfl
 Desktop mode replaces the legacy HTTP ZIP download anchor with a native save flow. The client asks Rust to open the save dialog, and Rust forwards a trusted `runs.saveBundleZip` sidecar request with the selected destination path without exposing that absolute path as a renderer-supplied parameter.
 
 Bundle contracts are versioned: every bundle includes a manifest with `bundleSchemaVersion`, `agentTarget`, and `exportMode` (standard vs quick-fix). Quick-fix exports include source linkage metadata (`sourceRunId`, `sourceFindingId`) for audit traceability. For project-linked tickets, `PROMPT.md` also surfaces the ticket's covered spec items before the acceptance criteria so the agent sees the originating requirement and flow context, not only the ticket summary. Coverage-gated project tickets cannot export until the shared execution-gate helper reports that the project's coverage review is resolved. Agent renderers are validated by golden tests against fixed fixtures.
+For project-linked tickets, `PROMPT.md` also carries continuous engineering guardrails plus any covered engineering-foundation items mapped from the Tech spec trace and ticket-coverage ledger. That keeps architecture, validation, persistence, testing, design-system, observability, docs, and dependency constraints attached to the execution handoff instead of relying on a final checklist.
 
 ---
 
@@ -129,7 +132,7 @@ No-git verification uses a **two-stage scope + dual-diff model**:
 - **Primary diff:** baseline-at-export vs capture-time state for the initial scope (used for verification).
 - **Drift diff:** pre-capture local changes and widened-scope deltas surfaced as warnings.
 
-The Verifier LLM receives the primary diff, acceptance criteria, and `specflow/AGENTS.md` and returns structured results per criterion including `pass`, `evidence`, `severity`, and `remediationHint`. Drift diff warnings are shown alongside verification output.
+The Verifier LLM receives the primary diff, acceptance criteria, covered spec items, covered engineering foundations, and `specflow/AGENTS.md` and returns structured results per criterion including `pass`, `evidence`, `severity`, and `remediationHint`. Drift diff warnings are shown alongside verification output. This means verification judges the delivered change against the same continuous engineering constraints that shaped planning and bundle export rather than treating them as an end-stage afterthought.
 
 ---
 

@@ -196,6 +196,8 @@ describe("BundleGenerator", () => {
 
     await expect(readFile(promptPath, "utf8")).resolves.toContain("Codex Task Bundle");
     await expect(readFile(promptPath, "utf8")).resolves.toContain("Product design guardrails");
+    await expect(readFile(promptPath, "utf8")).resolves.toContain("Continuous engineering guardrails");
+    await expect(readFile(promptPath, "utf8")).resolves.toContain("## Covered engineering foundations");
     await expect(readFile(agentsPath, "utf8")).resolves.toContain("Always write tests");
     await expect(readFile(briefPath, "utf8")).resolves.toContain("# Brief");
     await expect(readFile(snapshotPath, "utf8")).resolves.toContain("export const auth = true;");

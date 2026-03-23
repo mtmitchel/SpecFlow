@@ -1,8 +1,10 @@
 import type { LlmTokenHandler } from "../../llm/client.js";
+import { LlmProviderError } from "../../llm/errors.js";
+import { logObservabilityEvent } from "../../observability.js";
 import { resolveInitiativeProjectRoot } from "../../project-roots.js";
 import type { Initiative, Ticket } from "../../types/entities.js";
 import { blockWorkflowAtStep } from "../workflow-state.js";
-import { requireSpecMarkdown, requireSpecUpdatedAt } from "./context.js";
+import { requireSpecUpdatedAt } from "./context.js";
 import { resolveValidatedPlanResult } from "./plan-generation-job.js";
 import { buildPendingTicketPlanArtifact, commitPendingTicketPlanArtifact } from "./plan-job.js";
 import { validateCoverageMappings } from "./plan-validation.js";
@@ -15,26 +17,33 @@ import { ensureArtifactTrace, executeReviewJob } from "../planner-service-runtim
 import type { PlanResult, TriageResult } from "../types.js";
 import type { PlannerServiceDependencies, TriageJobResult } from "./planner-service-shared.js";
 
+export type PlanStatusSink = (message: string) => Promise<void> | void;
+
+const countTraceSections = (
+  traceOutlines: import("../types.js").PlannerTraceOutlineMap
+): number =>
+  Object.values(traceOutlines).reduce(
+    (total, trace) => total + (trace?.sections.length ?? 0),
+    0
+  );
+
+const estimatePromptInputBytes = (value: unknown): number =>
+  JSON.stringify(value)?.length ?? 0;
+
 export async function runPlanJob(
   service: PlannerServiceDependencies,
   input: { initiativeId: string },
   onToken?: LlmTokenHandler,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onStatus?: PlanStatusSink
 ): Promise<PlanResult> {
   const initiative = service.requireInitiative(input.initiativeId);
   const projectRoot = resolveInitiativeProjectRoot(service.rootDir, initiative);
-  const brief = await requireSpecMarkdown(initiative.id, "brief", (specId) =>
-    service.store.readSpecMarkdown(specId)
-  );
-  const coreFlows = await requireSpecMarkdown(initiative.id, "core-flows", (specId) =>
-    service.store.readSpecMarkdown(specId)
-  );
-  const prd = await requireSpecMarkdown(initiative.id, "prd", (specId) =>
-    service.store.readSpecMarkdown(specId)
-  );
-  const techSpec = await requireSpecMarkdown(initiative.id, "tech-spec", (specId) =>
-    service.store.readSpecMarkdown(specId)
-  );
+  const emitStatus = async (message: string): Promise<void> => {
+    await onStatus?.(message);
+  };
+
+  await emitStatus("Preparing validation inputs...");
   const coverageInput = await buildTicketCoverageInput({
     initiative,
     requireSpecUpdatedAt: (currentInitiativeId, step) =>
@@ -43,32 +52,87 @@ export async function runPlanJob(
       ensureArtifactTrace(service.getRuntimeContext(), currentInitiative, step, signal)
   });
   const repoContext = await scanRepo(projectRoot).catch(() => undefined);
+  const traceStepCount = Object.keys(coverageInput.traceOutlines).length;
+  const traceSectionCount = countTraceSections(coverageInput.traceOutlines);
+  const repoContextBytes = repoContext ? estimatePromptInputBytes(repoContext) : 0;
+  let latestAttemptMode: "plan" | "plan-repair" = "plan";
 
-  const result = await resolveValidatedPlanResult({
-    planInput: {
-      initiativeDescription: initiative.description,
-      briefMarkdown: brief,
-      coreFlowsMarkdown: coreFlows,
-      prdMarkdown: prd,
-      techSpecMarkdown: techSpec,
-      coverageItems: coverageInput.items,
-      repoContext
-    },
-    executePlan: (nextPlanInput) =>
-      service.executePlannerJob<PlanResult>("plan", nextPlanInput, onToken, signal, projectRoot),
-    executePlanRepair: (nextPlanInput) =>
-      service.executePlannerJob<PlanResult>(
-        "plan-repair",
-        nextPlanInput,
-        onToken,
-        signal,
-        projectRoot
-      ),
-    validateResult: (nextResult) => {
-      validatePlanResult(nextResult);
-      validateCoverageMappings(nextResult, coverageInput.items);
+  logObservabilityEvent({
+    layer: "runtime",
+    event: "planner.validation.plan",
+    status: "start",
+    details: {
+      initiativeId: initiative.id,
+      coverageItemCount: coverageInput.items.length,
+      traceStepCount,
+      traceSectionCount,
+      repoContextBytes
     }
   });
+
+  let result: PlanResult;
+  try {
+    result = await resolveValidatedPlanResult({
+      planInput: {
+        initiativeDescription: initiative.description,
+        traceOutlines: coverageInput.traceOutlines,
+        coverageItems: coverageInput.items,
+        repoContext
+      },
+      executePlan: (nextPlanInput) =>
+        service.executePlannerJob<PlanResult>("plan", nextPlanInput, onToken, signal, projectRoot),
+      executePlanRepair: (nextPlanInput) =>
+        service.executePlannerJob<PlanResult>(
+          "plan-repair",
+          nextPlanInput,
+          onToken,
+          signal,
+          projectRoot
+        ),
+      validateResult: (nextResult) => {
+        validatePlanResult(nextResult);
+        validateCoverageMappings(nextResult, coverageInput.items);
+      },
+      onAttempt: async ({ attemptNumber, mode, planInput }) => {
+        latestAttemptMode = mode;
+        await emitStatus(
+          mode === "plan"
+            ? `Drafting ticket plan (attempt ${attemptNumber} of 3)...`
+            : `Repairing ticket coverage (attempt ${attemptNumber} of 3)...`
+        );
+        logObservabilityEvent({
+          layer: "runtime",
+          event: "planner.validation.plan.attempt",
+          status: "start",
+          details: {
+            initiativeId: initiative.id,
+            attemptNumber,
+            mode,
+            promptInputBytes: estimatePromptInputBytes(planInput),
+            coverageItemCount: planInput.coverageItems.length,
+            traceStepCount: Object.keys(planInput.traceOutlines).length,
+            traceSectionCount: countTraceSections(planInput.traceOutlines)
+          }
+        });
+      }
+    });
+  } catch (error) {
+    logObservabilityEvent({
+      layer: "runtime",
+      event: "planner.validation.plan",
+      status: error instanceof LlmProviderError && error.code === "timeout" ? "timeout" : "error",
+      details: {
+        initiativeId: initiative.id,
+        mode: latestAttemptMode,
+        timeoutSource:
+          error instanceof LlmProviderError && error.code === "timeout"
+            ? latestAttemptMode
+            : undefined,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    });
+    throw error;
+  }
 
   const nowIso = service.now().toISOString();
   const pendingPlan = buildPendingTicketPlanArtifact({
@@ -80,6 +144,7 @@ export async function runPlanJob(
   });
   await service.store.upsertPendingTicketPlanArtifact(pendingPlan);
 
+  await emitStatus("Running ticket coverage review...");
   const review = await executeReviewJob(
     service.getRuntimeContext(),
     initiative,
@@ -96,10 +161,23 @@ export async function runPlanJob(
       workflow: blockWorkflowAtStep(refreshedInitiative.workflow, "validation", nowIso),
       updatedAt: nowIso
     });
+    await emitStatus("Validation found follow-up work.");
     return result;
   }
 
+  await emitStatus("Committing ticket plan...");
   await commitPendingPlan(service, initiative, pendingPlan, nowIso);
+  logObservabilityEvent({
+    layer: "runtime",
+    event: "planner.validation.plan",
+    status: "ok",
+    details: {
+      initiativeId: initiative.id,
+      coverageItemCount: coverageInput.items.length,
+      traceStepCount,
+      traceSectionCount
+    }
+  });
   return result;
 }
 

@@ -1,5 +1,9 @@
 import type { RenderBundleInput, RenderBundleOutput } from "./types.js";
-import { BUNDLE_PRODUCT_DESIGN_SECTION } from "../prompt-guidance.js";
+import {
+  BUNDLE_ENGINEERING_FOUNDATIONS_SECTION,
+  BUNDLE_PRODUCT_DESIGN_SECTION,
+} from "../prompt-guidance.js";
+import { isEngineeringFoundationCoverageItem } from "../planner/ticket-coverage.js";
 
 const renderContextSection = (contextFiles: RenderBundleInput["contextFiles"]): string => {
   if (contextFiles.length === 0) {
@@ -24,6 +28,16 @@ const renderTicketCore = (input: RenderBundleInput): string => {
   const coveredItems = input.coveredItems.length
     ? input.coveredItems.map((item) => `- [${item.sourceStep} · ${item.sectionLabel}] ${item.text}`).join("\n")
     : "- (none)";
+  const engineeringFoundations = input.coveredItems.filter(
+    isEngineeringFoundationCoverageItem
+  ).length
+    ? input.coveredItems
+        .filter(isEngineeringFoundationCoverageItem)
+        .map(
+          (item) => `- [${item.sourceStep} · ${item.sectionLabel}] ${item.text}`
+        )
+        .join("\n")
+    : "- No ticket-specific engineering foundation items were mapped. Follow AGENTS.md and the guardrails below for the whole task.";
 
   const criteria = input.ticket.acceptanceCriteria.length
     ? input.ticket.acceptanceCriteria.map((criterion) => `- ${criterion.text}`).join("\n")
@@ -47,8 +61,13 @@ const renderTicketCore = (input: RenderBundleInput): string => {
     hasBackground ? "" : null,
     BUNDLE_PRODUCT_DESIGN_SECTION,
     "",
+    BUNDLE_ENGINEERING_FOUNDATIONS_SECTION,
+    "",
     "## Main files",
     targets,
+    "",
+    "## Covered engineering foundations",
+    engineeringFoundations,
     "",
     "## Covered spec items",
     coveredItems,

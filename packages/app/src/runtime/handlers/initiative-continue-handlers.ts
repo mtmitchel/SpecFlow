@@ -93,7 +93,8 @@ export const continueInitiativeValidation = async (
   initiativeId: string,
   body: InitiativeValidationContinuePayload,
   onToken?: ProgressSink,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onStatus?: (message: string) => Promise<void> | void
 ): Promise<InitiativeValidationContinueResult> => {
   for (const step of SPEC_STEP_TYPES) {
     const draft = body.draftByStep?.[step];
@@ -143,7 +144,13 @@ export const continueInitiativeValidation = async (
     };
   }
 
-  const plan = await generateInitiativePlan(runtime, initiativeId, onToken, signal);
+  const plan = await generateInitiativePlan(
+    runtime,
+    initiativeId,
+    onToken,
+    signal,
+    onStatus
+  );
   return {
     decision: "proceed",
     generated: true,

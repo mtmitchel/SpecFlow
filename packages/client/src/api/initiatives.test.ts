@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   continueInitiativeArtifactStep,
   continueInitiativeValidation,
+  generateInitiativePlan,
   saveInitiativeRefinement,
   saveInitiativeSpecs,
 } from "./initiatives";
@@ -136,5 +137,62 @@ describe("initiatives api", () => {
       expect.any(Function),
       undefined
     );
+  });
+
+  it("forwards planner-status notifications during plan generation", async () => {
+    const onPlannerStatus = vi.fn();
+    transportRequestMock.mockImplementation(async (_method, _params, onEvent) => {
+      onEvent?.({
+        event: "planner-status",
+        payload: { message: "Drafting ticket plan..." },
+      });
+      onEvent?.({
+        event: "planner-token",
+        payload: { chunk: "ignore-me" },
+      });
+      onEvent?.({
+        event: "planner-status",
+        payload: { message: "Running ticket coverage review..." },
+      });
+
+      return { phases: [], uncoveredCoverageItemIds: [] };
+    });
+
+    await generateInitiativePlan("initiative-1", { onPlannerStatus });
+
+    expect(onPlannerStatus.mock.calls).toEqual([
+      ["Drafting ticket plan..."],
+      ["Running ticket coverage review..."],
+    ]);
+  });
+
+  it("forwards planner-status notifications during validation continuation", async () => {
+    const onPlannerStatus = vi.fn();
+    transportRequestMock.mockImplementation(async (_method, _params, onEvent) => {
+      onEvent?.({
+        event: "planner-status",
+        payload: { message: "Preparing validation inputs..." },
+      });
+      onEvent?.({
+        event: "planner-status",
+        payload: { notMessage: true },
+      });
+
+      return { decision: "proceed", generated: true, blockedSteps: [] };
+    });
+
+    await continueInitiativeValidation(
+      "initiative-1",
+      {
+        draftByStep: {},
+        validationFeedbackByStep: {},
+        validationFeedback: null,
+      },
+      { onPlannerStatus }
+    );
+
+    expect(onPlannerStatus.mock.calls).toEqual([
+      ["Preparing validation inputs..."],
+    ]);
   });
 });
