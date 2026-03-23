@@ -66,16 +66,14 @@ export const triageQuickTask = async (
       return {
         decision: triage.decision,
         reason: triage.reason,
-        initiativeId: triage.initiative.id,
-        initiativeTitle: triage.initiative.title
+        initiative: triage.initiative
       };
     }
 
     return {
       decision: triage.decision,
       reason: triage.reason,
-      ticketId: triage.ticket.id,
-      ticketTitle: triage.ticket.title,
+      ticket: triage.ticket,
       acceptanceCriteria: triage.ticket.acceptanceCriteria,
       implementationPlan: triage.ticket.implementationPlan,
       fileTargets: triage.ticket.fileTargets

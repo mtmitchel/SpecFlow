@@ -6,6 +6,7 @@ import {
   type TransportRequestOptions
 } from "./transport";
 import type {
+  Initiative,
   InitiativeArtifactStepContinuePayload,
   InitiativeArtifactStepContinueResult,
   InitiativePhaseCheckResult,
@@ -94,10 +95,15 @@ const forwardPlannerEvents =
 export const createInitiative = async (
   description: string,
   projectRootToken?: string
-): Promise<{ initiativeId: string }> =>
-  transportRequest("initiatives.create", {
-    body: { description, projectRootToken }
-  });
+): Promise<{ initiative: Initiative }> =>
+  transportRequest(
+    "initiatives.create",
+    {
+      body: { description, projectRootToken }
+    },
+    undefined,
+    { localMutationApplied: true }
+  );
 
 export const updateInitiative = async (
   initiativeId: string,
@@ -107,8 +113,14 @@ export const updateInitiative = async (
     phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>;
     resumeTicketId: string | null;
   }>
-): Promise<void> => {
-  await transportJsonRequest("initiatives.update", { id: initiativeId, body: payload });
+): Promise<Initiative> => {
+  const result = await transportJsonRequest<{ initiative: Initiative }>(
+    "initiatives.update",
+    { id: initiativeId, body: payload },
+    undefined,
+    { localMutationApplied: true }
+  );
+  return result.initiative;
 };
 
 export const checkInitiativePhase = async (
@@ -215,8 +227,14 @@ export const generateInitiativePlan = async (
 export const updateInitiativePhases = async (
   initiativeId: string,
   phases: Array<{ id: string; name: string; order: number; status: "active" | "complete" }>
-): Promise<void> => {
-  await transportJsonRequest("initiatives.update", { id: initiativeId, body: { phases } });
+): Promise<Initiative> => {
+  const result = await transportJsonRequest<{ initiative: Initiative }>(
+    "initiatives.update",
+    { id: initiativeId, body: { phases } },
+    undefined,
+    { localMutationApplied: true }
+  );
+  return result.initiative;
 };
 
 export const saveInitiativeRefinement = async (
@@ -285,7 +303,12 @@ export const requestInitiativeClarificationHelp = async (
   );
 
 export const deleteInitiative = async (initiativeId: string): Promise<void> => {
-  await transportRequest("initiatives.delete", { id: initiativeId });
+  await transportRequest(
+    "initiatives.delete",
+    { id: initiativeId },
+    undefined,
+    { localMutationApplied: true }
+  );
 };
 
 export const runInitiativeReview = async (

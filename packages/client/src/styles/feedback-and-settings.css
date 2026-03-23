@@ -230,10 +230,13 @@
   cursor: pointer;
   padding: 0.1rem 0.3rem;
   border-radius: var(--radius-sm);
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), opacity var(--transition-fast);
 }
 
-.settings-modal-close:hover { color: var(--text); }
+.settings-modal-close:hover {
+  color: var(--text);
+  opacity: 0.85;
+}
 
 .settings-modal-body {
   display: flex;
@@ -261,12 +264,13 @@
   font-family: inherit;
   font-size: var(--font-body-sm);
   text-align: left;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .settings-modal-nav-item:hover:not(.disabled) {
   background: var(--accent-bg-subtle);
   color: var(--text);
+  opacity: 0.85;
 }
 
 .settings-modal-nav-item.active {
@@ -290,6 +294,10 @@
 
 .settings-modal-heading {
   font-size: var(--font-lg);
+}
+
+.settings-modal-intro {
+  margin: 0.2rem 0 0;
 }
 
 .settings-general-hint {
@@ -320,11 +328,12 @@
   text-align: left;
   font-family: inherit;
   color: var(--text);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
 }
 
 .settings-provider-card:hover {
   border-color: var(--accent-border-subtle);
+  opacity: 0.85;
 }
 
 .settings-provider-card-selected {

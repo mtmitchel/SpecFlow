@@ -178,7 +178,7 @@ describe("RunView", () => {
     });
 
     expect(screen.getByText("Summary")).toBeInTheDocument();
-    expect(screen.getByText("Verification log")).toBeInTheDocument();
+    expect(screen.getByText("Verification details")).toBeInTheDocument();
     expect(screen.getByText("Context")).toBeInTheDocument();
     expect(screen.getByText("Details")).toBeInTheDocument();
     expect(screen.getByText("Included files")).toBeInTheDocument();

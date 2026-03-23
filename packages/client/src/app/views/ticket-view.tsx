@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getTicketStatusTransitionGate } from "../../../../app/src/planner/execution-gates.js";
 import { fetchOperationStatus, fetchRunAttemptDetail } from "../../api.js";
 import type {
   Initiative,
@@ -13,6 +12,7 @@ import type {
   TicketCoverageArtifact,
   TicketStatus,
 } from "../../types.js";
+import { getTicketStatusTransitionGate } from "@specflow/shared-contracts";
 import { useToast } from "../context/toast.js";
 import { getAvailableStatusOptions } from "../constants/status-columns.js";
 import { findPhaseWarning } from "../utils/phase-warning.js";
@@ -35,6 +35,7 @@ import {
 import { VerificationResultsSection } from "./ticket/verification-results-section.js";
 import type { WorkflowPhase } from "./ticket/workflow.js";
 import { usePersistInitiativeResumeTicket } from "./use-persist-initiative-resume-ticket.js";
+import { applyInitiativeUpdate, noopApplySnapshotUpdate, type ApplySnapshotUpdate } from "../utils/snapshot-updates.js";
 
 const COVERAGE_GATE_MESSAGE = "Run the coverage check before you start this ticket.";
 
@@ -85,6 +86,7 @@ export const TicketView = ({
   planningReviews,
   ticketCoverageArtifacts: _ticketCoverageArtifacts,
   onRefresh,
+  onApplySnapshotUpdate = noopApplySnapshotUpdate,
   onMoveTicket,
 }: {
   tickets: Ticket[];
@@ -94,6 +96,7 @@ export const TicketView = ({
   planningReviews: PlanningReviewArtifact[];
   ticketCoverageArtifacts: TicketCoverageArtifact[];
   onRefresh: () => Promise<void>;
+  onApplySnapshotUpdate?: ApplySnapshotUpdate;
   onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
 }) => {
   const params = useParams<{ id: string }>();
@@ -173,7 +176,9 @@ export const TicketView = ({
     initiativeId: initiative?.id ?? null,
     resumeTicketId: ticket?.initiativeId ? ticket.id : null,
     currentResumeTicketId: initiative?.workflow.resumeTicketId,
-    onRefresh,
+    onInitiativeUpdated: (updatedInitiative) => {
+      onApplySnapshotUpdate((current) => applyInitiativeUpdate(current, updatedInitiative));
+    },
     showError,
   });
 

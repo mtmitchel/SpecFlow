@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { updateInitiative } from "../../api.js";
+import type { Initiative } from "../../types.js";
 
 interface PersistInitiativeResumeTicketConfig {
   currentResumeTicketId: string | null | undefined;
   initiativeId: string | null;
-  onRefresh?: () => Promise<void>;
+  onInitiativeUpdated?: (initiative: Initiative) => void;
   resumeTicketId: string | null;
   showError: (message: string) => void;
 }
@@ -12,7 +13,7 @@ interface PersistInitiativeResumeTicketConfig {
 export const usePersistInitiativeResumeTicket = ({
   currentResumeTicketId,
   initiativeId,
-  onRefresh,
+  onInitiativeUpdated,
   resumeTicketId,
   showError,
 }: PersistInitiativeResumeTicketConfig): void => {
@@ -24,12 +25,12 @@ export const usePersistInitiativeResumeTicket = ({
     let cancelled = false;
 
     void updateInitiative(initiativeId, { resumeTicketId })
-      .then(async () => {
-        if (cancelled || !onRefresh) {
+      .then((initiative) => {
+        if (cancelled || !onInitiativeUpdated) {
           return;
         }
 
-        await onRefresh();
+        onInitiativeUpdated(initiative);
       })
       .catch((error) => {
         if (cancelled) {
@@ -42,5 +43,5 @@ export const usePersistInitiativeResumeTicket = ({
     return () => {
       cancelled = true;
     };
-  }, [currentResumeTicketId, initiativeId, onRefresh, resumeTicketId, showError]);
+  }, [currentResumeTicketId, initiativeId, onInitiativeUpdated, resumeTicketId, showError]);
 };

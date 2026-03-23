@@ -220,12 +220,12 @@ export const useExportWorkflow = (
     }
 
     try {
-      const savedPath = await saveBundleZip(
+      const saved = await saveBundleZip(
         currentResult.runId,
         currentResult.attemptId,
         `${currentResult.runId}-${currentResult.attemptId}-bundle.zip`
       );
-      if (savedPath) {
+      if (saved) {
         showSuccess("ZIP bundle saved.");
       }
     } catch (err) {

@@ -77,3 +77,13 @@ export {
   getPrerequisitePlanningStep,
   isReviewResolved,
 } from "./planner/workflow-contract.js";
+export {
+  EXECUTION_TICKET_STATUSES,
+  TICKET_DEPENDENCY_GATE_MESSAGE,
+  TICKET_EXECUTION_GATE_MESSAGE,
+  TICKET_EXECUTION_GATE_REVIEW_KIND,
+  getTicketExecutionGate,
+  getTicketStatusTransitionGate,
+  isExecutionTicketStatus,
+} from "./planner/execution-gates.js";
+export type { TicketExecutionGateResult } from "./planner/execution-gates.js";

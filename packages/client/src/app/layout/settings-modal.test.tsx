@@ -39,7 +39,7 @@ describe("SettingsModal", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /OpenAI/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith({
@@ -75,7 +75,7 @@ describe("SettingsModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /OpenAI/i }));
 
-    expect(screen.getByPlaceholderText("(key set -- leave blank to keep)")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Paste a new API key")).toBeInTheDocument();
     expect(screen.getByText("Leave this blank to keep the saved key, or paste a new one.")).toBeInTheDocument();
   });
 
@@ -95,7 +95,7 @@ describe("SettingsModal", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByPlaceholderText("(key set -- leave blank to keep)")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Paste a new API key")).toBeInTheDocument();
     expect(screen.getByText("Leave this blank to keep the saved key, or paste a new one.")).toBeInTheDocument();
   });
 });

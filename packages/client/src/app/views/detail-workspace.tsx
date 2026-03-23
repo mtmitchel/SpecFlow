@@ -13,10 +13,12 @@ import { RunsListView } from "./runs-list-view.js";
 import { SpecsListView } from "./specs-list-view.js";
 import { NewChooser } from "./new-chooser.js";
 import { QuickTaskPage } from "./quick-task-page.js";
+import type { ApplySnapshotUpdate } from "../utils/snapshot-updates.js";
 
 interface DetailWorkspaceProps {
   snapshot: ArtifactsSnapshot;
   onRefresh: () => Promise<void>;
+  onApplySnapshotUpdate: ApplySnapshotUpdate;
   onMoveTicket: (ticketId: string, status: TicketStatus) => Promise<void>;
   onOpenCommandPalette: () => void;
 }
@@ -27,7 +29,7 @@ const RedirectParam = ({ base }: { base: string }) => {
   return <Navigate to={`${base}/${id ?? ""}`} replace />;
 };
 
-export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenCommandPalette }: DetailWorkspaceProps) => (
+export const DetailWorkspace = ({ snapshot, onRefresh, onApplySnapshotUpdate, onMoveTicket, onOpenCommandPalette }: DetailWorkspaceProps) => (
   <Routes>
     {/* Canonical views */}
     <Route
@@ -36,6 +38,7 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
         <InitiativeRouteView
           snapshot={snapshot}
           onRefresh={onRefresh}
+          onApplySnapshotUpdate={onApplySnapshotUpdate}
           onMoveTicket={onMoveTicket}
         />
       }
@@ -52,6 +55,7 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
           planningReviews={snapshot.planningReviews}
           ticketCoverageArtifacts={snapshot.ticketCoverageArtifacts}
           onRefresh={onRefresh}
+          onApplySnapshotUpdate={onApplySnapshotUpdate}
           onMoveTicket={onMoveTicket}
         />
       }
@@ -81,9 +85,17 @@ export const DetailWorkspace = ({ snapshot, onRefresh, onMoveTicket, onOpenComma
     <Route path="/new" element={<NewChooser />} />
     <Route
       path="/new-initiative"
-      element={<InitiativeCreator onRefresh={onRefresh} defaultBrowseRoot={snapshot.workspaceRoot ?? ""} />}
+      element={
+        <InitiativeCreator
+          defaultBrowseRoot={snapshot.workspaceRoot ?? ""}
+          onApplySnapshotUpdate={onApplySnapshotUpdate}
+        />
+      }
     />
-    <Route path="/new-quick-task" element={<QuickTaskPage onRefresh={onRefresh} />} />
+    <Route
+      path="/new-quick-task"
+      element={<QuickTaskPage onApplySnapshotUpdate={onApplySnapshotUpdate} />}
+    />
 
     {/* Aggregate views */}
     <Route path="/tickets" element={<TicketsListView snapshot={snapshot} />} />

@@ -2,15 +2,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { importGithubIssue } from "../../api/import.js";
 import { useToast } from "../context/toast.js";
+import {
+  applyInitiativeUpdate,
+  applyQuickTaskTicketCreation,
+  type ApplySnapshotUpdate,
+} from "../utils/snapshot-updates.js";
 
 interface PaletteGithubImportModeProps {
   inputRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   onClose: () => void;
-  onRefresh: () => Promise<void>;
+  onApplySnapshotUpdate: ApplySnapshotUpdate;
   onBack: () => void;
 }
 
-export const PaletteGithubImportMode = ({ inputRef, onClose, onRefresh, onBack }: PaletteGithubImportModeProps) => {
+export const PaletteGithubImportMode = ({ inputRef, onClose, onApplySnapshotUpdate, onBack }: PaletteGithubImportModeProps) => {
   const navigate = useNavigate();
   const { showError } = useToast();
   const [githubUrl, setGithubUrl] = useState("");
@@ -21,12 +26,13 @@ export const PaletteGithubImportMode = ({ inputRef, onClose, onRefresh, onBack }
     setBusy(true);
     try {
       const result = await importGithubIssue(githubUrl.trim());
-      await onRefresh();
       onClose();
       if (result.decision === "ok") {
-        navigate(`/ticket/${result.ticketId}`);
+        onApplySnapshotUpdate((current) => applyQuickTaskTicketCreation(current, result.ticket));
+        navigate(`/ticket/${result.ticket.id}`);
       } else {
-        navigate(`/initiative/${result.initiativeId}`);
+        onApplySnapshotUpdate((current) => applyInitiativeUpdate(current, result.initiative));
+        navigate(`/initiative/${result.initiative.id}`);
       }
     } catch (err) {
       showError((err as Error).message ?? "We couldn't import the GitHub issue.");

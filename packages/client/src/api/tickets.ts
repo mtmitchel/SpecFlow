@@ -1,4 +1,4 @@
-import type { AgentTarget, Ticket, TicketStatus } from "../types";
+import type { AgentTarget, Initiative, Ticket, TicketStatus } from "../types";
 import {
   saveDesktopBundleZip,
   transportJsonRequest,
@@ -21,17 +21,18 @@ export const triageQuickTask = async (
   | {
       decision: "ok";
       reason: string;
-      ticketId: string;
-      ticketTitle: string;
+      ticket: Ticket;
       acceptanceCriteria: Array<{ id: string; text: string }>;
       implementationPlan: string;
       fileTargets: string[];
     }
-  | { decision: "too-large"; reason: string; initiativeId: string; initiativeTitle: string }
+  | { decision: "too-large"; reason: string; initiative: Initiative }
 > => {
   return transportJsonRequest(
     "tickets.create",
-    { body: { description } }
+    { body: { description } },
+    undefined,
+    { localMutationApplied: true }
   );
 };
 
@@ -115,6 +116,6 @@ export const saveBundleZip = async (
   runId: string,
   attemptId: string,
   defaultFilename: string
-): Promise<string | null> => {
+): Promise<boolean> => {
   return saveDesktopBundleZip(runId, attemptId, defaultFilename);
 };

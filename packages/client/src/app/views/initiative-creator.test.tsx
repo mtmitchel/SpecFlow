@@ -33,7 +33,7 @@ describe("InitiativeCreator", () => {
       token: "project-root-0000000000000001",
       displayPath: "/home/mason/projects/desktop-app"
     });
-    createInitiativeMock.mockResolvedValueOnce({ initiativeId: "initiative-12345678" });
+    createInitiativeMock.mockResolvedValueOnce({ initiative: { id: "initiative-12345678" } });
 
     render(
       <MemoryRouter initialEntries={["/new-initiative"]}>
@@ -42,7 +42,7 @@ describe("InitiativeCreator", () => {
             path="/new-initiative"
             element={
               <InitiativeCreator
-                onRefresh={vi.fn(async () => undefined)}
+                onApplySnapshotUpdate={vi.fn()}
                 defaultBrowseRoot="/home/mason/projects"
               />
             }
@@ -77,7 +77,7 @@ describe("InitiativeCreator", () => {
       token: "project-root-0000000000000002",
       displayPath: "/home/mason/projects/note-app"
     });
-    createInitiativeMock.mockResolvedValueOnce({ initiativeId: "initiative-12345678" });
+    createInitiativeMock.mockResolvedValueOnce({ initiative: { id: "initiative-12345678" } });
 
     render(
       <MemoryRouter initialEntries={["/new-initiative"]}>
@@ -86,7 +86,7 @@ describe("InitiativeCreator", () => {
             path="/new-initiative"
             element={
               <InitiativeCreator
-                onRefresh={vi.fn(async () => undefined)}
+                onApplySnapshotUpdate={vi.fn()}
                 defaultBrowseRoot="/home/mason/projects"
               />
             }

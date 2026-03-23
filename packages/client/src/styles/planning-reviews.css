@@ -27,31 +27,25 @@
   line-height: 1.5;
 }
 
-.checkpoint-gate-banner button {
-  border: 1px solid var(--accent-border);
+.checkpoint-gate-banner :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border: 1px solid var(--warning-border);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
   font-family: inherit;
   font-size: var(--font-body-sm);
   font-weight: 500;
-  background: var(--accent-bg-active);
-  color: var(--accent-text);
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-
-.checkpoint-gate-banner button:hover {
-  background: rgba(72, 203, 255, 0.24);
-}
-
-.checkpoint-gate-banner button {
-  border-color: var(--warning-border);
   background: var(--warning-bg);
   color: var(--warning-text);
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
-.checkpoint-gate-banner button:hover {
-  background: rgba(243, 187, 82, 0.18);
+.checkpoint-gate-banner :is(a, button):hover {
+  opacity: 0.85;
 }
 
 .planning-review-card {

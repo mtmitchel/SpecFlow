@@ -130,16 +130,14 @@ export const importGithubIssue = async (runtime: SpecFlowRuntime, input: ImportG
       return {
         decision: "too-large" as const,
         reason: triage.reason,
-        initiativeId: triage.initiative.id,
-        initiativeTitle: triage.initiative.title
+        initiative: triage.initiative
       };
     }
 
     return {
       decision: "ok" as const,
       reason: triage.reason,
-      ticketId: triage.ticket.id,
-      ticketTitle: triage.ticket.title,
+      ticket: triage.ticket,
       issueUrl: issue.html_url
     };
   } catch (error) {

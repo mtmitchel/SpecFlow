@@ -1,5 +1,5 @@
-import { getTicketStatusTransitionGate } from "../../../../app/src/planner/execution-gates.js";
 import type { PlanningReviewArtifact, Ticket, TicketStatus } from "../../types";
+import { getTicketStatusTransitionGate } from "@specflow/shared-contracts";
 
 export const statusColumns: Array<{ key: TicketStatus; label: string }> = [
   { key: "backlog", label: "Backlog" },

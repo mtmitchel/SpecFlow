@@ -40,6 +40,12 @@ import {
 } from "./validation-feedback.js";
 import { rerunValidationQuestions } from "./planning-continuation.js";
 import { useValidationTicketGeneration } from "./use-validation-ticket-generation.js";
+import {
+  applyInitiativeDeletion,
+  applyInitiativeUpdate,
+  noopApplySnapshotUpdate,
+  type ApplySnapshotUpdate,
+} from "../../utils/snapshot-updates.js";
 
 const EMPTY_DRAFT_SAVE_STATE: Record<SpecStep, SaveState> = {
   brief: "idle", "core-flows": "idle", prd: "idle", "tech-spec": "idle"
@@ -47,7 +53,8 @@ const EMPTY_DRAFT_SAVE_STATE: Record<SpecStep, SaveState> = {
 
 export const useInitiativePlanningWorkspace = (
   snapshot: ArtifactsSnapshot,
-  onRefresh: () => Promise<void>
+  onRefresh: () => Promise<void>,
+  onApplySnapshotUpdate: ApplySnapshotUpdate = noopApplySnapshotUpdate,
 ) => {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -243,6 +250,9 @@ export const useInitiativePlanningWorkspace = (
   const refreshSnapshotInBackground = useCallback(() => {
     void onRefresh().catch((error) => showError((error as Error).message ?? "We couldn't refresh planning."));
   }, [onRefresh, showError]);
+  const applyInitiativeSnapshot = useCallback((nextInitiative: NonNullable<typeof initiative>) => {
+    onApplySnapshotUpdate((current) => applyInitiativeUpdate(current, nextInitiative));
+  }, [onApplySnapshotUpdate]);
 
   const handlePhaseCheckResult = useCallback((step: SpecStep, result: InitiativePhaseCheckResult) => {
     applyPhaseCheckResult(step, result);
@@ -442,7 +452,7 @@ export const useInitiativePlanningWorkspace = (
 
     try {
       await deleteInitiative(initiative.id);
-      await onRefresh();
+      onApplySnapshotUpdate((current) => applyInitiativeDeletion(current, initiative.id));
       navigate("/");
     } catch (error) {
       setIsDeletingInitiative(false);
@@ -456,8 +466,8 @@ export const useInitiativePlanningWorkspace = (
     }
 
     const nextPhases = initiative.phases.map((item) => (item.id === phaseId ? { ...item, name: nextName } : item));
-    await updateInitiativePhases(initiative.id, nextPhases);
-    await onRefresh();
+    const updatedInitiative = await updateInitiativePhases(initiative.id, nextPhases);
+    applyInitiativeSnapshot(updatedInitiative);
   };
 
   const openTicket = (ticketId: string) => { navigate(`/ticket/${ticketId}`); };
