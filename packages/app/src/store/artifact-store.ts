@@ -1,50 +1,40 @@
 import { logObservabilityEvent } from "../observability.js";
 import type { ArtifactsSnapshotMeta, StoreReloadIssue } from "../types/contracts.js";
-import {
-  operationManifestPath,
-} from "../io/paths.js";
 import { normalizeInitiativeWorkflow } from "../planner/workflow-state.js";
-import { readYamlFile } from "../io/yaml.js";
 import { pruneExpiredTempOperations as pruneExpiredTempOperationsInternal } from "./internal/cleanup.js";
 import { reloadStoreFromDisk } from "./internal/store-reload-lifecycle.js";
 import {
-  commitRunOperation as commitRunOperationInternal,
-  getOperationStatus as getOperationStatusInternal,
-  markOperationState as markOperationStateInternal,
-  prepareRunOperation as prepareRunOperationInternal
-} from "./internal/operations.js";
-import {
-  clearRunOperationPointer as clearRunOperationPointerInternal,
-  recoverOrphanOperations as recoverOrphanOperationsInternal
-} from "./internal/recovery.js";
-import { writePreparedArtifacts } from "./internal/artifact-writer.js";
-import {
-  adoptCommittedOperation as adoptCommittedOperationInternal,
-  ensureRunWritable as ensureRunWritableInternal,
-  isLeaseExpired,
-  runAttemptKey,
-  uniquePush
-} from "./internal/run-operation-state.js";
+  type CommitOperationInput,
+  clearRunOperationPointerInStore,
+  commitRunOperationInStore,
+  ensureRunWritableInStore,
+  getOperationStatusInStore,
+  markOperationStateInStore,
+  type PrepareOperationInput,
+  prepareRunOperationInStore,
+  recoverOrphanOperationsInStore
+} from "./internal/store-run-operation-facade.js";
 import { type SpecflowWatcher, createSpecflowWatcher } from "./internal/watcher.js";
 import {
-  deleteInitiativeRecord,
-  deletePendingTicketPlanRecord,
-  deleteRunRecord,
-  deleteTicketRecord,
-  readRunAttemptRecord,
-  readSpecRecord,
-  upsertArtifactTraceRecord,
-  upsertConfigRecord,
-  upsertInitiativeRecord,
-  upsertPendingTicketPlanRecord,
-  upsertPlanningReviewRecord,
-  upsertRunAttemptRecord,
-  upsertRunRecord,
-  upsertSpecRecord,
-  upsertTicketCoverageRecord,
-  upsertTicketRecord
-} from "./internal/store-entity-operations.js";
-import type { PreparedOperationArtifacts } from "./types.js";
+  deleteInitiativeInStore,
+  deletePendingTicketPlanArtifactInStore,
+  deleteRunInStore,
+  deleteTicketInStore,
+  readRunAttemptInStore,
+  readSpecInStore,
+  upsertArtifactTraceInStore,
+  upsertConfigInStore,
+  upsertInitiativeInStore,
+  upsertPendingTicketPlanArtifactInStore,
+  upsertPlanningReviewInStore,
+  upsertRunAttemptInStore,
+  upsertRunInStore,
+  upsertSpecInStore,
+  upsertTicketCoverageArtifactInStore,
+  upsertTicketInStore
+} from "./internal/store-entity-facade.js";
+import { buildArtifactsSnapshotMeta, measureArtifactsSnapshotBytes } from "./internal/store-snapshot-meta.js";
+import { runAttemptKey } from "./internal/run-operation-state.js";
 import type {
   ArtifactTraceOutline,
   Config,
@@ -61,29 +51,15 @@ import type {
   TicketCoverageArtifact,
   Ticket,
 } from "../types/entities.js";
-
+export type {
+  CommitOperationInput,
+  PrepareOperationInput
+} from "./internal/store-run-operation-facade.js";
 export type { PreparedOperationArtifacts } from "./types.js";
 
 export interface StoreStartupOptions {
   watch?: boolean;
   cleanup?: boolean;
-}
-
-export interface PrepareOperationInput {
-  runId: string;
-  operationId: string;
-  attemptId: string;
-  leaseMs: number;
-  artifacts: PreparedOperationArtifacts;
-  validation?: {
-    passed: boolean;
-    details?: string;
-  };
-}
-
-export interface CommitOperationInput {
-  runId: string;
-  operationId: string;
 }
 
 export interface ArtifactStoreOptions {
@@ -208,110 +184,34 @@ export class ArtifactStore {
   }
 
   public async upsertConfig(config: Config): Promise<void> {
-    await upsertConfigRecord(
-      {
-        rootDir: this.rootDir,
-        bumpRevision: () => this.bumpRevision()
-      },
-      config
-    );
-    this.config = config;
-    this.refreshSnapshotPayloadBytes();
+    await upsertConfigInStore(this.createEntityFacadeContext(), config);
   }
 
   public async upsertInitiative(
     initiative: Initiative,
     docs: { brief?: string; coreFlows?: string; prd?: string; techSpec?: string } = {}
   ): Promise<void> {
-    await upsertInitiativeRecord(
-      {
-        rootDir: this.rootDir,
-        initiatives: this.initiatives,
-        specs: this.specs,
-        planningReviews: this.planningReviews,
-        pendingTicketPlans: this.pendingTicketPlans,
-        tickets: this.tickets,
-        normalizeInitiative: (nextInitiative, inferredCompletion) =>
-          this.normalizeInitiative(nextInitiative, inferredCompletion),
-        reloadFromDisk: () => this.reloadFromDisk(),
-        suppressWatcher: () => this.suppressWatcher(),
-        resumeWatcher: () => this.resumeWatcher(),
-        bumpRevision: () => this.bumpRevision()
-      },
-      initiative,
-      docs
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertInitiativeInStore(this.createEntityFacadeContext(), initiative, docs);
   }
 
   public async deleteInitiative(id: string): Promise<void> {
-    await deleteInitiativeRecord(
-      {
-        rootDir: this.rootDir,
-        initiatives: this.initiatives,
-        tickets: this.tickets,
-        runs: this.runs,
-        specs: this.specs,
-        planningReviews: this.planningReviews,
-        pendingTicketPlans: this.pendingTicketPlans,
-        ticketCoverageArtifacts: this.ticketCoverageArtifacts,
-        artifactTraces: this.artifactTraces,
-        deleteRun: (runId) => this.deleteRun(runId),
-        deleteTicket: (ticketId) => this.deleteTicket(ticketId),
-        bumpRevision: () => this.bumpRevision()
-      },
-      id
-    );
-    this.refreshSnapshotPayloadBytes();
+    await deleteInitiativeInStore(this.createEntityFacadeContext(), id);
   }
 
   public async upsertTicket(ticket: Ticket): Promise<void> {
-    await upsertTicketRecord(
-      {
-        rootDir: this.rootDir,
-        tickets: this.tickets,
-        bumpRevision: () => this.bumpRevision()
-      },
-      ticket
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertTicketInStore(this.createEntityFacadeContext(), ticket);
   }
 
   public async deleteTicket(id: string): Promise<void> {
-    await deleteTicketRecord(
-      {
-        rootDir: this.rootDir,
-        tickets: this.tickets,
-        bumpRevision: () => this.bumpRevision()
-      },
-      id
-    );
-    this.refreshSnapshotPayloadBytes();
+    await deleteTicketInStore(this.createEntityFacadeContext(), id);
   }
 
   public async deleteRun(id: string): Promise<void> {
-    await deleteRunRecord(
-      {
-        rootDir: this.rootDir,
-        runs: this.runs,
-        runAttempts: this.runAttempts,
-        bumpRevision: () => this.bumpRevision()
-      },
-      id
-    );
-    this.refreshSnapshotPayloadBytes();
+    await deleteRunInStore(this.createEntityFacadeContext(), id);
   }
 
   public async upsertRun(run: Run): Promise<void> {
-    await upsertRunRecord(
-      {
-        rootDir: this.rootDir,
-        runs: this.runs,
-        bumpRevision: () => this.bumpRevision()
-      },
-      run
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertRunInStore(this.createEntityFacadeContext(), run);
   }
 
   private normalizeInitiative(
@@ -332,24 +232,15 @@ export class ArtifactStore {
   }
 
   public async upsertRunAttempt(runId: string, attempt: RunAttempt): Promise<void> {
-    await upsertRunAttemptRecord(
-      {
-        rootDir: this.rootDir,
-        runAttempts: this.runAttempts,
-        bumpRevision: () => this.bumpRevision()
-      },
-      runId,
-      attempt
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertRunAttemptInStore(this.createEntityFacadeContext(), runId, attempt);
   }
 
   public async readRunAttempt(runId: string, attemptId: string): Promise<RunAttempt | null> {
-    return readRunAttemptRecord(this.rootDir, runId, attemptId);
+    return readRunAttemptInStore(this.createEntityFacadeContext(), runId, attemptId);
   }
 
   public async readSpec(specId: string): Promise<SpecDocument | null> {
-    return readSpecRecord(this.specs, specId);
+    return readSpecInStore(this.createEntityFacadeContext(), specId);
   }
 
   public async readSpecMarkdown(specId: string): Promise<string> {
@@ -357,123 +248,35 @@ export class ArtifactStore {
   }
 
   public async upsertSpec(spec: SpecDocument): Promise<void> {
-    await upsertSpecRecord(
-      {
-        rootDir: this.rootDir,
-        reloadFromDisk: () => this.reloadFromDisk(),
-        bumpRevision: () => this.bumpRevision()
-      },
-      spec
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertSpecInStore(this.createEntityFacadeContext(), spec);
   }
 
   public async upsertPlanningReview(review: PlanningReviewArtifact): Promise<void> {
-    await upsertPlanningReviewRecord(
-      {
-        rootDir: this.rootDir,
-        planningReviews: this.planningReviews,
-        bumpRevision: () => this.bumpRevision()
-      },
-      review
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertPlanningReviewInStore(this.createEntityFacadeContext(), review);
   }
 
   public async upsertPendingTicketPlanArtifact(plan: PendingTicketPlanArtifact): Promise<void> {
-    await upsertPendingTicketPlanRecord(
-      {
-        rootDir: this.rootDir,
-        pendingTicketPlans: this.pendingTicketPlans,
-        bumpRevision: () => this.bumpRevision()
-      },
-      plan
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertPendingTicketPlanArtifactInStore(this.createEntityFacadeContext(), plan);
   }
 
   public async deletePendingTicketPlanArtifact(initiativeId: string): Promise<void> {
-    await deletePendingTicketPlanRecord(
-      {
-        rootDir: this.rootDir,
-        pendingTicketPlans: this.pendingTicketPlans,
-        bumpRevision: () => this.bumpRevision()
-      },
-      initiativeId
-    );
-    this.refreshSnapshotPayloadBytes();
+    await deletePendingTicketPlanArtifactInStore(this.createEntityFacadeContext(), initiativeId);
   }
 
   public async upsertTicketCoverageArtifact(coverage: TicketCoverageArtifact): Promise<void> {
-    await upsertTicketCoverageRecord(
-      {
-        rootDir: this.rootDir,
-        ticketCoverageArtifacts: this.ticketCoverageArtifacts,
-        bumpRevision: () => this.bumpRevision()
-      },
-      coverage
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertTicketCoverageArtifactInStore(this.createEntityFacadeContext(), coverage);
   }
 
   public async upsertArtifactTrace(trace: ArtifactTraceOutline): Promise<void> {
-    await upsertArtifactTraceRecord(
-      {
-        rootDir: this.rootDir,
-        artifactTraces: this.artifactTraces,
-        bumpRevision: () => this.bumpRevision()
-      },
-      trace
-    );
-    this.refreshSnapshotPayloadBytes();
+    await upsertArtifactTraceInStore(this.createEntityFacadeContext(), trace);
   }
 
   public async prepareRunOperation(input: PrepareOperationInput): Promise<OperationManifest> {
-    const manifest = await prepareRunOperationInternal(
-      {
-        rootDir: this.rootDir,
-        now: this.now,
-        runs: this.runs,
-        writeLocks: this.writeLocks,
-        ensureRunWritable: (runId, requestedOperationId) => this.ensureRunWritable(runId, requestedOperationId),
-        writePreparedArtifacts,
-        upsertRun: (run) => this.upsertRun(run),
-        reloadFromDisk: () => this.reloadFromDisk(),
-        markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
-        clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
-        isLeaseExpired: (leaseExpiresAt) => isLeaseExpired(leaseExpiresAt, this.now),
-        uniquePush,
-        suppressWatcher: () => this.suppressWatcher(),
-        resumeWatcher: () => this.resumeWatcher()
-      },
-      input
-    );
-    this.operationIndex.set(input.operationId, input.runId);
-    return manifest;
+    return prepareRunOperationInStore(this.createRunOperationFacadeContext(), input);
   }
 
   public async commitRunOperation(input: CommitOperationInput): Promise<Run> {
-    const run = await commitRunOperationInternal(
-      {
-        rootDir: this.rootDir,
-        now: this.now,
-        runs: this.runs,
-        writeLocks: this.writeLocks,
-        ensureRunWritable: (runId, requestedOperationId) => this.ensureRunWritable(runId, requestedOperationId),
-        writePreparedArtifacts,
-        upsertRun: (run) => this.upsertRun(run),
-        reloadFromDisk: () => this.reloadFromDisk(),
-        markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
-        clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
-        isLeaseExpired: (leaseExpiresAt) => isLeaseExpired(leaseExpiresAt, this.now),
-        uniquePush,
-        suppressWatcher: () => this.suppressWatcher(),
-        resumeWatcher: () => this.resumeWatcher()
-      },
-      input
-    );
-    this.operationIndex.delete(input.operationId);
-    return run;
+    return commitRunOperationInStore(this.createRunOperationFacadeContext(), input);
   }
 
   public async markOperationState(
@@ -481,7 +284,7 @@ export class ArtifactStore {
     operationId: string,
     state: OperationState
   ): Promise<OperationManifest> {
-    return markOperationStateInternal(this.rootDir, this.now, runId, operationId, state);
+    return markOperationStateInStore(this.createRunOperationFacadeContext(), runId, operationId, state);
   }
 
   public startCleanupTask(): void {
@@ -511,23 +314,7 @@ export class ArtifactStore {
   }
 
   public async recoverOrphanOperations(): Promise<void> {
-    await recoverOrphanOperationsInternal({
-      rootDir: this.rootDir,
-      runs: this.runs,
-      markOperationState: (runId, operationId, state) => this.markOperationState(runId, operationId, state),
-      clearRunOperationPointer: (runId) => this.clearRunOperationPointer(runId),
-      adoptCommittedOperation: (runId, manifest) => this.adoptCommittedOperation(runId, manifest)
-    });
-  }
-
-  private async adoptCommittedOperation(runId: string, manifest: OperationManifest): Promise<void> {
-    await adoptCommittedOperationInternal({
-      rootDir: this.rootDir,
-      runs: this.runs,
-      runId,
-      manifest
-    });
-    this.refreshSnapshotPayloadBytes();
+    await recoverOrphanOperationsInStore(this.createRunOperationFacadeContext());
   }
 
   public async getOperationStatus(operationId: string): Promise<
@@ -541,30 +328,11 @@ export class ArtifactStore {
       }
     | null
   > {
-    const indexedRunId = this.operationIndex.get(operationId);
-    if (indexedRunId) {
-      const manifest = await readYamlFile<OperationManifest>(
-        operationManifestPath(this.rootDir, indexedRunId, operationId)
-      );
-      if (manifest) {
-        return {
-          operationId: manifest.operationId,
-          runId: manifest.runId,
-          targetAttemptId: manifest.targetAttemptId,
-          state: manifest.state,
-          leaseExpiresAt: manifest.leaseExpiresAt,
-          updatedAt: manifest.updatedAt
-        };
-      }
-    }
-
-    return getOperationStatusInternal(this.rootDir, operationId);
+    return getOperationStatusInStore(this.createRunOperationFacadeContext(), operationId);
   }
 
   private async clearRunOperationPointer(runId: string): Promise<void> {
-    await clearRunOperationPointerInternal(this.rootDir, this.runs, runId);
-    this.bumpRevision();
-    this.refreshSnapshotPayloadBytes();
+    await clearRunOperationPointerInStore(this.createRunOperationFacadeContext(), runId);
   }
 
   private suppressWatcher(): void {
@@ -576,49 +344,93 @@ export class ArtifactStore {
   }
 
   private async ensureRunWritable(runId: string, requestedOperationId: string): Promise<void> {
-    await ensureRunWritableInternal({
-      runId,
-      requestedOperationId,
-      writeLocks: this.writeLocks,
-      runs: this.runs,
-      now: this.now,
-      markOperationState: (lockedRunId, operationId, state) => this.markOperationState(lockedRunId, operationId, state),
-      clearRunOperationPointer: (lockedRunId) => this.clearRunOperationPointer(lockedRunId),
-      reloadFromDisk: () => this.reloadFromDisk()
-    });
+    await ensureRunWritableInStore(this.createRunOperationFacadeContext(), runId, requestedOperationId);
   }
 
   public getSnapshotMeta(): ArtifactsSnapshotMeta {
-    return {
+    return buildArtifactsSnapshotMeta({
       revision: this.revision,
-      generatedAt: this.now().toISOString(),
-      generationTimeMs: this.lastReloadDurationMs,
-      payloadBytes: this.lastSnapshotPayloadBytes,
-      reloadIssues: this.lastReloadIssues.slice()
-    };
+      now: this.now,
+      lastReloadDurationMs: this.lastReloadDurationMs,
+      lastReloadIssues: this.lastReloadIssues,
+      lastSnapshotPayloadBytes: this.lastSnapshotPayloadBytes
+    });
   }
 
   private refreshSnapshotPayloadBytes(): void {
-    const snapshotForMeasurement = {
+    this.lastSnapshotPayloadBytes = measureArtifactsSnapshotBytes({
+      rootDir: this.rootDir,
       config: this.config,
-      meta: {
-        revision: this.revision,
-        generatedAt: this.now().toISOString(),
-        generationTimeMs: this.lastReloadDurationMs,
-        payloadBytes: this.lastSnapshotPayloadBytes,
-        reloadIssues: this.lastReloadIssues.slice()
-      },
-      workspaceRoot: this.rootDir,
-      initiatives: Array.from(this.initiatives.values()),
-      tickets: Array.from(this.tickets.values()),
-      runs: Array.from(this.runs.values()),
-      runAttempts: Array.from(this.runAttempts.entries()).map(([id, value]) => ({ id, ...value })),
-      specs: Array.from(this.specs.values()),
-      planningReviews: Array.from(this.planningReviews.values()),
-      ticketCoverageArtifacts: Array.from(this.ticketCoverageArtifacts.values())
-    };
+      revision: this.revision,
+      now: this.now,
+      lastReloadDurationMs: this.lastReloadDurationMs,
+      lastReloadIssues: this.lastReloadIssues,
+      lastSnapshotPayloadBytes: this.lastSnapshotPayloadBytes,
+      initiatives: this.initiatives,
+      tickets: this.tickets,
+      runs: this.runs,
+      runAttempts: this.runAttempts,
+      specs: this.specs,
+      planningReviews: this.planningReviews,
+      ticketCoverageArtifacts: this.ticketCoverageArtifacts
+    });
+  }
 
-    this.lastSnapshotPayloadBytes = Buffer.byteLength(JSON.stringify(snapshotForMeasurement), "utf8");
+  private createEntityFacadeContext() {
+    return {
+      rootDir: this.rootDir,
+      initiatives: this.initiatives,
+      tickets: this.tickets,
+      runs: this.runs,
+      runAttempts: this.runAttempts,
+      specs: this.specs,
+      planningReviews: this.planningReviews,
+      pendingTicketPlans: this.pendingTicketPlans,
+      ticketCoverageArtifacts: this.ticketCoverageArtifacts,
+      artifactTraces: this.artifactTraces,
+      normalizeInitiative: (
+        initiative: Initiative,
+        inferredCompletion: {
+          hasBrief: boolean;
+          hasCoreFlows: boolean;
+          hasPrd: boolean;
+          hasTechSpec: boolean;
+          hasValidation: boolean;
+          hasTickets: boolean;
+        }
+      ) => this.normalizeInitiative(initiative, inferredCompletion),
+      reloadFromDisk: () => this.reloadFromDisk(),
+      suppressWatcher: () => this.suppressWatcher(),
+      resumeWatcher: () => this.resumeWatcher(),
+      deleteRun: (runId: string) => this.deleteRun(runId),
+      deleteTicket: (ticketId: string) => this.deleteTicket(ticketId),
+      setConfig: (config: Config) => {
+        this.config = config;
+      },
+      bumpRevision: () => this.bumpRevision(),
+      refreshSnapshotPayloadBytes: () => this.refreshSnapshotPayloadBytes()
+    };
+  }
+
+  private createRunOperationFacadeContext() {
+    return {
+      rootDir: this.rootDir,
+      now: this.now,
+      runs: this.runs,
+      writeLocks: this.writeLocks,
+      operationIndex: this.operationIndex,
+      upsertRun: (run: Run) => this.upsertRun(run),
+      reloadFromDisk: () => this.reloadFromDisk(),
+      markOperationState: (runId: string, operationId: string, state: OperationState) =>
+        this.markOperationState(runId, operationId, state),
+      clearRunOperationPointer: (runId: string) => this.clearRunOperationPointer(runId),
+      ensureRunWritable: (runId: string, requestedOperationId: string) =>
+        this.ensureRunWritable(runId, requestedOperationId),
+      suppressWatcher: () => this.suppressWatcher(),
+      resumeWatcher: () => this.resumeWatcher(),
+      bumpRevision: () => this.bumpRevision(),
+      refreshSnapshotPayloadBytes: () => this.refreshSnapshotPayloadBytes()
+    };
   }
 
   private bumpRevision(): number {

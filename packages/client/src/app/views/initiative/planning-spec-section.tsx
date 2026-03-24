@@ -1,29 +1,17 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { InitiativePhaseCheckResult } from "../../../api/initiatives.js";
 import type {
   InitiativePlanningStep,
   InitiativeRefinementState,
 } from "../../../types.js";
 import type { InitiativePlanningSurface } from "../../utils/initiative-progress.js";
-import {
-  getPreviousInitiativeStep,
-  INITIATIVE_WORKFLOW_LABELS,
-} from "../../utils/initiative-workflow.js";
-import {
-  getPlanningGenerationTransitionCopy,
-  getPlanningQuestionTransitionCopy,
-} from "../../utils/ui-language.js";
 import { DocumentSummaryCard } from "./document-summary-card.js";
 import { RefinementSection } from "./refinement-section.js";
-import {
-  getVisibleRefinementQuestions,
-  type ReopenedQuestionContext,
-} from "./refinement-history.js";
+import { type ReopenedQuestionContext } from "./refinement-history.js";
 import type { SaveState, SpecStep } from "./shared.js";
 import type { BusyActionResult } from "./use-cancellable-busy-action.js";
-import { usePhaseAutoAdvance } from "./use-phase-auto-advance.js";
-
-const ENTRY_LOADING_STALL_MS = 3_000;
+import { PlanningSurveyCard } from "./planning-survey-card.js";
+import { usePlanningSpecState } from "./use-planning-spec-state.js";
 
 interface PlanningSpecSectionProps {
   initiativeId: string;
@@ -111,250 +99,36 @@ export const PlanningSpecSection = ({
   openRefinementDrawer,
   renderSaveState,
 }: PlanningSpecSectionProps) => {
-  const [surveyResumeKey, setSurveyResumeKey] = useState(0);
-  const [entryLoadingStalled, setEntryLoadingStalled] = useState(false);
-  const downstreamEntryGenerationRef = useRef<SpecStep | null>(null);
-  const previousSurfaceRef = useRef<InitiativePlanningSurface>(activeSurface);
-  const {
-    autoAdvanceFailedStage,
-    autoAdvanceStep,
-    autoAdvanceFailedStep,
-    beginAutoAdvance,
-    cancelAutoAdvance,
-    isAutoGenerating,
-    isAutoPending,
-  } = usePhaseAutoAdvance({
+  const state = usePlanningSpecState({
     initiativeId,
-    navigateToStep,
+    activeSpecStep,
+    activeSurface,
+    activeRefinement,
+    busyAction,
+    isDeletingInitiative,
+    hasActiveContent,
+    hasPhaseSpecificRefinementDecisions,
+    unresolvedQuestionCount,
     nextStep,
-    onRefresh,
-    onPhaseCheckResult: handlePhaseCheckResult,
-  });
-
-  useEffect(() => {
-    if (!isDeletingInitiative) {
-      return;
-    }
-
-    cancelAutoAdvance();
-  }, [cancelAutoAdvance, isDeletingInitiative]);
-
-  const refinementCheckedAt = activeRefinement?.checkedAt ?? null;
-  const label = INITIATIVE_WORKFLOW_LABELS[activeSpecStep];
-  const previousStep = getPreviousInitiativeStep(activeSpecStep);
-  const previousStepLabel = previousStep ? "Back" : null;
-  const hasRevisableQuestions =
-    getVisibleRefinementQuestions(activeRefinement).length > 0;
-  const canReviseAnswers =
-    refinementCheckedAt !== null ||
-    hasRevisableQuestions ||
-    hasPhaseSpecificRefinementDecisions;
-  const showingInlineSurvey =
-    activeSurface === "questions" && hasRevisableQuestions;
-  const shouldAutoStartBrief =
-    activeSpecStep === "brief" &&
-    !hasActiveContent &&
-    !hasRevisableQuestions &&
-    !hasPhaseSpecificRefinementDecisions &&
-    !refinementCheckedAt;
-  const shouldAutoGenerateAfterEntryCheck =
-    activeSpecStep !== "brief" &&
-    !hasActiveContent &&
-    !hasRevisableQuestions &&
-    !hasPhaseSpecificRefinementDecisions &&
-    Boolean(refinementCheckedAt);
-  const shouldNavigateForwardAfterGeneration = false;
-
-  useEffect(() => {
-    if (
-      activeSurface === "questions" &&
-      previousSurfaceRef.current !== "questions"
-    ) {
-      setSurveyResumeKey((current) => current + 1);
-    }
-
-    previousSurfaceRef.current = activeSurface;
-  }, [activeSpecStep, activeSurface]);
-
-  useEffect(() => {
-    if (!shouldAutoStartBrief) {
-      return;
-    }
-
-    if (
-      (isAutoPending && autoAdvanceStep === "brief") ||
-      autoAdvanceFailedStep === "brief"
-    ) {
-      return;
-    }
-
-    void beginAutoAdvance("brief", {
-      navigateOnSuccess: false,
-    });
-  }, [
-    autoAdvanceFailedStep,
-    autoAdvanceStep,
-    beginAutoAdvance,
-    isAutoPending,
-    shouldAutoStartBrief,
-  ]);
-
-  useEffect(() => {
-    if (!shouldAutoGenerateAfterEntryCheck) {
-      downstreamEntryGenerationRef.current = null;
-      return;
-    }
-
-    if (
-      downstreamEntryGenerationRef.current === activeSpecStep ||
-      autoQuestionLoadStep === activeSpecStep ||
-      (autoQuestionLoadFailedStep === activeSpecStep && !refinementCheckedAt) ||
-      autoAdvanceStep === activeSpecStep
-    ) {
-      return;
-    }
-
-    downstreamEntryGenerationRef.current = activeSpecStep;
-    void beginAutoAdvance(activeSpecStep, {
-      navigateOnSuccess: false,
-      skipCheck: true,
-    });
-  }, [
-    activeSpecStep,
-    autoAdvanceStep,
-    autoQuestionLoadFailedStep,
+    nextStepActionLabel,
+    handlePhaseCheckResult,
+    flushRefinementPersistence,
+    refinementAnswers,
+    defaultAnswerQuestionIds,
     autoQuestionLoadStep,
-    beginAutoAdvance,
-    refinementCheckedAt,
-    shouldAutoGenerateAfterEntryCheck,
-  ]);
-
-  const loadingQuestions =
-    autoQuestionLoadStep === activeSpecStep ||
-    (isAutoPending && autoAdvanceStep === activeSpecStep && !isAutoGenerating);
-  const generatingStep =
-    busyAction === `generate-${activeSpecStep}` ||
-    (isAutoGenerating && autoAdvanceStep === activeSpecStep);
-  const loadingStateCopy = loadingQuestions
-    ? getPlanningQuestionTransitionCopy(
-        activeSpecStep,
-        activeRefinement?.questions.length && unresolvedQuestionCount === 0
-          ? "follow-up"
-          : "entry",
-      )
-    : null;
-  const entryLoadingCopy = getPlanningQuestionTransitionCopy(
-    activeSpecStep,
-    "entry",
-  );
-  const generationStateCopy =
-    getPlanningGenerationTransitionCopy(activeSpecStep);
-  const navigateToPreviousStage = () => {
-    if (!previousStep) {
-      return;
-    }
-
-    navigateToStep(previousStep, "review");
-  };
-  const handleReviseAnswers = () => {
-    if (hasRevisableQuestions) {
-      setActiveSurface("questions");
-      return;
-    }
-
-    openRefinementDrawer(activeSpecStep);
-    void handleCheckAndAdvance(activeSpecStep);
-  };
-  const handleCompleteSurvey = () => {
-    void flushRefinementPersistence().then((persisted) => {
-      if (!persisted) {
-        return;
-      }
-
-      void beginAutoAdvance(activeSpecStep, {
-        draft: {
-          answers: refinementAnswers,
-          defaultAnswerQuestionIds,
-          preferredSurface: activeSurface,
-        },
-        navigateOnSuccess: shouldNavigateForwardAfterGeneration,
-      });
-    });
-  };
-  const loadingStateLabel = loadingStateCopy?.title ?? null;
-  const loadingStateBody = loadingStateCopy?.body ?? null;
-  const inlineSurveyLoadingLabel = loadingQuestions
-    ? loadingStateLabel
-    : generatingStep
-      ? generationStateCopy.title
-      : null;
-  const inlineSurveyLoadingBody = loadingQuestions
-    ? loadingStateBody
-    : generatingStep
-      ? generationStateCopy.body
-      : null;
-  const questionLoadFailed =
-    (activeSpecStep === "brief"
-      ? autoAdvanceFailedStep === activeSpecStep
-      : autoQuestionLoadFailedStep === activeSpecStep ||
-        autoAdvanceFailedStep === activeSpecStep) &&
-    (!refinementCheckedAt || autoAdvanceFailedStage === "check");
-  const generationFailed =
-    autoAdvanceFailedStep === activeSpecStep &&
-    autoAdvanceFailedStage === "generate" &&
-    !hasActiveContent;
-  const showEntryLoadingFallback =
-    !hasActiveContent &&
-    !hasRevisableQuestions &&
-    !loadingQuestions &&
-    !generatingStep &&
-    !questionLoadFailed &&
-    !generationFailed;
-  const showingTransientEntryLoading =
-    showEntryLoadingFallback && !entryLoadingStalled;
-
-  useEffect(() => {
-    if (!showEntryLoadingFallback) {
-      setEntryLoadingStalled(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setEntryLoadingStalled(true);
-    }, ENTRY_LOADING_STALL_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [showEntryLoadingFallback]);
-
-  const renderSurveyCard = (
-    content: ReactNode,
-    options: {
-      compact?: boolean;
-      retryOnly?: boolean;
-      transient?: boolean;
-    } = {},
-  ) => (
-    <div
-      className={[
-        "planning-survey-card",
-        "planning-survey-card-active",
-        options.compact ? "planning-survey-card-compact" : "",
-        options.retryOnly ? "planning-survey-card-retry" : "",
-        options.transient ? "planning-survey-card-transient" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {content}
-    </div>
-  );
+    autoQuestionLoadFailedStep,
+    onRefresh,
+    navigateToStep,
+    setActiveSurface,
+    handleCheckAndAdvance,
+    onAdvanceToNextStep,
+    openRefinementDrawer,
+  });
 
   if (isDeletingInitiative) {
     return (
       <div className="planning-step-column planning-step-column-narrow">
-        {renderSurveyCard(
+        <PlanningSurveyCard compact transient>
           <div
             className="status-loading-card planning-intake-loading planning-intake-loading-hero"
             role="status"
@@ -365,18 +139,17 @@ export const PlanningSpecSection = ({
               <strong>Deleting project</strong>
               <span>Stopping work on this project and removing it.</span>
             </div>
-          </div>,
-          { compact: true, transient: true },
-        )}
+          </div>
+        </PlanningSurveyCard>
       </div>
     );
   }
 
   if (!hasActiveContent) {
-    if (loadingQuestions || showingTransientEntryLoading) {
+    if (state.loadingQuestions || state.showingTransientEntryLoading) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
-          {renderSurveyCard(
+          <PlanningSurveyCard compact transient>
             <div
               className="status-loading-card planning-intake-loading"
               role="status"
@@ -384,20 +157,19 @@ export const PlanningSpecSection = ({
             >
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
-                <strong>{loadingStateLabel ?? entryLoadingCopy.title}</strong>
-                <span>{loadingStateBody ?? entryLoadingCopy.body}</span>
+                <strong>{state.loadingStateLabel ?? state.entryLoadingCopy.title}</strong>
+                <span>{state.loadingStateBody ?? state.entryLoadingCopy.body}</span>
               </div>
-            </div>,
-            { compact: true, transient: true },
-          )}
+            </div>
+          </PlanningSurveyCard>
         </div>
       );
     }
 
-    if (generatingStep) {
+    if (state.generatingStep) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
-          {renderSurveyCard(
+          <PlanningSurveyCard compact transient>
             <div
               className="status-loading-card planning-intake-loading planning-intake-loading-hero"
               role="status"
@@ -405,20 +177,22 @@ export const PlanningSpecSection = ({
             >
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
-                <strong>{generationStateCopy.title}</strong>
-                <span>{generationStateCopy.body}</span>
+                <strong>{state.generationStateCopy.title}</strong>
+                <span>{state.generationStateCopy.body}</span>
               </div>
-            </div>,
-            { compact: true, transient: true },
-          )}
+            </div>
+          </PlanningSurveyCard>
         </div>
       );
     }
 
-    if (activeRefinement && hasRevisableQuestions) {
+    if (activeRefinement && state.hasRevisableQuestions) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
-          {renderSurveyCard(
+          <PlanningSurveyCard
+            compact={Boolean(state.loadingStateLabel)}
+            transient={Boolean(state.loadingStateLabel)}
+          >
             <RefinementSection
               activeSpecStep={activeSpecStep}
               activeRefinement={activeRefinement}
@@ -433,68 +207,45 @@ export const PlanningSpecSection = ({
               busyAction={busyAction}
               isBusy={isBusy}
               saveStateIndicator={renderSaveState(refinementSaveState)}
-              loadingStateLabel={loadingStateLabel}
-              loadingStateBody={loadingStateBody}
+              loadingStateLabel={state.loadingStateLabel}
+              loadingStateBody={state.loadingStateBody}
               variant="survey"
               autoCompleteResolvedSurvey={activeSurface === "questions"}
               surveyCompleteLabel={
-                generationFailed
-                  ? `Generate ${label.toLowerCase()}`
-                  : questionLoadFailed
+                state.generationFailed
+                  ? `Generate ${state.label.toLowerCase()}`
+                  : state.questionLoadFailed
                     ? "Try again"
                     : "Continue"
               }
-              onBackToPreviousStep={previousStep ? navigateToPreviousStage : undefined}
-              onCompleteSurvey={handleCompleteSurvey}
+              onBackToPreviousStep={state.previousStep ? state.navigateToPreviousStage : undefined}
+              onCompleteSurvey={state.handleCompleteSurvey}
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
               onAnswerLater={deferRefinementQuestion}
-            />,
-            {
-              compact: Boolean(loadingStateLabel),
-              transient: Boolean(loadingStateLabel),
-            },
-          )}
+            />
+          </PlanningSurveyCard>
         </div>
       );
     }
 
-    if (questionLoadFailed || generationFailed || entryLoadingStalled) {
+    if (state.questionLoadFailed || state.generationFailed || !state.showingTransientEntryLoading) {
       return (
         <div className="planning-step-column planning-step-column-narrow">
-          {renderSurveyCard(
+          <PlanningSurveyCard compact retryOnly>
             <div className="planning-step-actions planning-step-actions-centered">
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => {
-                  if (activeSpecStep === "brief") {
-                    void beginAutoAdvance("brief", {
-                      navigateOnSuccess: false,
-                      skipCheck: generationFailed,
-                    });
-                    return;
-                  }
-
-                  if (generationFailed) {
-                    void beginAutoAdvance(activeSpecStep, {
-                      navigateOnSuccess: shouldNavigateForwardAfterGeneration,
-                      skipCheck: true,
-                    });
-                    return;
-                  }
-
-                  void handleCheckAndAdvance(activeSpecStep);
-                }}
+                onClick={state.handleRetry}
                 disabled={isBusy}
               >
-                {generationFailed
-                  ? `Generate ${label.toLowerCase()}`
+                {state.generationFailed
+                  ? `Generate ${state.label.toLowerCase()}`
                   : "Try again"}
               </button>
-            </div>,
-            { compact: true, retryOnly: true },
-          )}
+            </div>
+          </PlanningSurveyCard>
         </div>
       );
     }
@@ -504,21 +255,21 @@ export const PlanningSpecSection = ({
     <div
       className={`planning-step-column${hasActiveContent ? " planning-step-column-wide" : " planning-step-column-narrow"}`}
     >
-      {hasActiveContent && !showingInlineSurvey ? (
+      {hasActiveContent && !state.showingInlineSurvey ? (
         <div className="planning-step-actions planning-step-actions-end">
-          {previousStep ? (
+          {state.previousStep ? (
             <button
               type="button"
-              onClick={navigateToPreviousStage}
+              onClick={state.navigateToPreviousStage}
               disabled={isBusy}
             >
-              {previousStepLabel}
+              {state.previousStepLabel}
             </button>
           ) : null}
-          {canReviseAnswers ? (
+          {state.canReviseAnswers ? (
             <button
               type="button"
-              onClick={handleReviseAnswers}
+              onClick={state.handleReviseAnswers}
               disabled={isBusy}
             >
               Revise answers
@@ -528,17 +279,18 @@ export const PlanningSpecSection = ({
             <button
               type="button"
               className="btn-primary"
-              onClick={() => { cancelAutoAdvance(); onAdvanceToNextStep?.(); }}
+              onClick={state.handleAdvanceToNextStep}
               disabled={isBusy}
             >
-              {nextStepActionLabel}
+              {state.nextStepActionLabel}
             </button>
           ) : null}
         </div>
       ) : null}
 
-      {hasActiveContent && showingInlineSurvey && activeRefinement
-        ? renderSurveyCard(
+      {hasActiveContent && state.showingInlineSurvey && activeRefinement
+        ? (
+          <PlanningSurveyCard>
             <RefinementSection
               activeSpecStep={activeSpecStep}
               activeRefinement={activeRefinement}
@@ -553,27 +305,28 @@ export const PlanningSpecSection = ({
               busyAction={busyAction}
               isBusy={isBusy}
               saveStateIndicator={renderSaveState(refinementSaveState)}
-              loadingStateLabel={inlineSurveyLoadingLabel}
-              loadingStateBody={inlineSurveyLoadingBody}
+              loadingStateLabel={state.inlineSurveyLoadingLabel}
+              loadingStateBody={state.inlineSurveyLoadingBody}
               variant="survey"
-              surveyResumeKey={surveyResumeKey}
+              surveyResumeKey={state.surveyResumeKey}
               surveyCompleteLabel={
-                questionLoadFailed
+                state.questionLoadFailed
                   ? "Try again"
                   : activeSpecStep === "brief"
                     ? "Regenerate brief"
-                    : `Update ${label.toLowerCase()}`
+                    : `Update ${state.label.toLowerCase()}`
               }
-              onBackToPreviousStep={previousStep ? navigateToPreviousStage : undefined}
-              onCompleteSurvey={handleCompleteSurvey}
+              onBackToPreviousStep={state.previousStep ? state.navigateToPreviousStage : undefined}
+              onCompleteSurvey={state.handleCompleteSurvey}
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
               onAnswerLater={deferRefinementQuestion}
-            />,
-          )
+            />
+          </PlanningSurveyCard>
+        )
         : null}
 
-      {hasActiveContent && !showingInlineSurvey ? (
+      {hasActiveContent && !state.showingInlineSurvey ? (
         <div className="planning-main-column">
           <DocumentSummaryCard
             step={activeSpecStep}

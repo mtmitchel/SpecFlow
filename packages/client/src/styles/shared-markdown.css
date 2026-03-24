@@ -1,0 +1,117 @@
+.markdown-view h1,
+.markdown-view h2,
+.markdown-view h3,
+.markdown-view h4,
+.markdown-view h5,
+.markdown-view h6 {
+  margin: 1.2rem 0 0.35rem;
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+}
+
+.markdown-view h1 { font-size: var(--font-2xl); font-weight: 700; }
+.markdown-view h2 { font-size: var(--font-xl); font-weight: 600; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem; }
+.markdown-view h3 { font-size: var(--font-lg); font-weight: 600; }
+.markdown-view h4 { font-size: var(--font-body); font-weight: 600; }
+
+.markdown-view p {
+  margin: 0.5rem 0;
+  line-height: var(--line-height-reading);
+}
+
+.markdown-view ul,
+.markdown-view ol {
+  margin: 0.5rem 0;
+  padding-left: 1.4rem;
+}
+
+.markdown-view li {
+  margin: 0.2rem 0;
+  line-height: var(--line-height-reading);
+}
+
+.markdown-view code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.83em;
+  background: var(--accent-bg-subtle);
+  border: 1px solid var(--accent-border-faint);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.3em;
+}
+
+.markdown-view pre {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.1rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+.markdown-view pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85em;
+  color: var(--text);
+}
+
+.markdown-view blockquote {
+  margin: 0.5rem 0;
+  padding: 0.4rem 0.8rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.markdown-view table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.9em;
+}
+
+.markdown-view th,
+.markdown-view td {
+  border: 1px solid var(--panel-border);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
+
+.markdown-view th {
+  background: var(--accent-bg-subtle);
+  font-weight: 500;
+}
+
+.markdown-view a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-view a:hover {
+  opacity: 0.85;
+}
+
+.markdown-view hr {
+  border: none;
+  border-top: 1px solid var(--panel-border);
+  margin: 0.75rem 0;
+}
+
+.markdown-view strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.markdown-view em {
+  color: var(--muted);
+}
+
+.md-li {
+  margin: 0.14rem 0;
+}
+
+.md-gap {
+  height: 0.45rem;
+}
