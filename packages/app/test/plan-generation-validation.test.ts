@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { resolveValidatedPlanResult } from "../src/planner/internal/plan-generation-job.js";
 import {
+  PlanContractError,
   PlanValidationError,
   validateCoverageMappings,
 } from "../src/planner/internal/plan-validation.js";
 import type { PlanInput, PlanResult } from "../src/planner/types.js";
+import { toStructuredPlannerError } from "../src/planner/internal/error-shaping.js";
 import {
   validatePhaseMarkdownResult,
   validatePlanResult,
@@ -56,9 +58,10 @@ describe("resolveValidatedPlanResult", () => {
   it("retries once with validation feedback when the first plan result is invalid", async () => {
     const executePlan = vi
       .fn<(planInput: PlanInput) => Promise<PlanResult>>()
-      .mockResolvedValueOnce({ uncoveredCoverageItemIds: [] } as PlanResult)
+      .mockResolvedValueOnce({ uncoveredCoverageItemIds: [] } as PlanResult);
+    const executePlanRepair = vi
+      .fn<(planInput: PlanInput) => Promise<PlanResult>>()
       .mockResolvedValueOnce(validPlanResult);
-    const executePlanRepair = vi.fn<(planInput: PlanInput) => Promise<PlanResult>>();
 
     const result = await resolveValidatedPlanResult({
       planInput: basePlanInput,
@@ -68,10 +71,11 @@ describe("resolveValidatedPlanResult", () => {
     });
 
     expect(result).toEqual(validPlanResult);
-    expect(executePlan).toHaveBeenCalledTimes(2);
+    expect(executePlan).toHaveBeenCalledTimes(1);
     expect(executePlan).toHaveBeenNthCalledWith(1, basePlanInput);
-    expect(executePlan).toHaveBeenNthCalledWith(
-      2,
+    expect(executePlanRepair).toHaveBeenCalledTimes(1);
+    expect(executePlanRepair).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining<Partial<PlanInput>>({
         validationFeedback: {
           summary: "Plan result missing phases array",
@@ -82,14 +86,15 @@ describe("resolveValidatedPlanResult", () => {
         },
       })
     );
-    expect(executePlanRepair).not.toHaveBeenCalled();
   });
 
   it("throws the last validation error when the retry is still invalid", async () => {
     const executePlan = vi
       .fn<(planInput: PlanInput) => Promise<PlanResult>>()
+      .mockResolvedValueOnce({ uncoveredCoverageItemIds: [] } as PlanResult);
+    const executePlanRepair = vi
+      .fn<(planInput: PlanInput) => Promise<PlanResult>>()
       .mockResolvedValue({ uncoveredCoverageItemIds: [] } as PlanResult);
-    const executePlanRepair = vi.fn<(planInput: PlanInput) => Promise<PlanResult>>();
 
     await expect(
       resolveValidatedPlanResult({
@@ -100,8 +105,8 @@ describe("resolveValidatedPlanResult", () => {
       })
     ).rejects.toThrow("Plan result missing phases array");
 
-    expect(executePlan).toHaveBeenCalledTimes(3);
-    expect(executePlanRepair).not.toHaveBeenCalled();
+    expect(executePlan).toHaveBeenCalledTimes(1);
+    expect(executePlanRepair).toHaveBeenCalledTimes(2);
   });
 
   it("captures structured missing-coverage issues for repair feedback", () => {
@@ -218,6 +223,48 @@ describe("resolveValidatedPlanResult", () => {
         previousInvalidResult: invalidPlanResult,
       }),
     );
+  });
+
+  it("shapes plan contract failures separately from coverage validation failures", () => {
+    expect(
+      toStructuredPlannerError(new PlanContractError("Plan result missing phases array"))
+    ).toEqual({
+      code: "planner_plan_contract_error",
+      message: "Plan result missing phases array",
+      statusCode: 500,
+      details: {
+        kind: "plan-contract",
+        summary: "Plan result missing phases array",
+        issues: [],
+      },
+    });
+
+    expect(
+      toStructuredPlannerError(
+        new PlanValidationError([
+          {
+            kind: "missing-coverage-item",
+            message: "Missing PRD requirement: Friendly empty states.",
+            coverageItemId: "coverage-prd-empty-states-1",
+          },
+        ])
+      )
+    ).toEqual({
+      code: "planner_validation_error",
+      message: "Missing PRD requirement: Friendly empty states.",
+      statusCode: 500,
+      details: {
+        kind: "plan-coverage",
+        summary: "Missing PRD requirement: Friendly empty states.",
+        issues: [
+          {
+            kind: "missing-coverage-item",
+            message: "Missing PRD requirement: Friendly empty states.",
+            coverageItemId: "coverage-prd-empty-states-1",
+          },
+        ],
+      },
+    });
   });
 
   it("rejects phase and ticket titles that do not follow the short sentence-case contract", () => {

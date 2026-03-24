@@ -20,6 +20,9 @@ interface DecisionTypeMetadata {
   family: DecisionTypeFamily;
 }
 
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((entry) => typeof entry === "string");
+
 const DECISION_TYPE_METADATA: Record<CanonicalInitiativePlanningDecisionType, DecisionTypeMetadata> = {
   problem: { label: "Problem", family: "framing" },
   user: { label: "User", family: "framing" },
@@ -92,10 +95,16 @@ export const getDecisionTypeFamily = (
 
 export const canonicalizePlanningQuestion = (
   question: InitiativePlanningQuestion
-): InitiativePlanningQuestion => ({
-  ...question,
-  decisionType: normalizeDecisionType(question.decisionType),
-  reopensQuestionIds: question.reopensQuestionIds
-    ? Array.from(new Set(question.reopensQuestionIds.map((questionId) => questionId.trim()).filter(Boolean)))
-    : undefined
-});
+): InitiativePlanningQuestion => {
+  const rawReopensQuestionIds = (question as { reopensQuestionIds?: unknown }).reopensQuestionIds;
+
+  return {
+    ...question,
+    decisionType: normalizeDecisionType(question.decisionType),
+    reopensQuestionIds: isStringArray(rawReopensQuestionIds)
+      ? Array.from(new Set(rawReopensQuestionIds.map((questionId) => questionId.trim()).filter(Boolean)))
+      : rawReopensQuestionIds === undefined
+        ? undefined
+        : (rawReopensQuestionIds as InitiativePlanningQuestion["reopensQuestionIds"]),
+  };
+};

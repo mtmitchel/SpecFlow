@@ -36,6 +36,25 @@ const blockedReview: PlanningReviewArtifact = {
   updatedAt: "2026-03-19T10:00:00.000Z",
 };
 
+const blockedReviewWithFindings: PlanningReviewArtifact = {
+  ...blockedReview,
+  findings: [
+    {
+      id: "finding-1",
+      type: "blocker",
+      message: "Resolve the inline capture launch behavior before ticket generation.",
+      relatedArtifacts: ["core-flows"],
+    },
+    {
+      id: "finding-2",
+      type: "recommended-fix",
+      message:
+        "Clarify the authoritative timestamp source and persistence worker ownership before ticket generation.",
+      relatedArtifacts: ["tech-spec"],
+    },
+  ],
+};
+
 const buildRefinement = (questions: InitiativePlanningQuestion[]): InitiativeRefinementState => ({
   questions,
   history: questions,
@@ -122,6 +141,32 @@ describe("ValidationSection", () => {
     expect(screen.getByRole("button", { name: "Accept risk" })).toBeInTheDocument();
   });
 
+  it("shows actionable blocked findings and revise answers in the blocked fallback", () => {
+    renderSection({
+      activeRefinement: {
+        questions: [],
+        history: [validationQuestion],
+        answers: {
+          [validationQuestion.id]: "Keep the empty note visible",
+        },
+        defaultAnswerQuestionIds: [],
+        baseAssumptions: [],
+        checkedAt: "2026-03-19T10:00:00.000Z",
+      },
+      validationReview: blockedReviewWithFindings,
+    });
+
+    expect(
+      screen.getByText("Resolve the inline capture launch behavior before ticket generation."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Clarify the authoritative timestamp source and persistence worker ownership before ticket generation.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revise answers" })).toBeInTheDocument();
+  });
+
   it("shows a completed validation summary when tickets already exist", () => {
     const { onOpenTickets, onBackToTechSpec } = renderSection({
       activeRefinement: buildRefinement([]),
@@ -194,9 +239,25 @@ describe("ValidationSection", () => {
     });
 
     expect(screen.getByText("Validating plan...")).toBeInTheDocument();
-    expect(screen.getByText("Running ticket coverage review...")).toBeInTheDocument();
+    expect(screen.getByText("Running ticket coverage review")).toBeInTheDocument();
     expect(
       screen.queryByText("Checking the ticket draft before tickets are created."),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the retry card with the friendly incomplete-plan message", () => {
+    renderSection({
+      activeRefinement: buildRefinement([]),
+      generationError:
+        "SpecFlow received an incomplete ticket plan from the planner. Try again.",
+    });
+
+    expect(screen.getByText("Can't validate the plan")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "SpecFlow received an incomplete ticket plan from the planner. Try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });

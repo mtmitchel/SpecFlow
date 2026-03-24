@@ -310,6 +310,11 @@
   line-height: 1.6;
 }
 
+.planning-validation-findings {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .planning-validation-handoff {
   gap: var(--space-4);
 }

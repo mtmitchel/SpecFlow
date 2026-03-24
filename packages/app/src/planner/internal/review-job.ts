@@ -12,6 +12,7 @@ import type {
   TicketCoverageItem
 } from "../../types/entities.js";
 import { REVIEW_KIND_SOURCE_STEPS } from "../planning-reviews.js";
+import { getReviewResolutionStep } from "../review-resolution.js";
 import type { PlannerJob } from "../prompt-builder.js";
 import type { ReviewRunInput, ReviewRunResult } from "../types.js";
 
@@ -30,7 +31,7 @@ export const buildReviewFindings = (
   kind: PlanningReviewKind,
   result: ReviewRunResult
 ): PlanningReviewFinding[] => {
-  const relatedArtifacts = REVIEW_KIND_SOURCE_STEPS[kind];
+  const sourceSteps = REVIEW_KIND_SOURCE_STEPS[kind];
   const groups: Array<{ type: PlanningReviewFindingType; values: string[] }> = [
     { type: "blocker", values: result.blockers },
     { type: "warning", values: result.warnings },
@@ -42,6 +43,11 @@ export const buildReviewFindings = (
   const findings: PlanningReviewFinding[] = [];
   for (const { type, values } of groups) {
     for (const value of values) {
+      const relatedArtifacts =
+        kind === "ticket-coverage-review"
+          ? [getReviewResolutionStep({ type, message: value })]
+          : sourceSteps;
+
       findings.push({
         id: `${kind}:${type}:${findings.length + 1}`,
         type,

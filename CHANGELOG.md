@@ -25,6 +25,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - After validation passes with no follow-up questions, auto-navigates to tickets
 - Local refinement answers are preserved when follow-up questions arrive mid-survey
 - Validation survey renders immediately when questions exist instead of showing an intermediary summary card
+- Blocked Validation now preserves step-scoped ticket-coverage findings, reopens follow-up questions more reliably, and shows actionable blocker details plus `Revise answers` in the fallback state instead of a dead summary card
 
 **Step transition reliability**
 - Fixed bounce-back when advancing between planning steps caused by stale auto-advance promises navigating after the user moved on

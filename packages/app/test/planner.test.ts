@@ -840,6 +840,197 @@ describe("PlannerService", () => {
     }
   });
 
+  it("retries a tech-spec phase-check result that omits the questions array", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-tech-spec-missing-questions-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-tech-missing-questions";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const mockClient = new MockLlmClient([
+        JSON.stringify({
+          decision: "ask",
+          assumptions: []
+        }),
+        JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "tech-spec-storage-boundary",
+              label: "Which storage boundary should the first implementation preserve?",
+              whyThisBlocks: "The tech spec needs one explicit storage boundary before it can draft implementation details.",
+              affectedArtifact: "tech-spec",
+              decisionType: "architecture",
+              type: "select",
+              assumptionIfUnanswered: "Preserve the current storage boundary and adapt new logic around it.",
+              options: [
+                "Preserve current storage boundary",
+                "Replace the storage boundary now"
+              ],
+              optionHelp: {
+                "Preserve current storage boundary": "Keep the first implementation aligned with the existing persistence seam.",
+                "Replace the storage boundary now": "Use this only if the first release requires a deeper storage rewrite immediately."
+              },
+              recommendedOption: "Preserve current storage boundary"
+            }
+          ],
+          assumptions: []
+        })
+      ]);
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: mockClient,
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "techmq01"
+      });
+
+      const initiative = await planner.createDraftInitiative({
+        description: "Build a lightweight offline-first note-taking app"
+      });
+      await seedSpec(store, initiative.id, "brief", "# Brief");
+      await seedSpec(store, initiative.id, "core-flows", "# Core flows");
+      await seedSpec(store, initiative.id, "prd", "# PRD");
+
+      const result = await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "tech-spec"
+      });
+
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0]?.id).toBe("tech-spec-storage-boundary");
+      expect(mockClient.requests).toHaveLength(2);
+      expect(mockClient.requests[1]?.userPrompt).toContain("missing questions array");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
+  it("retries a tech-spec phase-check result with invalid reopensQuestionIds metadata", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-tech-spec-reopens-shape-"));
+    await createSpecflowLayout(rootDir);
+    const previousOpenRouterKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = "env-openrouter-key-tech-reopens";
+
+    try {
+      const store = new ArtifactStore({ rootDir, now: () => new Date("2026-02-27T20:00:00.000Z") });
+      await store.initialize();
+      await store.upsertConfig({
+        provider: "openrouter",
+        model: "openrouter/model",
+        port: 3141,
+        host: "127.0.0.1",
+        repoInstructionFile: "specflow/AGENTS.md"
+      });
+
+      const mockClient = new MockLlmClient([
+        JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "tech-spec-storage-boundary",
+              label: "Which storage boundary should the first implementation preserve?",
+              whyThisBlocks: "The tech spec needs one explicit storage boundary before it can draft implementation details.",
+              affectedArtifact: "tech-spec",
+              decisionType: "architecture",
+              type: "select",
+              assumptionIfUnanswered: "Preserve the current storage boundary and adapt new logic around it.",
+              options: [
+                "Preserve current storage boundary",
+                "Replace the storage boundary now"
+              ],
+              optionHelp: {
+                "Preserve current storage boundary": "Keep the first implementation aligned with the existing persistence seam.",
+                "Replace the storage boundary now": "Use this only if the first release requires a deeper storage rewrite immediately."
+              },
+              recommendedOption: "Preserve current storage boundary",
+              reopensQuestionIds: "legacy-storage-boundary"
+            }
+          ],
+          assumptions: []
+        }),
+        JSON.stringify({
+          decision: "ask",
+          questions: [
+            {
+              id: "tech-spec-storage-boundary",
+              label: "Which storage boundary should the first implementation preserve?",
+              whyThisBlocks: "The tech spec needs one explicit storage boundary before it can draft implementation details.",
+              affectedArtifact: "tech-spec",
+              decisionType: "architecture",
+              type: "select",
+              assumptionIfUnanswered: "Preserve the current storage boundary and adapt new logic around it.",
+              options: [
+                "Preserve current storage boundary",
+                "Replace the storage boundary now"
+              ],
+              optionHelp: {
+                "Preserve current storage boundary": "Keep the first implementation aligned with the existing persistence seam.",
+                "Replace the storage boundary now": "Use this only if the first release requires a deeper storage rewrite immediately."
+              },
+              recommendedOption: "Preserve current storage boundary"
+            }
+          ],
+          assumptions: []
+        })
+      ]);
+
+      const planner = new PlannerService({
+        rootDir,
+        store,
+        llmClient: mockClient,
+        fetchImpl: mockProviderRegistryFetch,
+        now: () => new Date("2026-02-27T20:00:00.000Z"),
+        idGenerator: () => "techrq01"
+      });
+
+      const initiative = await planner.createDraftInitiative({
+        description: "Build a lightweight offline-first note-taking app"
+      });
+      await seedSpec(store, initiative.id, "brief", "# Brief");
+      await seedSpec(store, initiative.id, "core-flows", "# Core flows");
+      await seedSpec(store, initiative.id, "prd", "# PRD");
+
+      const result = await planner.runPhaseCheckJob({
+        initiativeId: initiative.id,
+        step: "tech-spec"
+      });
+
+      expect(result.questions).toHaveLength(1);
+      expect(result.questions[0]?.reopensQuestionIds).toBeUndefined();
+      expect(mockClient.requests).toHaveLength(2);
+      expect(mockClient.requests[1]?.userPrompt).toContain("invalid reopensQuestionIds");
+
+      await store.close();
+      await rm(rootDir, { recursive: true, force: true });
+    } finally {
+      if (previousOpenRouterKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousOpenRouterKey;
+      }
+    }
+  });
+
   it("includes AGENTS.md content in prompts for phase checks, phase generation, plan, and triage", async () => {
     const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-planner-prompts-"));
     await createSpecflowLayout(rootDir);

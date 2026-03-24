@@ -87,3 +87,4 @@ export {
   isExecutionTicketStatus,
 } from "./planner/execution-gates.js";
 export type { TicketExecutionGateResult } from "./planner/execution-gates.js";
+export { getReviewResolutionStep } from "./planner/review-resolution.js";

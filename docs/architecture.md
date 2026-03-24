@@ -279,7 +279,9 @@ findings:
   - id: string
     type: blocker | warning | traceability-gap | assumption | recommended-fix
     message: string
-    relatedArtifacts: [brief | core-flows | prd | tech-spec | tickets]
+    relatedArtifacts: [brief | core-flows | prd | tech-spec | validation | tickets]
+                         # ticket-coverage-review findings persist one best-fit resolution step
+                         # so Validation can reopen the correct artifact instead of inferring from summary text
 sourceUpdatedAts:
   brief?: ISO8601
   core-flows?: ISO8601
@@ -290,6 +292,8 @@ overrideReason: string | null
 reviewedAt: ISO8601
 updatedAt: ISO8601
 ```
+
+Ticket-coverage review findings are narrower than the other review kinds. Cross-artifact reviews can still list the full set of related source artifacts, but blocked Validation findings persist a single best-fit resolution step so the client can reopen the right follow-up questions and still show a concrete fallback list when question regeneration is not possible.
 
 **ArtifactTraceOutline**
 ```yaml

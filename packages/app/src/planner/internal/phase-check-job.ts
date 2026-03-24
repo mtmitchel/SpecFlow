@@ -8,10 +8,21 @@ const MAX_PHASE_CHECK_VALIDATION_ATTEMPTS = 2;
 const getValidationFeedback = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-export const canonicalizePhaseCheckResult = (result: PhaseCheckResult): PhaseCheckResult => ({
-  ...result,
-  questions: result.questions.map((question) => canonicalizePlanningQuestion(question))
-});
+export const canonicalizePhaseCheckResult = (result: PhaseCheckResult): PhaseCheckResult => {
+  const rawQuestions = (result as { questions?: unknown }).questions;
+  const questions = Array.isArray(rawQuestions)
+    ? rawQuestions.map((question) =>
+        question && typeof question === "object"
+          ? canonicalizePlanningQuestion(question as InitiativePlanningQuestion)
+          : question
+      )
+    : result.questions;
+
+  return {
+    ...result,
+    questions: questions as PhaseCheckResult["questions"]
+  };
+};
 
 export const resolveValidatedPhaseCheckResult = async (input: {
   phaseCheckInput: PhaseCheckInput;

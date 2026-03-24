@@ -1,3 +1,4 @@
+import { getReviewResolutionStep } from "@specflow/shared-contracts";
 import type {
   InitiativeArtifactStep,
   PlanningReviewArtifact,
@@ -63,6 +64,11 @@ const inferStepsFromFinding = (finding: PlanningReviewFinding): SpecStep[] => {
   const inferredFromMessage = inferStepsFromMessage(finding.message);
   if (inferredFromMessage.length > 0) {
     return inferredFromMessage;
+  }
+
+  const fallbackStep = getReviewResolutionStep(finding);
+  if (isSpecStep(fallbackStep)) {
+    return [fallbackStep];
   }
 
   return relatedArtifactSteps.length > 0 && relatedArtifactSteps.length < VALIDATION_FEEDBACK_STEPS.length

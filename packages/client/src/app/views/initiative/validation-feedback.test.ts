@@ -43,6 +43,43 @@ describe("validation feedback helpers", () => {
     });
   });
 
+  it("falls back to shared review-step heuristics when ticket coverage findings keep broad related artifacts", () => {
+    const review: PlanningReviewArtifact = {
+      id: "initiative-1:ticket-coverage-review",
+      initiativeId: "initiative-1",
+      kind: "ticket-coverage-review",
+      status: "blocked",
+      summary: "Validation needs review.",
+      findings: [
+        {
+          id: "finding-1",
+          type: "blocker",
+          message: "Resolve the inline capture launch behavior before ticket generation.",
+          relatedArtifacts: ["brief", "core-flows", "prd", "tech-spec", "validation"],
+        },
+        {
+          id: "finding-2",
+          type: "recommended-fix",
+          message:
+            "Clarify the authoritative timestamp source and persistence worker ownership before ticket generation.",
+          relatedArtifacts: ["brief", "core-flows", "prd", "tech-spec", "validation"],
+        },
+      ],
+      sourceUpdatedAts: {
+        validation: "2026-03-19T10:00:00.000Z",
+      },
+      overrideReason: null,
+      reviewedAt: "2026-03-19T10:00:00.000Z",
+      updatedAt: "2026-03-19T10:00:00.000Z",
+    };
+
+    expect(buildValidationReviewFeedbackByStep(review)).toEqual({
+      "core-flows": "Resolve the inline capture launch behavior before ticket generation.",
+      "tech-spec":
+        "Clarify the authoritative timestamp source and persistence worker ownership before ticket generation.",
+    });
+  });
+
   it("groups plan validation issues by source artifact step", () => {
     expect(
       buildPlanValidationFeedbackByStep({

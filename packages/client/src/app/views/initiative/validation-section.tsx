@@ -7,6 +7,8 @@ import type {
 import { RefinementSection } from "./refinement-section.js";
 import type { ReopenedQuestionContext } from "./refinement-history.js";
 import {
+  groupReviewFindings,
+  REVIEW_FINDING_SECTION_LABELS,
   isQuestionResolved,
   TICKET_COVERAGE_REVIEW_KIND,
   type SaveState,
@@ -169,6 +171,9 @@ const renderTransientLoadingCard = (title: string, body: string) => (
   </div>
 );
 
+const trimTrailingEllipsis = (value: string): string =>
+  value.replace(/\s*(?:\.\.\.|…)\s*$/, "").trimEnd();
+
 export const ValidationSection = ({
   activeRefinement,
   hasGeneratedTickets,
@@ -205,6 +210,17 @@ export const ValidationSection = ({
   const hasQuestions = Boolean(activeRefinement && activeRefinement.questions.length > 0);
   const reviewBlocked = validationReview?.status === "blocked";
   const reviewNeedsRefresh = validationReview?.status === "stale";
+  const reviewFindings = useMemo(
+    () => groupReviewFindings(validationReview?.findings ?? []),
+    [validationReview?.findings],
+  );
+  const blockedFindingSections = useMemo(
+    () =>
+      (["blocker", "traceability-gap", "recommended-fix"] as const).filter(
+        (type) => reviewFindings[type].length > 0,
+      ),
+    [reviewFindings],
+  );
   const effectiveValidationStatus =
     validationReview?.status ?? (hasGeneratedTickets ? "passed" : undefined);
   const fallbackPrompt = buildFallbackPrompt(validationReview, hasGeneratedTickets);
@@ -285,7 +301,10 @@ export const ValidationSection = ({
   if (generateBusy) {
     return renderTransientLoadingCard(
       "Validating plan...",
-      validationStatusMessage ?? "Checking the ticket draft before tickets are created."
+      trimTrailingEllipsis(
+        validationStatusMessage ??
+          "Checking the ticket draft before tickets are created."
+      )
     );
   }
 
@@ -413,6 +432,20 @@ export const ValidationSection = ({
               ? "Validation is complete. Return here if the ticket plan needs another pass."
               : "Run validation before tickets are created."}
         </p>
+        {reviewBlocked && blockedFindingSections.length > 0 ? (
+          <div className="planning-validation-findings">
+            {blockedFindingSections.map((type) => (
+              <div key={type}>
+                <span className="qa-label">{REVIEW_FINDING_SECTION_LABELS[type]}</span>
+                <ul className="planning-review-question-list">
+                  {reviewFindings[type].map((finding) => (
+                    <li key={finding.id}>{finding.message}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="planning-step-actions planning-step-actions-centered">
         {reviewBlocked ? (
@@ -420,6 +453,11 @@ export const ValidationSection = ({
             <button type="button" onClick={onBackToTechSpec} disabled={isBusy}>
               Back
             </button>
+            {canReviseAnswers ? (
+              <button type="button" onClick={handleReviseAnswers} disabled={isBusy}>
+                Revise answers
+              </button>
+            ) : null}
             <ValidationOverrideActions
               isBusy={isBusy}
               showOverrideForm={showOverrideForm}

@@ -46,6 +46,13 @@ export class PlanValidationError extends Error {
   }
 }
 
+export class PlanContractError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "PlanContractError";
+  }
+}
+
 export const buildPlanValidationFeedback = (
   error: unknown,
 ): PlanValidationFeedback => ({

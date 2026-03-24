@@ -16,6 +16,35 @@ import {
   rerunValidationQuestions,
 } from "./planning-continuation.js";
 
+const INCOMPLETE_TICKET_PLAN_MESSAGE =
+  "SpecFlow received an incomplete ticket plan from the planner. Try again.";
+
+const isPlanContractError = (error: unknown): error is ApiError =>
+  error instanceof ApiError &&
+  (
+    error.code === "planner_plan_contract_error" ||
+    (
+      typeof error.details === "object" &&
+      error.details !== null &&
+      (error.details as { kind?: unknown }).kind === "plan-contract"
+    )
+  );
+
+const getVisibleTicketGenerationError = (error: unknown): string => {
+  if (isPlanContractError(error)) {
+    return INCOMPLETE_TICKET_PLAN_MESSAGE;
+  }
+
+  return (error as Error).message?.trim() || "Ticket generation failed.";
+};
+
+const toVisibleTicketGenerationError = (error: unknown): Error => {
+  const message = getVisibleTicketGenerationError(error);
+  return error instanceof Error && error.message.trim() === message
+    ? error
+    : new Error(message);
+};
+
 interface UseValidationTicketGenerationInput {
   initiative: Initiative | null;
   initiativeTicketCount: number;
@@ -109,8 +138,7 @@ export const useValidationTicketGeneration = ({
           return true;
         }
 
-        generationError =
-          (error as Error).message?.trim() || "Ticket generation failed.";
+        generationError = getVisibleTicketGenerationError(error);
         return false;
       };
 
@@ -147,7 +175,7 @@ export const useValidationTicketGeneration = ({
           if (await recoverPlanValidationFailure(error)) {
             return;
           }
-          throw error;
+          throw toVisibleTicketGenerationError(error);
         }
       }
 
@@ -159,7 +187,7 @@ export const useValidationTicketGeneration = ({
         if (await recoverPlanValidationFailure(error)) {
           return;
         }
-        throw error;
+        throw toVisibleTicketGenerationError(error);
       }
     });
 

@@ -10,6 +10,7 @@ import type {
 import type { InitiativePlanningQuestion } from "../../types/entities.js";
 import { normalizeDecisionType } from "../decision-types.js";
 import { getQuestionPolicy } from "../refinement-check-policy.js";
+import { PlanContractError } from "./plan-validation.js";
 import {
   validateInitiativeTitle,
   validateMarkdownNoAmpersands,
@@ -118,6 +119,21 @@ const validateStringArray = (value: unknown, fieldName: string): void => {
   }
 };
 
+const asPlanContractError = (error: unknown): PlanContractError =>
+  error instanceof PlanContractError
+    ? error
+    : new PlanContractError(
+        error instanceof Error ? error.message : "Plan result failed validation"
+      );
+
+const assertPlanContract = (check: () => void): void => {
+  try {
+    check();
+  } catch (error) {
+    throw asPlanContractError(error);
+  }
+};
+
 export const validateReviewRunResult = (result: ReviewRunResult): void => {
   if (!result.summary?.trim()) {
     throw new Error("Review result must include summary");
@@ -132,26 +148,62 @@ export const validateReviewRunResult = (result: ReviewRunResult): void => {
 
 export const validatePlanResult = (result: PlanResult): void => {
   if (!Array.isArray(result.phases)) {
-    throw new Error("Plan result missing phases array");
+    throw new PlanContractError("Plan result missing phases array");
   }
 
-  validateStringArray(result.uncoveredCoverageItemIds, "Plan uncoveredCoverageItemIds");
+  assertPlanContract(() => {
+    validateStringArray(
+      result.uncoveredCoverageItemIds,
+      "Plan uncoveredCoverageItemIds"
+    );
+  });
 
   for (const phase of result.phases) {
-    validatePhaseName(phase.name);
+    assertPlanContract(() => {
+      validatePhaseName(phase.name);
+    });
 
     if (!Array.isArray(phase.tickets)) {
-      throw new Error(`Plan phase "${phase.name}" is missing tickets array`);
+      throw new PlanContractError(
+        `Plan phase "${phase.name}" is missing tickets array`
+      );
     }
 
     for (const ticket of phase.tickets) {
-      validateTicketTitle(ticket.title);
-      validateNoAmpersands(ticket.description, `Plan ticket "${ticket.title}" description`);
-      validateStringArray(ticket.acceptanceCriteria, `Plan ticket "${ticket.title}" acceptanceCriteria`);
-      validateStringArray(ticket.fileTargets, `Plan ticket "${ticket.title}" fileTargets`);
-      validateStringArray(ticket.coverageItemIds, `Plan ticket "${ticket.title}" coverageItemIds`);
+      assertPlanContract(() => {
+        validateTicketTitle(ticket.title);
+      });
+      assertPlanContract(() => {
+        validateNoAmpersands(
+          ticket.description,
+          `Plan ticket "${ticket.title}" description`
+        );
+      });
+      assertPlanContract(() => {
+        validateStringArray(
+          ticket.acceptanceCriteria,
+          `Plan ticket "${ticket.title}" acceptanceCriteria`
+        );
+      });
+      assertPlanContract(() => {
+        validateStringArray(
+          ticket.fileTargets,
+          `Plan ticket "${ticket.title}" fileTargets`
+        );
+      });
+      assertPlanContract(() => {
+        validateStringArray(
+          ticket.coverageItemIds,
+          `Plan ticket "${ticket.title}" coverageItemIds`
+        );
+      });
       for (const criterion of ticket.acceptanceCriteria) {
-        validateNoAmpersands(criterion, `Plan ticket "${ticket.title}" acceptance criterion`);
+        assertPlanContract(() => {
+          validateNoAmpersands(
+            criterion,
+            `Plan ticket "${ticket.title}" acceptance criterion`
+          );
+        });
       }
     }
   }

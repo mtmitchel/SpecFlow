@@ -175,6 +175,18 @@ const toHistoricalQuestion = (entry: RefinementHistoryEntry): HistoricalQuestion
   step: entry.step,
 });
 
+const toPriorStepQuestion = (
+  question: InitiativePlanningQuestion,
+  step: RefinementStep,
+): HistoricalQuestion => ({
+  id: question.id,
+  label: question.label,
+  decisionType: normalizeDecisionType(question.decisionType),
+  options: question.options ?? [],
+  whyThisBlocks: question.whyThisBlocks,
+  step,
+});
+
 const isEquivalentConcernFamily = (
   left: InitiativePlanningQuestion["decisionType"],
   right: InitiativePlanningQuestion["decisionType"],
@@ -246,10 +258,8 @@ const isExplicitReopenReference = (
   question: InitiativePlanningQuestion,
   priorQuestion: HistoricalQuestion,
 ): boolean => {
-  if (!isEquivalentConcernFamily(question.decisionType, priorQuestion.decisionType)) {
-    return false;
-  }
-
+  // Explicit downstream reopens can legitimately move between decision families
+  // when the same earlier concern turns into a product or implementation blocker.
   if (hasEquivalentConcernId(question, priorQuestion)) {
     return true;
   }
@@ -273,6 +283,11 @@ export const validateQuestions = (
   );
   const seenQuestions: InitiativePlanningQuestion[] = [...priorQuestions];
   const historicalQuestions = (input.refinementHistory ?? []).map(toHistoricalQuestion);
+  const priorStepQuestions = priorQuestions.map((question) => toPriorStepQuestion(question, input.phase));
+  const earlierQuestionsById = new Map(
+    [...historicalQuestions, ...priorStepQuestions].map((question) => [question.id, question]),
+  );
+  const priorQuestionIds = new Set(priorQuestions.map((question) => question.id));
   const conditionalForbiddenContext = buildConditionalForbiddenContext(input);
 
   if (!Array.isArray(questions)) {
@@ -283,7 +298,12 @@ export const validateQuestions = (
     throw new Error(`Phase-check result exceeded max question budget (${questionPolicy.maxQuestions})`);
   }
 
-  for (const question of questions) {
+  for (const [index, rawQuestion] of questions.entries()) {
+    if (!rawQuestion || typeof rawQuestion !== "object") {
+      throw new Error(`Phase-check question at index ${index} must be an object`);
+    }
+
+    const question = rawQuestion as InitiativePlanningQuestion;
     const options = Array.isArray(question.options) ? question.options : [];
     const normalizedDecisionType = normalizeDecisionType(question.decisionType);
     if (question.affectedArtifact !== input.phase) {
@@ -358,7 +378,11 @@ export const validateQuestions = (
       throw new Error(`Refinement question ${question.id} has invalid allowCustomAnswer`);
     }
 
-    if (question.reopensQuestionIds != null && !Array.isArray(question.reopensQuestionIds)) {
+    if (
+      question.reopensQuestionIds != null &&
+      (!Array.isArray(question.reopensQuestionIds) ||
+        question.reopensQuestionIds.some((questionId) => typeof questionId !== "string"))
+    ) {
       throw new Error(`Refinement question ${question.id} has invalid reopensQuestionIds`);
     }
 
@@ -400,15 +424,8 @@ export const validateQuestions = (
       );
     }
 
-    const duplicateQuestion = seenQuestions.find((priorQuestion) => isDuplicateConcern(question, priorQuestion));
-    if (duplicateQuestion) {
-      throw new Error(
-        `Refinement question ${question.id} repeats already-asked ${input.phase} concern from ${duplicateQuestion.id}`,
-      );
-    }
-
     const reopenedQuestions = reopensQuestionIds.map((questionId) =>
-      historicalQuestions.find((priorQuestion) => priorQuestion.id === questionId),
+      earlierQuestionsById.get(questionId),
     );
     if (reopenedQuestions.some((priorQuestion) => !priorQuestion)) {
       throw new Error(`Refinement question ${question.id} reopens an unknown earlier question`);
@@ -421,6 +438,23 @@ export const validateQuestions = (
       throw new Error(
         `Refinement question ${question.id} reopens unrelated prior concern ${invalidReopenReference.id}`,
       );
+    }
+
+    const duplicateQuestion = seenQuestions.find((priorQuestion) => isDuplicateConcern(question, priorQuestion));
+    if (duplicateQuestion) {
+      const explicitPriorReopen =
+        priorQuestionIds.has(duplicateQuestion.id) &&
+        reopensQuestionIds.includes(duplicateQuestion.id) &&
+        Boolean(
+          earlierQuestionsById.get(duplicateQuestion.id) &&
+            isExplicitReopenReference(question, earlierQuestionsById.get(duplicateQuestion.id)!),
+        );
+
+      if (!explicitPriorReopen) {
+        throw new Error(
+          `Refinement question ${question.id} repeats already-asked ${input.phase} concern from ${duplicateQuestion.id}`,
+        );
+      }
     }
 
     const duplicateEarlierConcern = historicalQuestions.find((priorQuestion) =>

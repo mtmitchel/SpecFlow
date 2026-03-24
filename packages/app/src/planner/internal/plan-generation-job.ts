@@ -1,7 +1,14 @@
-import { PlanValidationError, buildPlanValidationFeedback } from "./plan-validation.js";
+import {
+  PlanContractError,
+  PlanValidationError,
+  buildPlanValidationFeedback,
+} from "./plan-validation.js";
 import type { PlanInput, PlanResult } from "../types.js";
 
 const MAX_PLAN_VALIDATION_ATTEMPTS = 3;
+
+const isRepairablePlanValidationError = (error: unknown): boolean =>
+  error instanceof PlanValidationError || error instanceof PlanContractError;
 
 export const resolveValidatedPlanResult = async (input: {
   planInput: PlanInput;
@@ -39,7 +46,7 @@ export const resolveValidatedPlanResult = async (input: {
         validationFeedback: buildPlanValidationFeedback(error),
         previousInvalidResult: result,
       };
-      if (error instanceof PlanValidationError) {
+      if (isRepairablePlanValidationError(error)) {
         executeCurrentPlan = input.executePlanRepair;
         currentMode = "plan-repair";
       } else {
