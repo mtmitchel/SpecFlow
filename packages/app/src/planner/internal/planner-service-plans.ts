@@ -2,7 +2,12 @@ import type { LlmTokenHandler } from "../../llm/client.js";
 import { LlmProviderError } from "../../llm/errors.js";
 import { logObservabilityEvent } from "../../observability.js";
 import { resolveInitiativeProjectRoot } from "../../project-roots.js";
-import type { Initiative, Ticket } from "../../types/entities.js";
+import type {
+  Initiative,
+  PlanningReviewArtifact,
+  PlanningReviewFindingType,
+  Ticket
+} from "../../types/entities.js";
 import { blockWorkflowAtStep } from "../workflow-state.js";
 import { requireSpecUpdatedAt } from "./context.js";
 import { resolveValidatedPlanResult } from "./plan-generation-job.js";
@@ -14,7 +19,7 @@ import { createTicketFromDraft } from "./ticket-factory.js";
 import { normalizeInitiativeTitle } from "./title-style.js";
 import { validatePlanResult, validateTriageResult } from "./validators.js";
 import { ensureArtifactTrace, executeReviewJob } from "../planner-service-runtime.js";
-import type { PlanResult, TriageResult } from "../types.js";
+import type { PlanResult, PlanValidationFeedback, PlanValidationIssue, TriageResult } from "../types.js";
 import type { PlannerServiceDependencies, TriageJobResult } from "./planner-service-shared.js";
 
 export type PlanStatusSink = (message: string) => Promise<void> | void;
@@ -29,6 +34,50 @@ const countTraceSections = (
 
 const estimatePromptInputBytes = (value: unknown): number =>
   JSON.stringify(value)?.length ?? 0;
+
+const REVIEW_PLAN_REPAIR_FINDING_TYPES: PlanningReviewFindingType[] = [
+  "blocker",
+  "traceability-gap",
+  "recommended-fix"
+];
+
+const buildReviewRepairFeedback = (
+  review: PlanningReviewArtifact
+): PlanValidationFeedback | null => {
+  if (review.status !== "blocked") {
+    return null;
+  }
+
+  const seenMessages = new Set<string>();
+  const issues: PlanValidationIssue[] = [];
+
+  for (const finding of review.findings) {
+    if (!REVIEW_PLAN_REPAIR_FINDING_TYPES.includes(finding.type)) {
+      continue;
+    }
+
+    const message = finding.message.trim();
+    if (!message || seenMessages.has(message)) {
+      continue;
+    }
+
+    seenMessages.add(message);
+    issues.push({
+      kind: "review-finding",
+      message
+    });
+  }
+
+  const summary = review.summary.trim();
+  if (!summary && issues.length === 0) {
+    return null;
+  }
+
+  return {
+    summary: summary || "Validation review found unresolved ticket-plan blockers.",
+    issues
+  };
+};
 
 export async function runPlanJob(
   service: PlannerServiceDependencies,
@@ -134,18 +183,18 @@ export async function runPlanJob(
     throw error;
   }
 
-  const nowIso = service.now().toISOString();
-  const pendingPlan = buildPendingTicketPlanArtifact({
+  let pendingPlanNowIso = service.now().toISOString();
+  let pendingPlan = buildPendingTicketPlanArtifact({
     initiativeId: initiative.id,
     result,
     coverageItems: coverageInput.items,
     sourceUpdatedAts: coverageInput.sourceUpdatedAts,
-    nowIso
+    nowIso: pendingPlanNowIso
   });
   await service.store.upsertPendingTicketPlanArtifact(pendingPlan);
 
   await emitStatus("Running ticket coverage review...");
-  const review = await executeReviewJob(
+  let review = await executeReviewJob(
     service.getRuntimeContext(),
     initiative,
     "ticket-coverage-review",
@@ -154,19 +203,95 @@ export async function runPlanJob(
   );
   await service.store.upsertPlanningReview(review);
 
+  const reviewRepairFeedback = buildReviewRepairFeedback(review);
+  if (review.status === "blocked" && reviewRepairFeedback) {
+    const repairedResult = await resolveValidatedPlanResult({
+      planInput: {
+        initiativeDescription: initiative.description,
+        traceOutlines: coverageInput.traceOutlines,
+        coverageItems: coverageInput.items,
+        repoContext,
+        validationFeedback: reviewRepairFeedback,
+        previousInvalidResult: result
+      },
+      executePlan: (nextPlanInput) =>
+        service.executePlannerJob<PlanResult>(
+          "plan-repair",
+          nextPlanInput,
+          onToken,
+          signal,
+          projectRoot
+        ),
+      executePlanRepair: (nextPlanInput) =>
+        service.executePlannerJob<PlanResult>(
+          "plan-repair",
+          nextPlanInput,
+          onToken,
+          signal,
+          projectRoot
+        ),
+      validateResult: (nextResult) => {
+        validatePlanResult(nextResult);
+        validateCoverageMappings(nextResult, coverageInput.items);
+      },
+      onAttempt: async ({ attemptNumber, planInput }) => {
+        await emitStatus(`Repairing ticket plan from validation review (attempt ${attemptNumber} of 3)...`);
+        logObservabilityEvent({
+          layer: "runtime",
+          event: "planner.validation.plan.attempt",
+          status: "start",
+          details: {
+            initiativeId: initiative.id,
+            attemptNumber,
+            mode: "plan-repair",
+            promptInputBytes: estimatePromptInputBytes(planInput),
+            coverageItemCount: planInput.coverageItems.length,
+            traceStepCount: Object.keys(planInput.traceOutlines).length,
+            traceSectionCount: countTraceSections(planInput.traceOutlines)
+          }
+        });
+      }
+    });
+
+    result = repairedResult;
+    pendingPlanNowIso = service.now().toISOString();
+    pendingPlan = buildPendingTicketPlanArtifact({
+      initiativeId: initiative.id,
+      result,
+      coverageItems: coverageInput.items,
+      sourceUpdatedAts: coverageInput.sourceUpdatedAts,
+      nowIso: pendingPlanNowIso
+    });
+    await service.store.upsertPendingTicketPlanArtifact(pendingPlan);
+
+    await emitStatus("Rechecking ticket coverage...");
+    review = await executeReviewJob(
+      service.getRuntimeContext(),
+      initiative,
+      "ticket-coverage-review",
+      undefined,
+      signal
+    );
+    await service.store.upsertPlanningReview(review);
+  }
+
   if (review.status === "blocked") {
     const refreshedInitiative = service.requireInitiative(initiative.id);
     await service.store.upsertInitiative({
       ...refreshedInitiative,
-      workflow: blockWorkflowAtStep(refreshedInitiative.workflow, "validation", nowIso),
-      updatedAt: nowIso
+      workflow: blockWorkflowAtStep(
+        refreshedInitiative.workflow,
+        "validation",
+        service.now().toISOString()
+      ),
+      updatedAt: service.now().toISOString()
     });
     await emitStatus("Validation found follow-up work.");
     return result;
   }
 
   await emitStatus("Committing ticket plan...");
-  await commitPendingPlan(service, initiative, pendingPlan, nowIso);
+  await commitPendingPlan(service, initiative, pendingPlan, service.now().toISOString());
   logObservabilityEvent({
     layer: "runtime",
     event: "planner.validation.plan",

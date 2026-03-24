@@ -332,6 +332,21 @@ const buildCheckPrompt = (
       input.refinementHistory && input.refinementHistory.length > 0
         ? "- Never ask the same concern twice in one stage. If a narrower follow-up is unavoidable, change the decision boundary rather than paraphrasing the earlier question."
         : null,
+      input.refinementHistory && input.refinementHistory.length > 0
+        ? "- If refinement history already contains an answer for the underlying concern, only ask again when you can materially narrow the decision boundary beyond that recorded answer. Do not restate the same concern under a new id."
+        : null,
+      input.validationFeedback?.trim()
+        ? "- Treat validation feedback as evidence that ticket planning could not commit safely from the current artifact set."
+        : null,
+      input.validationFeedback?.trim()
+        ? "- Do not dismiss feedback just because it is phrased as missing tickets, missing coverage, or missing implementation work. Translate it back into the missing artifact-level decision, rule, constraint, or quality bar."
+        : null,
+      input.validationFeedback?.trim()
+        ? '- If that missing detail belongs to this artifact and is not explicit enough to guide ticket planning, return "ask" with the smallest targeted follow-up questions needed to lock it.'
+        : null,
+      input.validationFeedback?.trim()
+        ? '- If this artifact already makes the needed decision explicit and the feedback only reflects a ticket-planning miss, return "proceed" so Validation can repair the plan instead of re-asking the user.'
+        : null,
       ...(requiresInitialConsultation || requiresStarterQuestions
         ? []
         : ["- If you can proceed, return an empty questions array and include any explicit assumptions you are making."]),
@@ -544,6 +559,8 @@ export const buildPlannerPrompt = (
       TICKET_PLAN_PRODUCT_DESIGN_SECTION,
       PLANNER_ENGINEERING_FOUNDATIONS_SECTION,
       PLANNER_TITLE_STYLE_SECTION,
+      "If validation feedback identifies missing tickets or missing coverage that the existing artifacts already imply, repair the ticket plan directly instead of bouncing the issue back to the user.",
+      "Only leave work uncovered when the current artifacts still lack enough explicit direction to plan it safely.",
       "Every coverage item must be accounted for. Assign each one to one or more tickets through coverageItemIds, or list it in uncoveredCoverageItemIds when the current plan intentionally leaves it out.",
       "Keep phase names short and scannable. Use 1 to 4 words in sentence case.",
       "Keep ticket titles short and scannable. Use 2 to 6 words in sentence case.",

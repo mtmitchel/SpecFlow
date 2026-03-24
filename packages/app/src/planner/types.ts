@@ -85,7 +85,8 @@ export type PlanValidationIssueKind =
   | "unknown-ticket-coverage-item"
   | "unknown-uncovered-coverage-item"
   | "assigned-and-uncovered-coverage-item"
-  | "missing-coverage-item";
+  | "missing-coverage-item"
+  | "review-finding";
 
 export interface PlanValidationIssue {
   kind: PlanValidationIssueKind;

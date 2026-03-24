@@ -153,6 +153,18 @@ describe("planner prompt language", () => {
         briefMarkdown: "# Brief",
         coreFlowsMarkdown: "# Core flows",
         savedContext: {},
+        refinementHistory: [
+          {
+            step: "brief",
+            questionId: "brief-problem",
+            label: "What primary problem should v1 solve?",
+            decisionType: "problem",
+            whyThisBlocks: "The brief needs one primary problem.",
+            resolution: "answered",
+            answer: "Capture notes fast",
+            assumption: null,
+          },
+        ],
         validationFeedback:
           "Refinement question attachments-offline-failure must not provide options for boolean questions"
       },
@@ -164,6 +176,11 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain("Validation feedback:");
     expect(prompt.userPrompt).toContain("attachments-offline-failure");
     expect(prompt.userPrompt).toContain("must not provide options for boolean questions");
+    expect(prompt.userPrompt).toContain("Do not dismiss feedback just because it is phrased as missing tickets, missing coverage, or missing implementation work");
+    expect(prompt.userPrompt).toContain('return "proceed" so Validation can repair the plan instead of re-asking the user');
+    expect(prompt.userPrompt).toContain(
+      "only ask again when you can materially narrow the decision boundary beyond that recorded answer",
+    );
   });
 
   it("feeds validation feedback back into the next ticket-plan prompt", () => {
@@ -252,6 +269,7 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain("Previous invalid ticket plan");
     expect(prompt.userPrompt).not.toContain("Repository context (use this to generate accurate file paths");
     expect(prompt.userPrompt).toContain("Continuous engineering foundations:");
+    expect(prompt.userPrompt).toContain("repair the ticket plan directly instead of bouncing the issue back to the user");
   });
 
   it("requires short sentence-case phase and ticket titles in planning prompts", () => {

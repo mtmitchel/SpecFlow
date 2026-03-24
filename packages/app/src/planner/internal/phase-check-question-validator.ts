@@ -5,9 +5,15 @@ import type {
   RefinementStep,
 } from "../types.js";
 import type { InitiativePlanningQuestion } from "../../types/entities.js";
-import { getDecisionTypeFamily, normalizeDecisionType } from "../decision-types.js";
+import { normalizeDecisionType } from "../decision-types.js";
 import { getQuestionPolicy } from "../refinement-check-policy.js";
 import { validateNoAmpersands } from "./title-style.js";
+import {
+  isDuplicateConcern,
+  isExplicitReopenReference,
+  isSemanticallyRepeatedConcern,
+  materiallyNarrowsDecisionBoundary,
+} from "./refinement-question-comparison.js";
 
 const normalizeQuestionText = (question: PhaseCheckResult["questions"][number]): string =>
   [
@@ -26,102 +32,6 @@ const normalizeFreeText = (value: string): string =>
     .replace(/[^a-z0-9\s-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
-const DUPLICATE_QUESTION_STOPWORDS = new Set([
-  "a",
-  "an",
-  "and",
-  "be",
-  "by",
-  "do",
-  "for",
-  "from",
-  "how",
-  "if",
-  "in",
-  "is",
-  "it",
-  "of",
-  "on",
-  "or",
-  "should",
-  "the",
-  "to",
-  "v1",
-  "what",
-  "which",
-  "who",
-]);
-
-const normalizeQuestionLabel = (label: string): string =>
-  label
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const getQuestionTokens = (label: string): string[] =>
-  normalizeQuestionLabel(label)
-    .split(" ")
-    .filter((token) => token.length > 1 && !DUPLICATE_QUESTION_STOPWORDS.has(token));
-
-const getTokenOverlapRatio = (left: string[], right: string[]): number => {
-  if (left.length === 0 || right.length === 0) {
-    return 0;
-  }
-
-  const rightSet = new Set(right);
-  const overlap = left.filter((token) => rightSet.has(token)).length;
-  return overlap / Math.min(left.length, right.length);
-};
-
-const getNormalizedOptions = (question: InitiativePlanningQuestion): string[] =>
-  (question.options ?? [])
-    .map((option: string) => option.toLowerCase().trim())
-    .filter(Boolean)
-    .sort();
-
-const CONCERN_ID_SUFFIX_PATTERN = /-(?:v\d+|brief|prd|validation|tickets|tech-spec|core-flows)$/;
-const CONCERN_ID_STOPWORDS = new Set([
-  "brief",
-  "core",
-  "flows",
-  "prd",
-  "tech",
-  "spec",
-  "validation",
-  "tickets",
-]);
-
-const normalizeConcernId = (id: string): string => {
-  let normalized = id.toLowerCase().trim();
-
-  while (CONCERN_ID_SUFFIX_PATTERN.test(normalized)) {
-    normalized = normalized.replace(CONCERN_ID_SUFFIX_PATTERN, "");
-  }
-
-  return normalized;
-};
-
-const getConcernIdTokens = (id: string): string[] =>
-  normalizeConcernId(id)
-    .split("-")
-    .filter((token) => token.length > 1 && !CONCERN_ID_STOPWORDS.has(token) && !/^v\d+$/.test(token));
-
-const getConcernIdTokenOverlapCount = (leftId: string, rightId: string): number => {
-  const rightTokens = new Set(getConcernIdTokens(rightId));
-  return getConcernIdTokens(leftId).filter((token) => rightTokens.has(token)).length;
-};
-
-const hasEquivalentConcernId = (
-  question: Pick<InitiativePlanningQuestion, "id">,
-  priorQuestion: Pick<InitiativePlanningQuestion, "id">,
-): boolean => {
-  const normalizedId = normalizeConcernId(question.id);
-  const normalizedPriorId = normalizeConcernId(priorQuestion.id);
-
-  return normalizedId.length > 0 && normalizedId === normalizedPriorId;
-};
 
 const matchesExactTokenOrPhrase = (haystack: string, rawNeedle: string): boolean => {
   const needle = normalizeFreeText(rawNeedle);
@@ -186,91 +96,6 @@ const toPriorStepQuestion = (
   whyThisBlocks: question.whyThisBlocks,
   step,
 });
-
-const isEquivalentConcernFamily = (
-  left: InitiativePlanningQuestion["decisionType"],
-  right: InitiativePlanningQuestion["decisionType"],
-): boolean => getDecisionTypeFamily(left) === getDecisionTypeFamily(right);
-
-const hasEquivalentLabel = (
-  question: Pick<InitiativePlanningQuestion, "label">,
-  priorQuestion: Pick<InitiativePlanningQuestion, "label">,
-): { overlap: number; exactOrContained: boolean } => {
-  const normalizedLabel = normalizeQuestionLabel(question.label);
-  const normalizedPriorLabel = normalizeQuestionLabel(priorQuestion.label);
-  const exactOrContained =
-    normalizedLabel.length > 0 &&
-    normalizedPriorLabel.length > 0 &&
-    (
-      normalizedLabel === normalizedPriorLabel ||
-      normalizedLabel.includes(normalizedPriorLabel) ||
-      normalizedPriorLabel.includes(normalizedLabel)
-    );
-
-  return {
-    overlap: getTokenOverlapRatio(getQuestionTokens(question.label), getQuestionTokens(priorQuestion.label)),
-    exactOrContained,
-  };
-};
-
-const isDuplicateConcern = (
-  question: InitiativePlanningQuestion,
-  priorQuestion: InitiativePlanningQuestion,
-): boolean => {
-  if (!isEquivalentConcernFamily(question.decisionType, priorQuestion.decisionType)) {
-    return false;
-  }
-
-  if (hasEquivalentConcernId(question, priorQuestion)) {
-    return true;
-  }
-
-  const { overlap, exactOrContained } = hasEquivalentLabel(question, priorQuestion);
-  if (exactOrContained) {
-    return true;
-  }
-
-  const options = getNormalizedOptions(question);
-  const priorOptions = getNormalizedOptions(priorQuestion);
-  const identicalOptions = options.join("|") === priorOptions.join("|");
-  const bothOptionless = options.length === 0 && priorOptions.length === 0;
-
-  return (identicalOptions || bothOptionless) && overlap >= 0.8;
-};
-
-const isHistoricalDuplicateConcern = (
-  question: InitiativePlanningQuestion,
-  priorQuestion: HistoricalQuestion,
-): boolean => {
-  if (!isEquivalentConcernFamily(question.decisionType, priorQuestion.decisionType)) {
-    return false;
-  }
-
-  if (hasEquivalentConcernId(question, priorQuestion)) {
-    return true;
-  }
-
-  const { overlap, exactOrContained } = hasEquivalentLabel(question, priorQuestion);
-  return exactOrContained || overlap >= 0.8;
-};
-
-const isExplicitReopenReference = (
-  question: InitiativePlanningQuestion,
-  priorQuestion: HistoricalQuestion,
-): boolean => {
-  // Explicit downstream reopens can legitimately move between decision families
-  // when the same earlier concern turns into a product or implementation blocker.
-  if (hasEquivalentConcernId(question, priorQuestion)) {
-    return true;
-  }
-
-  const { overlap, exactOrContained } = hasEquivalentLabel(question, priorQuestion);
-  if (exactOrContained || overlap >= 0.8) {
-    return true;
-  }
-
-  return getConcernIdTokenOverlapCount(question.id, priorQuestion.id) >= 2;
-};
 
 export const validateQuestions = (
   questions: PhaseCheckResult["questions"],
@@ -455,14 +280,30 @@ export const validateQuestions = (
           `Refinement question ${question.id} repeats already-asked ${input.phase} concern from ${duplicateQuestion.id}`,
         );
       }
+
+      if (!materiallyNarrowsDecisionBoundary(question, duplicateQuestion)) {
+        throw new Error(
+          `Refinement question ${question.id} paraphrases already-asked ${input.phase} concern from ${duplicateQuestion.id} instead of materially narrowing it`,
+        );
+      }
     }
 
     const duplicateEarlierConcern = historicalQuestions.find((priorQuestion) =>
-      isHistoricalDuplicateConcern(question, priorQuestion),
+      isSemanticallyRepeatedConcern(question, priorQuestion),
     );
     if (duplicateEarlierConcern && !reopensQuestionIds.includes(duplicateEarlierConcern.id)) {
       throw new Error(
         `Refinement question ${question.id} reopens earlier concern ${duplicateEarlierConcern.id} without reopensQuestionIds`,
+      );
+    }
+
+    if (
+      duplicateEarlierConcern &&
+      reopensQuestionIds.includes(duplicateEarlierConcern.id) &&
+      !materiallyNarrowsDecisionBoundary(question, duplicateEarlierConcern)
+    ) {
+      throw new Error(
+        `Refinement question ${question.id} paraphrases earlier concern ${duplicateEarlierConcern.id} instead of materially narrowing it`,
       );
     }
 
