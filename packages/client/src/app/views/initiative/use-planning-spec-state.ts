@@ -80,7 +80,8 @@ export const usePlanningSpecState = ({
   openRefinementDrawer,
 }: UsePlanningSpecStateInput) => {
   const [surveyResumeKey, setSurveyResumeKey] = useState(0);
-  const [entryLoadingStalled, setEntryLoadingStalled] = useState(false);
+  const [entryLoadingStalledStep, setEntryLoadingStalledStep] =
+    useState<SpecStep | null>(null);
   const downstreamEntryGenerationRef = useRef<SpecStep | null>(null);
   const previousSurfaceRef = useRef<InitiativePlanningSurface>(activeSurface);
   const {
@@ -246,22 +247,28 @@ export const usePlanningSpecState = ({
     !questionLoadFailed &&
     !generationFailed;
   const showingTransientEntryLoading =
-    showEntryLoadingFallback && !entryLoadingStalled;
+    showEntryLoadingFallback && entryLoadingStalledStep !== activeSpecStep;
 
   useEffect(() => {
     if (!showEntryLoadingFallback) {
-      setEntryLoadingStalled(false);
+      setEntryLoadingStalledStep((current) =>
+        current === activeSpecStep ? null : current,
+      );
+      return;
+    }
+
+    if (entryLoadingStalledStep === activeSpecStep) {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      setEntryLoadingStalled(true);
+      setEntryLoadingStalledStep(activeSpecStep);
     }, ENTRY_LOADING_STALL_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [showEntryLoadingFallback]);
+  }, [activeSpecStep, entryLoadingStalledStep, showEntryLoadingFallback]);
 
   const navigateToPreviousStage = () => {
     if (!previousStep) {

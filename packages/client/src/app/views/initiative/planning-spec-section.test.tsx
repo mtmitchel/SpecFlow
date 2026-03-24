@@ -399,6 +399,117 @@ describe("PlanningSpecSection", () => {
     vi.useRealTimers();
   });
 
+  it("does not carry a stalled retry state from core flows into PRD entry loading", async () => {
+    vi.useFakeTimers();
+
+    const { rerender } = render(
+      <ToastProvider>
+        <PlanningSpecSection
+          initiativeId="initiative-1"
+          initiativeTitle="Simple desktop notes"
+          activeSpecStep="core-flows"
+          activeSurface="questions"
+          activeRefinement={emptyRefinement}
+          busyAction={null}
+          isBusy={false}
+          isDeletingInitiative={false}
+          hasActiveContent={false}
+          hasPhaseSpecificRefinementDecisions={false}
+          unresolvedQuestionCount={0}
+          nextStep="prd"
+          nextStepActionLabel="Continue"
+          handlePhaseCheckResult={vi.fn()}
+          flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
+          refinementAnswers={{}}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="idle"
+          guidanceQuestionId={null}
+          guidanceText={null}
+          savedDrafts={{
+            brief: "",
+            "core-flows": "",
+            prd: "",
+            "tech-spec": "",
+          }}
+          autoQuestionLoadStep={null}
+          autoQuestionLoadFailedStep={null}
+          onRefresh={vi.fn().mockResolvedValue(undefined)}
+          navigateToStep={vi.fn()}
+          setActiveSurface={vi.fn()}
+          handleCheckAndAdvance={vi.fn().mockResolvedValue("completed")}
+          onAdvanceToNextStep={vi.fn()}
+          handleRequestGuidance={vi.fn()}
+          updateRefinementAnswer={vi.fn()}
+          deferRefinementQuestion={vi.fn()}
+          openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
+          renderSaveState={() => null}
+        />
+      </ToastProvider>,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+
+    rerender(
+      <ToastProvider>
+        <PlanningSpecSection
+          initiativeId="initiative-1"
+          initiativeTitle="Simple desktop notes"
+          activeSpecStep="prd"
+          activeSurface="questions"
+          activeRefinement={emptyRefinement}
+          busyAction={null}
+          isBusy={false}
+          isDeletingInitiative={false}
+          hasActiveContent={false}
+          hasPhaseSpecificRefinementDecisions={false}
+          unresolvedQuestionCount={0}
+          nextStep="tech-spec"
+          nextStepActionLabel="Continue"
+          handlePhaseCheckResult={vi.fn()}
+          flushRefinementPersistence={vi.fn().mockResolvedValue(true)}
+          refinementAnswers={{}}
+          defaultAnswerQuestionIds={[]}
+          refinementAssumptions={[]}
+          refinementSaveState="idle"
+          guidanceQuestionId={null}
+          guidanceText={null}
+          savedDrafts={{
+            brief: "",
+            "core-flows": "",
+            prd: "",
+            "tech-spec": "",
+          }}
+          autoQuestionLoadStep={null}
+          autoQuestionLoadFailedStep={null}
+          onRefresh={vi.fn().mockResolvedValue(undefined)}
+          navigateToStep={vi.fn()}
+          setActiveSurface={vi.fn()}
+          handleCheckAndAdvance={vi.fn().mockResolvedValue("completed")}
+          onAdvanceToNextStep={vi.fn()}
+          handleRequestGuidance={vi.fn()}
+          updateRefinementAnswer={vi.fn()}
+          deferRefinementQuestion={vi.fn()}
+          openEditDrawer={vi.fn()}
+          openRefinementDrawer={vi.fn()}
+          renderSaveState={() => null}
+        />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Preparing PRD questions...",
+    );
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
   it("uses Back for the previous pipeline stage and a separate action to reopen current-step answers", () => {
     const navigateToStep = vi.fn();
     const setActiveSurface = vi.fn();
