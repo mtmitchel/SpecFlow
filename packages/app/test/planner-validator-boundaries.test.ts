@@ -85,6 +85,33 @@ describe("planner validator boundaries", () => {
     );
   });
 
+  it("rejects select questions that restate multiple options in the label", () => {
+    const result = makeResult([
+      makeSelectQuestion({
+        id: "brief-problem",
+        affectedArtifact: "brief",
+        decisionType: "problem",
+        label:
+          "Which problem should the note app be centered on first: quick capture, simple organization with tags, or switching between clean writing and visual browsing?",
+        options: [
+          "Quick capture",
+          "Simple organization with tags",
+          "Switching between clean writing and visual browsing",
+        ],
+        optionHelp: {
+          "Quick capture": "Keep the first release centered on getting notes down quickly.",
+          "Simple organization with tags": "Keep the first release centered on lightweight organization.",
+          "Switching between clean writing and visual browsing":
+            "Keep the first release centered on moving between writing and browsing.",
+        },
+      }),
+    ]);
+
+    expect(() => validatePhaseCheckResult(result, makeInput({ phase: "brief" }))).toThrow(
+      "restates answer options in the label",
+    );
+  });
+
   it("allows a same-stage narrower follow-up when the decision boundary changes", () => {
     const priorQuestion = makeSelectQuestion({
       id: "prd-scope-1",
@@ -281,7 +308,7 @@ describe("planner validator boundaries", () => {
       makeSelectQuestion({
         id: "empty-note-behavior-v1",
         affectedArtifact: "core-flows",
-        label: "If the user deletes all content after the first keystroke, should v1 remove the note or keep a blank draft?",
+        label: "What should happen if a draft note is cleared after capture starts?",
         decisionType: "failure-mode",
         options: ["Remove the note", "Keep a blank draft"],
         optionHelp: {

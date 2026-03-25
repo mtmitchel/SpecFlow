@@ -4,9 +4,9 @@ import { getTicketCoverageReviewId } from "./ticket-coverage.js";
 
 export const TICKET_EXECUTION_GATE_REVIEW_KIND: PlanningReviewKind = "ticket-coverage-review";
 export const TICKET_EXECUTION_GATE_MESSAGE =
-  "Resolve the coverage check for this project before starting execution";
+  "Finish plan validation before starting work";
 export const TICKET_DEPENDENCY_GATE_MESSAGE =
-  "Finish blocked tickets before you start this ticket.";
+  "Complete the tickets ahead of this one first.";
 export const EXECUTION_TICKET_STATUSES = ["in-progress", "verify", "done"] as const;
 
 export type TicketExecutionGateResult =

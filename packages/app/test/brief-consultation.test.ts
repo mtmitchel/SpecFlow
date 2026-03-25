@@ -9,18 +9,18 @@ describe("required Brief consultation", () => {
     const constraintsQuestion = result.questions.find((question) => question.id === "brief-constraints");
 
     expect(problemQuestion?.options).toEqual([
-      "Speed up repetitive work",
-      "Replace or improve an existing workflow",
-      "Make a new capability possible",
-      "Fix reliability, correctness, or data issues",
-      "Meet a required standard or constraint"
+      "Build something new",
+      "Improve or replace something that exists",
+      "Automate or speed up a manual process",
+      "Fix something that's broken or unreliable",
+      "Meet a specific requirement or standard"
     ]);
     expect(successQuestion?.options).toEqual([
-      "The main job feels faster",
-      "Real work runs reliably",
-      "The product stays simple",
-      "New users can get started quickly",
-      "The value is obvious right away"
+      "It's fast or saves time",
+      "It works reliably on real tasks",
+      "It stays simple -- no feature bloat",
+      "New users can figure it out quickly",
+      "The value is obvious in the first session"
     ]);
     expect(constraintsQuestion?.options).not.toContain("No extra constraints");
 
@@ -29,7 +29,7 @@ describe("required Brief consultation", () => {
       const optionHelpKeys = Object.keys(question.optionHelp ?? {});
       expect(optionHelpKeys).toEqual(options);
       expect(options.every((option) => Boolean(question.optionHelp?.[option]?.trim()))).toBe(true);
-      expect(options.every((option) => !question.optionHelp?.[option]?.startsWith("Use this when"))).toBe(true);
+      expect(options.every((option) => !question.optionHelp?.[option]?.startsWith("Use this"))).toBe(true);
     }
   });
 });

@@ -203,7 +203,7 @@ export const RefinementSection = ({
       {!compact && !survey && locallyUnresolvedQuestionCount > 0 ? (
         <div className="planning-inline-note planning-inline-note-warn">
           <span>
-            Answer {locallyUnresolvedQuestionCount} more question{locallyUnresolvedQuestionCount === 1 ? "" : "s"}, or use the default where it fits, before you generate this step.
+            Answer {locallyUnresolvedQuestionCount} more, or skip where the default works, before generating.
           </span>
         </div>
       ) : null}
@@ -243,7 +243,7 @@ export const RefinementSection = ({
                     <span className="planning-intake-question-label">{question.label}</span>
                     {!open ? (
                       <span className="planning-intake-question-hint">
-                        {usingDefault ? "Using default assumption" : question.whyThisBlocks}
+                        {usingDefault ? "Using default" : question.whyThisBlocks}
                       </span>
                     ) : null}
                   </span>
@@ -270,7 +270,7 @@ export const RefinementSection = ({
                         </button>
                       ) : null}
                       <button type="button" onClick={() => onAnswerLater(question.id)}>
-                        {usingDefault ? (compact ? "Using default" : "Using default assumption") : compact ? "Skip" : "Use default assumption"}
+                        {usingDefault ? "Using default" : compact ? "Skip" : "Use default"}
                       </button>
                       {nextQuestionId ? (
                         <button

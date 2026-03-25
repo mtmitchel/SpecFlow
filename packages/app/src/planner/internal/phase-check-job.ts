@@ -3,7 +3,7 @@ import { canonicalizePlanningQuestion } from "../decision-types.js";
 import type { PhaseCheckInput, PhaseCheckResult } from "../types.js";
 import { validatePhaseCheckResult } from "./validators.js";
 
-const MAX_PHASE_CHECK_VALIDATION_ATTEMPTS = 2;
+const MAX_PHASE_CHECK_VALIDATION_ATTEMPTS = 3;
 
 const getValidationFeedback = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);

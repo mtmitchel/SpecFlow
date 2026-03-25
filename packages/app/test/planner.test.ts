@@ -50,6 +50,78 @@ const reviewResult = (summary: string) => ({
 const repeatPlanResponse = (payload: unknown): string[] =>
   Array.from({ length: 3 }, () => JSON.stringify(payload));
 
+const briefConsultationResponse = () =>
+  JSON.stringify({
+    decision: "ask",
+    questions: [
+      {
+        id: "brief-problem",
+        label: "What's the core problem this solves?",
+        whyThisBlocks: "The brief needs a clear problem to set scope.",
+        affectedArtifact: "brief",
+        decisionType: "problem",
+        type: "select",
+        assumptionIfUnanswered: "Focus on the most urgent problem from the description.",
+        options: ["Build a new tool", "Fix an existing workflow"],
+        optionHelp: {
+          "Build a new tool": "Scope around a new capability.",
+          "Fix an existing workflow": "Improve what exists."
+        },
+        recommendedOption: "Build a new tool",
+        allowCustomAnswer: true
+      },
+      {
+        id: "brief-user",
+        label: "Who is the first user?",
+        whyThisBlocks: "The audience shapes the goals and scope.",
+        affectedArtifact: "brief",
+        decisionType: "user",
+        type: "select",
+        assumptionIfUnanswered: "Target the most obvious user from the description.",
+        options: ["Just me", "A small team"],
+        optionHelp: {
+          "Just me": "Optimize for one person.",
+          "A small team": "Account for coordination."
+        },
+        recommendedOption: "Just me",
+        allowCustomAnswer: true
+      },
+      {
+        id: "brief-success",
+        label: "What should v1 feel like?",
+        whyThisBlocks: "Success criteria drive the goals.",
+        affectedArtifact: "brief",
+        decisionType: "success",
+        type: "multi-select",
+        assumptionIfUnanswered: "Aim for reliability on real tasks.",
+        options: ["Fast", "Reliable"],
+        optionHelp: {
+          "Fast": "Speed is the main measure.",
+          "Reliable": "Correctness comes first."
+        },
+        recommendedOption: null,
+        allowCustomAnswer: true
+      },
+      {
+        id: "brief-constraints",
+        label: "Any hard requirements?",
+        whyThisBlocks: "Constraints prevent overpromising.",
+        affectedArtifact: "brief",
+        decisionType: "constraint",
+        type: "multi-select",
+        assumptionIfUnanswered: "No extra constraints beyond the description.",
+        options: ["Offline support", "Specific platform"],
+        optionHelp: {
+          "Offline support": "Offline behavior is day-one.",
+          "Specific platform": "Platform becomes scope."
+        },
+        recommendedOption: null,
+        allowCustomAnswer: true
+      }
+    ],
+    assumptions: []
+  });
+
 const createSpecflowLayout = async (rootDir: string): Promise<void> => {
   const base = specflowDir(rootDir);
   await mkdir(path.join(base, "initiatives"), { recursive: true });
@@ -169,9 +241,10 @@ describe("PlannerService", () => {
       "team-rules: always include tests"
     );
 
-    expect(prompt.userPrompt).toContain("first required Brief consultation for a fresh project");
-    expect(prompt.userPrompt).toContain('You must return "ask"');
-    expect(prompt.userPrompt).toContain("Ask exactly 4 short consultation questions");
+    expect(prompt.userPrompt).toContain("first Brief consultation for a fresh project");
+    expect(prompt.userPrompt).toContain("primary problem, the primary first-release user, what success looks like, and hard constraints");
+    expect(prompt.userPrompt).toContain("EXTRACT, not interrogate");
+    expect(prompt.userPrompt).toContain("Do NOT manufacture ambiguity");
     expect(prompt.userPrompt).toContain('Every question must use "select", "multi-select", or "boolean"');
   });
 
@@ -1049,6 +1122,7 @@ describe("PlannerService", () => {
       });
 
       const mockClient = new MockLlmClient([
+        briefConsultationResponse(),
         JSON.stringify({
           initiativeTitle: "Local notes",
           markdown: "# Local notes",
@@ -1251,7 +1325,8 @@ describe("PlannerService", () => {
       expect(initialBriefConsultation.decision).toBe("ask");
       expect(initialBriefConsultation.questions).toHaveLength(4);
       expect(initialBriefConsultation.questions.every((question) => question.type !== "text")).toBe(true);
-      expect(mockClient.requests).toHaveLength(0);
+      expect(mockClient.requests).toHaveLength(1);
+      expect(mockClient.requests[0]?.userPrompt).toContain("first Brief consultation");
       await resolveBriefConsultation(
         store,
         initiative.id,
@@ -1309,7 +1384,7 @@ describe("PlannerService", () => {
 
       expect(store.planningReviews.get(`${initiative.id}:ticket-coverage-review`)?.status).toBe("passed");
       expect(store.planningReviews.get(`${initiative.id}:brief-review`)?.status).toBe("passed");
-      expect(mockClient.requests).toHaveLength(20);
+      expect(mockClient.requests).toHaveLength(21);
       expect(mockClient.requests.some((request) => request.userPrompt.includes('Default to "proceed"'))).toBe(true);
       for (const req of mockClient.requests) {
         expect(req.systemPrompt).toContain("team-rules: always include tests");
@@ -1421,6 +1496,7 @@ describe("PlannerService", () => {
       });
 
       const mockClient = new MockLlmClient([
+        briefConsultationResponse(),
         JSON.stringify({
           initiativeTitle: "Auth setup",
           markdown: "# Auth setup",
@@ -1566,6 +1642,7 @@ describe("PlannerService", () => {
         rootDir,
         store,
         llmClient: new MockLlmClient([
+          briefConsultationResponse(),
           JSON.stringify({
             initiativeTitle: "Auth setup",
             markdown: "# Auth setup",
@@ -1662,6 +1739,7 @@ describe("PlannerService", () => {
       });
 
       const mockClient = new MockLlmClient([
+        briefConsultationResponse(),
         JSON.stringify({
           initiativeTitle: "Auth setup",
           markdown: "# Auth setup",
@@ -1686,8 +1764,10 @@ describe("PlannerService", () => {
 
       expect(consultation.decision).toBe("ask");
       expect(consultation.questions).toHaveLength(4);
+      expect(mockClient.requests).toHaveLength(1);
+      expect(mockClient.requests[0]?.userPrompt).toContain("first Brief consultation");
       await expect(planner.runBriefJob({ initiativeId: initiative.id })).rejects.toThrow(
-        "Finish brief intake before you create the brief"
+        "Answer the intake questions before generating the brief"
       );
 
       await resolveBriefConsultation(
@@ -1703,7 +1783,7 @@ describe("PlannerService", () => {
         status: "passed",
         summary: "Brief intake resolved the blockers for the initial brief draft."
       });
-      expect(mockClient.requests).toHaveLength(1);
+      expect(mockClient.requests).toHaveLength(2);
 
       await store.close();
       await rm(rootDir, { recursive: true, force: true });

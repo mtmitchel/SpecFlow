@@ -49,7 +49,7 @@ describe("RefinementSection", () => {
         isBusy
         saveStateIndicator={null}
         loadingStateLabel="Checking brief questions..."
-        loadingStateBody="Checking whether anything still needs to be pinned down before we draft the brief."
+        loadingStateBody="Reviewing your answers before drafting the brief."
         variant="compact"
         onRequestGuidance={vi.fn()}
         onAnswerChange={vi.fn()}
@@ -58,7 +58,7 @@ describe("RefinementSection", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Checking brief questions...");
-    expect(screen.getByText("Checking whether anything still needs to be pinned down before we draft the brief.")).toBeInTheDocument();
+    expect(screen.getByText("Reviewing your answers before drafting the brief.")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveClass("planning-intake-loading-compact");
     expect(screen.getByRole("status").closest(".planning-intake-flow")).toHaveClass("planning-intake-flow-loading");
   });
@@ -172,7 +172,7 @@ describe("RefinementSection", () => {
         isBusy={false}
         saveStateIndicator={null}
         loadingStateLabel="Checking tech spec questions..."
-        loadingStateBody="Checking whether anything still needs to be pinned down before we draft the tech spec."
+        loadingStateBody="Reviewing your answers before drafting the tech spec."
         variant="survey"
         onRequestGuidance={vi.fn()}
         onAnswerChange={vi.fn()}

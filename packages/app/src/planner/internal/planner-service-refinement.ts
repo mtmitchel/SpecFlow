@@ -2,7 +2,6 @@ import type { LlmTokenHandler } from "../../llm/client.js";
 import { resolveInitiativeProjectRoot } from "../../project-roots.js";
 import {
   BRIEF_CONSULTATION_REQUIRED_MESSAGE,
-  buildRequiredBriefConsultationResult,
   requiresInitialBriefConsultation
 } from "../brief-consultation.js";
 import { PlannerConflictError } from "../planner-errors.js";
@@ -65,26 +64,26 @@ export async function runPhaseCheckJob(
       initiative,
       briefMarkdown: markdownByStep.brief
     });
-  const result: PhaseCheckResult = initialBriefConsultationRequired
-    ? canonicalizePhaseCheckResult(buildRequiredBriefConsultationResult())
-    : input.step === "brief"
-      ? canonicalizePhaseCheckResult({
-          decision: "proceed" as const,
-          questions: [],
-          assumptions: getRefinementAssumptions(initiative.workflow, "brief")
-        })
-      : await resolveValidatedPhaseCheckResult({
-          phaseCheckInput,
-          priorQuestions: initiative.workflow.refinements[input.step].questions,
-          executePhaseCheck: (nextPhaseCheckInput) =>
-            service.executePlannerJob<PhaseCheckResult>(
-              REFINEMENT_JOB_BY_STEP[input.step],
-              nextPhaseCheckInput,
-              onToken,
-              signal,
-              projectRoot
-            )
-        });
+  const briefAlreadyResolved =
+    input.step === "brief" && !initialBriefConsultationRequired;
+  const result: PhaseCheckResult = briefAlreadyResolved
+    ? canonicalizePhaseCheckResult({
+        decision: "proceed" as const,
+        questions: [],
+        assumptions: getRefinementAssumptions(initiative.workflow, "brief")
+      })
+    : await resolveValidatedPhaseCheckResult({
+        phaseCheckInput,
+        priorQuestions: initiative.workflow.refinements[input.step].questions,
+        executePhaseCheck: (nextPhaseCheckInput) =>
+          service.executePlannerJob<PhaseCheckResult>(
+            REFINEMENT_JOB_BY_STEP[input.step],
+            nextPhaseCheckInput,
+            onToken,
+            signal,
+            projectRoot
+          )
+      });
 
   const nowIso = service.now().toISOString();
   await service.store.upsertInitiative({

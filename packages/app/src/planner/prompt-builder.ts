@@ -296,9 +296,15 @@ const buildCheckPrompt = (
       "Rules:",
       ...(requiresInitialConsultation
         ? [
-            '- This is the first required Brief consultation for a fresh project. You must return "ask".',
-            "- Ask exactly 4 short consultation questions that cover the primary problem, primary first-release user, success outcomes, and hard boundaries.",
-            "- Do not return proceed or an empty questions array for this first Brief consultation."
+            "- This is the first Brief consultation for a fresh project.",
+            "- The brief needs four decisions locked before it can be drafted: the primary problem, the primary first-release user, what success looks like, and hard constraints.",
+            "- Your job is to EXTRACT, not interrogate. Read the project description and pull out what the user already decided. Do not ask questions about things the user already stated.",
+            "- For each of the four areas, check the description. If the user stated it -- even partially or implicitly -- treat it as decided. Add a one-line assumption like: \"Primary problem: quick capture and seamless switching between list and card views\" or \"Primary user: individuals who want minimalism and flexibility\".",
+            "- A question is only justified when the description says nothing about that area, or when two contradictory statements make the intent genuinely unclear. Vague wording is not ambiguity -- infer the obvious intent and move on.",
+            "- Do NOT manufacture ambiguity. If the description says \"quick capture, organization via tags, and seamless switching\", the problem is clear. Do not ask the user to pick one. Do not split their stated intent into competing options.",
+            '- If the description covers all four areas (most detailed descriptions do), return "proceed" with four assumptions and an empty questions array. This is the expected outcome for a well-written description.',
+            '- If you must ask, ask at most 1-2 questions for areas the description truly does not address. Never ask 4.',
+            "- When you do ask, tailor the question to the specific project. Reference the user's own words."
           ]
         : requiresStarterQuestions
           ? [
@@ -316,10 +322,12 @@ const buildCheckPrompt = (
       "- Keep the set as short as possible. Ask only the highest-leverage blocker questions.",
       "- If you ask, every question must explain why it blocks this artifact and include an assumptionIfUnanswered.",
       '- Every question must use "select", "multi-select", or "boolean".',
-      "- In label, whyThisBlocks, assumptionIfUnanswered, options, and optionHelp, write like a calm product teammate speaking to a human. Keep the wording plain, direct, and conversational.",
-      '- Avoid planner or process jargon in user-visible fields, especially phrases such as "artifact", "materially", "decision boundary", "governing constraint", "highest-leverage", "implementation mechanic", or "user-visible contract".',
+      "- Write every question label so a non-technical person would immediately understand what you are asking and why it matters. If you would not say it out loud to a coworker, rewrite it.",
+      '- Never use abstract system-design language in labels. Bad: "Does the current view mode change what happens next when a note is opened or created?" Good: "When someone opens a note from card view, should it look different than opening from the list?"',
+      '- For "select" or "multi-select" questions, keep the label focused on the decision itself. Do not restate, preview, or list the answer options in the label when the options are shown below.',
+      '- Avoid planner or process jargon in user-visible fields, especially phrases such as "artifact", "materially", "decision boundary", "governing constraint", "highest-leverage", "implementation mechanic", "user-visible contract", "view mode", "state", or "flow condition".',
       '- For "select" or "multi-select" questions, prefer 2 to 5 options. Include a recommendedOption when one choice is clearly best.',
-      '- For "boolean" questions, do not include options, optionHelp, or recommendedOption. Write the label so yes or no is clear on its own.',
+      '- For "boolean" questions, do not include options, optionHelp, or recommendedOption. The label MUST be a yes-or-no question where "Yes" and "No" are grammatically correct answers. Bad: "When should the app remember the last view?" (yes/no does not answer "when"). Good: "Should the app remember which view you were in?"',
       '- Do not include "Other" in options. Set allowCustomAnswer to true only when the user may reasonably need a custom answer outside the finite options.',
       `- Allowed decisionType values for this artifact are: ${allowedDecisionTypes.join(", ")}.`,
       allowedDecisionTypes.includes("quality-strategy")
@@ -352,6 +360,7 @@ const buildCheckPrompt = (
       ...(requiresInitialConsultation || requiresStarterQuestions
         ? []
         : ["- If you can proceed, return an empty questions array and include any explicit assumptions you are making."]),
+      "- Before returning, review all your questions together. If any select option in one question would automatically answer another question in the set, drop the redundant question. Example: if Q1 has an option \"Open to the last note\", do not also ask Q3 \"Should the app remember the last view?\" -- picking Q1's option already answers Q3.",
       "- Do not ask broad discovery questions. Ask only about blockers for this artifact.",
       "- Phrase each question so the user can answer it quickly without reading a long explanation.",
       ...promptPolicy.checkRules,

@@ -329,7 +329,7 @@ describe("PlanningSpecSection", () => {
     );
     expect(
       screen.getByText(
-        "Getting the first questions ready before we draft the core flows.",
+        "Gathering the decisions needed before drafting core flows.",
       ),
     ).toBeInTheDocument();
   });

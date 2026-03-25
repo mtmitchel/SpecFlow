@@ -46,7 +46,7 @@ describe("ticket execution gates", () => {
 
     await expect(
       updateTicket(runtime as never, baseTicket.id, { status: "in-progress" })
-    ).rejects.toThrow("Resolve the coverage check for this project before starting execution");
+    ).rejects.toThrow("Finish plan validation before starting work");
     expect(runtime.store.upsertTicket).not.toHaveBeenCalled();
   });
 
@@ -66,7 +66,7 @@ describe("ticket execution gates", () => {
     expect(getTicketExecutionGate(blockedTicket, reviews, tickets)).toEqual({
       allowed: false,
       code: "blocked-by-open-ticket",
-      message: "Finish blocked tickets before you start this ticket.",
+      message: "Complete the tickets ahead of this one first.",
       blockingTicketIds: ["ticket-blocker"]
     });
   });

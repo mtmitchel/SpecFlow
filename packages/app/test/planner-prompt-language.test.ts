@@ -142,7 +142,8 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain(
       'For "boolean" questions, do not include options, optionHelp, or recommendedOption'
     );
-    expect(prompt.userPrompt).toContain("write like a calm product teammate speaking to a human");
+    expect(prompt.userPrompt).toContain("non-technical person would immediately understand");
+    expect(prompt.userPrompt).toContain("Do not restate, preview, or list the answer options in the label");
     expect(prompt.userPrompt).toContain("Avoid planner or process jargon in user-visible fields");
   });
 

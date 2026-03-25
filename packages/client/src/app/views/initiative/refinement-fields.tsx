@@ -59,7 +59,7 @@ const SelectChoiceCards = ({
         <div className="clarification-option-header">
           <span>Other</span>
         </div>
-        <p>Use a custom answer if none of these options fit.</p>
+        <p>None of these fit? Write your own.</p>
       </button>
       {otherSelected ? (
         <OtherAnswerField
@@ -85,8 +85,8 @@ export const RefinementField = ({
     return (
       <div className="clarification-option-list">
         {[
-          { label: "Yes", value: true, description: "Use this when the feature or constraint should be included." },
-          { label: "No", value: false, description: "Use this when it should stay out of scope or off by default." }
+          { label: "Yes", value: true },
+          { label: "No", value: false }
         ].map((option) => (
           <button
             key={option.label}
@@ -97,7 +97,6 @@ export const RefinementField = ({
             <div className="clarification-option-header">
               <span>{option.label}</span>
             </div>
-            <p>{option.description}</p>
           </button>
         ))}
         {question.allowCustomAnswer ? (
@@ -110,7 +109,7 @@ export const RefinementField = ({
               <div className="clarification-option-header">
                 <span>Other</span>
               </div>
-              <p>Use a custom answer if yes or no does not fit.</p>
+              <p>Neither fits? Write your own.</p>
             </button>
             {otherSelected ? (
               <OtherAnswerField
@@ -177,7 +176,7 @@ export const RefinementField = ({
             />
             <span>Other</span>
           </span>
-          <p>Use a custom answer if none of these options fit.</p>
+          <p>None of these fit? Write your own.</p>
         </label>
         {hasOther ? (
           <OtherAnswerField

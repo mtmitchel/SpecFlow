@@ -253,13 +253,13 @@ export const InitiativeView = ({
               <span className="status-loading-spinner" aria-hidden="true" />
               <div className="status-loading-copy">
                 <strong>Reviewing questions...</strong>
-                <span>Checking whether this step needs more input.</span>
+                <span>Reviewing your earlier answers.</span>
               </div>
             </div>
           ) : (
             <div className="planning-step-card planning-step-card-quiet">
               <p className="ticket-empty-note">
-                This step does not have saved question history to reopen yet.
+                No earlier questions to revisit for this step.
               </p>
               <div className="planning-step-actions planning-step-actions-centered">
                 <button
@@ -268,7 +268,7 @@ export const InitiativeView = ({
                   onClick={() => void handleCheckAndAdvance(drawerState.step)}
                   disabled={isBusy}
                 >
-                  Check questions again
+                  Recheck questions
                 </button>
                 <button
                   type="button"

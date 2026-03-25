@@ -33,6 +33,29 @@ const normalizeFreeText = (value: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
+const isComparableOptionPhrase = (value: string): boolean => {
+  const normalizedValue = normalizeFreeText(value);
+  if (!normalizedValue) {
+    return false;
+  }
+
+  const tokens = normalizedValue.split(" ").filter(Boolean);
+  return tokens.length >= 2 || normalizedValue.length >= 10;
+};
+
+const countRestatedOptionsInLabel = (label: string, options: string[]): number => {
+  const normalizedLabel = normalizeFreeText(label);
+
+  return options.reduce((count, option) => {
+    const normalizedOption = normalizeFreeText(option);
+    if (!isComparableOptionPhrase(option) || !normalizedOption) {
+      return count;
+    }
+
+    return normalizedLabel.includes(normalizedOption) ? count + 1 : count;
+  }, 0);
+};
+
 const matchesExactTokenOrPhrase = (haystack: string, rawNeedle: string): boolean => {
   const needle = normalizeFreeText(rawNeedle);
   if (!needle) {
@@ -153,6 +176,15 @@ export const validateQuestions = (
       throw new Error(`Refinement question ${question.id} must not provide options for boolean questions`);
     }
 
+    if (question.type === "boolean") {
+      const normalizedLabel = question.label.trim().toLowerCase();
+      if (/^(when|how|what|which|where)\b/.test(normalizedLabel)) {
+        throw new Error(
+          `Refinement question ${question.id} is boolean but the label starts with "${normalizedLabel.split(/\s/)[0]}" -- yes/no cannot answer that. Rewrite as a "should" or "does" question.`
+        );
+      }
+    }
+
     if (!question.whyThisBlocks?.trim()) {
       throw new Error(`Refinement question ${question.id} is missing whyThisBlocks`);
     }
@@ -176,6 +208,13 @@ export const validateQuestions = (
 
     if (normalizedOptions.some((option) => option.toLowerCase() === "other")) {
       throw new Error(`Refinement question ${question.id} must not include "Other" in options`);
+    }
+
+    if (
+      (question.type === "select" || question.type === "multi-select") &&
+      countRestatedOptionsInLabel(question.label, normalizedOptions) >= 2
+    ) {
+      throw new Error(`Refinement question ${question.id} restates answer options in the label. Rewrite the label as a short question about the decision without naming the specific choices -- the options are shown separately below the label.`);
     }
 
     const optionHelp = question.optionHelp ?? {};

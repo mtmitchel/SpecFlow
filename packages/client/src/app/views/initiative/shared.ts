@@ -40,7 +40,7 @@ export const PHASE_DESCRIPTIONS: Record<InitiativePlanningStep, string> = {
   "core-flows": "Map the main path, alternate paths, and key states.",
   prd: "Define the user-visible behavior, rules, and scope.",
   "tech-spec": "Define the implementation approach, constraints, and quality plan.",
-  validation: "Check the ticket plan and clear the last blockers before tickets are committed.",
+  validation: "Review the ticket plan and resolve any remaining gaps.",
   tickets: "Review the execution board and open the next ticket."
 };
 
@@ -63,7 +63,7 @@ export const PHASE_TRANSITIONS: Record<SpecStep | "validation" | "tickets", { he
   },
   validation: {
     heading: "Validation ready",
-    body: "Resolve the last planning gaps before tickets are committed."
+    body: "Resolve any remaining gaps before tickets are finalized."
   },
   tickets: {
     heading: "Tickets ready",
@@ -93,7 +93,7 @@ export const JOURNEY_STAGE_LABELS: Record<PlanningJourneyStage, string> = {
 };
 
 export const JOURNEY_STAGE_GUIDANCE: Record<PlanningJourneyStage, string> = {
-  consult: "Answer the open questions before you draft this step.",
+  consult: "Answer the questions before drafting this step.",
   draft: "Generate or refresh the draft when the answers feel right.",
   checkpoint: "Review the open issues before you move on.",
   complete: "This step is in good shape. Move on when you are ready."
