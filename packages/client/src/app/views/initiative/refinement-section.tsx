@@ -170,7 +170,7 @@ export const RefinementSection = ({
               {INITIATIVE_WORKFLOW_LABELS[activeSpecStep].toLowerCase()}
             </div>
             <p className="planning-intake-copy">
-              Answer what matters, use a default assumption when it does not, and keep the artifact grounded before generation.
+              Answer the open questions. If one does not matter yet, use the default and keep moving.
             </p>
           </div>
           <div className="planning-intake-meta">
@@ -203,7 +203,7 @@ export const RefinementSection = ({
       {!compact && !survey && locallyUnresolvedQuestionCount > 0 ? (
         <div className="planning-inline-note planning-inline-note-warn">
           <span>
-            Answer {locallyUnresolvedQuestionCount} more question{locallyUnresolvedQuestionCount === 1 ? "" : "s"} or use a default assumption before generation.
+            Answer {locallyUnresolvedQuestionCount} more question{locallyUnresolvedQuestionCount === 1 ? "" : "s"}, or use the default where it fits, before you generate this step.
           </span>
         </div>
       ) : null}
@@ -387,7 +387,7 @@ export const RefinementSection = ({
         <div className="planning-survey-question">
           <h3 className="planning-survey-question-title">All questions are answered</h3>
           <p className="planning-survey-question-copy">
-            Review an answer or continue when you are ready.
+            Review an answer, or keep moving when you are ready.
           </p>
 
           <div className="button-row planning-intake-question-actions">

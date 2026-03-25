@@ -25,6 +25,11 @@ import {
   structuredPlannerError
 } from "./shared.js";
 import { assertProjectRootDirectory, resolveRequestedProjectRoot } from "../../project-roots.js";
+import {
+  normalizeInitiativeTitle,
+  normalizeMarkdownHeadingsSentenceCase,
+  validateInitiativeTitle
+} from "../../planner/internal/title-style.js";
 
 type ArtifactStep = InitiativeArtifactStep;
 
@@ -97,10 +102,17 @@ export const updateInitiative = async (
   }
   const nowIso = new Date().toISOString();
   const nextWorkflow = descriptionChanged ? invalidateWorkflowFromStep(initiative.workflow, "brief") : initiative.workflow;
+  const nextTitle =
+    body.title === undefined
+      ? initiative.title
+      : normalizeInitiativeTitle(body.title);
+  if (body.title !== undefined) {
+    validateInitiativeTitle(nextTitle);
+  }
 
   const updated = {
     ...initiative,
-    title: body.title ?? initiative.title,
+    title: nextTitle,
     description: nextDescription,
     phases: body.phases ?? initiative.phases,
     workflow:
@@ -196,7 +208,8 @@ export const saveInitiativeSpec = async (
     throw conflict(`${stepLabel(step)} is not ready until the previous phase is done`);
   }
 
-  const content = body.content?.trim() ?? "";
+  const rawContent = body.content?.trim() ?? "";
+  const content = rawContent ? normalizeMarkdownHeadingsSentenceCase(rawContent) : "";
   if (!content) {
     throw badRequest("content is required");
   }

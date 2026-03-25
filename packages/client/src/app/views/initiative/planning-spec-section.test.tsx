@@ -329,7 +329,7 @@ describe("PlanningSpecSection", () => {
     );
     expect(
       screen.getByText(
-        "Gathering the decisions needed before the first core flows draft.",
+        "Getting the first questions ready before we draft the core flows.",
       ),
     ).toBeInTheDocument();
   });
@@ -603,7 +603,7 @@ describe("PlanningSpecSection", () => {
             history: [
               {
                 id: "brief-problem",
-                label: "What primary problem should v1 solve?",
+                label: "What needs to get better first?",
                 type: "select",
                 whyThisBlocks: "The brief needs one clear problem before it can define the right scope.",
                 affectedArtifact: "brief",
@@ -669,7 +669,7 @@ describe("PlanningSpecSection", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "What primary problem should v1 solve?" }),
+      screen.getByRole("heading", { name: "What needs to get better first?" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
   });

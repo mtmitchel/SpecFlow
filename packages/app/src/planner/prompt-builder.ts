@@ -316,6 +316,8 @@ const buildCheckPrompt = (
       "- Keep the set as short as possible. Ask only the highest-leverage blocker questions.",
       "- If you ask, every question must explain why it blocks this artifact and include an assumptionIfUnanswered.",
       '- Every question must use "select", "multi-select", or "boolean".',
+      "- In label, whyThisBlocks, assumptionIfUnanswered, options, and optionHelp, write like a calm product teammate speaking to a human. Keep the wording plain, direct, and conversational.",
+      '- Avoid planner or process jargon in user-visible fields, especially phrases such as "artifact", "materially", "decision boundary", "governing constraint", "highest-leverage", "implementation mechanic", or "user-visible contract".',
       '- For "select" or "multi-select" questions, prefer 2 to 5 options. Include a recommendedOption when one choice is clearly best.',
       '- For "boolean" questions, do not include options, optionHelp, or recommendedOption. Write the label so yes or no is clear on its own.',
       '- Do not include "Other" in options. Set allowCustomAnswer to true only when the user may reasonably need a custom answer outside the finite options.',

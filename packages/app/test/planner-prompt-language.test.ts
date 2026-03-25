@@ -142,6 +142,8 @@ describe("planner prompt language", () => {
     expect(prompt.userPrompt).toContain(
       'For "boolean" questions, do not include options, optionHelp, or recommendedOption'
     );
+    expect(prompt.userPrompt).toContain("write like a calm product teammate speaking to a human");
+    expect(prompt.userPrompt).toContain("Avoid planner or process jargon in user-visible fields");
   });
 
   it("feeds validation feedback back into the next phase-check prompt", () => {
@@ -157,7 +159,7 @@ describe("planner prompt language", () => {
           {
             step: "brief",
             questionId: "brief-problem",
-            label: "What primary problem should v1 solve?",
+            label: "What needs to get better first?",
             decisionType: "problem",
             whyThisBlocks: "The brief needs one primary problem.",
             resolution: "answered",

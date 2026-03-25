@@ -45,7 +45,7 @@ const initiative: Initiative = {
         questions: [
           {
             id: "brief-problem",
-            label: "What primary problem should v1 solve?",
+            label: "What needs to get better first?",
             type: "select",
             whyThisBlocks: "One focused problem, not a feature list.",
             affectedArtifact: "brief",
@@ -59,7 +59,7 @@ const initiative: Initiative = {
         history: [
           {
             id: "brief-problem",
-            label: "What primary problem should v1 solve?",
+            label: "What needs to get better first?",
             type: "select",
             whyThisBlocks: "One focused problem, not a feature list.",
             affectedArtifact: "brief",
@@ -172,7 +172,7 @@ describe("InitiativeRouteView planning surfaces", () => {
       );
     });
 
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
   });
 
   it("canonicalizes a bare initiative route to the review surface when the current step already has a document", async () => {
@@ -237,7 +237,7 @@ describe("InitiativeRouteView planning surfaces", () => {
       );
     });
 
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
   });
 
   it("can reopen the question surface from persisted history even after active questions are cleared", async () => {
@@ -384,7 +384,7 @@ describe("InitiativeRouteView planning surfaces", () => {
 
     expect(screen.getByText("Desktop-first delivery through Tauri.")).toBeInTheDocument();
     expect(
-      screen.queryByText("What primary problem should v1 solve?"),
+      screen.queryByText("What needs to get better first?"),
     ).not.toBeInTheDocument();
   });
 });

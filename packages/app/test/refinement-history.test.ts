@@ -13,7 +13,7 @@ describe("refinement history persistence", () => {
       questions: [
         {
           id: "brief-problem",
-          label: "What primary problem should v1 solve?",
+          label: "What needs to get better first?",
           type: "select",
           whyThisBlocks: "The brief needs one primary problem before it can define scope.",
           affectedArtifact: "brief",
@@ -58,7 +58,7 @@ describe("refinement history persistence", () => {
       expect.objectContaining({
         step: "brief",
         questionId: "brief-problem",
-        label: "What primary problem should v1 solve?",
+        label: "What needs to get better first?",
         resolution: "answered",
         answer: "Automate work",
       }),

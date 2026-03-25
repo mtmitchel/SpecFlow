@@ -27,7 +27,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 const briefQuestion: InitiativePlanningQuestion = {
   id: "brief-problem",
-  label: "What primary problem should v1 solve?",
+  label: "What needs to get better first?",
   type: "select",
   whyThisBlocks: "SpecFlow needs the core user problem before it can draft the brief.",
   affectedArtifact: "brief",
@@ -447,7 +447,7 @@ describe("App desktop smoke", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start brief intake" }));
 
     await waitFor(() => {
-      expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+      expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     });
 
     expect(backend.snapshotRequests).toBe(1);
@@ -458,7 +458,7 @@ describe("App desktop smoke", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Revise answers" })).toBeInTheDocument();
     });
-    expect(screen.queryByText("What primary problem should v1 solve?")).not.toBeInTheDocument();
+    expect(screen.queryByText("What needs to get better first?")).not.toBeInTheDocument();
 
     expect(backend.snapshotRequests).toBe(2);
 

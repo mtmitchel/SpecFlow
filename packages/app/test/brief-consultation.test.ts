@@ -9,18 +9,18 @@ describe("required Brief consultation", () => {
     const constraintsQuestion = result.questions.find((question) => question.id === "brief-constraints");
 
     expect(problemQuestion?.options).toEqual([
-      "Automate or speed up a repetitive process",
-      "Replace or improve an existing tool or workflow",
-      "Build something new that does not exist yet",
-      "Fix reliability, correctness, or data quality issues",
-      "Meet a new requirement, standard, or constraint"
+      "Speed up repetitive work",
+      "Replace or improve an existing workflow",
+      "Make a new capability possible",
+      "Fix reliability, correctness, or data issues",
+      "Meet a required standard or constraint"
     ]);
     expect(successQuestion?.options).toEqual([
-      "Core workflow is noticeably faster than the current approach",
-      "Handles real data reliably without manual intervention",
-      "Feels simple and focused",
-      "Is easy to learn on first use",
-      "Shows clear value right away"
+      "The main job feels faster",
+      "Real work runs reliably",
+      "The product stays simple",
+      "New users can get started quickly",
+      "The value is obvious right away"
     ]);
     expect(constraintsQuestion?.options).not.toContain("No extra constraints");
 

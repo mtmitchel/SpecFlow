@@ -43,6 +43,7 @@ import {
 } from "./planning-artifact-validation.js";
 import { extractSpecSummaryTitle } from "./spec-summary-titles.js";
 import { shouldReplaceInitiativeTitle } from "../../planner/internal/initiative-title-sync.js";
+import { normalizeInitiativeTitle } from "../../planner/internal/title-style.js";
 
 type ReloadScope = StoreReloadIssue["scope"];
 
@@ -121,12 +122,13 @@ export const loadInitiatives = async (input: {
     }
 
     let briefSummaryTitle: string | null = null;
+    const normalizedStoredTitle = normalizeInitiativeTitle(initiative.title);
 
     const docTuples: Array<{ fileName: string; type: SpecDocument["type"]; title: string }> = [
       { fileName: "brief.md", type: "brief", title: "Brief" },
-      { fileName: "core-flows.md", type: "core-flows", title: "Core Flows" },
+      { fileName: "core-flows.md", type: "core-flows", title: "Core flows" },
       { fileName: "prd.md", type: "prd", title: "PRD" },
-      { fileName: "tech-spec.md", type: "tech-spec", title: "Tech Spec" }
+      { fileName: "tech-spec.md", type: "tech-spec", title: "Tech spec" }
     ];
 
     for (const doc of docTuples) {
@@ -160,7 +162,7 @@ export const loadInitiatives = async (input: {
 
     const normalizedInitiative =
       briefSummaryTitle &&
-      shouldReplaceInitiativeTitle(initiative.title, initiative.description)
+      shouldReplaceInitiativeTitle(normalizedStoredTitle, initiative.description)
         ? {
             ...initiative,
             projectRoot: initiative.projectRoot ?? input.rootDir,
@@ -168,6 +170,7 @@ export const loadInitiatives = async (input: {
           }
         : {
             ...initiative,
+            title: normalizedStoredTitle,
             projectRoot: initiative.projectRoot ?? input.rootDir
           };
 

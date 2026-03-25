@@ -97,7 +97,33 @@ describe("spec summary titles", () => {
     const store = createStore(rootDir);
     await store.reloadFromDisk();
 
-    expect(store.initiatives.get(initiative.id)?.title).toBe("Sidecar Notebook");
+    expect(store.initiatives.get(initiative.id)?.title).toBe("Sidecar notebook");
     expect(store.specs.get(`${initiative.id}:brief`)?.title).toBe("Lightweight PWA notes");
+  });
+
+  it("normalizes stored project titles to sentence case on load", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "specflow-spec-titles-normalized-"));
+    tempDirs.push(rootDir);
+    await createRootLayout(rootDir);
+
+    const initiative: Initiative = {
+      id: "initiative-abcdef12",
+      title: "Focus Notes",
+      description: "Improve a notes app.",
+      status: "draft",
+      phases: [],
+      specIds: [],
+      ticketIds: [],
+      workflow: createInitiativeWorkflow(),
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    await writeInitiativeFixture(rootDir, initiative, "");
+
+    const store = createStore(rootDir);
+    await store.reloadFromDisk();
+
+    expect(store.initiatives.get(initiative.id)?.title).toBe("Focus notes");
   });
 });

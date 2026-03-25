@@ -49,125 +49,125 @@ export const REQUIRED_BRIEF_CONSULTATION_RESULT: PhaseCheckResult = {
   questions: defineRequiredBriefQuestions([
     {
       id: "brief-problem",
-      label: "What primary problem should v1 solve?",
+      label: "What needs to get better first?",
       type: "select",
-      whyThisBlocks: "The brief needs one clear problem before it can define the right scope.",
+      whyThisBlocks: "The brief needs one clear problem before it can set scope.",
       affectedArtifact: "brief",
       decisionType: "problem",
       options: [
-        "Automate or speed up a repetitive process",
-        "Replace or improve an existing tool or workflow",
-        "Build something new that does not exist yet",
-        "Fix reliability, correctness, or data quality issues",
-        "Meet a new requirement, standard, or constraint"
+        "Speed up repetitive work",
+        "Replace or improve an existing workflow",
+        "Make a new capability possible",
+        "Fix reliability, correctness, or data issues",
+        "Meet a required standard or constraint"
       ],
       optionHelp: {
-        "Automate or speed up a repetitive process":
-          "Treat speed or reduced manual effort as the main outcome.",
-        "Replace or improve an existing tool or workflow":
-          "Compare against the current workflow and define what has to improve or stay compatible.",
-        "Build something new that does not exist yet":
-          "Define the first usable slice, the core promise, and the biggest adoption risk.",
-        "Fix reliability, correctness, or data quality issues":
-          "Name what is failing today and what reliable behavior needs to be restored.",
-        "Meet a new requirement, standard, or constraint":
-          "Make the non-negotiable requirement clear and define the scope limits it creates."
+        "Speed up repetitive work":
+          "Make speed and reduced manual effort the main outcome.",
+        "Replace or improve an existing workflow":
+          "Start from the current workflow and define what must improve or stay compatible.",
+        "Make a new capability possible":
+          "Define the first useful slice, the core promise, and the biggest adoption risk.",
+        "Fix reliability, correctness, or data issues":
+          "Be explicit about what is failing today and what reliable behavior needs to return.",
+        "Meet a required standard or constraint":
+          "Make the non-negotiable requirement clear and show how it limits v1."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume the first release focuses on the most urgent problem implied by the project description."
+        "Assume the first release focuses on the most urgent problem in the project description."
     },
     {
       id: "brief-primary-user",
-      label: "Who is this for first?",
+      label: "Who needs this first?",
       type: "select",
-      whyThisBlocks: "The brief needs one clear primary user before it can set goals or scope.",
+      whyThisBlocks: "The brief needs one clear first user before it can set goals or scope.",
       affectedArtifact: "brief",
       decisionType: "user",
       options: ["Just me", "A small team I know", "An internal team or company", "A broad public audience"],
       optionHelp: {
-        "Just me": "Optimize for one person's workflow without team coordination.",
+        "Just me": "Optimize for one person's workflow without extra coordination overhead.",
         "A small team I know": "Support a specific group with shared context and light coordination.",
         "An internal team or company": "Reflect organizational constraints, shared processes, and business context.",
-        "A broad public audience": "Favor clear onboarding, plain language, and fewer assumptions about the user."
+        "A broad public audience": "Favor clear onboarding, plain language, and fewer built-in assumptions."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume the first release targets the most obvious primary user implied by the project description."
+        "Assume the first release serves the most obvious user in the project description."
     },
     {
       id: "brief-success",
-      label: "What should feel true if v1 succeeds?",
+      label: "If v1 works, what should feel true?",
       type: "multi-select",
-      whyThisBlocks: "The brief needs explicit success criteria before it can define goals and tradeoffs.",
+      whyThisBlocks: "The brief needs clear success qualities before it can set goals and tradeoffs.",
       affectedArtifact: "brief",
       decisionType: "success",
       options: [
-        "Core workflow is noticeably faster than the current approach",
-        "Handles real data reliably without manual intervention",
-        "Feels simple and focused",
-        "Is easy to learn on first use",
-        "Shows clear value right away"
+        "The main job feels faster",
+        "Real work runs reliably",
+        "The product stays simple",
+        "New users can get started quickly",
+        "The value is obvious right away"
       ],
       optionHelp: {
-        "Core workflow is noticeably faster than the current approach":
+        "The main job feels faster":
           "Treat speed or reduced effort as a first-release success measure.",
-        "Handles real data reliably without manual intervention":
+        "Real work runs reliably":
           "Treat correctness, resilience, and trust in everyday use as core success measures.",
-        "Feels simple and focused":
+        "The product stays simple":
           "Keep the first release narrow and avoid features that dilute the main job.",
-        "Is easy to learn on first use":
+        "New users can get started quickly":
           "Prioritize clear labels, low-friction onboarding, and a short path to first success.",
-        "Shows clear value right away":
+        "The value is obvious right away":
           "Aim for a short time to value and make the first session prove the benefit."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume success means the core workflow works reliably for the primary user without major blockers."
+        "Assume success means the main job works reliably for the first user without major blockers."
     },
     {
       id: "brief-constraints",
-      label: "Which constraints matter from day one?",
+      label: "What has to be true from day one?",
       type: "multi-select",
-      whyThisBlocks: "The brief needs hard boundaries so it does not lock in the wrong scope or promise the wrong solution.",
+      whyThisBlocks: "The brief needs hard boundaries so it does not set the wrong scope or promise the wrong thing.",
       affectedArtifact: "brief",
       decisionType: "constraint",
       options: [
-        "Specific platform or operating environment support",
-        "Works offline or in unreliable network conditions",
-        "Portable or interoperable data handling",
-        "Performance or scale limits must hold from day one",
-        "Must integrate with or extend an existing system",
-        "Specific privacy, security, or compliance requirements"
+        "It must support a specific platform or environment",
+        "It must work offline or with a weak connection",
+        "Data must stay portable or interoperable",
+        "Performance or scale limits must hold immediately",
+        "It must fit into an existing system",
+        "Privacy, security, or compliance rules are non-negotiable"
       ],
       optionHelp: {
-        "Specific platform or operating environment support":
+        "It must support a specific platform or environment":
           "Make supported environments or operating conditions part of the first-release scope.",
-        "Works offline or in unreliable network conditions":
+        "It must work offline or with a weak connection":
           "Treat offline and degraded-network behavior as a day-one requirement.",
-        "Portable or interoperable data handling":
+        "Data must stay portable or interoperable":
           "Preserve portability, import and export expectations, or compatibility with existing data formats.",
-        "Performance or scale limits must hold from day one":
+        "Performance or scale limits must hold immediately":
           "Carry explicit performance or scale limits into later product and implementation decisions.",
-        "Must integrate with or extend an existing system":
+        "It must fit into an existing system":
           "Respect another system's interfaces, workflows, or migration constraints from day one.",
-        "Specific privacy, security, or compliance requirements":
+        "Privacy, security, or compliance rules are non-negotiable":
           "Treat data handling, access control, or regulatory obligations as hard boundaries."
       },
       recommendedOption: null,
       allowCustomAnswer: true,
       assumptionIfUnanswered:
-        "Assume there are no extra hard constraints beyond the project description and prefer the smallest viable first-release operating surface."
+        "Assume there are no extra hard boundaries beyond the project description, and keep the first release as small as possible."
     }
   ]),
   assumptions: []
 };
 
 export const BRIEF_CONSULTATION_REQUIRED_MESSAGE =
-  "Complete the required Brief consultation before creating this artifact";
+  "Finish brief intake before you create the brief";
 
 export const requiresInitialBriefConsultation = (input: {
   initiative: Initiative;

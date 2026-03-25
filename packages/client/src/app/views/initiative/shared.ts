@@ -37,10 +37,10 @@ export const REVIEW_FINDING_SECTION_LABELS: Record<PlanningReviewFinding["type"]
 
 export const PHASE_DESCRIPTIONS: Record<InitiativePlanningStep, string> = {
   brief: "Define the problem, audience, goals, and scope.",
-  "core-flows": "Define the primary user journeys and states.",
-  prd: "Define how the product should work.",
-  "tech-spec": "Define how it should be built.",
-  validation: "Validate the ticket plan before execution starts.",
+  "core-flows": "Map the main path, alternate paths, and key states.",
+  prd: "Define the user-visible behavior, rules, and scope.",
+  "tech-spec": "Define the implementation approach, constraints, and quality plan.",
+  validation: "Check the ticket plan and clear the last blockers before tickets are committed.",
   tickets: "Review the execution board and open the next ticket."
 };
 
@@ -93,9 +93,9 @@ export const JOURNEY_STAGE_LABELS: Record<PlanningJourneyStage, string> = {
 };
 
 export const JOURNEY_STAGE_GUIDANCE: Record<PlanningJourneyStage, string> = {
-  consult: "Answer the questions that matter before you generate anything.",
-  draft: "Generate or refresh the artifact once the answers look right.",
-  checkpoint: "Review the issues before you move on.",
+  consult: "Answer the open questions before you draft this step.",
+  draft: "Generate or refresh the draft when the answers feel right.",
+  checkpoint: "Review the open issues before you move on.",
   complete: "This step is in good shape. Move on when you are ready."
 };
 

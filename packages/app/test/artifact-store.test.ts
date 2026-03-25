@@ -220,6 +220,7 @@ describe("ArtifactStore", () => {
     expect(reloaded.config).toEqual(config);
     expect(reloaded.initiatives.get(initiative.id)).toEqual({
       ...initiative,
+      title: "User auth",
       projectRoot: rootDir
     });
     expect(reloaded.planningReviews.get(review.id)).toEqual(review);

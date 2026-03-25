@@ -29,7 +29,7 @@ const initiative: Initiative = {
         history: [
           {
             id: "brief-problem",
-            label: "What primary problem should v1 solve?",
+            label: "What needs to get better first?",
             type: "select",
             whyThisBlocks: "The brief needs one primary problem.",
             affectedArtifact: "brief",

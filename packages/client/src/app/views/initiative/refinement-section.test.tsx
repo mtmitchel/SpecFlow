@@ -10,7 +10,7 @@ const activeRefinement: InitiativeRefinementState = {
   questions: [
     {
       id: "brief-problem",
-      label: "What primary problem should v1 solve?",
+      label: "What needs to get better first?",
       type: "select",
       whyThisBlocks: "The brief cannot define the right scope until the primary problem is explicit.",
       affectedArtifact: "brief",
@@ -49,7 +49,7 @@ describe("RefinementSection", () => {
         isBusy
         saveStateIndicator={null}
         loadingStateLabel="Checking brief questions..."
-        loadingStateBody="Reviewing your answers before drafting the brief."
+        loadingStateBody="Checking whether anything still needs to be pinned down before we draft the brief."
         variant="compact"
         onRequestGuidance={vi.fn()}
         onAnswerChange={vi.fn()}
@@ -58,7 +58,7 @@ describe("RefinementSection", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Checking brief questions...");
-    expect(screen.getByText("Reviewing your answers before drafting the brief.")).toBeInTheDocument();
+    expect(screen.getByText("Checking whether anything still needs to be pinned down before we draft the brief.")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveClass("planning-intake-loading-compact");
     expect(screen.getByRole("status").closest(".planning-intake-flow")).toHaveClass("planning-intake-flow-loading");
   });
@@ -113,7 +113,7 @@ describe("RefinementSection", () => {
         activeRefinement.questions[0],
         {
           id: "brief-user",
-          label: "Who is this for first?",
+          label: "Who needs this first?",
           type: "select",
           whyThisBlocks: "The brief needs a clear primary user before it can define scope.",
           affectedArtifact: "brief",
@@ -148,11 +148,11 @@ describe("RefinementSection", () => {
     );
 
     expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     expect(
       screen.queryByText("The brief cannot define the right scope until the primary problem is explicit.")
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Who is this for first?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Who needs this first?")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
   });
 
@@ -172,7 +172,7 @@ describe("RefinementSection", () => {
         isBusy={false}
         saveStateIndicator={null}
         loadingStateLabel="Checking tech spec questions..."
-        loadingStateBody="Reviewing your answers before drafting the tech spec."
+        loadingStateBody="Checking whether anything still needs to be pinned down before we draft the tech spec."
         variant="survey"
         onRequestGuidance={vi.fn()}
         onAnswerChange={vi.fn()}
@@ -181,7 +181,7 @@ describe("RefinementSection", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Checking tech spec questions...");
-    expect(screen.queryByRole("heading", { name: "What primary problem should v1 solve?" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "What needs to get better first?" })).not.toBeInTheDocument();
     expect(screen.queryByText("All questions are answered")).not.toBeInTheDocument();
   });
 
@@ -281,7 +281,7 @@ describe("RefinementSection", () => {
           "brief-problem": {
             questionId: "brief-problem",
             stepLabel: "Brief",
-            questionLabel: "What primary problem should v1 solve?",
+            questionLabel: "What needs to get better first?",
             resolutionLabel: "Earlier answer: Capture something quickly",
           },
         }}
@@ -360,7 +360,7 @@ describe("RefinementSection", () => {
           "brief-problem": {
             questionId: "brief-problem",
             stepLabel: "Brief",
-            questionLabel: "What primary problem should v1 solve?",
+            questionLabel: "What needs to get better first?",
             resolutionLabel: "Earlier answer: Capture something quickly",
           },
         }}
@@ -407,7 +407,7 @@ describe("RefinementSection", () => {
             activeRefinement.questions[0],
             {
               id: "brief-user",
-              label: "Who is this for first?",
+              label: "Who needs this first?",
               type: "select",
               whyThisBlocks: "The brief needs a clear primary user before it can define scope.",
               affectedArtifact: "brief",
@@ -439,7 +439,7 @@ describe("RefinementSection", () => {
     // Advance to question 2
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(screen.getByRole("heading", { name: "Who is this for first?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Who needs this first?" })).toBeInTheDocument();
 
     // On question 2 there is exactly one Back button (no "Previous question")
     const backButtons = screen.getAllByRole("button", { name: "Back" });
@@ -449,7 +449,7 @@ describe("RefinementSection", () => {
     // Back on question 2 navigates to question 1 (previous question takes priority)
     fireEvent.click(backButtons[0]);
 
-    expect(screen.getByRole("heading", { name: "What primary problem should v1 solve?" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What needs to get better first?" })).toBeInTheDocument();
     expect(onBackToPreviousStep).not.toHaveBeenCalled();
 
     // On question 1 (no previous question), Back falls back to the previous step

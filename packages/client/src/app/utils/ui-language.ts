@@ -118,13 +118,13 @@ export const getPlanningQuestionTransitionCopy = (
   if (mode === "entry") {
     return {
       title: `Preparing ${stepName} questions...`,
-      body: `Gathering the decisions needed before the first ${stepName} draft.`,
+      body: `Getting the first questions ready before we draft the ${getPlanningDraftReference(step)}.`,
     };
   }
 
   return {
     title: `Checking ${stepName} questions...`,
-    body: `Reviewing your answers before drafting ${getPlanningDraftReference(step)}.`,
+    body: `Checking whether anything still needs to be pinned down before we draft the ${getPlanningDraftReference(step)}.`,
   };
 };
 
@@ -152,9 +152,9 @@ export const getPlanningStageCopy = (
     if (options?.readyToGenerate) {
       return step === "brief"
         ? "Brief intake is done. Generate the brief when you're ready."
-        : step === "validation"
+      : step === "validation"
           ? "The specs are ready. Validate the plan when you're ready."
-        : `The key decisions are set. Generate the ${getPlanningStepName(step)} when you're ready.`;
+        : `The open questions are settled. Generate the ${getPlanningStepName(step)} when you're ready.`;
     }
 
     return step === "tickets"
@@ -165,7 +165,7 @@ export const getPlanningStageCopy = (
   }
 
   if (stage === "checkpoint") {
-    return "Fix the open issues before you move on.";
+    return "Review the open issues before you move on.";
   }
 
   return null;

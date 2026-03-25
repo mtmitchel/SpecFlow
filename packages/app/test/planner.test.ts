@@ -1687,7 +1687,7 @@ describe("PlannerService", () => {
       expect(consultation.decision).toBe("ask");
       expect(consultation.questions).toHaveLength(4);
       await expect(planner.runBriefJob({ initiativeId: initiative.id })).rejects.toThrow(
-        "Complete the required Brief consultation before creating this artifact"
+        "Finish brief intake before you create the brief"
       );
 
       await resolveBriefConsultation(

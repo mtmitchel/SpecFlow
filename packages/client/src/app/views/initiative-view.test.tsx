@@ -63,7 +63,7 @@ const initiative: Initiative = {
         questions: [
           {
             id: "brief-problem",
-            label: "What primary problem should v1 solve?",
+            label: "What needs to get better first?",
             type: "select",
             whyThisBlocks: "One focused problem — not a feature list.",
             affectedArtifact: "brief",
@@ -87,7 +87,7 @@ const initiative: Initiative = {
         history: [
           {
             id: "brief-problem",
-            label: "What primary problem should v1 solve?",
+            label: "What needs to get better first?",
             type: "select",
             whyThisBlocks: "One focused problem — not a feature list.",
             affectedArtifact: "brief",
@@ -754,7 +754,7 @@ describe("InitiativeView", () => {
     );
 
     expect(screen.queryByRole("heading", { name: "What do you want to build?" })).not.toBeInTheDocument();
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Generate brief" })).not.toBeInTheDocument();
 
@@ -781,7 +781,7 @@ describe("InitiativeView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") }));
 
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     expect(screen.queryByText("Ready to draft the brief")).not.toBeInTheDocument();
     expect(checkInitiativePhaseMock).not.toHaveBeenCalled();
 
@@ -820,7 +820,7 @@ describe("InitiativeView", () => {
       expect(screen.getByText("Checking brief questions...")).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("What primary problem should v1 solve?")).not.toBeInTheDocument();
+    expect(screen.queryByText("What needs to get better first?")).not.toBeInTheDocument();
     expect(screen.getByText("Checking brief questions...").closest(".planning-survey-card")).toHaveClass(
       "planning-survey-card-compact",
     );
@@ -897,7 +897,7 @@ describe("InitiativeView", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("heading", { name: "What primary problem should v1 solve?" }),
+        screen.getByRole("heading", { name: "What needs to get better first?" }),
       ).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
@@ -931,7 +931,7 @@ describe("InitiativeView", () => {
     expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
-      expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+      expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     });
 
     expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
@@ -977,7 +977,7 @@ describe("InitiativeView", () => {
     expect(checkInitiativePhaseMock.mock.calls[1]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
-      expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+      expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     });
 
     expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
@@ -1008,7 +1008,7 @@ describe("InitiativeView", () => {
     expect(checkInitiativePhaseMock.mock.calls[0]?.[2]).not.toHaveProperty("timeoutMs");
 
     await waitFor(() => {
-      expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+      expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     });
 
     expect(screen.queryByText("Preparing brief questions...")).not.toBeInTheDocument();
@@ -1458,7 +1458,7 @@ describe("InitiativeView", () => {
 
     expect(await screen.findByText("All questions are answered")).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "What primary problem should v1 solve?" }),
+      screen.queryByRole("heading", { name: "What needs to get better first?" }),
     ).not.toBeInTheDocument();
   });
 
@@ -1476,7 +1476,7 @@ describe("InitiativeView", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
     expect(screen.queryByText("The scope is still too broad for a first release.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: new RegExp(briefProblemOption, "i") })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Generate brief" })).not.toBeInTheDocument();
@@ -1503,7 +1503,7 @@ describe("InitiativeView", () => {
     expect(screen.queryByRole("menuitem", { name: "Move on anyway" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Revise answers" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit text" })).not.toBeInTheDocument();
-    expect(screen.getByText("What primary problem should v1 solve?")).toBeInTheDocument();
+    expect(screen.getByText("What needs to get better first?")).toBeInTheDocument();
   });
 
   it("lets the next phase stay active even if the previous planning review artifact is still unresolved", () => {
