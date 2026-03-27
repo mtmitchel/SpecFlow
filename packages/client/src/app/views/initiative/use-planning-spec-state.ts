@@ -305,6 +305,23 @@ export const usePlanningSpecState = ({
     });
   };
 
+  const handleQuestionContinue = () => {
+    void flushRefinementPersistence().then((persisted) => {
+      if (!persisted) {
+        return;
+      }
+
+      void beginAutoAdvance(activeSpecStep, {
+        draft: {
+          answers: refinementAnswers,
+          defaultAnswerQuestionIds,
+          preferredSurface: activeSurface,
+        },
+        navigateOnSuccess: false,
+      });
+    });
+  };
+
   const handleRetry = () => {
     if (activeSpecStep === "brief") {
       void beginAutoAdvance("brief", {
@@ -337,6 +354,7 @@ export const usePlanningSpecState = ({
     generationStateCopy,
     handleAdvanceToNextStep,
     handleCompleteSurvey,
+    handleQuestionContinue,
     handleRetry,
     handleReviseAnswers,
     hasRevisableQuestions,

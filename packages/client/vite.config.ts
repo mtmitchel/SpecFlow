@@ -2,9 +2,9 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const host = process.env.SPECFLOW_CLIENT_HOST ?? "127.0.0.1";
-const port = Number.parseInt(process.env.SPECFLOW_CLIENT_PORT ?? "5173", 10);
+const port = Number.parseInt(process.env.SPECFLOW_CLIENT_PORT ?? "5177", 10);
 
-const clientPort = Number.isFinite(port) ? port : 5173;
+const clientPort = Number.isFinite(port) ? port : 5177;
 const clientOrigin = `http://${host}:${clientPort}`;
 const sharedContractsPath = fileURLToPath(new URL("../app/src/shared-contracts.ts", import.meta.url));
 

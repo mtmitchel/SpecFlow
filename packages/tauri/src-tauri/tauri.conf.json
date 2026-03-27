@@ -5,7 +5,7 @@
   "identifier": "com.specflow.desktop",
   "build": {
     "beforeDevCommand": "npm run dev:stack",
-    "devUrl": "http://127.0.0.1:5173",
+    "devUrl": "http://127.0.0.1:5177",
     "frontendDist": "../../client/dist"
   },
   "app": {

@@ -220,6 +220,7 @@ export const PlanningSpecSection = ({
               }
               onBackToPreviousStep={state.previousStep ? state.navigateToPreviousStage : undefined}
               onCompleteSurvey={state.handleCompleteSurvey}
+              onQuestionContinue={state.handleQuestionContinue}
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
               onAnswerLater={deferRefinementQuestion}
@@ -318,6 +319,7 @@ export const PlanningSpecSection = ({
               }
               onBackToPreviousStep={state.previousStep ? state.navigateToPreviousStage : undefined}
               onCompleteSurvey={state.handleCompleteSurvey}
+              onQuestionContinue={state.handleQuestionContinue}
               onRequestGuidance={handleRequestGuidance}
               onAnswerChange={updateRefinementAnswer}
               onAnswerLater={deferRefinementQuestion}

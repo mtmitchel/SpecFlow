@@ -39,6 +39,7 @@ interface RefinementSectionProps {
   autoCompleteResolvedSurvey?: boolean;
   onBackToPreviousStep?: () => void;
   onCompleteSurvey?: () => void | Promise<void>;
+  onQuestionContinue?: () => void | Promise<void>;
   onRequestGuidance: (questionId: string) => void | Promise<void>;
   onAnswerChange: (questionId: string, nextValue: string | string[] | boolean) => void;
   onAnswerLater: (questionId: string) => void;
@@ -66,6 +67,7 @@ export const RefinementSection = ({
   autoCompleteResolvedSurvey = false,
   onBackToPreviousStep,
   onCompleteSurvey,
+  onQuestionContinue,
   onRequestGuidance,
   onAnswerChange,
   onAnswerLater
@@ -347,6 +349,11 @@ export const RefinementSection = ({
               type="button"
               onClick={() => {
                 onAnswerLater(currentQuestion.id);
+                if (onQuestionContinue) {
+                  void onQuestionContinue();
+                  return;
+                }
+
                 if (nextQuestionId) {
                   setOpenQuestionId(nextQuestionId);
                   return;
@@ -366,6 +373,11 @@ export const RefinementSection = ({
                 !isQuestionAnswered(effectiveRefinementAnswers[currentQuestion.id])
               }
               onClick={() => {
+                if (nextQuestionId && onQuestionContinue) {
+                  void onQuestionContinue();
+                  return;
+                }
+
                 if (nextQuestionId) {
                   setOpenQuestionId(nextQuestionId);
                   return;
