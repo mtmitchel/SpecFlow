@@ -35,6 +35,17 @@ const countTraceSections = (
 const estimatePromptInputBytes = (value: unknown): number =>
   JSON.stringify(value)?.length ?? 0;
 
+const MAX_PROMPT_INPUT_BYTES = 200_000;
+
+const enforcePromptSizeLimit = (bytes: number, context: string): void => {
+  if (bytes > MAX_PROMPT_INPUT_BYTES) {
+    throw new Error(
+      `Prompt input size (${Math.round(bytes / 1024)}KB) exceeds the ${Math.round(MAX_PROMPT_INPUT_BYTES / 1024)}KB limit for ${context}. ` +
+      "Reduce scope by splitting the initiative into smaller phases or trimming trace outlines."
+    );
+  }
+};
+
 const REVIEW_PLAN_REPAIR_FINDING_TYPES: PlanningReviewFindingType[] = [
   "blocker",
   "traceability-gap",
@@ -147,6 +158,7 @@ export async function runPlanJob(
       },
       onAttempt: async ({ attemptNumber, mode, planInput }) => {
         latestAttemptMode = mode;
+        enforcePromptSizeLimit(estimatePromptInputBytes(planInput), `${mode} attempt ${attemptNumber}`);
         await emitStatus(
           mode === "plan"
             ? `Drafting ticket plan (attempt ${attemptNumber} of 3)...`
@@ -238,6 +250,7 @@ export async function runPlanJob(
         validateCoverageMappings(nextResult, coverageInput.items);
       },
       onAttempt: async ({ attemptNumber, planInput }) => {
+        enforcePromptSizeLimit(estimatePromptInputBytes(planInput), `plan-repair attempt ${attemptNumber}`);
         await emitStatus(`Repairing ticket plan from validation review (attempt ${attemptNumber} of 3)...`);
         logObservabilityEvent({
           layer: "runtime",

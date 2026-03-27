@@ -14,7 +14,7 @@ export const collectContextFiles = async (input: {
   }
 
   const specs = Array.from(input.specs).filter(
-    (spec) => spec.initiativeId === input.initiativeId && spec.type !== "decision"
+    (spec) => spec.initiativeId === input.initiativeId || spec.type === "decision"
   );
 
   for (const specSummary of specs) {

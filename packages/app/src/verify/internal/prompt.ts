@@ -47,6 +47,7 @@ DRIFT FLAG ANALYSIS:
 - missing-requirement: A file that the ticket explicitly targets shows no changes in the diff.
 - pre-capture-drift: The baseline snapshot diverges from HEAD in ways not attributable to this ticket.
 - widened-scope-drift: Changes in the widened drift scope that may affect the primary scope indirectly.
+- snapshot-partial-scope: Snapshot mode only covers explicitly scoped files. Changes outside this scope are invisible to verification.
 
 Assign severity to each drift flag:
 - critical: Could break existing functionality or introduce regressions in production code.
@@ -115,7 +116,8 @@ export const runVerifierPrompt = async (input: {
     }`,
     `Diff Source: ${input.diffResult.diffSource}`,
     `Primary Diff:\n${input.diffResult.primaryDiff || "(empty — no changes in primary scope)"}`,
-    `Drift Diff:\n${input.diffResult.driftDiff || "(empty — no drift changes)"}`
+    `Drift Diff:\n${input.diffResult.driftDiff || "(empty — no drift changes)"}`,
+    `Unexpected File Diff:\n${input.diffResult.unexpectedDiff || "(none — no unexpected file patches)"}`
   ].join("\n\n");
 
   const response = await input.llmClient.complete(

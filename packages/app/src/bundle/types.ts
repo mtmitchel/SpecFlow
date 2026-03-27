@@ -24,6 +24,20 @@ export interface BundleContextFile {
   content: string;
 }
 
+export interface BundleFailureContext {
+  criteriaResults: Array<{
+    criterionId: string;
+    pass: boolean;
+    evidence: string;
+    remediationHint?: string;
+  }>;
+  driftFlags: Array<{
+    type: string;
+    file: string;
+    description: string;
+  }>;
+}
+
 export interface RenderBundleInput {
   agentTarget: BundleAgentTarget;
   ticket: Ticket;
@@ -33,6 +47,7 @@ export interface RenderBundleInput {
   sourceFindingId: string | null;
   agentsMd: string;
   contextFiles: BundleContextFile[];
+  failureContext?: BundleFailureContext;
 }
 
 export interface RenderBundleOutput {

@@ -7,7 +7,25 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+
+**Development philosophy and automation guardrails**
+- Created `docs/guidelines/development-philosophy.md` with core principles, AI usage policy, complexity budget, decision discipline, and agent guardrails
+- Extracted repository layout from AGENTS.md into `docs/repo-layout.md`
+- Added 5 automated check scripts enforced via `npm run check` and git hooks: test-skip detection, error-handling enforcement, adapter-drift verification, instruction-file change nudge, and new-dependency hard block
+- Added `snapshot-partial-scope` drift flag so snapshot-mode verification surfaces its inherent scope limitation instead of silently presenting partial coverage as complete
+
 ### Fixed
+
+**Pipeline fidelity (from adversarial analysis)**
+- Fixed scopePaths `[]` vs `undefined` coercion that prevented diff engine from falling back to `ticket.fileTargets` when client omits scope
+- Fixed plan-repair prompts dropping repo context, degrading `fileTargets` accuracy in repaired plans
+- Fixed verifier `overallPass` ignoring critical drift flags; unexpected-file flags now default to critical severity and force verification failure
+- Fixed unexpected-file patches being hidden from verifier; out-of-scope file diffs (capped at 5 files, 200 lines) are now included in the verification prompt
+- Fixed decision docs being excluded from agent bundles due to `initiativeId: null`; bundles now include all decision specs
+- Fixed quick-fix bundles omitting failure context; re-export bundles now include failed criteria, evidence, and remediation hints from the source run
+- Added prompt-size preflight (200KB limit) to prevent silent provider truncation of oversized plan inputs
+- Fixed silent fallbacks in planner (repo context), audit (convention file), and spec loading; all now log warnings instead of silently degrading
 
 **Code health audit**
 - Fixed method catalog drift: 4 desktop features (`specs.detail`, `providers.models`, `operations.status`, `runs.attemptDetail`) were blocked by the Rust allowlist; 5 phantom entries removed

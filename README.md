@@ -66,7 +66,7 @@ npm run ui
 `npm test` runs both the backend and client Vitest suites.
 `npm run smoke:desktop` runs the deterministic desktop smoke harness against the real App component with mocked desktop transport, covering app launch, approved-folder project creation, one planning continuation, and ZIP bundle save.
 `npm run lint` runs the shared ESLint baseline for TypeScript, React Hooks, and general correctness issues.
-`npm run check` now runs lint, both TypeScript checks, and the UI dedupe gate that fails on duplicated or near-duplicated UI copy, actions, and option labels.
+`npm run check` runs lint, both TypeScript checks, the UI dedupe gate, and automated guardrail checks (test-skip detection, error-handling enforcement, adapter-drift verification). The pre-commit hook also runs an instruction-file change nudge and a hard block on unapproved new dependencies.
 `npm run tauri dev` is the explicit desktop-first development command. `npm run dev` points to the same flow.
 `npm run build:desktop-runtime` builds the client and Node sidecar payload that desktop packaging consumes.
 `npm run package:desktop` is the explicit packaging command for an unsigned native desktop bundle. It is not part of the normal development loop.

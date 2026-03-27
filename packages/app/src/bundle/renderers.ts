@@ -78,6 +78,24 @@ const renderTicketCore = (input: RenderBundleInput): string => {
     `## Export Mode: ${input.exportMode}`,
     input.sourceRunId ? `- sourceRunId: ${input.sourceRunId}` : "- sourceRunId: null",
     input.sourceFindingId ? `- sourceFindingId: ${input.sourceFindingId}` : "- sourceFindingId: null",
+    input.failureContext && input.failureContext.criteriaResults.length > 0
+      ? [
+          "",
+          "## Verification failures from source run",
+          ...input.failureContext.criteriaResults.map(
+            (c) => `- **${c.criterionId}**: ${c.evidence}${c.remediationHint ? `\n  Hint: ${c.remediationHint}` : ""}`
+          ),
+          ...(input.failureContext.driftFlags.length > 0
+            ? [
+                "",
+                "Drift flags:",
+                ...input.failureContext.driftFlags.map(
+                  (f) => `- [${f.type}] ${f.file}: ${f.description}`
+                )
+              ]
+            : [])
+        ].join("\n")
+      : null,
     "",
     "## AGENTS.md",
     "```md",

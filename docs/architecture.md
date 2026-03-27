@@ -363,7 +363,7 @@ criteriaResults:
     severity: Critical | Major | Minor | Outdated
     remediationHint: string | null
 driftFlags:
-  - type: unexpected-file | missing-requirement | pre-capture-drift | widened-scope-drift
+  - type: unexpected-file | missing-requirement | pre-capture-drift | widened-scope-drift | snapshot-partial-scope
     file: string
     description: string
 overallPass: boolean

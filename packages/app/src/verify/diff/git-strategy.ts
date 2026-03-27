@@ -61,7 +61,8 @@ export const computeGitDiff = async (input: {
       driftFlags.push({
         type: "unexpected-file",
         file: changedFile,
-        description: "File changed outside primary ticket scope"
+        description: "File changed outside primary ticket scope",
+        severity: "critical"
       });
     }
   }
@@ -78,10 +79,24 @@ export const computeGitDiff = async (input: {
     ? await git.diff([...revisionArgs, "--", ...widenedOnly])
     : null;
 
+  const unexpectedFiles = driftFlags
+    .filter((f) => f.type === "unexpected-file")
+    .map((f) => f.file)
+    .slice(0, 5);
+  let unexpectedDiff: string | undefined;
+  if (unexpectedFiles.length > 0) {
+    const rawDiff = await git.diff([...revisionArgs, "--", ...unexpectedFiles]);
+    const lines = rawDiff.split("\n");
+    unexpectedDiff = lines.length > 200
+      ? lines.slice(0, 200).join("\n") + "\n...(truncated)"
+      : rawDiff || undefined;
+  }
+
   return {
     diffSource: "git",
     primaryDiff,
     driftDiff,
+    unexpectedDiff,
     initialScopePaths: [...input.initialScopePaths],
     widenedScopePaths: widenedOnly,
     changedFiles,

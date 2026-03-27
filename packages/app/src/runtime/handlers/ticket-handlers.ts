@@ -197,7 +197,7 @@ export const captureResults = async (
       {
         ticketId,
         agentSummary: body.agentSummary,
-        scopePaths: body.scopePaths ?? [],
+        scopePaths: body.scopePaths,
         widenedScopePaths: body.widenedScopePaths ?? [],
         operationId: body.operationId
       },
@@ -256,7 +256,7 @@ export const capturePreview = async (
     runId: run.id,
     baselineAttemptId: run.committedAttemptId,
     rootDir: projectRoot,
-    scopePaths: body.scopePaths ?? [],
+    scopePaths: body.scopePaths,
     widenedScopePaths: body.widenedScopePaths ?? [],
     diffSource: body.diffSource ?? { mode: "auto" }
   });

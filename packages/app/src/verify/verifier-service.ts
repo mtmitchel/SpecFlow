@@ -126,7 +126,8 @@ export class VerifierService {
       }));
 
     const driftFlags = [...diffResult.driftFlags, ...parsed.driftFlags, ...missingFlags];
-    const overallPass = criteriaResults.every((criterion) => criterion.pass) && parsed.overallPass;
+    const hasCriticalDrift = driftFlags.some((flag) => flag.severity === "critical");
+    const overallPass = criteriaResults.every((criterion) => criterion.pass) && parsed.overallPass && !hasCriticalDrift;
 
     const attemptId = `attempt-${this.idGenerator()}`;
     const attempt: RunAttempt = {
@@ -223,6 +224,8 @@ export class VerifierService {
     const driftDiff = await readAttemptArtifact(this.rootDir, run.id, run.committedAttemptId, "diff-drift.patch");
     throwIfAborted(signal);
 
+    // Overrides intentionally bypass all automated gates including the critical
+    // drift check. The user has explicitly accepted the result with a stated reason.
     const updatedAttempt: RunAttempt = {
       ...previousAttempt,
       attemptId: `attempt-${this.idGenerator()}`,

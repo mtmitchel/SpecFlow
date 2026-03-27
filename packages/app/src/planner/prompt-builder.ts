@@ -583,7 +583,7 @@ export const buildPlannerPrompt = (
       `Coverage items:\n${stringifyPromptValue(planInput.coverageItems)}`
     ];
 
-    if (!isRepair && repoSection) {
+    if (repoSection) {
       parts.push(repoSection);
     }
 

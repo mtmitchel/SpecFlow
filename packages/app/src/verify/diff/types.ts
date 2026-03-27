@@ -20,6 +20,7 @@ export interface DiffComputationResult {
   diffSource: "git" | "snapshot";
   primaryDiff: string;
   driftDiff: string | null;
+  unexpectedDiff?: string;
   initialScopePaths: string[];
   widenedScopePaths: string[];
   changedFiles: string[];

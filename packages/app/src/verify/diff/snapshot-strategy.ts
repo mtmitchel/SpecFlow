@@ -104,10 +104,18 @@ export const computeSnapshotDiff = async (input: {
     }
   }
 
+  driftFlags.push({
+    type: "snapshot-partial-scope",
+    file: "(scope-wide)",
+    description: "Snapshot verification only covers explicitly scoped files; changes outside scope are not detectable",
+    severity: "major"
+  });
+
   return {
     diffSource: "snapshot",
     primaryDiff: primaryPatches.join("\n"),
     driftDiff: driftPatches.length > 0 ? driftPatches.join("\n") : null,
+    unexpectedDiff: undefined,
     initialScopePaths: [...input.initialScopePaths],
     widenedScopePaths: widenedOnly,
     changedFiles: Array.from(changedFiles),

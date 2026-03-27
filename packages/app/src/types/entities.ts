@@ -135,7 +135,7 @@ export interface Run {
 export type VerificationSeverity = "critical" | "major" | "minor" | "outdated";
 
 export interface DriftFlag {
-  type: "unexpected-file" | "missing-requirement" | "pre-capture-drift" | "widened-scope-drift";
+  type: "unexpected-file" | "missing-requirement" | "pre-capture-drift" | "widened-scope-drift" | "snapshot-partial-scope";
   file: string;
   description: string;
   severity?: VerificationSeverity;

@@ -9,7 +9,7 @@ import { buildBundleManifest } from "./internal/manifest.js";
 import { ensureRunForTicket, resolveExistingOperation } from "./internal/operations.js";
 import { captureSnapshotFiles } from "./internal/snapshot.js";
 import { renderBundleForAgent } from "./renderers.js";
-import type { ExportBundleRequest, ExportBundleResult } from "./types.js";
+import type { BundleFailureContext, ExportBundleRequest, ExportBundleResult } from "./types.js";
 import { getTicketCoverageArtifactId } from "../planner/ticket-coverage.js";
 import { throwIfAborted } from "../cancellation.js";
 import { resolveTicketProjectRoot } from "../project-roots.js";
@@ -85,6 +85,20 @@ export class BundleGenerator {
           ?.items.filter((item) => ticket.coverageItemIds.includes(item.id)) ?? []
       : [];
 
+    let failureContext: BundleFailureContext | undefined;
+    if (input.exportMode === "quick-fix" && input.sourceRunId) {
+      const sourceRun = this.store.runs.get(input.sourceRunId);
+      if (sourceRun?.committedAttemptId) {
+        const attempt = await this.store.readRunAttempt(input.sourceRunId, sourceRun.committedAttemptId);
+        if (attempt) {
+          failureContext = {
+            criteriaResults: (attempt.criteriaResults ?? []).filter((c) => !c.pass),
+            driftFlags: attempt.driftFlags ?? []
+          };
+        }
+      }
+    }
+
     const rendered = renderBundleForAgent({
       agentTarget: input.agentTarget,
       ticket,
@@ -92,6 +106,7 @@ export class BundleGenerator {
       exportMode: input.exportMode,
       sourceRunId: input.sourceRunId ?? null,
       sourceFindingId: input.sourceFindingId ?? null,
+      failureContext,
       agentsMd,
       contextFiles
     });

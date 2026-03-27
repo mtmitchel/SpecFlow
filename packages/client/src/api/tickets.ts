@@ -59,7 +59,7 @@ export const captureResults = async (
   overallPass: boolean;
   criteriaResults: Array<{ criterionId: string; pass: boolean; evidence: string }>;
   driftFlags: Array<{
-    type: "unexpected-file" | "missing-requirement" | "pre-capture-drift" | "widened-scope-drift";
+    type: "unexpected-file" | "missing-requirement" | "pre-capture-drift" | "widened-scope-drift" | "snapshot-partial-scope";
     file: string;
     description: string;
   }>;
