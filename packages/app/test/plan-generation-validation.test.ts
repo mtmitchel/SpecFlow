@@ -292,17 +292,17 @@ describe("resolveValidatedPlanResult", () => {
     );
   });
 
-  it("requires a compact initiativeTitle and sentence-case headings for brief generation", () => {
-    expect(() =>
-      validatePhaseMarkdownResult(
-        {
-          initiativeTitle: "Local Notes Workspace",
-          markdown: "# Local notes workspace\n\n## Success criteria\n\nBody copy.",
-          traceOutline: { sections: [] },
-        },
-        { requireInitiativeTitle: true },
-      )
-    ).toThrow('Project title must use sentence case. Use "Local notes workspace" instead of "Local Notes Workspace".');
+  it("auto-corrects initiativeTitle to sentence case for brief generation", () => {
+    const result = {
+      initiativeTitle: "Local Notes Workspace",
+      markdown: "# Local Notes Workspace\n\n## Success criteria\n\nBody copy.",
+      traceOutline: { sections: [] },
+    };
+
+    validatePhaseMarkdownResult(result, { requireInitiativeTitle: true });
+
+    expect(result.initiativeTitle).toBe("Local notes workspace");
+    expect(result.markdown).toMatch(/^# Local notes workspace\n/);
   });
 
   it("reconciles a mismatched markdown heading to match initiativeTitle", () => {

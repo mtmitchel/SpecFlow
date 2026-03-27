@@ -12,6 +12,7 @@ import { normalizeDecisionType } from "../decision-types.js";
 import { getQuestionPolicy } from "../refinement-check-policy.js";
 import { PlanContractError } from "./plan-validation.js";
 import {
+  normalizeInitiativeTitle,
   validateInitiativeTitle,
   validateMarkdownNoAmpersands,
   normalizeMarkdownHeadingsSentenceCase,
@@ -103,6 +104,7 @@ export const validatePhaseMarkdownResult = (
       throw new Error("Phase generation result must include initiativeTitle");
     }
 
+    result.initiativeTitle = normalizeInitiativeTitle(result.initiativeTitle);
     validateInitiativeTitle(result.initiativeTitle);
     const headingMatch = result.markdown.trim().match(/^#\s+(.+?)\s*(?:\r?\n|$)/);
     const heading = headingMatch?.[1]?.trim() ?? "";
@@ -239,6 +241,7 @@ export const validateTriageResult = (result: TriageResult): void => {
       throw new Error("Triage result for decision 'too-large' must include initiativeTitle");
     }
 
+    result.initiativeTitle = normalizeInitiativeTitle(result.initiativeTitle);
     validateInitiativeTitle(result.initiativeTitle);
   }
 };
