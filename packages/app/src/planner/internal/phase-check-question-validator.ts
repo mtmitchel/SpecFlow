@@ -229,7 +229,7 @@ export const validateQuestions = (
 
     if (
       (question.type === "select" || question.type === "multi-select") &&
-      countRestatedOptionsInLabel(question.label, normalizedOptions) >= 2
+      countRestatedOptionsInLabel(question.label, normalizedOptions) >= 3
     ) {
       throw new Error(`Refinement question ${question.id} restates answer options in the label. Rewrite the label as a short question about the decision without naming the specific choices -- the options are shown separately below the label.`);
     }
