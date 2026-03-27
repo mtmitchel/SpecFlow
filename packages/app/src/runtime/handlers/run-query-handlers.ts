@@ -23,7 +23,7 @@ import { requireValidEntityId } from "./shared.js";
 const readTextIfExists = async (filePath: string): Promise<string | null> => {
   try {
     return await readFile(filePath, "utf8");
-  } catch {
+  } catch { // catch-ok: file absence is expected, caller handles null
     return null;
   }
 };

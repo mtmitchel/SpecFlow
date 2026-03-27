@@ -55,8 +55,9 @@ export const useInitiativeLoadedSpecs = (
 
         setLoadedSpecs(nextSpecs);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!cancelled) {
+          console.warn("[specs] failed to load spec documents:", err);
           setLoadedSpecs(EMPTY_SPEC_DRAFTS);
         }
       });

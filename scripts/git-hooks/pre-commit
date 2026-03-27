@@ -13,6 +13,12 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -Eq "$blocked_paths";
   exit 1
 fi
 
+# Nudge on instruction file changes (non-blocking)
+npx tsx scripts/check-instruction-files.ts
+
+# Block new unapproved dependencies
+npx tsx scripts/check-new-dependencies.ts
+
 # Intentionally skip npm run build in commit-time hooks. Build remains an explicit
 # production/package validation step, not a required part of the development loop.
 npm run check

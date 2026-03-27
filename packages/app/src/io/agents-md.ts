@@ -27,7 +27,8 @@ export const loadAgentsMd = async (rootDir: string, repoInstructionFile?: string
   } catch {
     try {
       return await readFile(path.join(rootDir, "AGENTS.md"), "utf8");
-    } catch {
+    } catch (err) {
+      console.warn("[agents-md] could not read instruction file:", (err as Error).message);
       return "";
     }
   }

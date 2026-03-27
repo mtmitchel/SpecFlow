@@ -23,7 +23,7 @@ const parseGithubIssueUrl = (
     }
 
     return { owner: parts[0], repo: parts[1], number: num };
-  } catch {
+  } catch { // catch-ok: URL parse failure returns null for validation
     return null;
   }
 };

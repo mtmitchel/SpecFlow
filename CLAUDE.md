@@ -6,6 +6,8 @@ Read `AGENTS.md` first. Follow it without exception. If this file and `AGENTS.md
 
 Keep this file as a compact operational mirror, not a second competing spec. When repo-wide guidance changes, update `AGENTS.md` first and then sync `CLAUDE.md`.
 
+For the principles and guardrails behind these rules, see [docs/guidelines/development-philosophy.md](docs/guidelines/development-philosophy.md).
+
 ## Operating stance
 
 - Ship production-grade work. Finish the task completely.
@@ -14,6 +16,7 @@ Keep this file as a compact operational mirror, not a second competing spec. Whe
 - Do not return stubs, placeholders, TODOs, or temporary workarounds unless the user explicitly asks for them.
 - Be direct. Do not hedge around known defects or incomplete work.
 - Do not normalize bugs, drift, or missing verification as acceptable.
+- Before every change, answer: what breaks, what gets more complex, what gets harder to debug?
 
 ## Required startup reading
 
@@ -31,28 +34,6 @@ If the change touches product language, workflow wording, or review expectations
 - [docs/product-language-spec.md](./docs/product-language-spec.md)
 - [docs/ux-copy-guidelines.md](./docs/ux-copy-guidelines.md)
 
-## Documentation boundaries
-
-Repo-wide documentation upkeep applies to the living guidance and entrypoint docs only:
-
-- `README.md`
-- `docs/README.md`
-- `docs/runtime-modes.md`
-- `docs/architecture.md`
-- `docs/workflows.md`
-- `docs/product-language-spec.md`
-- `docs/ux-copy-guidelines.md`
-- `CHANGELOG.md`
-- `CLAUDE.md`
-
-Do not update audit documents, report-style docs, or dated one-off files unless the user explicitly asks for those files.
-
-Assume a doc is out of scope unless requested if it:
-
-- is an audit or report by purpose or filename
-- includes a date in the filename
-- reads like point-in-time analysis rather than living guidance
-
 ## Project snapshot
 
 SpecFlow is a local-first, spec-driven development orchestrator for planning, executing, and verifying AI-agent work.
@@ -67,7 +48,7 @@ Workspace packages:
 - `packages/client`: React plus Vite UI with desktop transport adapters
 - `packages/tauri`: Tauri v2 shell and Rust bridge
 
-Runtime data lives under `specflow/`. There is no database.
+Runtime data lives under `specflow/`. There is no database. For the detailed directory tree, see [docs/repo-layout.md](docs/repo-layout.md).
 
 ## Canonical commands
 
@@ -98,7 +79,7 @@ Command notes:
 - `npm run tauri dev` is the primary development loop. `npm run dev` is an alias.
 - `npm run ui` launches from source and requires an existing desktop binary.
 - If sidecar method names or the desktop transport contract change while a desktop dev session is already running, restart `npm run tauri dev` before validating the new flow.
-- `npm run check` is the required pre-finish gate for normal development. It currently runs ESLint, both TypeScript checks, and the UI dedupe gate.
+- `npm run check` is the required pre-finish gate for normal development. It runs ESLint, both TypeScript checks, the UI dedupe gate, and automated guardrail checks (test-skip, error-handling, adapter-drift).
 - `npm test` runs the backend and client Vitest suites.
 - `npm run package:desktop` is explicit packaging only. It is not part of the normal development loop.
 - Do not report success without real command output.
@@ -110,6 +91,8 @@ Command notes:
 - Do not add hacks, bandaids, or deferred cleanups.
 - Do not create scripts, wrappers, ADRs, or process files unless the user explicitly asks for them.
 - Do not swallow errors. Surface them or log them with enough context to diagnose the failure.
+- No silent fallbacks. If the system degrades to a reduced mode, log at warn level or surface a user-visible indicator.
+- No new runtime dependencies without explicit approval.
 
 Do not introduce:
 
@@ -218,6 +201,7 @@ Stop and report instead of continuing when:
 - a safe fix requires a non-trivial change in a file you were not given context for
 - you are about to make a destructive filesystem or git operation that was not explicitly requested
 - safety depends on an end-to-end run you cannot perform
+- a fix requires more infrastructure than the feature itself -- the problem is upstream
 
 Do not spiral on repeated variants of the same failed fix. Report what you tried, what failed, and the likely root cause.
 
@@ -272,6 +256,8 @@ Rules:
 ## Read next
 
 - [AGENTS.md](./AGENTS.md)
+- [docs/guidelines/development-philosophy.md](./docs/guidelines/development-philosophy.md)
+- [docs/repo-layout.md](./docs/repo-layout.md)
 - [README.md](./README.md)
 - [docs/README.md](./docs/README.md)
 - [docs/runtime-modes.md](./docs/runtime-modes.md)
@@ -279,3 +265,5 @@ Rules:
 - [docs/workflows.md](./docs/workflows.md)
 - [docs/product-language-spec.md](./docs/product-language-spec.md)
 - [docs/ux-copy-guidelines.md](./docs/ux-copy-guidelines.md)
+
+<!-- sync: AGENTS.md @ a2c358fa1439 -->

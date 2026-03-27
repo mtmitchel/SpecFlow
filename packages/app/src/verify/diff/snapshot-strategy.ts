@@ -24,7 +24,7 @@ const readSnapshotFile = async (
 
   try {
     return await readFile(snapshotPath, "utf8");
-  } catch {
+  } catch { // catch-ok: snapshot file may not exist, caller handles null
     return null;
   }
 };
@@ -33,7 +33,7 @@ const readCurrentFile = async (rootDir: string, relativePath: string): Promise<s
   const target = path.join(rootDir, relativePath);
   try {
     return await readFile(target, "utf8");
-  } catch {
+  } catch { // catch-ok: current file may not exist (deleted), empty string is valid diff input
     return "";
   }
 };

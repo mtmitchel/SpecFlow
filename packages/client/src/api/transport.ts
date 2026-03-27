@@ -185,7 +185,7 @@ export const invokeDesktop = async <T>(
   const abortPromise = options?.signal
     ? new Promise<never>((_, reject) => {
         const onAbort = () => {
-          void invoke("sidecar_cancel", { requestId: request.id }).catch(() => undefined);
+          void invoke("sidecar_cancel", { requestId: request.id }).catch(() => undefined); // catch-ok: best-effort cancel, failure is non-critical
           reject(resolveAbortError(options.signal, "Request cancelled"));
         };
 

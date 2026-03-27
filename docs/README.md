@@ -13,6 +13,8 @@ Documentation for SpecFlow.
 | [`product-language-spec.md`](product-language-spec.md) | Canonical product vocabulary, phase language, status labels, CTA rules, empty states, and transition messaging |
 | [`ux-copy-guidelines.md`](ux-copy-guidelines.md) | Repo-specific UX copy tone, style, and component-writing rules for user-facing UI text |
 | [`../AGENTS.md`](../AGENTS.md) | Repo operating standard: architecture rules, testing gates, copy rules, and GitHub workflow |
+| [`guidelines/development-philosophy.md`](guidelines/development-philosophy.md) | Core principles, AI usage policy, complexity budget, decision discipline, and agent guardrails |
+| [`repo-layout.md`](repo-layout.md) | Detailed directory tree for all three workspace packages |
 | [`../CHANGELOG.md`](../CHANGELOG.md) | Version history and notable product changes |
 | [`review-prompts/`](review-prompts/) | Structured repo-review prompts for data integrity, security, client state, and product-value audits |
 

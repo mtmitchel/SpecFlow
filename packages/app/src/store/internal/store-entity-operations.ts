@@ -243,7 +243,7 @@ export async function readRunAttemptRecord(
   try {
     const raw = await readFile(verificationPath(rootDir, runId, attemptId), "utf8");
     return JSON.parse(raw) as RunAttempt;
-  } catch {
+  } catch { // catch-ok: attempt file may not exist yet, caller handles null
     return null;
   }
 }
@@ -266,7 +266,7 @@ export async function readSpecRecord(
       createdAt: fileStat.birthtime.toISOString(),
       updatedAt: fileStat.mtime.toISOString()
     };
-  } catch {
+  } catch { // catch-ok: spec file may not exist, caller handles null
     return null;
   }
 }

@@ -31,7 +31,7 @@ const readConfigFile = async (rootDir: string, filename: string): Promise<string
     const lines = text.split("\n");
     const truncated = lines.length > MAX_FILE_LINES ? lines.slice(0, MAX_FILE_LINES) : lines;
     return truncated.join("\n") + (lines.length > MAX_FILE_LINES ? "\n...(truncated)" : "");
-  } catch {
+  } catch { // catch-ok: config file absence is expected and non-critical
     return null;
   }
 };

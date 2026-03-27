@@ -100,7 +100,10 @@ export async function runPlanJob(
     ensureArtifactTrace: (currentInitiative, step) =>
       ensureArtifactTrace(service.getRuntimeContext(), currentInitiative, step, signal)
   });
-  const repoContext = await scanRepo(projectRoot).catch(() => undefined);
+  const repoContext = await scanRepo(projectRoot).catch((err: unknown) => {
+    console.warn("[planner] repo context unavailable:", (err as Error).message);
+    return undefined;
+  });
   const traceStepCount = Object.keys(coverageInput.traceOutlines).length;
   const traceSectionCount = countTraceSections(coverageInput.traceOutlines);
   const repoContextBytes = repoContext ? estimatePromptInputBytes(repoContext) : 0;

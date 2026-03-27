@@ -2,15 +2,9 @@
 
 This file is the operating standard for every coding agent working in this repository. Read it before touching any file. Follow it without exception.
 
-## 1. Prime Directive
+For the principles and guardrails behind these rules, see [docs/guidelines/development-philosophy.md](docs/guidelines/development-philosophy.md).
 
-Ship production-grade work. Finish the task completely. Do not return half-finished changes, stub implementations, placeholder comments, or temporary workarounds unless the user explicitly asks for them.
-
-Prefer root-cause fixes over symptom patches. If a bug is structural, fix the structure.
-
-When in doubt, choose the smallest change that fully resolves the root cause and keeps the design coherent. Do not default to a narrow patch when the defect crosses a shared boundary, and do not widen scope without a concrete structural reason.
-
-## 2. Project Overview
+## 1. Project Overview
 
 SpecFlow is a local-first, spec-driven development orchestrator for solo builders and small teams using AI coding agents. It turns raw intent into planning artifacts, ordered ticket breakdowns, and agent-ready bundles, then verifies that the agent's output satisfies the original plan.
 
@@ -29,6 +23,8 @@ Core runtime and docs live together in the workspace:
 - `docs/`: product and technical planning artifacts
 - `README.md` and `docs/README.md`: setup and docs entry points
 - `specflow/`: runtime data (`config.yaml`, `initiatives/`, `tickets/`, `runs/`, `decisions/`)
+
+For the detailed directory tree, see [docs/repo-layout.md](docs/repo-layout.md).
 
 ### Required startup reading
 
@@ -58,88 +54,14 @@ Treat repo-wide documentation upkeep as applying to the living guidance and entr
 
 Do not update audit documents, report-style documents, or dated one-off files unless the user explicitly asks for those files.
 
-This exclusion is mandatory. Assume files are one-off and out of scope if they:
-
-- are audits or reports by purpose or filename
-- include a date in the filename
-- were clearly written as a point-in-time analysis rather than living guidance
-
-Example out-of-scope docs unless explicitly requested:
-
-- `docs/product-ux-audit.md`
-- any `*audit*` or `*report*` document
-- any document with a date in its filename
-
-## 3. Repository Layout
-
-### `packages/app`
-
-```text
-src/
-  bundle/           bundle generation and agent-specific renderers
-    internal/       helpers: agents-md, context-files, manifest, operations, snapshot
-  cli/              Commander.js entry point and command modules (ui, export-bundle, verify)
-    commands/
-  config/           env key resolution
-  io/               file I/O: agents-md (secure loader), atomic-write, paths, yaml
-  llm/              LLM provider client, error types, SSE stream parser
-  planner/          spec + plan generation service, workflow contract, execution gates
-    internal/       helpers: context, error-shaping, plan-job, review-job, spec-artifacts, ticket-factory, validators
-  runtime/          transport-agnostic runtime factory, handler layer, shared sidecar contract
-    handlers/       one file per domain: runtime, providers, initiatives, tickets, runs, audit, operations, import
-  audit/            drift audit logic (findings, report-store, types)
-  validation.ts     security validators
-  sidecar/          sidecar JSON-RPC dispatcher and runtime helpers
-  store/            in-memory artifact store with staged commits
-    internal/       helpers: artifact-writer, cleanup, fs-utils, loaders, operations, planning-artifact-validation, recovery, reload, spec-utils, watcher
-    types.ts        PreparedOperationArtifacts interface (shared between store and operations)
-  types/            core entity types (Initiative, Ticket, Run, Config, etc.)
-  verify/           verification and diff engine
-    diff/           git-strategy, snapshot-strategy, patch-utils, path-utils, types
-    internal/       helpers: agents-md, config, criteria, operations, prompt
-```
-
-### `packages/client`
-
-```text
-src/
-  api/              one module per domain: artifacts, audit, http, import, initiatives, runs, settings, tickets, transport
-  styles/           modular CSS entrypoint + concern-based stylesheets (base, navigator, workspace, shared-ui, feedback/settings, command-palette, entry-flows, planning-shell, pipeline, planning-intake, planning-reviews, overview, ticket-execution, run-report)
-  app/
-    components/     shared UI: audit-panel, checkpoint-gate-banner, diff-viewer, markdown-view, model-combobox, phase-transition-banner, pipeline, workflow-section
-    constants/      status-columns (status transition rules, canTransition helper)
-    context/        toast (error notification context and useToast hook)
-    hooks/          use-capture-preview, use-dirty-form, use-export-workflow, use-tree-navigation, use-verification-stream
-    layout/         workspace-shell, icon-rail, navigator, navigator-tree, command-palette (+ palette-search-mode, palette-quick-task-mode, palette-github-import-mode), settings-modal
-    utils/          initiative-progress, phase-warning, scope-paths, specs
-    views/          detail-workspace, overview-panel, initiative-view, initiative-route-view, initiative-creator, initiative-handoff-view, spec-view, ticket-view, run-view
-      initiative/   planning workspace sections, review cards, shared state/controller hook
-      ticket/       export-section, capture-verify-section, verification-results-section, override-panel
-  api.ts            consolidated re-export of all API modules
-  App.tsx           root component, ArtifactsSnapshot state, refreshArtifacts callback
-  types.ts          all client-facing types including AgentTarget, Config, ConfigSavePayload
-```
-
-### `packages/tauri`
-
-```text
-src-tauri/
-  src/              Rust bridge, sidecar lifecycle, pending request registry, Tauri commands
-  capabilities/     Tauri capability declarations
-  icons/            desktop app icons
-  tauri.conf.json   packaged desktop config
-  tauri.dev.conf.json
-                   dev-only overlay that disables packaged-sidecar requirements
-```
-
-## 4. Commands
+## 2. Commands
 
 Use these canonical commands. Do not invent variations.
 
 ```bash
 npm install          # install all workspaces
 npm run setup:git-hooks
-npm run check        # type-check both packages (tsc --noEmit) and run the UI dedupe gate
+npm run check        # lint, type-check both packages, UI dedupe gate, and automated guardrail checks
 npm test             # run all Vitest suites (backend + client)
 npm run dev          # alias for the desktop-first Tauri dev loop
 npm run tauri dev    # explicit desktop-first dev loop
@@ -156,29 +78,29 @@ Direct CLI examples during development:
 
 For normal development tasks, run `npm run check && npm test` before considering the task complete. Run desktop packaging only when the user explicitly asks for packaging or release validation. Do not report success without real command output. Do not invent results.
 
-## 5. Code Quality Standards
+## 3. Code Quality Standards
 
-### 5a. Finish the task
+### 3a. Finish the task
 
 Do not stop at the first passing state. Verify the full acceptance criteria. If tests or type checks are broken in areas you touched, fix them even if you did not introduce the breakage.
 
-### 5b. Fix root causes
+### 3b. Fix root causes
 
 If a bug has a structural cause such as a wrong data model, missing validation, or incorrect ownership of state, fix the structure. Do not hide the symptom with a guard clause.
 
-### 5c. Design scope: durable but bounded
+### 3c. Design scope: durable but bounded
 
-Optimize for the cleanest long-term design justified by the current task, not the smallest diff.
+Before every change, answer: what breaks, what gets more complex, what gets harder to debug?
 
-Before implementing, inspect the shared type surface, ownership boundaries, and workflow contracts touched by the change. If the root cause crosses one of those boundaries, fix the boundary instead of patching downstream symptoms.
+Optimize for the cleanest long-term design justified by the current task, not the smallest diff. Before implementing, inspect the shared type surface, ownership boundaries, and workflow contracts touched by the change. If the root cause crosses one of those boundaries, fix the boundary instead of patching downstream symptoms.
 
 Do not introduce new abstractions, generic helpers, or future-facing extensibility unless they remove current duplication, restore clear ownership, or are required to make the current behavior correct.
 
-### 5d. File size: 600 LOC hard limit
+### 3d. File size: 600 LOC hard limit
 
 If a file you are editing or creating reaches or exceeds 600 lines of code, stop and propose a refactor plan before adding more code. Describe what the file is doing, how it should be split, and what each new module would own. Do not keep adding code to a file that already needs to be broken up.
 
-### 5e. No hacks or short-term bandaids
+### 3e. No hacks or short-term bandaids
 
 Do not introduce:
 
@@ -190,21 +112,24 @@ Do not introduce:
 
 If a proper fix requires more context than you have, say so explicitly. Do not ship the hack.
 
-### 5f. No ceremony
+### 3f. No ceremony and no unapproved additions
 
 Do not create:
 
 - new scripts, runners, or wrapper files to manage existing tooling
 - process documents, ADRs, or tracking files unless explicitly requested
 - abstraction layers whose only purpose is to exist
+- new runtime dependencies without explicit approval
 
 Build or fix the thing itself.
 
-### 5g. No silent error suppression
+### 3g. No silent error suppression or degradation
 
 Do not swallow errors. Every error path must either surface to the caller, log with enough context to diagnose, or both.
 
-## 6. TypeScript and Coding Conventions
+No silent fallbacks. If the system falls back to a reduced mode (missing repo context, unavailable config file, failed service call), log at warn level or surface a user-visible indicator. Use `// catch-ok: <reason>` only for truly intentional fire-and-forget patterns such as best-effort cancellation.
+
+## 4. TypeScript and Coding Conventions
 
 - Follow `.editorconfig`: UTF-8, LF, final newline, trimmed trailing whitespace.
 - Use explicit interfaces for shared entities and API payloads. Do not use anonymous object types for anything that crosses a module boundary.
@@ -215,7 +140,7 @@ Do not swallow errors. Every error path must either surface to the caller, log w
 - Use `ConfigSavePayload` from `types.ts` when sending config to `config.save`. Use `Config` for reading.
 - `AgentTarget` is the canonical type for agent selection (`"claude-code" | "codex-cli" | "opencode" | "generic"`). Import it from `../types` rather than re-declaring it locally.
 
-## 7. CSS Design System
+## 5. CSS Design System
 
 All visual tokens live in `packages/client/src/styles/base.css`. Use tokens instead of hardcoded values.
 
@@ -229,7 +154,7 @@ All visual tokens live in `packages/client/src/styles/base.css`. Use tokens inst
 - Transitions: list explicit properties such as `background`, `border-color`, `opacity`; never use `transition: all`
 - Utility classes in `shared-ui.css`: `.text-muted-sm`, `.text-muted-caption`, `.heading-reset`, `.textarea-sm/md/lg`; prefer these over inline `style` props
 
-## 8. No Duplicate UI
+## 6. No Duplicate UI
 
 Never ship duplicated UI meaning. Do not repeat the same action, state, or explanation in adjacent controls, cards, banners, drawers, or helper text. Treat near-duplicates as defects, not copy tweaks. If two labels or blocks mean the same thing, keep one.
 
@@ -237,7 +162,7 @@ Do not render the same option twice in a choice set, including fallback options 
 
 `npm run check` includes a hard UI dedupe gate. Fix failures. Do not bypass them.
 
-## 8a. Copy and naming rules
+### Copy and naming rules
 
 - Use sentence case for user-facing headings, section titles, buttons, labels, badges, status labels, project names, phase names, and ticket titles.
 - Sentence case means: capitalize the first word, proper nouns, approved acronyms, and the first word after a colon. Lowercase the rest.
@@ -246,7 +171,7 @@ Do not render the same option twice in a choice set, including fallback options 
 - Keep ticket titles short: ideally 2 to 6 words.
 - Do not use ampersands in authored prose, generated copy, headings, or labels. Write `and`.
 
-## 9. Architecture Constraints
+## 7. Architecture Constraints
 
 ### Artifact store staged commit model
 
@@ -271,7 +196,7 @@ Step order, review kinds, labels, and prerequisite review rules are defined in `
 
 Desktop mode uses request-scoped sidecar notifications routed through the Tauri bridge. Reconnection remains non-resumable with snapshot refresh: on disconnect, the client refreshes persisted state instead of replaying buffered events. Do not implement event replay buffers.
 
-## 10. Input Validation, Security, and Data Contracts
+## 8. Input Validation, Security, and Data Contracts
 
 ### Input validation
 
@@ -304,35 +229,15 @@ The `import.githubIssue` runtime action fetches a GitHub issue and feeds it thro
 
 `Ticket` carries two required arrays: `blockedBy: string[]` and `blocks: string[]`. Older YAML files that lack these fields are normalized to empty arrays in `packages/app/src/store/internal/loaders.ts`. When adding literals that satisfy `Ticket`, always include both fields.
 
-## 11. Testing Standards
+## 9. Testing Standards
 
-Backend tests use Vitest under `packages/app/test` and are split by domain:
-
-- `artifact-store.test.ts`: store semantics, staged commits, reload serialization, orphan cleanup, file watcher
-- `atomic-write.test.ts`: atomic temp-rename writes
-- `bundle-generator.test.ts`: bundle generation, agent renderers, manifest versioning
-- `llm-client.test.ts`: LLM streaming and error handling
-- `planner.test.ts`: spec generation, JSON parsing, job orchestration
-- `validation.test.ts`: input validation helpers, including entity IDs, path containment, git refs, and SSE event names
-- `verifier.test.ts`: verification pass/fail logic and drift flags
-- `runtime-handler-shared.test.ts`: shared runtime validation and handler guardrails
-- `sidecar-dispatcher.test.ts`: sidecar request routing and notification behavior
-- `ui-command.test.ts`: desktop launch gating for the CLI
-
-Client tests use Vitest and React Testing Library under `packages/client/src/**/*.test.tsx`. Current high-value coverage includes:
-
-- `app/views/initiative-creator.test.tsx`
-- `app/views/initiative-view.test.tsx`
-- `app/views/overview-panel.test.tsx`
-- `app/views/initiative/tickets-step-section.test.tsx`
-- `app/views/ticket-view.test.tsx`
-- `app/views/run-view.test.tsx`
+Backend tests use Vitest under `packages/app/test` and are split by domain. Client tests use Vitest and React Testing Library under `packages/client/src/**/*.test.tsx`.
 
 Add or adjust tests when modifying server routes, verifier or diff logic, bundle generation, artifact store semantics, or client behavior with meaningful UI state. If behavior changes and tests do not exist, add them.
 
 Do not mock behavior you can test directly. Do not write tests that only assert that a mock was called.
 
-## 12. Refactor Triggers
+## 10. Refactor Triggers
 
 Propose a refactor instead of silently continuing when any of the following are true:
 
@@ -344,7 +249,7 @@ Propose a refactor instead of silently continuing when any of the following are 
 
 When proposing a refactor, name the file, the problem, the proposed split, and the new module names with their responsibilities. Wait for confirmation before executing if the refactor would touch more than 3 files.
 
-## 13. Stop Rules
+## 11. Stop Rules
 
 Stop and report rather than continuing when:
 
@@ -352,10 +257,11 @@ Stop and report rather than continuing when:
 - a fix requires a non-trivial change in a file you were not given context for
 - you are about to make a destructive filesystem or git operation that was not explicitly requested
 - you cannot determine whether a change is safe without running the app end to end and you do not have that capability
+- a fix requires more infrastructure than the feature itself -- the problem is upstream
 
 Do not spiral on repeated failed variants of the same fix. Report what you tried, what failed, and what you believe the root cause is.
 
-## 14. Reporting Standards
+## 12. Reporting Standards
 
 When reporting completed work, include:
 
@@ -376,7 +282,7 @@ Every substantive assistant response must end with a `Next steps` section.
 
 Do not omit failures. Do not say "tests pass" without real output. Do not say "should work."
 
-## 15. Commit and PR Guidelines
+## 13. Commit and PR Guidelines
 
 Use concise imperative commit subjects, for example:
 
@@ -391,7 +297,7 @@ PRs must include:
 - docs updates in `README.md`, `docs/README.md`, or design docs when applicable
 - screenshots or GIFs for user-visible UI changes
 
-## 16. GitHub Issue Process (Required on This Machine)
+## 14. GitHub Issue Process (Required on This Machine)
 
 Use the local MCP wrapper as the only GitHub MCP entrypoint:
 

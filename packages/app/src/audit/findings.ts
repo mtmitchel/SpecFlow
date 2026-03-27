@@ -133,7 +133,8 @@ export const readAgentsConventions = async (rootDir: string): Promise<string> =>
   } catch {
     try {
       return await readFile(path.join(rootDir, "AGENTS.md"), "utf8");
-    } catch {
+    } catch (err) {
+      console.warn("[audit] convention file unavailable, audit accuracy may be reduced:", (err as Error).message);
       return "";
     }
   }

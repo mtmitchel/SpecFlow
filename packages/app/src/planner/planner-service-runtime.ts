@@ -134,7 +134,10 @@ export const ensureArtifactTrace = async (
       return Promise.all([
         getArtifactMarkdownMap(currentInitiative.id, (specId) => context.store.readSpecMarkdown(specId)),
         refinementStep === "tech-spec"
-          ? scanRepo(projectRoot).catch(() => undefined)
+          ? scanRepo(projectRoot).catch((err: unknown) => {
+              console.warn("[planner] repo context unavailable:", (err as Error).message);
+              return undefined;
+            })
           : Promise.resolve(undefined),
       ]).then(([markdownByStep, repoContext]) =>
         buildSpecGenerationInput(currentInitiative, refinementStep, markdownByStep, repoContext),

@@ -49,7 +49,10 @@ export async function runPhaseCheckJob(
         markdownByStep,
         savedContext
       }))
-      ? await scanRepo(projectRoot).catch(() => undefined)
+      ? await scanRepo(projectRoot).catch((err: unknown) => {
+          console.warn("[planner] repo context unavailable:", (err as Error).message);
+          return undefined;
+        })
       : undefined;
   const phaseCheckInput = buildPhaseCheckInput(
     initiative,
@@ -147,7 +150,12 @@ export async function generateArtifact(
     service.store.readSpecMarkdown(specId)
   );
   const repoContext =
-    step === "tech-spec" ? await scanRepo(projectRoot).catch(() => undefined) : undefined;
+    step === "tech-spec"
+      ? await scanRepo(projectRoot).catch((err: unknown) => {
+          console.warn("[planner] repo context unavailable:", (err as Error).message);
+          return undefined;
+        })
+      : undefined;
   const isInitialBriefDraft = step === "brief" && markdownByStep.brief.trim().length === 0;
   if (
     step === "brief" &&

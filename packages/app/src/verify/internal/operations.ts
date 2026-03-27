@@ -14,7 +14,7 @@ export const readAttemptArtifact = async (
 
   try {
     return await readFile(artifactPath, "utf8");
-  } catch {
+  } catch { // catch-ok: artifact file may not exist, caller handles null
     return null;
   }
 };
