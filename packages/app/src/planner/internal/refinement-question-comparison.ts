@@ -137,6 +137,59 @@ const getMeaningfulNewTokens = (nextText: string, priorText: string): string[] =
   return getQuestionTokens(nextText).filter((token) => !priorTokens.has(token));
 };
 
+const hasOverlappingDecisionScope = (
+  question: ComparablePlanningQuestion,
+  priorQuestion: ComparablePlanningQuestion,
+): boolean => {
+  const whyTokens = getQuestionTokens(question.whyThisBlocks);
+  const priorWhyTokens = getQuestionTokens(priorQuestion.whyThisBlocks);
+  const labelTokens = getQuestionTokens(question.label);
+  const priorLabelTokens = getQuestionTokens(priorQuestion.label);
+
+  const whyOverlap = getTokenOverlapRatio(whyTokens, priorWhyTokens);
+  const labelOverlap = getTokenOverlapRatio(labelTokens, priorLabelTokens);
+
+  // Require high overlap in BOTH label and whyThisBlocks to flag as duplicate.
+  // Single-dimension overlap catches legitimate follow-ups too aggressively.
+  if (whyOverlap >= 0.7 && labelOverlap >= 0.6) {
+    return true;
+  }
+
+  const combinedTokens = [...labelTokens, ...whyTokens];
+  const priorCombinedTokens = [...priorLabelTokens, ...priorWhyTokens];
+  return combinedTokens.length >= 5 && priorCombinedTokens.length >= 5 &&
+    getTokenOverlapRatio(combinedTokens, priorCombinedTokens) >= 0.8;
+};
+
+export const optionEntailsQuestion = (
+  optionSource: ComparablePlanningQuestion,
+  targetQuestion: ComparablePlanningQuestion,
+): string | null => {
+  const targetTokens = getQuestionTokens(targetQuestion.label);
+  if (targetTokens.length === 0) {
+    return null;
+  }
+
+  for (const option of optionSource.options ?? []) {
+    const optionTokens = getQuestionTokens(option);
+    if (optionTokens.length < 3) {
+      continue;
+    }
+    const overlapWithLabel = getTokenOverlapRatio(optionTokens, targetTokens);
+    if (overlapWithLabel >= 0.7) {
+      return option;
+    }
+    const targetWhyTokens = getQuestionTokens(targetQuestion.whyThisBlocks);
+    if (targetWhyTokens.length > 0) {
+      const combinedTarget = [...targetTokens, ...targetWhyTokens];
+      if (getTokenOverlapRatio(optionTokens, combinedTarget) >= 0.7) {
+        return option;
+      }
+    }
+  }
+  return null;
+};
+
 export const isDuplicateConcern = (
   question: InitiativePlanningQuestion,
   priorQuestion: ComparablePlanningQuestion,
@@ -159,7 +212,11 @@ export const isDuplicateConcern = (
   const identicalOptions = options.join("|") === priorOptions.join("|");
   const bothOptionless = options.length === 0 && priorOptions.length === 0;
 
-  return (identicalOptions || bothOptionless) && overlap >= 0.8;
+  if ((identicalOptions || bothOptionless) && overlap >= 0.8) {
+    return true;
+  }
+
+  return hasOverlappingDecisionScope(question, priorQuestion);
 };
 
 export const isExplicitReopenReference = (

@@ -107,11 +107,11 @@ export const isQuestionAnswered = (value: RefinementAnswer): boolean => {
   }
 
   if (typeof value === "string") {
-    return value.trim().length > 0;
+    return value.trim().length > 0 && value.trim() !== "Other";
   }
 
   if (Array.isArray(value)) {
-    return value.some((item) => item.trim().length > 0);
+    return value.some((item) => item.trim().length > 0 && item.trim() !== "Other");
   }
 
   return false;

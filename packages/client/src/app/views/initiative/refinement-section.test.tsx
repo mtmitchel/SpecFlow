@@ -185,7 +185,7 @@ describe("RefinementSection", () => {
     expect(screen.queryByText("All questions are answered")).not.toBeInTheDocument();
   });
 
-  it("still shows a custom answer affordance for select questions when the planner omits allowCustomAnswer", () => {
+  it("hides the custom answer affordance for select questions when the planner sets allowCustomAnswer to false", () => {
     render(
       <RefinementSection
         activeSpecStep="brief"
@@ -214,7 +214,7 @@ describe("RefinementSection", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: /Other/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Other/ })).not.toBeInTheDocument();
   });
 
   it("keeps boolean questions strict unless they explicitly allow a custom answer", () => {

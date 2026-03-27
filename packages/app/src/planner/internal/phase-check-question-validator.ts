@@ -13,6 +13,7 @@ import {
   isExplicitReopenReference,
   isSemanticallyRepeatedConcern,
   materiallyNarrowsDecisionBoundary,
+  optionEntailsQuestion,
 } from "./refinement-question-comparison.js";
 
 const normalizeQuestionText = (question: PhaseCheckResult["questions"][number]): string =>
@@ -210,6 +211,22 @@ export const validateQuestions = (
       throw new Error(`Refinement question ${question.id} must not include "Other" in options`);
     }
 
+    for (let oi = 0; oi < normalizedOptions.length; oi++) {
+      const optTokens = normalizedOptions[oi].toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+      for (let oj = oi + 1; oj < normalizedOptions.length; oj++) {
+        const otherTokens = normalizedOptions[oj].toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+        if (optTokens.length >= 3 && otherTokens.length >= 3) {
+          const shared = optTokens.filter((t) => otherTokens.includes(t)).length;
+          const ratio = shared / Math.min(optTokens.length, otherTokens.length);
+          if (ratio >= 0.85) {
+            throw new Error(
+              `Refinement question ${question.id} has near-duplicate options "${normalizedOptions[oi]}" and "${normalizedOptions[oj]}"`,
+            );
+          }
+        }
+      }
+    }
+
     if (
       (question.type === "select" || question.type === "multi-select") &&
       countRestatedOptionsInLabel(question.label, normalizedOptions) >= 2
@@ -236,6 +253,10 @@ export const validateQuestions = (
 
     if (question.recommendedOption && options.length > 0 && !options.includes(question.recommendedOption)) {
       throw new Error(`Refinement question ${question.id} recommendedOption must match one of the provided options`);
+    }
+
+    if (question.recommendedOption && question.type === "multi-select") {
+      throw new Error(`Refinement question ${question.id} must not use recommendedOption for multi-select questions`);
     }
 
     if (question.allowCustomAnswer != null && typeof question.allowCustomAnswer !== "boolean") {
@@ -323,6 +344,24 @@ export const validateQuestions = (
       if (!materiallyNarrowsDecisionBoundary(question, duplicateQuestion)) {
         throw new Error(
           `Refinement question ${question.id} paraphrases already-asked ${input.phase} concern from ${duplicateQuestion.id} instead of materially narrowing it`,
+        );
+      }
+    }
+
+    for (const priorSeen of seenQuestions) {
+      if (reopensQuestionIds.includes(priorSeen.id) || (question.reopensQuestionIds ?? []).includes(priorSeen.id)) {
+        continue;
+      }
+      const entailingOption = optionEntailsQuestion(priorSeen, question);
+      if (entailingOption) {
+        throw new Error(
+          `Refinement question ${question.id} is already settled by option "${entailingOption}" in ${priorSeen.id}`,
+        );
+      }
+      const reverseEntailing = optionEntailsQuestion(question, priorSeen);
+      if (reverseEntailing) {
+        throw new Error(
+          `Refinement question ${question.id} has option "${reverseEntailing}" that settles earlier question ${priorSeen.id}`,
         );
       }
     }

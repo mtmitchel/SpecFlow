@@ -51,21 +51,25 @@ const SelectChoiceCards = ({
           {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
         </button>
       ))}
-      <button
-        type="button"
-        className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
-        onClick={() => onChange(hasCustomValue ? currentValue : CUSTOM_ANSWER_SENTINEL)}
-      >
-        <div className="clarification-option-header">
-          <span>Other</span>
-        </div>
-        <p>None of these fit? Write your own.</p>
-      </button>
-      {otherSelected ? (
-        <OtherAnswerField
-          value={hasCustomValue ? currentValue : ""}
-          onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
-        />
+      {question.allowCustomAnswer !== false ? (
+        <>
+          <button
+            type="button"
+            className={`clarification-option-card clarification-option-button${otherSelected ? " selected" : ""}`}
+            onClick={() => onChange(hasCustomValue ? currentValue : CUSTOM_ANSWER_SENTINEL)}
+          >
+            <div className="clarification-option-header">
+              <span>Other</span>
+            </div>
+            <p>None of these fit? Write your own.</p>
+          </button>
+          {otherSelected ? (
+            <OtherAnswerField
+              value={hasCustomValue ? currentValue : ""}
+              onChange={(nextValue) => onChange(nextValue || CUSTOM_ANSWER_SENTINEL)}
+            />
+          ) : null}
+        </>
       ) : null}
     </div>
   );
@@ -161,31 +165,35 @@ export const RefinementField = ({
             {question.optionHelp?.[option] ? <p>{question.optionHelp[option]}</p> : null}
           </label>
         ))}
-        <label className="clarification-option-card clarification-option-checkbox">
-          <span className="flex-inline-center">
-            <input
-              type="checkbox"
-              checked={hasOther}
-              onChange={(event) => {
-                if (event.target.checked) {
-                  onChange([...selected.filter((item) => options.includes(item)), CUSTOM_ANSWER_SENTINEL]);
-                } else {
-                  onChange(selected.filter((item) => options.includes(item)));
-                }
-              }}
-            />
-            <span>Other</span>
-          </span>
-          <p>None of these fit? Write your own.</p>
-        </label>
-        {hasOther ? (
-          <OtherAnswerField
-            value={customValues[0] ?? ""}
-            onChange={(nextValue) => {
-              const baseValues = selected.filter((item) => options.includes(item));
-              onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, CUSTOM_ANSWER_SENTINEL]);
-            }}
-          />
+        {question.allowCustomAnswer !== false ? (
+          <>
+            <label className="clarification-option-card clarification-option-checkbox">
+              <span className="flex-inline-center">
+                <input
+                  type="checkbox"
+                  checked={hasOther}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      onChange([...selected.filter((item) => options.includes(item)), CUSTOM_ANSWER_SENTINEL]);
+                    } else {
+                      onChange(selected.filter((item) => options.includes(item)));
+                    }
+                  }}
+                />
+                <span>Other</span>
+              </span>
+              <p>None of these fit? Write your own.</p>
+            </label>
+            {hasOther ? (
+              <OtherAnswerField
+                value={customValues[0] ?? ""}
+                onChange={(nextValue) => {
+                  const baseValues = selected.filter((item) => options.includes(item));
+                  onChange(nextValue ? [...baseValues, nextValue] : [...baseValues, CUSTOM_ANSWER_SENTINEL]);
+                }}
+              />
+            ) : null}
+          </>
         ) : null}
       </div>
     );

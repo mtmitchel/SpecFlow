@@ -116,6 +116,7 @@ describe("planner validator boundaries", () => {
     const priorQuestion = makeSelectQuestion({
       id: "prd-scope-1",
       label: "Which v1 scope boundary matters most?",
+      whyThisBlocks: "The PRD cannot commit to a product contract without a primary scope boundary.",
       decisionType: "scope",
       options: ["Single-user only", "No external integrations in v1"],
       optionHelp: {
@@ -128,6 +129,7 @@ describe("planner validator boundaries", () => {
       makeSelectQuestion({
         id: "prd-scope-2",
         label: "Which user-management boundary matters most in v1?",
+        whyThisBlocks: "The user-management model changes roles, permissions, and navigation.",
         decisionType: "scope",
         options: ["Admins only", "Managers and admins"],
         optionHelp: {

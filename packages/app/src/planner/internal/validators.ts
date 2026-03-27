@@ -61,6 +61,13 @@ export const validatePhaseCheckResult = (
         );
       }
     }
+
+    const booleanStarterCount = result.questions.slice(0, requiredQuestionCount).filter((q) => q.type === "boolean").length;
+    if (booleanStarterCount > questionPolicy.maxBooleanStarters) {
+      throw new Error(
+        `Phase-check result for ${input.phase} has ${booleanStarterCount} boolean starter questions but at most ${questionPolicy.maxBooleanStarters} allowed. Use select or multi-select for richer answers.`
+      );
+    }
   }
 
   if (!Array.isArray(result.assumptions)) {

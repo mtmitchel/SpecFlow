@@ -10,6 +10,7 @@ export interface RefinementQuestionPolicy extends RefinementPromptPolicy {
   maxQuestions: number;
   requiredStarterQuestionCount: number;
   requiredStarterDecisionGroups: InitiativePlanningDecisionType[][];
+  maxBooleanStarters: number;
   allowedDecisionTypes: InitiativePlanningDecisionType[];
   hardForbiddenTerms: string[];
   conditionalForbiddenTerms: string[];
@@ -20,6 +21,7 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
     maxQuestions: 4,
     requiredStarterQuestionCount: 0,
     requiredStarterDecisionGroups: [],
+    maxBooleanStarters: 4,
     allowedDecisionTypes: ["problem", "user", "success", "constraint"],
     hardForbiddenTerms: [
       "journey",
@@ -62,6 +64,7 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
     maxQuestions: 4,
     requiredStarterQuestionCount: 3,
     requiredStarterDecisionGroups: [["journey"], ["branch", "failure-mode"], ["state"]],
+    maxBooleanStarters: 1,
     allowedDecisionTypes: ["journey", "branch", "state", "failure-mode"],
     hardForbiddenTerms: [
       "architecture",
@@ -123,6 +126,7 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
     maxQuestions: 4,
     requiredStarterQuestionCount: 1,
     requiredStarterDecisionGroups: [["scope"]],
+    maxBooleanStarters: 1,
     allowedDecisionTypes: [
       "behavior",
       "rule",
@@ -181,6 +185,7 @@ const QUESTION_POLICY_BY_STEP: Record<RefinementStep, RefinementQuestionPolicy> 
     maxQuestions: 5,
     requiredStarterQuestionCount: 1,
     requiredStarterDecisionGroups: [["architecture"]],
+    maxBooleanStarters: 1,
     allowedDecisionTypes: [
       "architecture",
       "data-flow",
