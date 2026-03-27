@@ -349,7 +349,7 @@ export const validateQuestions = (
     }
 
     for (const priorSeen of seenQuestions) {
-      if (reopensQuestionIds.includes(priorSeen.id) || (question.reopensQuestionIds ?? []).includes(priorSeen.id)) {
+      if (reopensQuestionIds.includes(priorSeen.id)) {
         continue;
       }
       const entailingOption = optionEntailsQuestion(priorSeen, question);

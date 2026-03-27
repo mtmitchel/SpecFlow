@@ -149,8 +149,8 @@ const hasOverlappingDecisionScope = (
   const whyOverlap = getTokenOverlapRatio(whyTokens, priorWhyTokens);
   const labelOverlap = getTokenOverlapRatio(labelTokens, priorLabelTokens);
 
-  // Require high overlap in BOTH label and whyThisBlocks to flag as duplicate.
-  // Single-dimension overlap catches legitimate follow-ups too aggressively.
+  // Require high overlap in BOTH dimensions. whyThisBlocks at 0.7 and label
+  // at 0.6 (label is shorter so a lower bar still catches paraphrases).
   if (whyOverlap >= 0.7 && labelOverlap >= 0.6) {
     return true;
   }
